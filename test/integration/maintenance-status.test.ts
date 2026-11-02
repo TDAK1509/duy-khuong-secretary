@@ -202,6 +202,26 @@ describe('the maintenance status tool of an admin', () => {
     });
   });
 
+  it('pages past a plate and a part that contain a bar', async () => {
+    for (let number = 0; number < 60; number += 1) {
+      await insertRecordRow(database, {
+        workspaceId,
+        userId: hungUserId,
+        senderName: 'Hùng',
+        category: 'maintenance',
+        maintenanceItem: 'dầu|máy',
+        vehiclePlate: `29C|${String(10000 + number)}`,
+      });
+    }
+    const first = await runStatus();
+
+    const second = await runStatus({ cursor: first.next_cursor ?? '' });
+
+    expect(second.items.map((row) => row.plate)).toEqual(
+      Array.from({ length: 10 }, (_, number) => `29C|${String(10050 + number)}`),
+    );
+  });
+
   it('refuses an unreadable cursor', async () => {
     const output = await runStatusOutput({ cursor: 'xyz' });
 
@@ -235,6 +255,14 @@ describe('the maintenance status tool of an admin', () => {
         summary: 'Bảo dưỡng: dầu máy, xe 29C12345',
       },
     ]);
+  });
+
+  it('refuses a cursor that is not a pair of texts', async () => {
+    const cursor = Buffer.from(JSON.stringify(['29C12345', 7])).toString('base64url');
+
+    const output = await runStatusOutput({ cursor });
+
+    expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
   });
 
   it('refuses a member', async () => {
