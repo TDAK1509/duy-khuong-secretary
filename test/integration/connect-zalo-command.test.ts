@@ -22,4 +22,16 @@ describe('the connect-zalo command', () => {
     expect(link.searchParams.get('redirect_uri')).toBe('https://x.test/oauth/zalo/callback');
     expect(link.searchParams.get('app_id')).toBe('app-1');
   });
+
+  it('refuses while Zalo is not configured', () => {
+    const lines: string[] = [];
+
+    const exitCode = runConnectZaloCommand(
+      { ...ZALO_ENVIRONMENT, ZALO_APP_SECRET: undefined },
+      { log: (line) => lines.push(line) },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual(['zalo is not configured: missing ZALO_APP_SECRET.']);
+  });
 });
