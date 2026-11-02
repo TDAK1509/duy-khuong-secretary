@@ -27,6 +27,19 @@ describe('listMutationGatedFiles', () => {
     ]);
   });
 
+  it('leaves out test files, other file types and the rest of the app', () => {
+    const directory = createProjectWith([
+      'src/app/access/access-scope.ts',
+      'src/app/access/access-scope.test.ts',
+      'src/app/access/notes.md',
+      'src/app/admin-chat/handle-message.ts',
+      'src/app/admin-chat/tools/data.json',
+      'src/services/clock.ts',
+    ]);
+
+    expect(listMutationGatedFiles(directory)).toEqual(['src/app/access/access-scope.ts']);
+  });
+
   function createProjectWith(files: string[]): string {
     const directory = mkdtempSync(join(tmpdir(), 'mutation-gated-files-'));
     directories.push(directory);

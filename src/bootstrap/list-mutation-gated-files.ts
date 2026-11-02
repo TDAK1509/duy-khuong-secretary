@@ -9,6 +9,6 @@ export function listMutationGatedFiles(repositoryDirectory: string): string[] {
 
 function listTypescriptFiles(repositoryDirectory: string, directory: string): string[] {
   return readdirSync(join(repositoryDirectory, directory), { recursive: true, encoding: 'utf8' })
-    .filter((path) => path.endsWith('.ts'))
+    .filter((path) => path.endsWith('.ts') && !path.endsWith('.test.ts'))
     .map((path) => `${directory}/${path}`);
 }
