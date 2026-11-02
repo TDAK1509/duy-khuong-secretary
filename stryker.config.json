@@ -4,5 +4,6 @@
   "mutate": ["src/app/access/**/*.ts", "src/app/admin-chat/tools/**/*.ts"],
   "reporters": ["clear-text", "progress"],
   "ignoreStatic": true,
+  "thresholds": { "break": 80 },
   "tempDirName": ".stryker-tmp"
 }

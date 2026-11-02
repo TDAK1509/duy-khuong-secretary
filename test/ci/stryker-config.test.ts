@@ -9,4 +9,8 @@ describe('stryker.config.json', () => {
   it('mutates the directories the shards list', () => {
     expect(config.mutate).toEqual(MUTATION_GATED_DIRECTORIES.map((directory) => `${directory}/**/*.ts`));
   });
+
+  it('fails the run when the mutation score drops below 80', () => {
+    expect(config.thresholds.break).toBe(80);
+  });
 });
