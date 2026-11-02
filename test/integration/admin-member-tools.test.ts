@@ -119,5 +119,15 @@ describe('the member tools of an admin', () => {
       expect(output).toBe('{"ok":false,"error":"Không thể tự xóa chính mình."}');
       expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Duy' }]);
     });
+
+    it('does not find a membership of another workspace', async () => {
+      const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+      await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+
+      const output = await runTool('remove_member', { member_id: await findMembershipId('Vy') });
+
+      expect(output).toBe('{"ok":false,"error":"Không tìm thấy người này."}');
+      expect(await database.query('SELECT display_name FROM memberships WHERE display_name = \'Vy\'')).toHaveLength(1);
+    });
   });
 });
