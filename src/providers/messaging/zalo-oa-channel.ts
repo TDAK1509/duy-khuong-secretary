@@ -11,12 +11,14 @@ import type {
   MessagingChannel,
   SendResult,
 } from '../../services/messaging/messaging-channel.ts';
+import type { Photo } from '../../services/storage/photo-storage.ts';
 
 const ZALO_CHANNEL = 'zalo-oa';
 const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
-const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
+const SEND_MESSAGE_PATH = '/v3.0/oa/message/cs';
+const UPLOAD_IMAGE_PATH = '/v2.0/oa/upload/image';
 const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
 const SERVER_ERROR_STATUS = 500;
@@ -73,6 +75,11 @@ const eventSchema = z.object({
 
 const sendAnswerSchema = z.object({ error: z.number() });
 
+const uploadAnswerSchema = z.object({
+  error: z.number(),
+  data: z.object({ attachment_id: z.string() }).optional(),
+});
+
 const userDetailSchema = z.object({ error: z.literal(0), data: z.object({ display_name: z.string() }) });
 
 const envelopeSchema = z.object({
@@ -118,21 +125,36 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
-    try {
-      const response = await fetch(new URL(SEND_TEXT_PATH, this.settings.apiBaseUrl), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', access_token: credential },
-        body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
-        signal: AbortSignal.timeout(this.settings.timeoutMs),
-      });
-      return await readSendResult(response);
-    } catch (error) {
-      return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
-    }
+    return guardSend(() => this.postMessage(to, { text }, credential));
   }
 
-  async sendImage(): Promise<SendResult> {
-    throw new Error('sending an image is not implemented');
+  async sendImage(to: ChannelRecipient, photo: Photo, credential: string): Promise<SendResult> {
+    return guardSend(async () => {
+      const upload = await this.uploadImage(photo, credential);
+      return upload.ok ? this.postMessage(to, buildImageMessage(upload.attachmentId), credential) : upload;
+    });
+  }
+
+  private async postMessage(to: ChannelRecipient, message: object, credential: string): Promise<SendResult> {
+    const response = await fetch(new URL(SEND_MESSAGE_PATH, this.settings.apiBaseUrl), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', access_token: credential },
+      body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message }),
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+    return readSendResult(response);
+  }
+
+  private async uploadImage(photo: Photo, credential: string): Promise<UploadResult> {
+    const form = new FormData();
+    form.set('file', new Blob([photo.bytes], { type: photo.contentType }), toUploadFileName(photo));
+    const response = await fetch(new URL(UPLOAD_IMAGE_PATH, this.settings.apiBaseUrl), {
+      method: 'POST',
+      headers: { access_token: credential },
+      body: form,
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+    return readUploadResult(response);
   }
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
@@ -283,6 +305,26 @@ async function discardBody(response: Response): Promise<null> {
   return null;
 }
 
+type FailedSend = Extract<SendResult, { ok: false }>;
+type UploadResult = { ok: true; attachmentId: string } | FailedSend;
+
+async function guardSend(send: () => Promise<SendResult>): Promise<SendResult> {
+  try {
+    return await send();
+  } catch (error) {
+    return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
+  }
+}
+
+function buildImageMessage(attachmentId: string): object {
+  const elements = [{ media_type: 'image', attachment_id: attachmentId }];
+  return { attachment: { type: 'template', payload: { template_type: 'media', elements } } };
+}
+
+function toUploadFileName(photo: Photo): string {
+  return photo.contentType === 'image/png' ? 'photo.png' : 'photo.jpg';
+}
+
 async function readSendResult(response: Response): Promise<SendResult> {
   if (response.status < SERVER_ERROR_STATUS) return toSendResult(await response.json());
   await response.body?.cancel();
@@ -291,7 +333,21 @@ async function readSendResult(response: Response): Promise<SendResult> {
 
 function toSendResult(answer: unknown): SendResult {
   const { error } = sendAnswerSchema.parse(answer);
-  if (error === 0) return { ok: true };
+  return error === 0 ? { ok: true } : toFailedSend(error);
+}
+
+async function readUploadResult(response: Response): Promise<UploadResult> {
+  if (response.status >= SERVER_ERROR_STATUS) {
+    await response.body?.cancel();
+    return { ok: false, reason: 'no_answer' };
+  }
+  const answer = uploadAnswerSchema.parse(await response.json());
+  if (answer.error !== 0) return toFailedSend(answer.error);
+  if (answer.data === undefined) throw new Error('the upload answer has no attachment id');
+  return { ok: true, attachmentId: answer.data.attachment_id };
+}
+
+function toFailedSend(error: number): FailedSend {
   return { ok: false, reason: error === RATE_LIMIT_ERROR ? 'rate_limited' : 'rejected' };
 }
 

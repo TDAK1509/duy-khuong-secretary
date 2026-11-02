@@ -6,6 +6,7 @@ export type StubRequest = {
   path: string;
   headers: IncomingHttpHeaders;
   body: string;
+  rawBody: Buffer;
 };
 
 export type StubAnswer =
@@ -30,14 +31,24 @@ export function streamEndlessBody(status: number): StubAnswer {
 
 export const staySilent: StubAnswer = { kind: 'silence' };
 
-export async function startStubHttpServer(answer: StubAnswer): Promise<StubHttpServer> {
+export type StubAnswerer = StubAnswer | ((request: StubRequest) => StubAnswer);
+
+export async function startStubHttpServer(answerer: StubAnswerer): Promise<StubHttpServer> {
   const requests: StubRequest[] = [];
   let markResponseClosed = () => {};
   const responseClosed = new Promise<void>((resolve) => (markResponseClosed = resolve));
   const server = createServer((request, response) => {
     response.on('close', markResponseClosed);
-    void collectBody(request).then((body) => {
-      requests.push({ method: request.method ?? '', path: request.url ?? '', headers: request.headers, body });
+    void collectBody(request).then((rawBody) => {
+      const recorded = {
+        method: request.method ?? '',
+        path: request.url ?? '',
+        headers: request.headers,
+        body: rawBody.toString('utf8'),
+        rawBody,
+      };
+      requests.push(recorded);
+      const answer = typeof answerer === 'function' ? answerer(recorded) : answerer;
       if (answer.kind === 'silence') return;
       if (answer.kind === 'endless-body') {
         response.writeHead(answer.status, { 'content-type': 'text/plain' });
@@ -53,10 +64,10 @@ export async function startStubHttpServer(answer: StubAnswer): Promise<StubHttpS
   return { baseUrl: `http://127.0.0.1:${port}`, requests, responseClosed, close: () => closeServer(server) };
 }
 
-async function collectBody(request: AsyncIterable<Buffer>): Promise<string> {
+async function collectBody(request: AsyncIterable<Buffer>): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk);
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
 }
 
 function closeServer(server: Server): Promise<void> {
