@@ -89,4 +89,20 @@ describe('evaluateReaders', () => {
 
     expect(output).toContain('dates correct: 1/2');
   });
+
+  it('counts a photo without an agreement as incorrect', async () => {
+    const expected = { 'a.jpg': { amount_vnd: 1250000, occurred_on: '2026-10-30' } };
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE }, expected);
+    const makeReader = (label: string, amount: number) =>
+      makeReaderPerPhoto(label, { [FIRST_PHOTO_BYTE]: makeReading([makeItem({ amount_vnd: amount })]) });
+    const slots = {
+      cheap: [makeReader('cheap-1', 1), makeReader('cheap-2', 2)],
+      strong: [makeReader('strong-1', 3), makeReader('strong-2', 4)],
+    } as const;
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('unresolved: 1');
+    expect(output).toContain('amounts correct: 0/1');
+  });
 });
