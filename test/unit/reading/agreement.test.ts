@@ -10,4 +10,11 @@ describe('areAgreeing', () => {
 
     expect(agree).toBe(true);
   });
+
+  it('disagrees when the amounts differ', () => {
+    const first = succeed(makeReading([makeItem({ amount_vnd: 1250000 })]));
+    const second = succeed(makeReading([makeItem({ amount_vnd: 1520000 })]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
