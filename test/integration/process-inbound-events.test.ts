@@ -264,6 +264,19 @@ describe('the inbound worker step', () => {
     expect((await readEvent(id)).status).toBe('done');
   });
 
+  it('puts an event back without using an attempt when its feature is off', async () => {
+    const id = await insertInboundEvent(database, {});
+
+    await runStep(async () => ({ kind: 'not_configured', group: 'photos' }));
+
+    expect(await readEvent(id)).toMatchObject({
+      status: 'queued',
+      attempts: 0,
+      available_at: new Date(NOW.getTime() + 60_000),
+    });
+    expect(alertSink.texts).toEqual([]);
+  });
+
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
     if (!event) throw new Error('no event to claim');
