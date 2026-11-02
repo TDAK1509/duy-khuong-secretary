@@ -77,4 +77,10 @@ describe('an admin proposes maintenance reminders by chat', () => {
     expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
     expect(findToolResult()).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: maintenance_rules"}');
   });
+
+  it('puts the maintenance check template in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu');
+
+    expect(harness.chat.requests[0]?.system).toContain('Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:');
+  });
 });
