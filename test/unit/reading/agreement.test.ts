@@ -61,4 +61,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(false);
   });
+
+  it('never treats the letter O and the digit 0 as equal', () => {
+    const first = succeed(makeReading([makeItem({ vehicle_plate: '29C-1O3.45' })]));
+    const second = succeed(makeReading([makeItem({ vehicle_plate: '29C-103.45' })]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
