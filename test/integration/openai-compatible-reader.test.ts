@@ -97,6 +97,14 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(result).toEqual({ ok: true, json: { has_work_data: false, has_question: true, items: [] } });
   });
+
+  it('turns a slow reply into a timeout', async () => {
+    const server = await startServer({ ...VALID_REPLY, delayMs: 500 });
+
+    const result = await makeReader(server, { timeoutMs: 100 }).read(REQUEST);
+
+    expect(result).toEqual({ ok: false, reason: 'timeout' });
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {

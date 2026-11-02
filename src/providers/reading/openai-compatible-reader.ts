@@ -29,7 +29,17 @@ export class OpenAiCompatibleReader implements ReaderService {
   }
 
   async read(request: ReaderRequest): Promise<ReaderResult> {
-    const completion = await this.client.chat.completions.create({
+    try {
+      const completion = await this.client.chat.completions.create(this.buildParameters(request));
+      return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
+    } catch (error) {
+      if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
+      throw error;
+    }
+  }
+
+  private buildParameters(request: ReaderRequest): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming {
+    return {
       model: this.model,
       messages: [
         { role: 'system', content: request.system },
@@ -40,8 +50,7 @@ export class OpenAiCompatibleReader implements ReaderService {
         type: 'json_schema',
         json_schema: { name: request.schemaName, schema: request.schema, strict: true },
       },
-    });
-    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
+    };
   }
 }
 
