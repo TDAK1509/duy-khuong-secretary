@@ -74,6 +74,11 @@ async function migrateOnce(run: MigrationRun): Promise<MigrationOutcome> {
   }
 }
 
+async function endCleanly(client: pg.Client): Promise<void> {
+  await client.query('ROLLBACK').catch(() => undefined);
+  await client.end();
+}
+
 async function applyMigrations(client: pg.Client, directory: string): Promise<MigrationOutcome> {
   if (await isDatabaseAhead(client, directory)) return { kind: 'database-ahead' };
   const applied = await runner({
@@ -107,11 +112,6 @@ async function listRecordedMigrationNames(client: pg.Client): Promise<string[]> 
   if (!table.rows[0]?.found) return [];
   const recorded = await client.query<{ name: string }>('SELECT name FROM pgmigrations');
   return recorded.rows.map((row) => row.name);
-}
-
-async function endCleanly(client: pg.Client): Promise<void> {
-  await client.query('ROLLBACK').catch(() => undefined);
-  await client.end();
 }
 
 type MigrationLoader = Exclude<
@@ -148,6 +148,17 @@ function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => Prom
   };
 }
 
+function record(up: AppMigration['up']): Recording {
+  const recording: Recording = { statements: [], usesTransaction: true };
+  up({
+    sql: (statement) => recording.statements.push(statement),
+    noTransaction: () => {
+      recording.usesTransaction = false;
+    },
+  });
+  return recording;
+}
+
 function guardTransaction(pgm: MigrationBuilder, statements: string[]): void {
   TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
   statements.forEach((statement) => pgm.sql(statement));
@@ -159,17 +170,6 @@ async function guardBuild(pgm: MigrationBuilder, statements: string[]): Promise<
   pgm.sql(BUILD_STATEMENT_TIMEOUT);
   statements.forEach((statement) => pgm.sql(statement));
   pgm.sql(RESET_STATEMENT_TIMEOUT);
-}
-
-function record(up: AppMigration['up']): Recording {
-  const recording: Recording = { statements: [], usesTransaction: true };
-  up({
-    sql: (statement) => recording.statements.push(statement),
-    noTransaction: () => {
-      recording.usesTransaction = false;
-    },
-  });
-  return recording;
 }
 
 async function dropInvalidIndexes(db: MigrationBuilder['db'], statements: string[]): Promise<void> {
