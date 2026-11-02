@@ -262,4 +262,42 @@ describe('an admin drafts a scheduled task by chat', () => {
     ]);
     expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"07:00 Thứ Hai hằng tuần","first_run":"07:00 02/11/2026"}');
   });
+
+  it('stores a monthly draft and tells the model its day and first run', async () => {
+    proposeThenReply({ repeat: 'monthly', day_of_month: 5, time_of_day: '08:00' });
+
+    await harness.receiveText('zu-duy', 'Ngày 5 hằng tháng 8 giờ gửi tôi báo cáo');
+
+    expect(await database.query('SELECT repeat, weekday, day_of_month FROM scheduled_tasks')).toEqual([
+      { repeat: 'monthly', weekday: null, day_of_month: 5 },
+    ]);
+    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"08:00 ngày 5 hằng tháng","first_run":"08:00 05/11/2026"}');
+  });
+
+  it('stores a one-time draft that is still ahead', async () => {
+    proposeThenReply({ repeat: 'once', run_once_at: '2026-10-31 15:30', time_of_day: null });
+
+    await harness.receiveText('zu-duy', 'Nhắc tôi lúc 15 giờ 30');
+
+    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"15:30 31/10/2026 (một lần)","first_run":"15:30 31/10/2026"}');
+  });
+
+  it.each([
+    ['a weekly task without a weekday', { repeat: 'weekly', time_of_day: '07:00' }, 'weekday'],
+    ['a weekday after Sunday', { repeat: 'weekly', time_of_day: '07:00', weekday: 8 }, 'weekday'],
+    ['a monthly task on day 29', { repeat: 'monthly', time_of_day: '07:00', day_of_month: 29 }, 'day_of_month'],
+    ['a daily task with a weekday', { weekday: 1 }, 'weekday'],
+    ['a one-time task with a time of day', { repeat: 'once', run_once_at: '2026-11-01 09:00', time_of_day: '09:00' }, 'time_of_day'],
+    ['a time of day that is not HH:mm', { time_of_day: '6 giờ chiều' }, 'time_of_day'],
+    ['a one-time date that does not exist', { repeat: 'once', run_once_at: '2026-02-30 09:00', time_of_day: null }, 'run_once_at'],
+    ['an empty instruction', { instruction: '  ' }, 'instruction'],
+    ['an instruction over 2000 characters', { instruction: 'a'.repeat(2001) }, 'instruction'],
+  ] as const)('refuses %s', async (_description, proposal, field) => {
+    proposeThenReply(proposal);
+
+    await harness.receiveText('zu-duy', 'Đặt lịch');
+
+    expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+    expect(findToolResult()).toBe(`{"ok":false,"error":"Dữ liệu không hợp lệ: ${field}"}`);
+  });
 });
