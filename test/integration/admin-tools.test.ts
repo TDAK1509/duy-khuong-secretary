@@ -348,5 +348,13 @@ describe('the data tools of an admin', () => {
       ]);
       expect(result.members.every((member) => member.id !== '')).toBe(true);
     });
+
+    it('shows each person\'s Zalo name', async () => {
+      await database.query(`UPDATE channel_identities SET zalo_name = 'Hung Nguyen' WHERE external_user_id = 'zu-hung'`);
+
+      const result = await runListMembers();
+
+      expect(result.members.find((member) => member.name === 'Hùng')?.zalo_name).toBe('Hung Nguyen');
+    });
   });
 });
