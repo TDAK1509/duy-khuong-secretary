@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -34,6 +35,22 @@ describe('the inbound worker step', () => {
     const event = await readEvent(id);
     expect(event.status).toBe('done');
     expect(event.processed_at).toEqual(NOW);
+  });
+
+  it('records the sender Zalo account with the time of the message', async () => {
+    await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
+
+    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+
+    expect(await database.query('SELECT channel, account_id, external_user_id, last_inbound_at, user_id FROM channel_identities')).toEqual([
+      {
+        channel: 'zalo-oa',
+        account_id: 'oa-1',
+        external_user_id: 'zu-hung',
+        last_inbound_at: new Date('2026-11-02T10:00:00+07:00'),
+        user_id: null,
+      },
+    ]);
   });
 
   async function readEvent(id: string): Promise<EventRow> {
