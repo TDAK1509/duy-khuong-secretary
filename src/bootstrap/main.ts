@@ -4,7 +4,7 @@ import { buildServer } from './server.ts';
 
 const config = loadConfig(process.env);
 const { pool } = buildProvidersFromConfig(config);
-const server = buildServer(pool);
+const server = buildServer(pool, config.commit);
 
 process.once('SIGTERM', () => void shutDown());
 
