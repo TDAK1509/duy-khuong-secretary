@@ -108,4 +108,17 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toHaveLength(1);
   });
+
+  it('matches the letter đ typed as d', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: [{ label: 'Tuyến', value: 'Đường cao tốc Pháp Vân' }],
+    });
+
+    const result = await runSearch({ text: 'duong' });
+
+    expect(result.items).toHaveLength(1);
+  });
 });
