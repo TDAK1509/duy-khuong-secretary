@@ -223,6 +223,36 @@ describe('the outbound worker step', () => {
     expect(alertSink.texts).toEqual([]);
   });
 
+  it('fails a text and alerts after the tenth rate-limited attempt', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { attempts: 9 });
+    channel.nextTextResult = { ok: false, reason: 'rate_limited' };
+
+    await runStep();
+
+    expect((await readMessage(id)).status).toBe('failed');
+    expect(alertSink.texts).toEqual([`[alert] Outbound message ${id} failed after 10 attempts.`]);
+  });
+
+  it('fails a text and alerts after the fifth attempt without a Zalo connection', async () => {
+    const id = await insertOutboundMessage(database, { attempts: 4 });
+
+    await runStep();
+
+    expect((await readMessage(id)).status).toBe('failed');
+    expect(alertSink.texts).toEqual([`[alert] Outbound message ${id} failed after 5 attempts.`]);
+  });
+
+  it('waits for the earlier text of a person before the next one is sent, even while it is sending', async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { status: 'sending', lockedUntil: new Date(NOW.getTime() + 60_000), attempts: 1 });
+    await insertOutboundMessage(database, { body: 'phần 2' });
+
+    await runStep();
+
+    expect(channel.texts).toEqual([]);
+  });
+
   async function insertMembership(): Promise<string> {
     const [workspace] = await database.query<{ id: string }>(`INSERT INTO workspaces (name) VALUES ('W') RETURNING id`);
     const [user] = await database.query<{ id: string }>('INSERT INTO users DEFAULT VALUES RETURNING id');
