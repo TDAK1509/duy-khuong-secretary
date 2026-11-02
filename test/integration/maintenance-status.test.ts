@@ -92,4 +92,14 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items.map((row) => row.plate)).toEqual(['29C12345', '51D67890']);
   });
+
+  it('gives one row per part of a truck', async () => {
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', vehiclePlate: '29C12345' };
+    await insertRecordRow(database, { ...maintenance, maintenanceItem: 'dầu máy' });
+    await insertRecordRow(database, { ...maintenance, maintenanceItem: 'lốp' });
+
+    const result = await runStatus();
+
+    expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'dầu máy'], ['29C12345', 'lốp']]);
+  });
 });
