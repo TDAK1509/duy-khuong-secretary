@@ -31,7 +31,7 @@ async function runClaimedTask(dependencies: ScheduledRunDependencies, task: Clai
   const creator = await findTaskCreator(dependencies.database, task);
   if (creator === null) return turnOffTask(dependencies.database, task);
   const text = await produceResultText(dependencies, task, creator);
-  await finishScheduledRun(dependencies, task, text);
+  await finishScheduledRun(dependencies, task, creator, text);
 }
 
 async function produceResultText(

@@ -300,4 +300,18 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(toolResult).toMatchObject({ output: '{"ok":false,"error":"Dữ liệu không hợp lệ: name"}' });
     expect(await database.query('SELECT 1 FROM memberships')).toHaveLength(2);
   });
+
+  it('stores and queues nothing for a creator removed during the run', async () => {
+    await insertDueTask();
+    harness.chat.follow(async () => {
+      await database.query(`DELETE FROM memberships WHERE user_id = '${duyUserId}'`);
+      return replyWithText('Báo cáo');
+    });
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
+  });
 });
