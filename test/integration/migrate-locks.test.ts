@@ -1,11 +1,12 @@
 import { setTimeout } from 'node:timers/promises';
 import type pg from 'pg';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
 import { repeatUntilSettled } from './repeat-until-settled.ts';
 import { listAppliedMigrations } from './list-applied-migrations.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
 
+const MIDDLE_OF_JITTER = 0.5;
 const alterThroughLock = new URL('./migration-fixtures/alter-through-lock/', import.meta.url);
 
 describe('the migration runner on a busy table', () => {
@@ -21,6 +22,7 @@ describe('the migration runner on a busy table', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await database.drop();
   });
 
@@ -149,6 +151,7 @@ describe('the migration runner on a busy table', () => {
   });
 
   it('never sleeps or retries past the retry budget', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(MIDDLE_OF_JITTER);
     let clock = 0;
     const sleeps: number[] = [];
 
