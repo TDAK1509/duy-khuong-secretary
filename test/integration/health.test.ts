@@ -60,4 +60,15 @@ describe('GET /health', () => {
 
     expect(response.json()).toEqual({ ok: true, commit: 'def456' });
   });
+
+  it('reports no commit when none is set', async () => {
+    const config = loadConfig({ DATABASE_URL: testDatabaseUrl });
+    const pool = createPostgresPool(config.databaseUrl);
+    const server = buildServer(pool, config.commit);
+    cleanups.push(() => server.close(), () => pool.end());
+
+    const response = await server.inject({ method: 'GET', url: '/health' });
+
+    expect(response.json()).toEqual({ ok: true, commit: null });
+  });
 });
