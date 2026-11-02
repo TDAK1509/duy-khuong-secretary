@@ -31,4 +31,10 @@ describe('validateReading', () => {
 
     expect(attempt).toEqual({ ok: false, reason: 'invalid_output' });
   });
+
+  it('fails the read when an amount is negative', () => {
+    const attempt = validateReading(makeFuelJson({ amount_vnd: -5 }));
+
+    expect(attempt).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });
