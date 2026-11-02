@@ -105,6 +105,15 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('clears the choice once the person answered it', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await storeWorkspacePick([workspaceId, otherWorkspaceId]);
+
+    await receiveText('zu-duy', '2');
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);

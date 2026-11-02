@@ -1,6 +1,7 @@
 import type { Reply } from '../delivery/reply.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
+import { clearPendingChoice } from '../identities/clear-pending-choice.ts';
 import type { PendingChoice } from '../identities/pending-choice.ts';
 import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
@@ -29,6 +30,7 @@ export async function pickWorkspace(
 ): Promise<Reply | null> {
   const workspaceId = choice.workspaceIds[number - 1];
   if (workspaceId === undefined) return null;
+  await clearPendingChoice(transaction, identity);
   await setCurrentWorkspace(transaction, identity, workspaceId);
   const [workspace] = await transaction.query<{ name: string }>('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
   return { text: `Đã chuyển sang nhóm "${workspace?.name ?? ''}". Tin nhắn tiếp theo sẽ lưu vào nhóm này.` };
