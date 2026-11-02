@@ -6,6 +6,7 @@ export interface ChannelRecipient {
 
 export type InboundEvent =
   | { kind: 'text'; eventId: string; from: ChannelRecipient; text: string; sentAt: Date }
+  | { kind: 'images'; eventId: string; from: ChannelRecipient; imageUrls: string[]; caption: string | null; sentAt: Date }
   | { kind: 'ignored' };
 
 export interface MessagingChannel {

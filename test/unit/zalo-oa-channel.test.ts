@@ -45,4 +45,14 @@ describe('ZaloOaChannel.parseEvent', () => {
       sentAt: new Date('2026-11-02T10:00:00+07:00'),
     });
   });
+
+  it('parses an image event with its URL and caption', () => {
+    const { body } = loadSignedFixture('image-event');
+
+    expect(channel.parseEvent(body)).toMatchObject({
+      kind: 'images',
+      imageUrls: ['https://f6.photo.talk.zdn.vn/p1.jpg'],
+      caption: 'Xe 29C-123.45',
+    });
+  });
 });
