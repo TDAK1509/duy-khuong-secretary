@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
@@ -16,4 +16,8 @@ export function normalizeInviteCode(text: string): string {
 
 export function isInviteCodeMessage(text: string): boolean {
   return /^MOI.{6}$/s.test(normalizeInviteCode(text));
+}
+
+export function hashInviteCode(code: string): string {
+  return createHash('sha256').update(normalizeInviteCode(code)).digest('hex');
 }
