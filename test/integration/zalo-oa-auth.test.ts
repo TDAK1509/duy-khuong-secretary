@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ZaloOaAuth } from '../../src/providers/channel-auth/zalo-oa-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { replyWithJson, startStubHttpServer, type StubAnswer, type StubHttpServer } from './stub-http-server.ts';
+import { replyWithJson, staySilent, startStubHttpServer, type StubAnswer, type StubHttpServer } from './stub-http-server.ts';
 
 const VALID_TOKEN_ANSWER = replyWithJson({ access_token: 'a1', refresh_token: 'r1', expires_in: '90000' });
 
@@ -74,6 +74,14 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     const result = await auth.refresh('r1');
 
     expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  });
+
+  it('turns a timeout after sending into no answer', async () => {
+    const { auth } = await startAuth(staySilent, 100);
+
+    const result = await auth.refresh('r1');
+
+    expect(result).toEqual({ ok: false, reason: 'no_answer' });
   });
 
   async function startAuth(

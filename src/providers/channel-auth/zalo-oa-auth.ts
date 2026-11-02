@@ -68,8 +68,8 @@ export class ZaloOaAuth implements ChannelAuth {
     try {
       const response = await this.postForm(fields);
       return this.readTokens(await response.json());
-    } catch {
-      return { ok: false, reason: 'unavailable' };
+    } catch (error) {
+      return { ok: false, reason: isTimeout(error) ? 'no_answer' : 'unavailable' };
     }
   }
 
@@ -86,4 +86,8 @@ export class ZaloOaAuth implements ChannelAuth {
 function carriesZaloError(answer: unknown): boolean {
   const parsed = errorAnswerSchema.safeParse(answer);
   return parsed.success && parsed.data.error !== 0;
+}
+
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && error.name === 'TimeoutError';
 }
