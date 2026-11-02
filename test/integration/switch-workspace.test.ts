@@ -157,6 +157,15 @@ describe('switching between workspaces', () => {
     expect(channel.texts.map((sent) => sent.text)).toEqual(['Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.']);
   });
 
+  it('clears the stored choice when the person writes something else', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await storeWorkspacePick([workspaceId, otherWorkspaceId]);
+
+    await receiveText('zu-duy', 'chào');
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
