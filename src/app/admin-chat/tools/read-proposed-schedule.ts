@@ -26,25 +26,23 @@ const DAYS_IN_WEEK = 7;
 
 export function readProposedSchedule(proposed: ProposedSchedule): Schedule {
   for (const field of UNUSED_FIELDS[proposed.repeat]) if (proposed[field] !== null) refuseInvalidArgument(field);
-  switch (proposed.repeat) {
-    case 'once':
-      return { repeat: 'once', runOnceAt: readRunOnceAt(proposed.run_once_at) };
-    case 'daily':
-      return { repeat: 'daily', timeOfDay: readTimeOfDay(proposed.time_of_day) };
-    case 'weekly':
-      return {
-        repeat: 'weekly',
-        timeOfDay: readTimeOfDay(proposed.time_of_day),
-        weekday: readNumberBetween(proposed.weekday, 'weekday', DAYS_IN_WEEK),
-      };
-    case 'monthly':
-      return {
-        repeat: 'monthly',
-        timeOfDay: readTimeOfDay(proposed.time_of_day),
-        dayOfMonth: readNumberBetween(proposed.day_of_month, 'day_of_month', MAX_DAY_OF_MONTH),
-      };
-  }
+  return SCHEDULE_READERS[proposed.repeat](proposed);
 }
+
+const SCHEDULE_READERS: Record<ProposedSchedule['repeat'], (proposed: ProposedSchedule) => Schedule> = {
+  once: (proposed) => ({ repeat: 'once', runOnceAt: readRunOnceAt(proposed.run_once_at) }),
+  daily: (proposed) => ({ repeat: 'daily', timeOfDay: readTimeOfDay(proposed.time_of_day) }),
+  weekly: (proposed) => ({
+    repeat: 'weekly',
+    timeOfDay: readTimeOfDay(proposed.time_of_day),
+    weekday: readNumberBetween(proposed.weekday, 'weekday', DAYS_IN_WEEK),
+  }),
+  monthly: (proposed) => ({
+    repeat: 'monthly',
+    timeOfDay: readTimeOfDay(proposed.time_of_day),
+    dayOfMonth: readNumberBetween(proposed.day_of_month, 'day_of_month', MAX_DAY_OF_MONTH),
+  }),
+};
 
 function readRunOnceAt(text: string | null): Date {
   if (text === null) throw new ToolRefusal('Thiếu giờ chạy.');

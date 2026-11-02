@@ -35,31 +35,23 @@ async function runToolByName(dependencies: AdminToolDependencies, scope: AccessS
   }
 }
 
+type ToolRunner = (dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown) => Promise<string>;
+
+const TOOL_RUNNERS: Record<string, ToolRunner> = {
+  search_records: ({ database }, scope, args) => runSearchRecords(database, scope, args),
+  count_records: ({ database }, scope, args) => runCountRecords(database, scope, args),
+  list_members: ({ database }, scope) => runListMembers(database, scope),
+  create_invite: runCreateInvite,
+  remove_member: ({ database }, scope, args) => runRemoveMember(database, scope, args),
+  maintenance_status: runMaintenanceStatus,
+  attach_photos: runAttachPhotos,
+  propose_scheduled_task: runProposeScheduledTask,
+  list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
+  cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
+};
+
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
-  const { database } = dependencies;
   const parsedArguments: unknown = JSON.parse(call.argumentsJson);
-  switch (call.name) {
-    case 'search_records':
-      return runSearchRecords(database, scope, parsedArguments);
-    case 'count_records':
-      return runCountRecords(database, scope, parsedArguments);
-    case 'list_members':
-      return runListMembers(database, scope);
-    case 'create_invite':
-      return runCreateInvite(dependencies, scope, parsedArguments);
-    case 'remove_member':
-      return runRemoveMember(database, scope, parsedArguments);
-    case 'maintenance_status':
-      return runMaintenanceStatus(dependencies, scope, parsedArguments);
-    case 'attach_photos':
-      return runAttachPhotos(dependencies, scope, parsedArguments);
-    case 'propose_scheduled_task':
-      return runProposeScheduledTask(dependencies, scope, parsedArguments);
-    case 'list_scheduled_tasks':
-      return runListScheduledTasks(database, scope);
-    case 'cancel_scheduled_task':
-      return runCancelScheduledTask(database, scope, parsedArguments);
-    default:
-      return failInvalidArgument('name');
-  }
+  const runner = Object.hasOwn(TOOL_RUNNERS, call.name) ? TOOL_RUNNERS[call.name] : undefined;
+  return runner ? runner(dependencies, scope, parsedArguments) : failInvalidArgument('name');
 }
