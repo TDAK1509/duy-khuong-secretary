@@ -11,6 +11,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly channel = 'zalo-oa';
   readonly maxTextLength = 2000;
   readonly texts: RecordedText[] = [];
+  readonly displayNames = new Map<string, string>();
   nextTextResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
@@ -24,5 +25,9 @@ export class FakeMessagingChannel implements MessagingChannel {
   async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
     this.texts.push({ to, text, credential });
     return this.nextTextResult;
+  }
+
+  async getDisplayName(user: ChannelRecipient): Promise<string | null> {
+    return this.displayNames.get(user.externalUserId) ?? null;
   }
 }

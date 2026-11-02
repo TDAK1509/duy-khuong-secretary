@@ -7,6 +7,7 @@ const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
+const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
 const SERVER_ERROR_STATUS = 500;
 
@@ -37,6 +38,8 @@ const eventSchema = z.object({
 });
 
 const sendAnswerSchema = z.object({ error: z.number() });
+
+const userDetailSchema = z.object({ data: z.object({ display_name: z.string() }) });
 
 const envelopeSchema = z.object({
   app_id: z.string(),
@@ -83,6 +86,13 @@ export class ZaloOaChannel implements MessagingChannel {
     } catch (error) {
       return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
     }
+  }
+
+  async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
+    const url = new URL(USER_DETAIL_PATH, this.settings.apiBaseUrl);
+    url.searchParams.set('data', JSON.stringify({ user_id: user.externalUserId }));
+    const response = await fetch(url, { headers: { access_token: credential }, signal: AbortSignal.timeout(this.settings.timeoutMs) });
+    return userDetailSchema.parse(await response.json()).data.display_name;
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
