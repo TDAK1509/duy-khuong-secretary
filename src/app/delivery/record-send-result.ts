@@ -15,7 +15,9 @@ export async function recordSendResult(
   const { database, clock, alerts } = dependencies;
   const outcome = decideSendOutcome(message, result, clock.now());
   const isSettled = await settleMessage(database, message, outcome.settlement);
-  if (isSettled && outcome.alert) await alerts.raise(outcome.alert);
+  if (!isSettled) return;
+  if (outcome.settlement.status === 'failed') console.error(`[outbound] message ${message.id} failed: ${outcome.settlement.lastError}`);
+  if (outcome.alert) await alerts.raise(outcome.alert);
 }
 
 async function settleMessage(database: Database, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {

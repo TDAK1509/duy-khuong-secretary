@@ -162,6 +162,17 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('fails a rejected text without an alert', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, {});
+    channel.nextTextResult = { ok: false, reason: 'rejected' };
+
+    await runStep();
+
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'rejected' });
+    expect(alertSink.texts).toEqual([]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
