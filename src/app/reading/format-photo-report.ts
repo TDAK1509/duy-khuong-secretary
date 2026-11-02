@@ -14,10 +14,15 @@ export function formatPhotoReport(result: PhotoResult, slots: ReaderSlots): stri
 }
 
 function formatPairReport(name: string, readers: ReaderPair, attempts: AttemptPair): string[] {
-  const readings = readers.map((reader, index) => `${reader.label}: ${describeAttempt(attempts[index])}`);
-  return [...readings, `${name} pair agrees: ${areAgreeing(...attempts) ? 'yes' : 'no'}`];
+  const [firstReader, secondReader] = readers;
+  const [firstAttempt, secondAttempt] = attempts;
+  return [
+    `${firstReader.label}: ${describeAttempt(firstAttempt)}`,
+    `${secondReader.label}: ${describeAttempt(secondAttempt)}`,
+    `${name} pair agrees: ${areAgreeing(firstAttempt, secondAttempt) ? 'yes' : 'no'}`,
+  ];
 }
 
-function describeAttempt(attempt: ReadAttempt | undefined): string {
-  return attempt?.ok ? JSON.stringify(attempt.reading) : 'failed';
+function describeAttempt(attempt: ReadAttempt): string {
+  return attempt.ok ? JSON.stringify(attempt.reading) : `failed (${attempt.reason})`;
 }

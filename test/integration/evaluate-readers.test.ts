@@ -135,4 +135,18 @@ describe('evaluateReaders', () => {
     expect(output).toContain('cheap pair agrees: yes');
     expect(output).toContain('outcome: cheap_pair');
   });
+
+  it('prints the failure reason of a read that failed', async () => {
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE });
+    const timedOut = new FakeReader('cheap-2', () => ({ ok: false, reason: 'timeout' }));
+    const slots = {
+      cheap: [makeReaderPerPhoto('cheap-1', { [FIRST_PHOTO_BYTE]: AGREED_FUEL }), timedOut],
+      strong: [makeReaderPerPhoto('strong-1', {}), makeReaderPerPhoto('strong-2', {})],
+    } as const;
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('cheap-2: failed (timeout)');
+    expect(output).toContain('cheap pair agrees: no');
+  });
 });
