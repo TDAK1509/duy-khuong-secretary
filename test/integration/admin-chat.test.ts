@@ -320,5 +320,14 @@ describe('an admin asks the bot', () => {
         { question_pending: true },
       ]);
     });
+
+    it('never sends an admin\'s data without a question to the chat model', async () => {
+      const reading = makeReading([makeFuelItem()], { has_question: false });
+      harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+
+      await harness.receivePhoto('zu-duy');
+
+      expect(harness.chat.requests).toEqual([]);
+    });
   });
 });
