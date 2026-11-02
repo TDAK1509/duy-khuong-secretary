@@ -16,7 +16,8 @@ export async function decideReading(slots: ReaderSlots, request: ReaderRequest):
   const cheap = await readWithPair(slots.cheap, request);
   if (areAgreeing(...cheap)) return { outcome: 'cheap_pair', cheap, strong: null };
   const strong = await readWithPair(slots.strong, request);
-  return { outcome: 'expensive_pair', cheap, strong };
+  const outcome = areAgreeing(...strong) ? 'expensive_pair' : 'unresolved';
+  return { outcome, cheap, strong };
 }
 
 async function readWithPair(pair: ReaderPair, request: ReaderRequest): Promise<AttemptPair> {

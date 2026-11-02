@@ -50,4 +50,15 @@ describe('decideReading', () => {
 
     expect(decision.outcome).toBe('expensive_pair');
   });
+
+  it('gives an unresolved result when both pairs disagree', async () => {
+    const slots = makeSlots({
+      cheap: [FUEL_READING, OTHER_AMOUNT_READING],
+      strong: [FUEL_READING, OTHER_AMOUNT_READING],
+    });
+
+    const decision = await decideReading(slots, REQUEST);
+
+    expect(decision.outcome).toBe('unresolved');
+  });
 });
