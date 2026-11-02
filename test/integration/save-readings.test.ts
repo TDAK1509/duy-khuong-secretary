@@ -275,6 +275,7 @@ describe('saving what two readers agree on', () => {
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
   });
 
   it('marks a maintenance message without a plate as unresolved', async () => {
@@ -415,11 +416,12 @@ describe('saving what two readers agree on', () => {
 
   it('asks the sender to send again when a maintenance item has no name', async () => {
     const unnamed = makeItem({ category: 'maintenance', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([unnamed]));
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem(), unnamed]));
 
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
     expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
       { submission_status: 'unresolved' },
     ]);
