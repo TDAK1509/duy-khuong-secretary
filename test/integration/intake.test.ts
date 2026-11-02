@@ -104,6 +104,19 @@ describe('storing what a member sends', () => {
     expect(photoStorage.listKeys()).toEqual([`${workspaceId}/${messages[0]?.id}.jpg`]);
   });
 
+  it('keeps the key and the caption of a photo message', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+
+    await receivePhoto('zu-hung', 'Xe 29C-123.45');
+
+    const messages = await database.query<{ id: string; image_key: string; text: string }>(
+      `SELECT id, image_key, text FROM messages WHERE author = 'user'`,
+    );
+    expect(messages).toEqual([
+      { id: messages[0]?.id, image_key: `${workspaceId}/${messages[0]?.id}.jpg`, text: 'Xe 29C-123.45' },
+    ]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
