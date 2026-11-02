@@ -1,5 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
+import { normalizeCode } from '../reading/normalize.ts';
 import { WhereClause } from './where-clause.ts';
 
 export type SearchFilters = {
@@ -30,9 +31,10 @@ export type FoundRecord = {
 
 export type SearchPage = { items: FoundRecord[]; nextCursor: string | null };
 
-export async function searchRecords(database: Database, scope: AccessScope): Promise<SearchPage> {
+export async function searchRecords(database: Database, scope: AccessScope, filters: SearchFilters): Promise<SearchPage> {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
+  if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
   const { rows } = await database.query<FoundRecord>(
     `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
        record.vehicle_plate AS plate, record.document_number,
@@ -46,4 +48,12 @@ export async function searchRecords(database: Database, scope: AccessScope): Pro
     where.values,
   );
   return { items: rows, nextCursor: null };
+}
+
+function buildTextCondition(where: WhereClause, text: string): string {
+  const code = normalizeCode(text);
+  if (code === null) return 'false';
+  const bound = where.bind(code);
+  return `(strpos(record.vehicle_plate, ${bound}) > 0 OR strpos(record.document_number, ${bound}) > 0
+    OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
 }

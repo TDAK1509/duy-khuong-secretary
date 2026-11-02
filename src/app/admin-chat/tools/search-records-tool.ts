@@ -14,7 +14,15 @@ const argumentsSchema = z.object({
 });
 
 export async function runSearchRecords(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  argumentsSchema.parse(parsedArguments);
-  const page = await searchRecords(database, scope);
+  const args = argumentsSchema.parse(parsedArguments);
+  const page = await searchRecords(database, scope, {
+    text: args.text,
+    category: args.category,
+    member: args.member,
+    plate: args.plate,
+    addedFrom: args.added_from,
+    addedTo: args.added_to,
+    cursor: args.cursor,
+  });
   return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
 }

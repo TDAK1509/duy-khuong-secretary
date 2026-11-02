@@ -50,4 +50,18 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toHaveLength(4);
   });
+
+  it('never returns another workspace\'s records', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan' });
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    for (let count = 0; count < 3; count += 1) {
+      await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', identifiers: ['DT2024889'] });
+    }
+
+    const result = await runSearch({ text: 'DT2024-889' });
+
+    expect(result.items).toEqual([]);
+  });
 });
