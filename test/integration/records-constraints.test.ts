@@ -6,6 +6,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const CHECK_VIOLATION = '23514';
 const FOREIGN_KEY_VIOLATION = '23503';
+const UNIQUE_VIOLATION = '23505';
 
 describe('the records table', () => {
   let database: TemporaryDatabase;
@@ -48,6 +49,14 @@ describe('the records table', () => {
     await expect(
       insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null, workspaceId: otherWorkspaceId }),
     ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it('refuses two records with one item index', async () => {
+    await insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null });
+
+    await expect(insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null })).rejects.toMatchObject({
+      code: UNIQUE_VIOLATION,
+    });
   });
 
   async function insertUserMessage(): Promise<string> {
