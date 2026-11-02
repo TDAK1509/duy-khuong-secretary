@@ -4,6 +4,7 @@ import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { insertScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -170,6 +171,18 @@ describe('an admin drafts a scheduled task by chat', () => {
 
     expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
       { pending_choice: null },
+    ]);
+  });
+
+  it('cancels the older draft of the admin when a new one is proposed', async () => {
+    await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, title: 'Báo cáo cũ' });
+    proposeThenReply({ title: 'Báo cáo mới' });
+
+    await harness.receiveText('zu-duy', 'Đặt lịch báo cáo mới');
+
+    expect(await database.query('SELECT title, status FROM scheduled_tasks ORDER BY title')).toEqual([
+      { title: 'Báo cáo cũ', status: 'cancelled' },
+      { title: 'Báo cáo mới', status: 'draft' },
     ]);
   });
 });
