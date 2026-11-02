@@ -74,3 +74,19 @@ export async function setSubmissionStatus(
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
 }
+
+export async function markQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {
+  await transaction.query('UPDATE messages SET question_pending = true WHERE id = $1', [userMessageId]);
+}
+
+export async function clearQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {
+  await transaction.query('UPDATE messages SET question_pending = false WHERE id = $1', [userMessageId]);
+}
+
+export async function isQuestionPending(database: Database, userMessageId: string): Promise<boolean> {
+  const { rows } = await database.query<{ question_pending: boolean }>(
+    'SELECT question_pending FROM messages WHERE id = $1',
+    [userMessageId],
+  );
+  return rows[0]?.question_pending ?? false;
+}

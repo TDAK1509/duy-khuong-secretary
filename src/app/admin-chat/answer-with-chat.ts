@@ -7,7 +7,7 @@ import { loadAdminProfile } from './load-admin-profile.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
-import { setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
+import { clearQuestionPending, setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const { database, clock } = context.dependencies;
@@ -38,6 +38,7 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: string): Promise<void> {
   await storeBotReply(transaction, messageId, { text: answer, kind: 'answer' });
+  await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueReply(transaction, context, answer, context.sender.membershipId);
 }

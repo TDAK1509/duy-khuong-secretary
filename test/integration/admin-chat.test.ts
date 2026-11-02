@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
-import { makeReading } from '../unit/reading/make-reading.ts';
+import { replyWithText } from '../fakes/fake-chat-service.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -205,5 +206,29 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
 
     expect(harness.chat.requests).toEqual([]);
+  });
+
+  describe('with data and a question', () => {
+    beforeEach(() => {
+      harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+      const reading = makeReading([makeFuelItem()], { has_question: true });
+      harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+    });
+
+    function makeFuelItem() {
+      return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+    }
+
+    it('commits the data before the chat model runs', async () => {
+      let recordsSeenByModel = -1;
+      harness.chat.follow(async () => {
+        recordsSeenByModel = (await database.query('SELECT 1 FROM records')).length;
+        return replyWithText('Hôm nay tổng 1.250.000đ.');
+      });
+
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+
+      expect(recordsSeenByModel).toBe(1);
+    });
   });
 });
