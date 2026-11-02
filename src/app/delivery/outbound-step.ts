@@ -26,6 +26,19 @@ export async function runOutboundStep(dependencies: OutboundDependencies): Promi
   return 'processed';
 }
 
+async function markLostSendsUnknown({ database, clock, alerts }: OutboundDependencies): Promise<void> {
+  const { rows } = await database.query<{ id: string }>(
+    `UPDATE outbound_messages
+     SET status = 'unknown', last_error = 'lock_expired', locked_until = NULL
+     WHERE status = 'sending' AND locked_until < $1
+     RETURNING id`,
+    [clock.now()],
+  );
+  for (const { id } of rows) {
+    await alerts.raise(describeSendGotNoAnswer(id));
+  }
+}
+
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
   if (!(await isAdminStillMember(dependencies.database, message))) {
     return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: 'membership_changed' } });
@@ -41,17 +54,4 @@ async function isAdminStillMember(database: Database, message: ClaimedMessage): 
   if (message.adminMembershipId === null) return true;
   const { rows } = await database.query('SELECT 1 FROM memberships WHERE id = $1', [message.adminMembershipId]);
   return rows.length !== 0;
-}
-
-async function markLostSendsUnknown({ database, clock, alerts }: OutboundDependencies): Promise<void> {
-  const { rows } = await database.query<{ id: string }>(
-    `UPDATE outbound_messages
-     SET status = 'unknown', last_error = 'lock_expired', locked_until = NULL
-     WHERE status = 'sending' AND locked_until < $1
-     RETURNING id`,
-    [clock.now()],
-  );
-  for (const { id } of rows) {
-    await alerts.raise(describeSendGotNoAnswer(id));
-  }
 }
