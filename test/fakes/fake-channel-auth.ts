@@ -18,6 +18,8 @@ export class FakeChannelAuth implements ChannelAuth {
   exchangeResult: AuthResult = { ok: true, tokens: makeTokenPair() };
   refreshResult: AuthResult = { ok: true, tokens: makeTokenPair() };
   refreshDelayMs = 0;
+  refreshError: Error | null = null;
+  duringRefresh: (() => Promise<void>) | null = null;
 
   authorizationUrl(input: { state: string; codeChallenge: string; redirectUri: string }): string {
     const url = new URL('https://fake-zalo.test/v4/oa/permission');
@@ -34,6 +36,8 @@ export class FakeChannelAuth implements ChannelAuth {
 
   async refresh(refreshToken: string): Promise<AuthResult> {
     this.refreshes.push(refreshToken);
+    await this.duringRefresh?.();
+    if (this.refreshError) throw this.refreshError;
     if (this.refreshDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.refreshDelayMs));
     return this.refreshResult;
   }

@@ -26,7 +26,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     oauthCallback: connection,
     verifierFile: config.verifierFile,
   });
-  const renewal = connection && { ...connection, alerts };
+  const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
   return { config, server, pool, runTick: () => runTick({ renewal }) };
 }
 

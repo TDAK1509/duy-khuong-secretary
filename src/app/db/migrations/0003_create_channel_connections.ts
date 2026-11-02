@@ -12,6 +12,7 @@ export function up(pgm: MigrationBuilder): void {
       refresh_expires_at timestamptz NOT NULL,
       status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'reauthorization_required')),
       refreshed_at timestamptz NOT NULL DEFAULT now(),
+      renewal_started_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `);

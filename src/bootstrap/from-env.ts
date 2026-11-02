@@ -12,8 +12,6 @@ import type { AlertConfig, Config } from './config.ts';
 import type { ReaderConfig, ReaderSlotConfig } from './reader-config.ts';
 import type { ZaloConfig } from './zalo-config.ts';
 
-const ZALO_OAUTH_TIMEOUT_MS = 15_000;
-
 export type Providers = {
   pool: PostgresPool;
 };
@@ -42,7 +40,7 @@ export function buildChannelAuth(config: ZaloConfig, clock: Clock): ChannelAuth 
         appId: config.appId,
         appSecret: config.appSecret,
         oauthBaseUrl: config.oauthBaseUrl,
-        timeoutMs: ZALO_OAUTH_TIMEOUT_MS,
+        timeoutMs: config.oauthTimeoutMs,
         clock,
       });
   }

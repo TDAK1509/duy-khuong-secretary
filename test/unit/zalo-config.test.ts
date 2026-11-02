@@ -21,6 +21,7 @@ describe('loadZaloConfig', () => {
       ok: true,
       config: {
         provider: 'zalo-oa',
+        oauthTimeoutMs: 15_000,
         appId: 'app-1',
         appSecret: 'sec-1',
         oauthBaseUrl: 'https://oauth.zaloapp.com',

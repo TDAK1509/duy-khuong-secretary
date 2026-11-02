@@ -11,6 +11,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
 const ENCRYPTION_KEY = 'a'.repeat(64);
+const CALL_TIMEOUT_MS = 15_000;
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 
 describe('key renewal on the ticker', () => {
@@ -18,12 +19,14 @@ describe('key renewal on the ticker', () => {
   let pool: PostgresPool;
   let channelAuth: FakeChannelAuth;
   let alertSink: FakeAlertSink;
+  let clock: FakeClock;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     channelAuth = new FakeChannelAuth();
     alertSink = new FakeAlertSink();
+    clock = new FakeClock(NOW);
   });
 
   afterEach(async () => {
@@ -118,6 +121,56 @@ describe('key renewal on the ticker', () => {
     expect(channelAuth.refreshes).toEqual([]);
   });
 
+  it('marks the renewal in progress and holds no row lock while Zalo has not answered', async () => {
+    await storeConnectionExpiringIn(30);
+    let duringCall: { renewal_started_at: Date | null; lockedRows: number } | null = null;
+    channelAuth.duringRefresh = async () => {
+      const [marker] = await database.query<{ renewal_started_at: Date | null }>(
+        'SELECT renewal_started_at FROM channel_connections',
+      );
+      const lockable = await database.query('SELECT id FROM channel_connections FOR UPDATE NOWAIT');
+      duringCall = { renewal_started_at: marker?.renewal_started_at ?? null, lockedRows: lockable.length };
+    };
+
+    await runOneTick();
+
+    expect(duringCall).toEqual({ renewal_started_at: NOW, lockedRows: 1 });
+    const [after] = await database.query<{ renewal_started_at: Date | null }>(
+      'SELECT renewal_started_at FROM channel_connections',
+    );
+    expect(after?.renewal_started_at).toBeNull();
+  });
+
+  it('never retries a renewal whose outcome is unknown after a crash', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshError = new Error('process died after sending');
+    await expect(runOneTick()).rejects.toThrow('process died after sending');
+    clock.advanceBy(CALL_TIMEOUT_MS + 1);
+
+    await runOneTick();
+
+    const [row] = await database.query<{ status: string }>('SELECT status FROM channel_connections');
+    expect(row?.status).toBe('reauthorization_required');
+    expect(channelAuth.refreshes).toHaveLength(1);
+    expect(alertSink.texts).toEqual([
+      '[alert] Zalo key renewal got no answer for OA oa-1. Automatic renewal is stopped. Run connect-zalo again.',
+    ]);
+  });
+
+  it('leaves a renewal alone while its call may still be running', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshError = new Error('process died after sending');
+    await expect(runOneTick()).rejects.toThrow();
+    clock.advanceBy(CALL_TIMEOUT_MS - 1);
+
+    await runOneTick();
+
+    const [row] = await database.query<{ status: string }>('SELECT status FROM channel_connections');
+    expect(row?.status).toBe('active');
+    expect(channelAuth.refreshes).toHaveLength(1);
+    expect(alertSink.texts).toEqual([]);
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
@@ -133,13 +186,13 @@ describe('key renewal on the ticker', () => {
   }
 
   function runOneTick(): Promise<void> {
-    const clock = new FakeClock(NOW);
     return runTick({
       renewal: {
         database: pool,
         channelAuth,
         encryptionKey: ENCRYPTION_KEY,
         clock,
+        callTimeoutMs: CALL_TIMEOUT_MS,
         alerts: new OperatorAlerts(alertSink, clock),
       },
     });

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const ZALO_OAUTH_TIMEOUT_MS = 15_000;
+
 const REQUIRED_NAMES = [
   'MESSAGING_PROVIDER',
   'ZALO_APP_ID',
@@ -17,6 +19,7 @@ const environmentSchema = z.object({
 
 export type ZaloConfig = {
   provider: 'zalo-oa';
+  oauthTimeoutMs: number;
   appId: string;
   appSecret: string;
   oauthBaseUrl: string;
@@ -34,6 +37,7 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
     ok: true,
     config: {
       provider: settings.MESSAGING_PROVIDER,
+      oauthTimeoutMs: ZALO_OAUTH_TIMEOUT_MS,
       appId: environment['ZALO_APP_ID'] ?? '',
       appSecret: environment['ZALO_APP_SECRET'] ?? '',
       oauthBaseUrl: settings.ZALO_OAUTH_BASE_URL,
