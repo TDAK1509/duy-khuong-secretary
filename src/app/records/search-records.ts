@@ -38,6 +38,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   if (filters.member !== null) where.require(buildMemberCondition(where, filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
+  addDateConditions(where, filters);
   const { rows } = await database.query<FoundRecord>(
     `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
        record.vehicle_plate AS plate, record.document_number,
@@ -78,4 +79,10 @@ function buildCodeCondition(where: WhereClause, text: string): string {
 function buildMemberCondition(where: WhereClause, member: string): string {
   const bound = where.bind(toAccentFreeForm(member) ?? '');
   return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function addDateConditions(where: WhereClause, filters: SearchFilters): void {
+  const vietnamDate = `(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
+  if (filters.addedFrom !== null) where.require(`${vietnamDate} >= ${where.bind(filters.addedFrom)}::date`);
+  if (filters.addedTo !== null) where.require(`${vietnamDate} <= ${where.bind(filters.addedTo)}::date`);
 }

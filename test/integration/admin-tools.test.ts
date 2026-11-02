@@ -137,4 +137,17 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toHaveLength(1);
   });
+
+  it('counts the date range in Vietnam time', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      createdAt: new Date('2026-10-30T23:30:00+07:00'),
+    });
+
+    const result = await runSearch({ added_from: '2026-10-31' });
+
+    expect(result.items).toEqual([]);
+  });
 });
