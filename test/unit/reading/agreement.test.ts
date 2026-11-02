@@ -68,4 +68,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(false);
   });
+
+  it('counts leading zeros in a document number', () => {
+    const first = succeed(makeReading([makeItem({ document_number: '0001234' })]));
+    const second = succeed(makeReading([makeItem({ document_number: '1234' })]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
