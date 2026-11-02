@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertMembership } from './workspace-rows.ts';
+
+const NO_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
 
 describe('an admin replies to the draft the bot showed', () => {
   let harness: IntakeHarness;
@@ -101,5 +103,17 @@ describe('an admin replies to the draft the bot showed', () => {
 
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
     expect(sentTexts().at(-1)).toEqual(['zu-duy', 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.']);
+  });
+
+  it('confirms nothing for an admin who lost admin rights', async () => {
+    await showDraft();
+    await database.query(`DELETE FROM memberships WHERE user_id = '${duyUserId}'`);
+    await insertMembership(database, { workspaceId, userId: duyUserId, displayName: 'Duy', role: 'member' });
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    expect(sentTexts()).toEqual([['zu-duy', NO_CHOICE_TEXT]]);
   });
 });
