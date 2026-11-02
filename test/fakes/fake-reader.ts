@@ -3,11 +3,15 @@ import type { ReaderRequest, ReaderResult, ReaderService } from '../../src/servi
 export class FakeReader implements ReaderService {
   readonly label: string;
   readonly requests: ReaderRequest[] = [];
-  private readonly respond: (request: ReaderRequest) => ReaderResult;
+  private respond: (request: ReaderRequest) => ReaderResult;
 
   constructor(label: string, respond: (request: ReaderRequest) => ReaderResult) {
     this.label = label;
     this.respond = respond;
+  }
+
+  answerWith(json: unknown): void {
+    this.respond = () => ({ ok: true, json });
   }
 
   async read(request: ReaderRequest): Promise<ReaderResult> {

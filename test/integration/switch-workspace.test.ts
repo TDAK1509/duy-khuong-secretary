@@ -8,6 +8,7 @@ import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
+import { createFakeReaderSlots } from '../fakes/fake-reader-slots.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -246,7 +247,7 @@ describe('switching between workspaces', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, readers: createFakeReaderSlots() }),
     });
   }
 
