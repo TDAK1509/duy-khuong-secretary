@@ -269,6 +269,17 @@ describe('an admin asks the bot', () => {
       ]);
       expect(JSON.stringify(turns.at(-1))).toContain('Hùng');
     });
+
+    it('turns the final text after a tool call into the answer', async () => {
+      harness.chat.follow((_request, callNumber) =>
+        callNumber === 1 ? replyWithToolCalls(LIST_MEMBERS_CALL) : replyWithText('Nhóm có 3 người.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Nhóm có ai?');
+      await harness.sendQueuedTexts();
+
+      expect(sentTexts()).toEqual([['zu-duy', 'Nhóm có 3 người.']]);
+    });
   });
 
   describe('with data and a question', () => {
