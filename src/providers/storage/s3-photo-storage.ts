@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 
 export type S3PhotoStorageSettings = {
@@ -33,8 +33,17 @@ export class S3PhotoStorage implements PhotoStorage {
   }
 
   async get(key: string): Promise<Photo | null> {
-    const answer = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
-    return { bytes: await readBody(answer), contentType: readContentType(answer) };
+    const answer = await this.fetchObject(key);
+    return answer && { bytes: await readBody(answer), contentType: readContentType(answer) };
+  }
+
+  private async fetchObject(key: string): Promise<S3Answer | null> {
+    try {
+      return await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (error) {
+      if (error instanceof NoSuchKey) return null;
+      throw error;
+    }
   }
 }
 

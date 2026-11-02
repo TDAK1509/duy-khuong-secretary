@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, NoSuchKey, PutObjectCommand } from '@aws-sdk/client-s3';
 import { describe, expect, it } from 'vitest';
 import { S3PhotoStorage, type S3Sender } from '../../src/providers/storage/s3-photo-storage.ts';
 
@@ -52,5 +52,15 @@ describe('S3PhotoStorage', () => {
     expect(photo).toEqual({ bytes: pngBytes, contentType: 'image/png' });
     expect(commands[0]).toBeInstanceOf(GetObjectCommand);
     expect((commands[0] as GetObjectCommand).input).toEqual({ Bucket: 'photos', Key: 'w1/m1.png' });
+  });
+
+  it('returns null for a missing object', async () => {
+    const client: S3Sender = {
+      send: async () => {
+        throw new NoSuchKey({ message: 'no such key', $metadata: {} });
+      },
+    };
+
+    expect(await new S3PhotoStorage(SETTINGS, client).get('w1/missing.jpg')).toBeNull();
   });
 });
