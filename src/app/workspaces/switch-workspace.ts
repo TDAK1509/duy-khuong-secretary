@@ -12,9 +12,14 @@ export function isSwitchCommand(text: string): boolean {
   return toAccentFreeForm(text) === 'doi nhom';
 }
 
-export async function listWorkspaces(transaction: Transaction, userId: string, currentWorkspaceId: string): Promise<Reply> {
+export async function answerSwitchCommand(
+  transaction: Transaction,
+  userId: string,
+  currentWorkspaceId: string,
+): Promise<Reply> {
   const workspaces = await findWorkspacesOfUser(transaction, userId);
   const currentName = workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ?? '';
+  if (workspaces.length === 1) return { text: `Bạn chỉ ở một nhóm: "${currentName}".` };
   const lines = workspaces.map((workspace, index) => `${index + 1}. ${workspace.name}`);
   return {
     text: [`Bạn đang ở nhóm "${currentName}". Chọn nhóm bằng cách trả lời số:`, ...lines].join('\n'),

@@ -125,6 +125,16 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('tells a person in one workspace that there is nothing to switch', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+
+    await receiveText('zu-hung', 'đổi nhóm');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Bạn chỉ ở một nhóm: "Xe tải Duy Khương".']);
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
