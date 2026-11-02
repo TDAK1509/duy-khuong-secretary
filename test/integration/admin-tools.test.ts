@@ -201,4 +201,27 @@ describe('the data tools of an admin', () => {
     const ids = [...first.items, ...second.items].map((item) => item.id);
     expect(new Set(ids).size).toBe(60);
   });
+
+  it('shows only the caller\'s workspace for a cursor from another workspace', async () => {
+    for (let number = 0; number < 3; number += 1) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    }
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    const otherRecordId = await insertRecordRow(database, {
+      workspaceId: otherWorkspaceId,
+      userId: vyUserId,
+      senderName: 'Vy',
+      createdAt: new Date('2026-10-31T12:00:00+07:00'),
+    });
+    const [{ created_at_utc: createdAtUtc } = { created_at_utc: '' }] = await database.query<{ created_at_utc: string }>(
+      `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc FROM records WHERE id = '${otherRecordId}'`,
+    );
+    const cursor = Buffer.from(`${createdAtUtc}|${otherRecordId}`).toString('base64url');
+
+    const result = await runSearch({ cursor });
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.every((item) => item.member === 'Hùng')).toBe(true);
+  });
 });
