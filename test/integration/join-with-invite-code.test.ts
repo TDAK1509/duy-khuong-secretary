@@ -120,6 +120,29 @@ describe('joining a workspace with an invite code', () => {
     expect(channel.nameLookupCredentials).toEqual(['a1']);
   });
 
+  it('lets the join go on when the name lookup finds no name', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', CODE);
+
+    const identities = await database.query('SELECT zalo_name FROM channel_identities');
+    const memberships = await database.query('SELECT display_name FROM memberships');
+    expect(identities).toEqual([{ zalo_name: null }]);
+    expect(memberships).toEqual([{ display_name: 'Hùng' }]);
+  });
+
+  it('lets the join go on when the OA has no connection to ask Zalo with', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    channel.displayNames.set('zu-hung', 'Hung Nguyen');
+    await database.query('DELETE FROM channel_connections');
+
+    await receiveText('zu-hung', CODE);
+
+    const identities = await database.query('SELECT zalo_name FROM channel_identities');
+    expect(identities).toEqual([{ zalo_name: null }]);
+    expect(channel.nameLookupCredentials).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
