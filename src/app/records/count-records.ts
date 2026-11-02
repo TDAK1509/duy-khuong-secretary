@@ -9,6 +9,13 @@ export type MemberCount = { member: string; total_count: number; by_category: Ca
 
 type CountRow = { user_id: string; sender_name: string; category: string; count: number; amount_vnd: number };
 
+const COUNT_BY_CATEGORY = `SELECT record.user_id, record.sender_name, record.category, count(*)::int AS count,
+    coalesce(sum(record.amount_vnd), 0)::float8 AS amount_vnd
+  FROM records record`;
+
+const GROUP_BY_SENDER = `GROUP BY record.user_id, record.sender_name, record.category
+  ORDER BY record.sender_name, record.category`;
+
 export async function countRecords(
   database: Database,
   scope: AccessScope,
@@ -28,14 +35,7 @@ async function countByCategory(database: Database, scope: AccessScope, range: { 
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   addDateConditions(where, range);
-  const { rows } = await database.query<CountRow>(
-    `SELECT record.user_id, record.sender_name, record.category, count(*)::int AS count,
-       coalesce(sum(record.amount_vnd), 0)::float8 AS amount_vnd
-     FROM records record WHERE ${where.toSql()}
-     GROUP BY record.user_id, record.sender_name, record.category
-     ORDER BY record.sender_name, record.category`,
-    where.values,
-  );
+  const { rows } = await database.query<CountRow>(`${COUNT_BY_CATEGORY} WHERE ${where.toSql()} ${GROUP_BY_SENDER}`, where.values);
   return rows;
 }
 

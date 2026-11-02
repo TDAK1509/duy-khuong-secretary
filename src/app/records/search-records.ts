@@ -37,18 +37,19 @@ export type SearchPage = { items: FoundRecord[]; nextCursor: string | null };
 
 type FoundRow = FoundRecord & { created_at_utc: string };
 
+const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
+    record.vehicle_plate AS plate, record.document_number,
+    to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
+    record.summary, record.identifiers, record.details,
+    to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') AS added_at,
+    message.image_key IS NOT NULL AS has_photo,
+    to_char(record.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc
+  FROM records record JOIN messages message ON message.id = record.message_id`;
+
 export async function searchRecords(database: Database, scope: AccessScope, filters: SearchFilters): Promise<SearchPage> {
   const where = buildWhere(scope, filters);
   const { rows } = await database.query<FoundRow>(
-    `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
-       record.vehicle_plate AS plate, record.document_number,
-       to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
-       record.summary, record.identifiers, record.details,
-       to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') AS added_at,
-       message.image_key IS NOT NULL AS has_photo,
-       to_char(record.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc
-     FROM records record JOIN messages message ON message.id = record.message_id
-     WHERE ${where.toSql()}
+    `${SELECT_FOUND_ROWS} WHERE ${where.toSql()}
      ORDER BY record.created_at DESC, record.id DESC
      LIMIT ${PAGE_SIZE + 1}`,
     where.values,
