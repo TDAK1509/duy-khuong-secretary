@@ -129,5 +129,11 @@ describe('the member tools of an admin', () => {
       expect(output).toBe('{"ok":false,"error":"Không tìm thấy người này."}');
       expect(await database.query('SELECT display_name FROM memberships WHERE display_name = \'Vy\'')).toHaveLength(1);
     });
+
+    it('does not find an id that is not a uuid', async () => {
+      const output = await runTool('remove_member', { member_id: 'abc' });
+
+      expect(output).toBe('{"ok":false,"error":"Không tìm thấy người này."}');
+    });
   });
 });
