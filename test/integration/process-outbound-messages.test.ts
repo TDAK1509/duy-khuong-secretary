@@ -257,6 +257,23 @@ describe('the outbound worker step', () => {
     expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'photo_missing' });
   });
 
+  it('fails an image for an admin removed while the photo is being read', async () => {
+    await connectOa('oa-1', 'a1');
+    const membershipId = await insertMembership();
+    const id = await insertOutboundMessage(database, { photoKey: 'w/photo.jpg', adminMembershipId: membershipId });
+    await photoStorage.put('w/photo.jpg', { bytes: new Uint8Array([0xff, 0xd8, 0xff]), contentType: 'image/jpeg' });
+    const readPhoto = photoStorage.get.bind(photoStorage);
+    photoStorage.get = async (key) => {
+      await database.query(`DELETE FROM memberships WHERE id = '${membershipId}'`);
+      return readPhoto(key);
+    };
+
+    await runStep();
+
+    expect(channel.sends).toEqual([]);
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'membership_changed' });
+  });
+
   it('fails admin-only content once the admin membership is gone', async () => {
     await connectOa('oa-1', 'a1');
     const membershipId = await insertMembership();

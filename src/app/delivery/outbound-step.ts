@@ -58,6 +58,7 @@ async function sendToRecipient(dependencies: OutboundDependencies, message: Clai
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
+  if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result);
 }
