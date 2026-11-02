@@ -26,6 +26,14 @@ describe('ZaloOaChannel.getDisplayName against a stub Zalo API', () => {
     expect(new URL(request?.path ?? '', server.baseUrl).searchParams.get('data')).toBe('{"user_id":"zu-hung"}');
   });
 
+  it('gives no name when Zalo answers with an error', async () => {
+    const server = await startStubServer(replyWithJson({ error: -201, message: 'user not found' }));
+
+    const name = await readNameFromChannel(server.baseUrl);
+
+    expect(name).toBeNull();
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);

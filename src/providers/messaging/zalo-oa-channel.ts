@@ -89,16 +89,28 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
-    const url = new URL(USER_DETAIL_PATH, this.settings.apiBaseUrl);
-    url.searchParams.set('data', JSON.stringify({ user_id: user.externalUserId }));
-    const response = await fetch(url, { headers: { access_token: credential }, signal: AbortSignal.timeout(this.settings.timeoutMs) });
-    return userDetailSchema.parse(await response.json()).data.display_name;
+    try {
+      const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
+        headers: { access_token: credential },
+        signal: AbortSignal.timeout(this.settings.timeoutMs),
+      });
+      const answer = userDetailSchema.safeParse(await response.json());
+      return answer.success ? answer.data.data.display_name : null;
+    } catch {
+      return null;
+    }
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+function buildUserDetailUrl(apiBaseUrl: string, user: ChannelRecipient): URL {
+  const url = new URL(USER_DETAIL_PATH, apiBaseUrl);
+  url.searchParams.set('data', JSON.stringify({ user_id: user.externalUserId }));
+  return url;
 }
 
 async function readSendResult(response: Response): Promise<SendResult> {
