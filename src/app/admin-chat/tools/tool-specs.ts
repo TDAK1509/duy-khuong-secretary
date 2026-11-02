@@ -194,3 +194,24 @@ export const MAINTENANCE_STATUS_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const ATTACH_PHOTOS_SPEC: ToolSpec = {
+  "name": "attach_photos",
+  "description": "Gửi kèm ảnh gốc của các mục dữ liệu ngay sau câu trả lời, mỗi ảnh một tin nhắn. Lấy id từ kết quả search_records. Tối đa 4 ảnh. Mục không có ảnh hoặc không được phép xem sẽ bị bỏ qua.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "record_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "id của các mục cần gửi ảnh."
+      }
+    },
+    "required": [
+      "record_ids"
+    ],
+    "additionalProperties": false
+  }
+};

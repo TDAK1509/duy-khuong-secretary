@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -38,7 +39,7 @@ describe('the data tools of an admin', () => {
 
   async function runSearch(filters: SearchFilters = {}, scope: AccessScope = duy): Promise<SearchResult> {
     const args = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null, ...filters };
-    const output = await runAdminTool({ database: pool, clock }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
     return JSON.parse(output) as SearchResult;
   }
 
@@ -167,7 +168,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an invalid date', async () => {
-    const output = await runAdminTool({ database: pool, clock }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: '2026-02-30', added_to: null, cursor: null }),
@@ -241,7 +242,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an unreadable cursor', async () => {
-    const output = await runAdminTool({ database: pool, clock }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: 'xyz' }),
@@ -257,7 +258,7 @@ describe('the data tools of an admin', () => {
     const first = await runSearch();
     await database.query(`DELETE FROM memberships WHERE display_name = 'Duy'`);
 
-    const output = await runAdminTool({ database: pool, clock }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: first.next_cursor }),
@@ -290,7 +291,7 @@ describe('the data tools of an admin', () => {
     };
 
     async function runCount(scope: AccessScope = duy, range = { added_from: '2026-10-31', added_to: '2026-10-31' }): Promise<CountResult> {
-      const output = await runAdminTool({ database: pool, clock }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
       return JSON.parse(output) as CountResult;
     }
 
@@ -356,7 +357,7 @@ describe('the data tools of an admin', () => {
     type MembersResult = { members: { id: string; name: string; zalo_name: string | null; role: string }[] };
 
     async function runListMembers(scope: AccessScope = duy): Promise<MembersResult> {
-      const output = await runAdminTool({ database: pool, clock }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
       return JSON.parse(output) as MembersResult;
     }
 
@@ -388,7 +389,7 @@ describe('the data tools of an admin', () => {
   it('refuses a tool called with a member\'s scope', async () => {
     const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
 
-    const output = await runAdminTool({ database: pool, clock }, memberScope, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, memberScope, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -398,7 +399,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('names the argument that has the wrong type', async () => {
-    const output = await runAdminTool({ database: pool, clock }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: 5, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -408,7 +409,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses a category that does not exist', async () => {
-    const output = await runAdminTool({ database: pool, clock }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: 'banana', member: null, plate: null, added_from: null, added_to: null, cursor: null }),

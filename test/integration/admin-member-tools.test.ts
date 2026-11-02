@@ -3,6 +3,7 @@ import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { lockWorkspaceMembers } from '../../src/app/workspaces/lock-workspace-members.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
@@ -36,7 +37,7 @@ describe('the member tools of an admin', () => {
   });
 
   async function runTool(name: string, args: object, scope: AccessScope = duy): Promise<string> {
-    return runAdminTool({ database: pool, clock }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments() }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
   describe('creating an invite', () => {

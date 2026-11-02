@@ -12,6 +12,7 @@ import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
+import { PhotoAttachments } from './photo-attachments.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
@@ -32,7 +33,8 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
     tools: ADMIN_TOOLS,
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  return runToolLoop(requireChat(context), request, (call) => runAdminTool({ database, clock }, caller, call));
+  const dependencies = { database, clock, attachments: new PhotoAttachments() };
+  return runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
 }
 
 function requireChat(context: IntakeContext): ChatService {
