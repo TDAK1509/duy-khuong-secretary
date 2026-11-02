@@ -363,6 +363,13 @@ describe('saving what two readers agree on', () => {
     expect(harness.readers.strong.map((reader) => reader.requests.length)).toEqual([0, 0]);
   });
 
+  it('saves nothing more when a saved message is processed again', async () => {
+    await processSavedPhotoAgain();
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
