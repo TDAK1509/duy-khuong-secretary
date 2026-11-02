@@ -7,6 +7,17 @@ import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 
+const DAILY_REPORT = {
+  title: 'Báo cáo hằng ngày',
+  instruction: 'Lập báo cáo.',
+  repeat: 'daily',
+  run_once_at: null,
+  time_of_day: '18:00',
+  weekday: null,
+  day_of_month: null,
+  maintenance_rules: [],
+};
+
 describe('the scheduling tools', () => {
   let harness: IntakeHarness;
   let workspaceId: string;
@@ -20,8 +31,8 @@ describe('the scheduling tools', () => {
     await harness.close();
   });
 
-  function runTool(scope: AccessScope, name: string, args: unknown): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+  function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null)): Promise<string> {
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
@@ -33,6 +44,22 @@ describe('the scheduling tools', () => {
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
     expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+  });
+
+  async function addAdmin(): Promise<AccessScope> {
+    const userId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    return { workspaceId, userId, role: 'admin' };
+  }
+
+  it('stores one task when the same creation runs twice', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const first = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    const again = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    expect(again).toBe(first);
+    expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'message-1:1' }]);
   });
 
   it('lists only the active tasks the caller created in this workspace', async () => {
