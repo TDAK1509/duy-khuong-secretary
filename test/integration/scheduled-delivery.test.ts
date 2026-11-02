@@ -141,4 +141,21 @@ describe('the delivery rule for scheduled results', () => {
 
     expect(await readStatuses()).toEqual([{ status: 'held' }, { status: 'failed' }]);
   });
+
+  describe('when the admin writes again', () => {
+    beforeEach(async () => {
+      await wroteDaysAgo(8);
+      await insertScheduledResult({ status: 'held', body: 'Báo cáo 1' });
+      await insertScheduledResult({ status: 'held', body: 'Báo cáo 2' });
+    });
+
+    it('sends the held line first', async () => {
+      await harness.receiveText('zu-duy', 'chào');
+      await harness.sendQueuedTexts();
+
+      expect(harness.channel.texts[0]?.text).toBe(
+        'Bạn có 2 tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.',
+      );
+    });
+  });
 });

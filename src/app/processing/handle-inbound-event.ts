@@ -4,6 +4,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
+import { hasHeldMessages, releaseHeldMessages } from '../delivery/release-held-messages.ts';
 import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
@@ -25,6 +26,7 @@ import {
 } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
+import type { Stage } from './stages.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
 
@@ -43,6 +45,7 @@ const textPayloadSchema = z.object({ text: z.string() });
 export function createInboundHandler(dependencies: InboundHandlerDependencies | null): InboundHandler {
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
+    await stages.runStage(releaseHeldStage(dependencies, event));
     const text = readText(event);
     const sender = await findIntakeSender(dependencies.database, event, text);
     if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
@@ -51,6 +54,17 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
     return stages.finishEvent((transaction) =>
       answerSender(transaction, dependencies, { event, text, inviteCode, zaloName }),
     );
+  };
+}
+
+function releaseHeldStage({ channel, clock }: InboundHandlerDependencies, event: ClaimedEvent): Stage {
+  const to = describeSender(event);
+  return {
+    isDone: async (transaction) => !(await hasHeldMessages(transaction, to)),
+    write: async (transaction) => {
+      await recordSenderIdentity(transaction, event);
+      await releaseHeldMessages(transaction, { to, maxTextLength: channel.maxTextLength, now: clock.now() });
+    },
   };
 }
 
