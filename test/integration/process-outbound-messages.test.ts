@@ -79,6 +79,16 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it("does not hold up another person's text", async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { externalUserId: 'zu-hung', availableAt: new Date(NOW.getTime() + 30_000) });
+    await insertOutboundMessage(database, { externalUserId: 'zu-lan' });
+
+    await runStep();
+
+    expect(channel.texts.map((sent) => sent.to.externalUserId)).toEqual(['zu-lan']);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
