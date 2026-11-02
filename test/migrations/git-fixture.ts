@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export type GitFixture = {
   directory: string;
   writeFile(relativePath: string, content: string): void;
+  renameFile(fromPath: string, toPath: string): void;
   commitAll(message: string): void;
   startBranch(name: string): void;
   remove(): void;
@@ -18,6 +19,7 @@ export function createGitFixture(): GitFixture {
   return {
     directory,
     writeFile: (relativePath, content) => writeFileIn(directory, relativePath, content),
+    renameFile: (fromPath, toPath) => renameSync(join(directory, fromPath), join(directory, toPath)),
     commitAll: (message) => {
       git('add', '--all');
       git('commit', '--message', message);

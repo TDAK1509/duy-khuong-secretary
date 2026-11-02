@@ -30,4 +30,15 @@ describe('checkMergedMigrations', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('0001_a.sql');
   });
+
+  it('fails when the branch renames a merged migration', () => {
+    const fixture = createFixtureWithMergedMigration();
+    fixture.renameFile(MIGRATION_A, 'src/app/db/migrations/0001_b.sql');
+    fixture.commitAll('rename migration a');
+
+    const problems = checkMergedMigrations(fixture.directory, 'main');
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('0001_a.sql');
+  });
 });
