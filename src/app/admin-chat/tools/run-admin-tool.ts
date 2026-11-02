@@ -45,7 +45,7 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
     case 'maintenance_status':
       return runMaintenanceStatus(dependencies, scope, parsedArguments);
     case 'attach_photos':
-      return runAttachPhotos(dependencies, parsedArguments);
+      return runAttachPhotos(dependencies, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }

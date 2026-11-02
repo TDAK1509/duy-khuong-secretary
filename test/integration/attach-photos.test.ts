@@ -5,7 +5,7 @@ import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('an admin attaches the photos of records to the answer', () => {
   let harness: IntakeHarness;
@@ -80,5 +80,21 @@ describe('an admin attaches the photos of records to the answer', () => {
       { kind: 'text', to: 'zu-duy', text: 'Đây là ảnh.' },
       { kind: 'image', to: 'zu-duy', photo },
     ]);
+  });
+
+  it('skips a record of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy' });
+    const foreignRecordId = await insertRecordRow(database, {
+      workspaceId: otherWorkspaceId,
+      userId: vyUserId,
+      senderName: 'Vy',
+      hasPhoto: true,
+    });
+    attachThenReply([foreignRecordId]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":0}');
   });
 });
