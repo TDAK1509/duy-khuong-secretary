@@ -132,4 +132,12 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":0}');
   });
+
+  it('skips an id that is not a uuid', async () => {
+    attachThenReply(['abc']);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":0}');
+  });
 });
