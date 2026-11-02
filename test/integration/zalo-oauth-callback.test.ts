@@ -82,6 +82,15 @@ describe('GET /oauth/zalo/callback', () => {
     expect(channelAuth.exchanges).toEqual([]);
   });
 
+  it('stores nothing when Zalo rejects the code exchange', async () => {
+    channelAuth.exchangeResult = { ok: false, reason: 'rejected' };
+
+    const response = await callCallback({ oa_id: 'oa-1', code: 'k1', state: makeState(NOW) });
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM channel_connections')).toEqual([]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }
