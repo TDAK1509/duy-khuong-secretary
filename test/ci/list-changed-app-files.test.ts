@@ -24,6 +24,20 @@ describe('listChangedAppFiles', () => {
     expect(files).toEqual(['src/app/a.ts', 'src/app/nested/d.ts']);
   });
 
+  it('leaves out migrations and files outside the app', () => {
+    const fixture = createFixtureWithMergedFiles({ 'src/app/a.ts': 'export const a = 1;\n' });
+    fixture.writeFile('src/app/db/migrations/0009_new.ts', 'export const up = 1;\n');
+    fixture.writeFile('src/app/schema.sql', 'SELECT 1;\n');
+    fixture.writeFile('src/services/s.ts', 'export const s = 1;\n');
+    fixture.writeFile('test/unit/t.test.ts', 'export const t = 1;\n');
+    fixture.writeFile('src/app/b.ts', 'export const b = 1;\n');
+    fixture.commitAll('change several kinds of files');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual(['src/app/b.ts']);
+  });
+
   function createFixtureWithMergedFiles(files: Record<string, string>): GitFixture {
     const fixture = createGitFixture();
     fixtures.push(fixture);
