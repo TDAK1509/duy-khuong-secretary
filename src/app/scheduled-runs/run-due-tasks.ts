@@ -10,6 +10,7 @@ import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
+import { SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 
@@ -42,6 +43,6 @@ async function produceResultText(
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
   const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName, now: clock.now() };
-  const request = { system: buildScheduledRunPrompt(facts), turns: [{ role: 'user' as const, text: task.instruction, image: null }], tools: [] };
+  const request = { system: buildScheduledRunPrompt(facts), turns: [{ role: 'user' as const, text: task.instruction, image: null }], tools: SCHEDULED_RUN_TOOLS };
   return runToolLoop(chat, request, (call) => runAdminTool(toolDependencies, caller, call));
 }

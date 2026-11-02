@@ -272,4 +272,17 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(harness.chat.requests).toEqual([]);
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
   });
+
+  it('offers exactly the four read tools', async () => {
+    await insertDueTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual([
+      'search_records',
+      'count_records',
+      'maintenance_status',
+      'list_members',
+    ]);
+  });
 });
