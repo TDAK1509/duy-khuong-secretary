@@ -296,6 +296,16 @@ describe('joining a workspace with an invite code', () => {
       const duyTexts = channel.texts.filter((sent) => sent.to.externalUserId === 'zu-duy');
       expect(duyTexts[0]?.text).toMatch(/^Hùng \(tên Zalo: không rõ\)/);
     });
+
+    it('tells nobody else when an operator code is used', async () => {
+      await insertMember(database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
+      await insertInvite(database, { workspaceId, code: CODE, displayName: 'Duy', role: 'admin' });
+
+      await receiveText('zu-duy', CODE);
+      await sendAllQueuedTexts();
+
+      expect(channel.texts.map((sent) => sent.to.externalUserId)).toEqual(['zu-duy']);
+    });
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
