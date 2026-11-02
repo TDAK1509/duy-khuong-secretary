@@ -73,4 +73,10 @@ describe('an admin asks the bot', () => {
     expect(system).toContain('nhóm "Xe tải Duy Khương"');
     expect(system).toContain('Bạn đang trò chuyện với Duy, vai trò: quản lý');
   });
+
+  it('puts the saving section in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(harness.chat.requests[0]?.system).toContain('Lưu dữ liệu:');
+  });
 });
