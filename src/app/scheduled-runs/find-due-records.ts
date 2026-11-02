@@ -32,13 +32,14 @@ const DUE_RECORDS_SQL = `WITH newest AS (
      FROM newest record
      JOIN unnest($1::text[], $2::int[]) AS rule(item, age_days) ON rule.item = ${ACCENT_FREE_ITEM}
      WHERE ${VIETNAM_DATE('$3::timestamptz')} - ${VIETNAM_DATE('record.sent_at')} >= rule.age_days
+       AND NOT EXISTS (SELECT 1 FROM maintenance_notifications reminded WHERE reminded.task_id = $5 AND reminded.record_id = record.id)
      ORDER BY record.vehicle_plate, record.maintenance_item`;
 
 export async function findDueRecords(database: Database, task: ClaimedTask, now: Date): Promise<DueRecord[]> {
   const scoped = scopeDatabase(database, { workspaceId: task.workspaceId });
   const { rows } = await scoped.query<DueRecord>(
     DUE_RECORDS_SQL,
-    [...unzipRules(task), now, task.workspaceId],
+    [...unzipRules(task), now, task.workspaceId, task.id],
   );
   return rows;
 }

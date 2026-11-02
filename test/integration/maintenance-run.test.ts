@@ -134,4 +134,16 @@ describe('the daily maintenance reminder run', () => {
       [firstRecordId, secondRecordId].sort().map((recordId) => ({ task_id: taskId, record_id: recordId, workspace_id: workspaceId })),
     );
   });
+
+  it('does not remind again about a record the task already reminded', async () => {
+    const recordId = await insertOilChange('2026-10-01');
+    const taskId = await insertReminderTask();
+    await database.query(
+      `INSERT INTO maintenance_notifications (task_id, record_id, workspace_id) VALUES ('${taskId}', '${recordId}', '${workspaceId}')`,
+    );
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
