@@ -12,7 +12,8 @@
     "verbatimModuleSyntax": true,
     "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowJs": true
   },
   "include": ["src", "test", "vitest.config.ts"],
   "exclude": ["test/architecture/*/src"]
