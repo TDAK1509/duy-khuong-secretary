@@ -7,6 +7,7 @@ export type StubMediaServer = {
   port: number;
   certificate: string;
   requestedPaths: string[];
+  readonly openedConnections: number;
   close(): Promise<void>;
 };
 
@@ -40,9 +41,19 @@ export async function startStubMediaServer(handler: MediaHandler): Promise<StubM
     requestedPaths.push(request.url ?? '');
     handler(request, response);
   });
+  let openedConnections = 0;
+  server.on('connection', () => (openedConnections += 1));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
-  return { port, certificate, requestedPaths, close: () => closeServer(server) };
+  return {
+    port,
+    certificate,
+    requestedPaths,
+    get openedConnections() {
+      return openedConnections;
+    },
+    close: () => closeServer(server),
+  };
 }
 
 function generateSelfSignedCertificate(): { key: string; certificate: string } {

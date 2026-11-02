@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { lookup as lookUpWithDns } from 'node:dns/promises';
 import type { IncomingMessage } from 'node:http';
 import { request as requestOverHttps } from 'node:https';
-import { isIP, type LookupFunction } from 'node:net';
+import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { z } from 'zod';
 import type {
   ChannelRecipient,
@@ -22,6 +22,27 @@ const RATE_LIMIT_ERROR = -32;
 const SERVER_ERROR_STATUS = 500;
 const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+const NON_PUBLIC_IPV4_RANGES: [string, number][] = [
+  ['0.0.0.0', 8],
+  ['10.0.0.0', 8],
+  ['100.64.0.0', 10],
+  ['127.0.0.0', 8],
+  ['169.254.0.0', 16],
+  ['172.16.0.0', 12],
+  ['192.0.0.0', 24],
+  ['192.168.0.0', 16],
+  ['198.18.0.0', 15],
+  ['224.0.0.0', 4],
+  ['240.0.0.0', 4],
+];
+const NON_PUBLIC_IPV6_RANGES: [string, number][] = [
+  ['::', 128],
+  ['::1', 128],
+  ['64:ff9b::', 96],
+  ['fc00::', 7],
+  ['fe80::', 10],
+  ['ff00::', 8],
+];
 const UNAVAILABLE: DownloadResult = { ok: false, reason: 'unavailable' };
 
 const REQUEST_NEVER_SENT_CODES = [
@@ -168,12 +189,21 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   private readonly lookUpCheckedAddress: LookupFunction = (hostname, options, callback) => {
-    const lookUpAddresses = this.settings.lookupAddresses ?? lookUpAllAddresses;
-    void lookUpAddresses(hostname).then(
-      (addresses) => callback(null, addresses.map((address) => ({ address, family: isIP(address) }))),
-      (error: Error) => callback(error, []),
+    this.resolvePublicAddresses(hostname).then(
+      (addresses) => answerLookup(callback, options.all === true, addresses),
+      (error: Error) => callback(error, '', 4),
     );
   };
+
+  private async resolvePublicAddresses(hostname: string): Promise<string[]> {
+    const addresses = await (this.settings.lookupAddresses ?? lookUpAllAddresses)(hostname);
+    const isPublic = this.settings.isPublicAddress ?? isPublicAddress;
+    if (addresses.length === 0 || !addresses.every(isPublic)) {
+      console.error('[download] refused a host that does not resolve to public addresses:', hostname);
+      throw new Error('the host does not resolve to public addresses');
+    }
+    return addresses;
+  }
 
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
@@ -211,6 +241,26 @@ function isAllowedAttachmentUrl(url: URL, mediaHosts: string[]): boolean {
 
 function isSuccessStatus(status: number | undefined): boolean {
   return status !== undefined && status >= 200 && status < 300;
+}
+
+function answerLookup(callback: Parameters<LookupFunction>[2], wantsAll: boolean, addresses: string[]): void {
+  if (wantsAll) return callback(null, addresses.map((address) => ({ address, family: isIP(address) })));
+  const [first = ''] = addresses;
+  callback(null, first, isIP(first));
+}
+
+export function isPublicAddress(address: string): boolean {
+  const family = isIP(address) === 6 ? 'ipv6' : 'ipv4';
+  return isIP(address) !== 0 && !NON_PUBLIC_ADDRESSES.check(address, family);
+}
+
+const NON_PUBLIC_ADDRESSES = buildNonPublicAddresses();
+
+function buildNonPublicAddresses(): BlockList {
+  const list = new BlockList();
+  for (const [network, prefix] of NON_PUBLIC_IPV4_RANGES) list.addSubnet(network, prefix, 'ipv4');
+  for (const [network, prefix] of NON_PUBLIC_IPV6_RANGES) list.addSubnet(network, prefix, 'ipv6');
+  return list;
 }
 
 async function lookUpAllAddresses(hostname: string): Promise<string[]> {

@@ -101,6 +101,20 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     expect(server.requestedPaths).toHaveLength(4);
   });
 
+  it('does not connect to an allowed host that resolves to a private address', async () => {
+    const server = await startStubServer(serveBytes(new Uint8Array(10)));
+    const channel = new ZaloOaChannel({
+      ...TEST_CHANNEL_SETTINGS,
+      lookupAddresses: async () => ['127.0.0.1'],
+      trustedCertificates: server.certificate,
+    });
+
+    const result = await channel.downloadAttachment(`https://photo.zdn.vn:${server.port}/a.jpg`, FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+    expect(server.openedConnections).toBe(0);
+  });
+
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
     const server = await startStubMediaServer(handler);
     servers.push(server);
