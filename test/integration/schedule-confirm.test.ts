@@ -72,4 +72,14 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
     expect(sentTexts()).toEqual([['zu-duy', 'Đã hủy lịch nháp "Báo cáo hằng ngày".']]);
   });
+
+  it('keeps a one-time draft whose time passed and says so', async () => {
+    await showDraft({ runOnceAt: new Date('2026-10-31T09:00:00+07:00') });
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    expect(sentTexts()).toEqual([['zu-duy', 'Thời điểm chạy đã qua. Nhắn lại cho Trợ lý để đặt giờ khác.']]);
+  });
 });
