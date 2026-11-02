@@ -46,6 +46,7 @@ export type IntakeHarness = {
   receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
   runTick(overrides?: { chat?: FakeChatService | null }): Promise<void>;
+  setReportReadyTemplate(templateId: string | null): void;
   sendQueuedTexts(): Promise<void>;
   sendAllQueuedTexts(): Promise<void>;
   close(): Promise<void>;
@@ -114,8 +115,20 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     });
   }
 
+  let reportReadyTemplateId: string | null = null;
+
   function outboundDependencies() {
-    return { database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 };
+    return {
+      database: pool,
+      clock,
+      alerts,
+      notices: new OffGroupNotices(clock, () => {}),
+      channel,
+      photoStorage,
+      encryptionKey: ENCRYPTION_KEY,
+      maxPerMinute: 90,
+      reportReadyTemplateId,
+    };
   }
 
   return {
@@ -141,6 +154,9 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     receiveText: async (externalUserId, text, overrides) => {
       await insertInboundEvent(database, { externalUserId, text });
       await runInbound(overrides);
+    },
+    setReportReadyTemplate: (templateId) => {
+      reportReadyTemplateId = templateId;
     },
     sendQueuedTexts: async () => {
       await runOutboundStep(outboundDependencies());

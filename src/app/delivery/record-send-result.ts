@@ -3,10 +3,16 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
+import { enqueueReportReadyTemplate } from './enqueue-report-ready-template.ts';
 import { storeOfferedChoice } from './store-offered-choice.ts';
 import { decideSendOutcome, type SendOutcome, type Settlement } from './decide-send-outcome.ts';
 
-export type ResultDependencies = { database: Database; clock: Clock; alerts: OperatorAlerts };
+export type ResultDependencies = {
+  database: Database;
+  clock: Clock;
+  alerts: OperatorAlerts;
+  reportReadyTemplateId: string | null;
+};
 
 export async function recordSendResult(
   dependencies: ResultDependencies,
@@ -17,20 +23,28 @@ export async function recordSendResult(
 }
 
 export async function applyOutcome(
-  { database, alerts }: ResultDependencies,
+  dependencies: ResultDependencies,
   message: ClaimedMessage,
   outcome: SendOutcome,
 ): Promise<void> {
-  const isSettled = await settleMessage(database, message, outcome.settlement);
+  const { alerts } = dependencies;
+  const isSettled = await settleMessage(dependencies, message, outcome.settlement);
   if (!isSettled) return;
   if (outcome.settlement.status === 'failed') console.error(`[outbound] message ${message.id} failed: ${outcome.settlement.lastError}`);
   if (outcome.alert) await alerts.raise(outcome.alert);
 }
 
-async function settleMessage(database: Database, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {
+async function settleMessage(
+  { database, clock, reportReadyTemplateId }: ResultDependencies,
+  message: ClaimedMessage,
+  settlement: Settlement,
+): Promise<boolean> {
   const isSettled = await runInTransaction(database, async (transaction) => {
     const settled = await updateMessage(transaction, message, settlement);
     if (settled && settlement.status === 'sent') await storeOfferedChoice(transaction, message.id);
+    if (settled && settlement.status === 'held' && reportReadyTemplateId !== null) {
+      await enqueueReportReadyTemplate(transaction, message, { templateId: reportReadyTemplateId, now: clock.now() });
+    }
     return settled;
   });
   if (!isSettled) {

@@ -127,6 +127,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
       photoStorage,
       encryptionKey: zalo.encryptionKey,
       maxPerMinute: zalo.outboundMaxPerMinute,
+      reportReadyTemplateId: null,
     };
   return {
     runInboundStep: () => runInboundStep(inbound),

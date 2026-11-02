@@ -57,4 +57,17 @@ describe('the delivery rule for scheduled results', () => {
     expect(harness.channel.sends).toEqual([]);
     expect(await database.query("SELECT 1 FROM outbound_messages WHERE kind = 'template'")).toEqual([]);
   });
+
+  it('triggers one template for a held result when a template is configured', async () => {
+    harness.setReportReadyTemplate('tpl-1');
+    taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', title: 'Báo cáo hằng ngày' });
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT external_user_id, template_id, template_params FROM outbound_messages WHERE kind = \'template\'')).toEqual([
+      { external_user_id: 'zu-duy', template_id: 'tpl-1', template_params: { task_title: 'Báo cáo hằng ngày' } },
+    ]);
+  });
 });

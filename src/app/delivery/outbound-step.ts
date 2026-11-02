@@ -22,6 +22,7 @@ export type OutboundDependencies = {
   photoStorage: PhotoStorage | null;
   encryptionKey: string;
   maxPerMinute: number;
+  reportReadyTemplateId: string | null;
 };
 
 export async function runOutboundStep(dependencies: OutboundDependencies): Promise<'processed' | 'idle'> {

@@ -63,6 +63,6 @@ describe('the first reply to someone who never joined', () => {
     const notices = new OffGroupNotices(clock, () => {});
     const handler = createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, readers: null, chat: null });
     await runInboundStep({ database: pool, clock, alerts, notices, handler });
-    await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
+    await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90, reportReadyTemplateId: null });
   }
 });
