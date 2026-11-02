@@ -1,5 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { lockWorkspaceMembers } from '../../src/app/workspaces/lock-workspace-members.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -135,5 +137,52 @@ describe('the member tools of an admin', () => {
 
       expect(output).toBe('{"ok":false,"error":"Không tìm thấy người này."}');
     });
+
+    it('lets only one of two admins remove each other at the same moment', async () => {
+      const khuongUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
+      const khuong: AccessScope = { workspaceId, userId: khuongUserId, role: 'admin' };
+      const duyMembershipId = await findMembershipId('Duy');
+      const khuongMembershipId = await findMembershipId('Khương');
+      const { holdLock, releaseLock } = await holdMemberLock();
+
+      const duyRemovesKhuong = runTool('remove_member', { member_id: khuongMembershipId }, duy);
+      const khuongRemovesDuy = runTool('remove_member', { member_id: duyMembershipId }, khuong);
+      try {
+        await vi.waitFor(async () => expect(await countWaitingForLock()).toBe(2));
+      } finally {
+        releaseLock();
+        await holdLock;
+      }
+
+      const outputs = await Promise.all([duyRemovesKhuong, khuongRemovesDuy]);
+      expect(outputs.filter((output) => output.startsWith('{"ok":true'))).toHaveLength(1);
+      expect(outputs.filter((output) => output === '{"ok":false,"error":"Không có quyền."}')).toHaveLength(1);
+      expect(await database.query(`SELECT 1 FROM memberships WHERE role = 'admin'`)).toHaveLength(1);
+    });
+
+    async function holdMemberLock(): Promise<{ holdLock: Promise<void>; releaseLock: () => void }> {
+      let releaseLock = (): void => {};
+      const released = new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
+      let markHeld = (): void => {};
+      const isHeld = new Promise<void>((resolve) => {
+        markHeld = resolve;
+      });
+      const holdLock = runInTransaction(pool, async (transaction) => {
+        await lockWorkspaceMembers(transaction, workspaceId);
+        markHeld();
+        await released;
+      });
+      await isHeld;
+      return { holdLock, releaseLock };
+    }
+
+    async function countWaitingForLock(): Promise<number> {
+      const rows = await database.query<{ waiting: string }>(
+        `SELECT count(*) AS waiting FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`,
+      );
+      return Number(rows[0]?.waiting);
+    }
   });
 });
