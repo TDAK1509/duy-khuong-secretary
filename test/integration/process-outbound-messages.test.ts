@@ -153,6 +153,15 @@ describe('the outbound worker step', () => {
     ]);
   });
 
+  it('never sends an unknown text again', async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { status: 'unknown' });
+
+    await runStep();
+
+    expect(channel.texts).toEqual([]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
