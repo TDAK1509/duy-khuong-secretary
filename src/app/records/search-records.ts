@@ -37,6 +37,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
   if (filters.member !== null) where.require(buildMemberCondition(where, filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
+  if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
   const { rows } = await database.query<FoundRecord>(
     `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
        record.vehicle_plate AS plate, record.document_number,

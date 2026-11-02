@@ -85,4 +85,14 @@ describe('the data tools of an admin', () => {
 
     expect(result.items.map((item) => item.plate)).toEqual(['29C12345', '29C12345']);
   });
+
+  it('narrows to one category', async () => {
+    for (const category of ['fuel', 'fuel', 'toll']) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category });
+    }
+
+    const result = await runSearch({ category: 'toll' });
+
+    expect(result.items.map((item) => item.category)).toEqual(['toll']);
+  });
 });
