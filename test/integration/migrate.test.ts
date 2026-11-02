@@ -61,4 +61,15 @@ describe('the migration runner', () => {
     expect(await database.query("SELECT to_regclass('b') AS found")).toEqual([{ found: null }]);
     expect(await listAppliedMigrations(database)).toEqual(['0001_create_a']);
   });
+
+  it('runs a transactional migration with a short lock and statement timeout', async () => {
+    await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: new URL('record-timeouts/', fixtures), log: () => {} },
+    );
+
+    expect(await database.query('SELECT lock_timeout, statement_timeout FROM seen')).toEqual([
+      { lock_timeout: '1s', statement_timeout: '30s' },
+    ]);
+  });
 });

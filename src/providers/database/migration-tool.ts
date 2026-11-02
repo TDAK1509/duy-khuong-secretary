@@ -1,11 +1,16 @@
 import { setTimeout as sleepFor } from 'node:timers/promises';
-import { runner } from 'node-pg-migrate';
+import { jiti, runner, type MigrationBuilder, type RunnerOption } from 'node-pg-migrate';
 import pg from 'pg';
 
 const APPLICATION_NAME = 'migrate';
 const LOCK_NOT_AVAILABLE = '55P03';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
+const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
+const TRANSACTION_TIMEOUTS = [
+  "SET LOCAL lock_timeout = '1s'",
+  "SET LOCAL statement_timeout = '30s'",
+];
 
 export type RetryPolicy = {
   budgetMs: number;
@@ -70,6 +75,7 @@ async function applyMigrations(client: pg.Client, directory: string): Promise<st
     migrationsTable: 'pgmigrations',
     singleTransaction: false,
     advisoryLockMode: 'wait',
+    migrationLoaderStrategies: [{ extensions: MIGRATION_EXTENSIONS, loader: loadGuardedMigrations }],
     logger: { info: () => {}, warn: () => {}, error: () => {} },
   });
   return applied.map((migration) => migration.name);
@@ -78,4 +84,42 @@ async function applyMigrations(client: pg.Client, directory: string): Promise<st
 async function endCleanly(client: pg.Client): Promise<void> {
   await client.query('ROLLBACK').catch(() => undefined);
   await client.end();
+}
+
+type MigrationLoader = Exclude<
+  NonNullable<RunnerOption['migrationLoaderStrategies']>[number]['loader'],
+  string
+>;
+
+type AppMigrationBuilder = {
+  sql(statement: string): void;
+  noTransaction(): void;
+};
+
+type AppMigration = { up: (pgm: AppMigrationBuilder) => void };
+
+const loadGuardedMigrations: MigrationLoader = (filePaths) =>
+  Promise.all(
+    filePaths.map(async (filePath) => {
+      const migration = await jiti.import<AppMigration>(filePath);
+      return {
+        id: filePath,
+        filePaths: [filePath],
+        actions: { up: guardMigration(migration.up), down: false as const },
+      };
+    }),
+  );
+
+function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => void {
+  return (pgm) => {
+    const statements = recordStatements(up);
+    TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
+    statements.forEach((statement) => pgm.sql(statement));
+  };
+}
+
+function recordStatements(up: AppMigration['up']): string[] {
+  const statements: string[] = [];
+  up({ sql: (statement) => statements.push(statement), noTransaction: () => {} });
+  return statements;
 }
