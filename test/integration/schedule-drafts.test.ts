@@ -300,4 +300,22 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
     expect(findToolResult()).toBe(`{"ok":false,"error":"Dữ liệu không hợp lệ: ${field}"}`);
   });
+
+  it('adds no card and no choice when the draft was cancelled in the same turn', async () => {
+    const propose = { id: 'call_1', name: 'propose_scheduled_task', argumentsJson: JSON.stringify(DAILY_REPORT) };
+    harness.chat.follow(async (_request, callNumber) => {
+      if (callNumber === 1) return replyWithToolCalls(propose);
+      const [task] = await database.query<{ id: string }>('SELECT id FROM scheduled_tasks');
+      const cancel = { id: 'call_2', name: 'cancel_scheduled_task', argumentsJson: JSON.stringify({ task_id: task?.id }) };
+      return callNumber === 2 ? replyWithToolCalls(cancel) : replyWithText('Đã hủy.');
+    });
+
+    await harness.receiveText('zu-duy', 'Đặt rồi hủy lịch');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-duy', 'Đã hủy.']]);
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      { pending_choice: null },
+    ]);
+  });
 });
