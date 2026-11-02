@@ -16,6 +16,7 @@ export class WebhookAlertSink implements AlertSink {
       body: JSON.stringify({ text }),
       signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
     });
-    if (!response.ok) throw new Error(`alert webhook answered ${response.status}`);
+    await response.body?.cancel();
+    if (!response.ok) throw Object.assign(new Error('alert webhook refused the alert'), { status: response.status });
   }
 }
