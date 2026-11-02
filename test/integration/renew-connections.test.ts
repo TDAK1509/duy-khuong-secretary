@@ -133,13 +133,14 @@ describe('key renewal on the ticker', () => {
   }
 
   function runOneTick(): Promise<void> {
+    const clock = new FakeClock(NOW);
     return runTick({
       renewal: {
         database: pool,
         channelAuth,
         encryptionKey: ENCRYPTION_KEY,
-        clock: new FakeClock(NOW),
-        alerts: new OperatorAlerts(alertSink),
+        clock,
+        alerts: new OperatorAlerts(alertSink, clock),
       },
     });
   }
