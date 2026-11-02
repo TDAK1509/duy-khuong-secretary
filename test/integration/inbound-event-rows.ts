@@ -1,3 +1,4 @@
+import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
 export type EventRow = {
@@ -40,12 +41,4 @@ export async function insertInboundEvent(database: TemporaryDatabase, event: New
   );
   if (!row) throw new Error('event not inserted');
   return row.id;
-}
-
-function literal(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-function timestamp(value: Date | null): string {
-  return value ? `'${value.toISOString()}'::timestamptz` : 'NULL';
 }
