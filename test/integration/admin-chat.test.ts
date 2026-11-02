@@ -282,6 +282,20 @@ describe('an admin asks the bot', () => {
       expect(sentTexts()).toEqual([['zu-duy', 'Nhóm có 3 người.']]);
     });
 
+    it('answers the calls over the cap of one round with an error instead of running them', async () => {
+      const calls = Array.from({ length: 8 }, (_, index) => ({ ...LIST_MEMBERS_CALL, id: `call_${index}` }));
+      harness.chat.follow((_request, callNumber) =>
+        callNumber === 1 ? replyWithToolCalls(...calls) : replyWithText('Xong'),
+      );
+
+      await harness.receiveText('zu-duy', 'Nhóm có ai?');
+
+      const outputs = (harness.chat.requests[1]?.turns ?? []).flatMap((turn) => (turn.role === 'tool_result' ? [turn.output] : []));
+      expect(outputs).toHaveLength(8);
+      expect(outputs.filter((output) => output.includes('Hùng'))).toHaveLength(5);
+      expect(outputs.slice(5)).toEqual(Array(3).fill('{"ok":false,"error":"Dữ liệu không hợp lệ: calls"}'));
+    });
+
     it('stops after five rounds of tool calls', async () => {
       harness.chat.follow(() => replyWithToolCalls(LIST_MEMBERS_CALL));
 
