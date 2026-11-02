@@ -132,4 +132,14 @@ describe('the ticker runs the due scheduled tasks', () => {
       { next_run_at: new Date('2026-11-01T18:00:00+07:00'), last_run_at: harness.clock.now(), locked_until: null },
     ]);
   });
+
+  it('runs a one-time task once', async () => {
+    await insertDueTask();
+
+    await harness.runTick();
+    await harness.runTick();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM messages')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT next_run_at FROM scheduled_tasks')).toEqual([{ next_run_at: null }]);
+  });
 });
