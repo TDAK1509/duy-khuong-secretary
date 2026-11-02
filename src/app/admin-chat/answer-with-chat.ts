@@ -4,7 +4,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
-import { clearQuestionPending, setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
+import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { ADMIN_TOOLS } from './tools/admin-tools.ts';
 import { runToolLoop } from './run-tool-loop.ts';
 import { runAdminTool } from './tools/run-admin-tool.ts';
@@ -12,6 +12,7 @@ import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
+import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
@@ -24,7 +25,9 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<string> {
+type Answer = { text: string; photos: AttachablePhoto[] };
+
+async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
   const request = {
@@ -34,7 +37,8 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const dependencies = { database, clock, attachments: new PhotoAttachments() };
-  return runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  const text = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  return { text, photos: dependencies.attachments.list() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -48,13 +52,14 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
   return rows.length > 0;
 }
 
-async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: string): Promise<void> {
+async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
   if (!(await isStillSameAdmin(transaction, sender.membershipId))) return;
-  await storeBotReply(transaction, messageId, { text: answer, kind: 'answer' });
+  await storeBotReply(transaction, messageId, { text: answer.text, kind: 'answer' });
+  await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, answer, sender.membershipId);
+  await enqueueReply(transaction, context, answer.text, sender.membershipId);
 }
 
 async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {

@@ -52,4 +52,19 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":1}');
   });
+
+  it('links the attached photo to the bot answer', async () => {
+    const recordId = await insertPhotoRecord();
+    attachThenReply([recordId]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(
+      await database.query(`
+        SELECT reply.author AS reply_author, reply.text AS reply_text, source.user_id = '${harness.hungUserId}' AS from_hung
+        FROM reply_photos
+        JOIN messages reply ON reply.id = reply_photos.reply_message_id
+        JOIN messages source ON source.id = reply_photos.source_message_id`),
+    ).toEqual([{ reply_author: 'bot', reply_text: 'Đây là ảnh.', from_hung: true }]);
+  });
 });

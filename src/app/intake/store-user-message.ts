@@ -1,3 +1,4 @@
+import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
@@ -73,6 +74,21 @@ export async function storeBotReply(
      ON CONFLICT (reply_to, reply_kind) DO NOTHING`,
     [userMessageId, reply.text, reply.kind],
   );
+}
+
+export async function storeReplyPhotos(
+  transaction: Transaction,
+  userMessageId: string,
+  photos: AttachablePhoto[],
+): Promise<void> {
+  for (const photo of photos) {
+    await transaction.query(
+      `INSERT INTO reply_photos (reply_message_id, source_message_id, workspace_id)
+       SELECT id, $2, workspace_id FROM messages WHERE reply_to = $1 AND reply_kind = 'answer'
+       ON CONFLICT DO NOTHING`,
+      [userMessageId, photo.sourceMessageId],
+    );
+  }
 }
 
 export async function setSubmissionStatus(
