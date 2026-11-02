@@ -66,14 +66,15 @@ describe('the create-workspace command', () => {
     await runCommand(['Xe tải Duy Khương', 'Duy'], { log: (line) => lines.push(line) });
 
     const printedCode = /MOI-[A-Z0-9]{6}/.exec(lines.join('\n'))?.[0] ?? '';
+    const normalizedCode = printedCode.replace('-', '');
     const [invite] = await database.query<Record<string, unknown>>(
       'SELECT * FROM workspace_invites',
     );
+    const storedValues = Object.values(invite ?? {}).map(String);
     expect(printedCode).not.toBe('');
-    expect(invite?.['code_hash']).toBe(
-      createHash('sha256').update(printedCode.replace('-', '')).digest('hex'),
-    );
-    expect(JSON.stringify(invite)).not.toContain(printedCode.slice(4));
+    expect(invite?.['code_hash']).toBe(createHash('sha256').update(normalizedCode).digest('hex'));
+    expect(storedValues.some((value) => value.includes(printedCode))).toBe(false);
+    expect(storedValues.some((value) => value.includes(normalizedCode))).toBe(false);
   });
 
   it('creates nothing when the workspace name is only spaces', async () => {
