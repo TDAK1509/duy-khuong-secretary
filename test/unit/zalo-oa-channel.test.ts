@@ -92,6 +92,12 @@ describe('ZaloOaChannel.parseEvent', () => {
     expect(channel.parseEvent(withoutImage)).toEqual({ kind: 'ignored' });
   });
 
+  it('ignores an event whose timestamp is outside the range of a date', () => {
+    const { body } = loadSignedFixture('text-event');
+
+    expect(channel.parseEvent(body.replace('1793588400000', '99999999999999999'))).toEqual({ kind: 'ignored' });
+  });
+
   it('ignores a body that is not a Zalo event', () => {
     expect(channel.parseEvent('not json')).toEqual({ kind: 'ignored' });
   });

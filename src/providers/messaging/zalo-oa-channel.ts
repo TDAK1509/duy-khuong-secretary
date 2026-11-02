@@ -14,7 +14,7 @@ const attachmentSchema = z.object({
 
 const eventSchema = z.object({
   event_name: z.string(),
-  timestamp: z.coerce.number(),
+  timestamp: z.coerce.number().refine(isDateTimestamp),
   sender: z.object({ id: z.string() }),
   recipient: z.object({ id: z.string() }),
   message: z.object({
@@ -67,6 +67,10 @@ function isSameText(first: string, second: string): boolean {
   const firstBytes = Buffer.from(first);
   const secondBytes = Buffer.from(second);
   return firstBytes.length === secondBytes.length && timingSafeEqual(firstBytes, secondBytes);
+}
+
+function isDateTimestamp(milliseconds: number): boolean {
+  return !Number.isNaN(new Date(milliseconds).getTime());
 }
 
 function readJson<Shape>(rawBody: string, schema: z.ZodType<Shape>): Shape | null {
