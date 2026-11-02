@@ -69,4 +69,8 @@ describe('loadReaderConfig', () => {
 
     expect(() => loadReaderConfig(environment)).toThrow(/READER_CHEAP_2_BASE_URL/);
   });
+
+  it('refuses a timeout that is not a positive whole number and names the value', () => {
+    expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_TIMEOUT_MS: '0' })).toThrow(/READER_TIMEOUT_MS/);
+  });
 });
