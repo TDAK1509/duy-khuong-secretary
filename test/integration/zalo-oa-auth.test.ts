@@ -84,6 +84,14 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     expect(result).toEqual({ ok: false, reason: 'no_answer' });
   });
 
+  it('turns a server error answer to a renewal into no answer', async () => {
+    const { auth } = await startAuth({ kind: 'reply', status: 502, body: 'Bad Gateway' });
+
+    const result = await auth.refresh('r1');
+
+    expect(result).toEqual({ ok: false, reason: 'no_answer' });
+  });
+
   async function startAuth(
     answer: StubAnswer,
     timeoutMs = 5000,

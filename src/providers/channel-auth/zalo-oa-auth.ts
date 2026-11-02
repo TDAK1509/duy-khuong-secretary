@@ -1,8 +1,18 @@
 import { z } from 'zod';
-import type { ChannelAuth, AuthResult } from '../../services/channel-auth/channel-auth.ts';
+import type { AuthResult, ChannelAuth } from '../../services/channel-auth/channel-auth.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 
 const REFRESH_KEY_VALID_FOR_MS = 90 * 24 * 60 * 60 * 1000;
+const SERVER_ERROR_STATUS = 500;
+
+const REQUEST_NEVER_SENT_CODES = [
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+];
 
 const tokenAnswerSchema = z.object({
   access_token: z.string(),
@@ -44,6 +54,29 @@ export class ZaloOaAuth implements ChannelAuth {
     });
   }
 
+  async refresh(refreshToken: string): Promise<AuthResult> {
+    return this.requestTokens({ refresh_token: refreshToken, grant_type: 'refresh_token' });
+  }
+
+  private async requestTokens(fields: Record<string, string>): Promise<AuthResult> {
+    try {
+      const response = await this.postForm(fields);
+      if (response.status >= SERVER_ERROR_STATUS) return { ok: false, reason: 'no_answer' };
+      return this.readTokens(await response.json());
+    } catch (error) {
+      return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
+    }
+  }
+
+  private postForm(fields: Record<string, string>): Promise<Response> {
+    return fetch(new URL('/v4/oa/access_token', this.settings.oauthBaseUrl), {
+      method: 'POST',
+      headers: { secret_key: this.settings.appSecret },
+      body: new URLSearchParams({ app_id: this.settings.appId, ...fields }),
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+  }
+
   private readTokens(answer: unknown): AuthResult {
     const tokens = tokenAnswerSchema.safeParse(answer);
     if (!tokens.success) return { ok: false, reason: carriesZaloError(answer) ? 'rejected' : 'no_answer' };
@@ -59,35 +92,15 @@ export class ZaloOaAuth implements ChannelAuth {
       },
     };
   }
+}
 
-  async refresh(refreshToken: string): Promise<AuthResult> {
-    return this.requestTokens({ refresh_token: refreshToken, grant_type: 'refresh_token' });
-  }
-
-  private async requestTokens(fields: Record<string, string>): Promise<AuthResult> {
-    try {
-      const response = await this.postForm(fields);
-      return this.readTokens(await response.json());
-    } catch (error) {
-      return { ok: false, reason: isTimeout(error) ? 'no_answer' : 'unavailable' };
-    }
-  }
-
-  private postForm(fields: Record<string, string>): Promise<Response> {
-    return fetch(new URL('/v4/oa/access_token', this.settings.oauthBaseUrl), {
-      method: 'POST',
-      headers: { secret_key: this.settings.appSecret },
-      body: new URLSearchParams({ app_id: this.settings.appId, ...fields }),
-      signal: AbortSignal.timeout(this.settings.timeoutMs),
-    });
-  }
+function wasNeverSent(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : null;
+  const code = cause instanceof Error && 'code' in cause ? cause.code : null;
+  return typeof code === 'string' && REQUEST_NEVER_SENT_CODES.includes(code);
 }
 
 function carriesZaloError(answer: unknown): boolean {
   const parsed = errorAnswerSchema.safeParse(answer);
   return parsed.success && parsed.data.error !== 0;
-}
-
-function isTimeout(error: unknown): boolean {
-  return error instanceof Error && error.name === 'TimeoutError';
 }
