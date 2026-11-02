@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -155,6 +156,18 @@ describe('an admin drafts a scheduled task by chat', () => {
     await harness.sendQueuedTexts();
 
     expect(await database.query('SELECT status FROM outbound_messages')).toEqual([{ status: 'unknown' }]);
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      { pending_choice: null },
+    ]);
+  });
+
+  it('stores no choice for a card sent after a newer message of the admin', async () => {
+    proposeThenReply({});
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await insertInboundEvent(database, { externalUserId: 'zu-duy', text: 'chào' });
+
+    await harness.sendQueuedTexts();
+
     expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
       { pending_choice: null },
     ]);
