@@ -155,4 +155,21 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items.map((row) => [row.sent_on, row.days_since_sent])).toEqual([['2026-10-01', 30]]);
   });
+
+  it('never shows the trucks of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertRecordRow(database, {
+      workspaceId: otherWorkspaceId,
+      userId: vyUserId,
+      senderName: 'Vy',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+    });
+
+    const result = await runStatus();
+
+    expect(result.items).toEqual([]);
+  });
 });
