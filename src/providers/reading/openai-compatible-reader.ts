@@ -29,7 +29,7 @@ export class OpenAiCompatibleReader implements ReaderService {
   }
 
   async read(request: ReaderRequest): Promise<ReaderResult> {
-    await this.client.chat.completions.create({
+    const completion = await this.client.chat.completions.create({
       model: this.model,
       messages: [
         { role: 'system', content: request.system },
@@ -41,7 +41,7 @@ export class OpenAiCompatibleReader implements ReaderService {
         json_schema: { name: request.schemaName, schema: request.schema, strict: true },
       },
     });
-    return { ok: true, json: {} };
+    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
   }
 }
 

@@ -89,6 +89,14 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(server.requests[0]?.body).not.toHaveProperty('reasoning_effort');
   });
+
+  it('returns the JSON reply parsed', async () => {
+    const server = await startServer(VALID_REPLY);
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toEqual({ ok: true, json: { has_work_data: false, has_question: true, items: [] } });
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {
