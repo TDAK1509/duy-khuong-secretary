@@ -70,4 +70,10 @@ describe('import rules', () => {
 
     expect(messages).toEqual([]);
   });
+
+  it('allows the migration entry to import the migration tool', async () => {
+    const messages = await lintFixture('migrate-import-migration-tool', 'src/bootstrap/migrate.ts');
+
+    expect(messages).toEqual([]);
+  });
 });

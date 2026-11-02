@@ -24,6 +24,7 @@ export function makeArchitectureConfig(rootDir) {
       mayImportVendors: true,
       isMigrationToolForbidden: true,
     }),
+    makeMigrationEntryConfig(),
   ];
 }
 
@@ -44,6 +45,11 @@ function listProviderRoles(rootDir) {
   return readdirSync(providersDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
+}
+
+/** @returns {import('eslint').Linter.Config} */
+function makeMigrationEntryConfig() {
+  return { files: ['src/bootstrap/migrate.ts'], rules: { 'import-x/no-restricted-paths': 'off' } };
 }
 
 /** @returns {import('eslint').Linter.Config} */
