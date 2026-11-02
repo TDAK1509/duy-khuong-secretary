@@ -254,6 +254,20 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('asks for the plate when a maintenance item has none', async () => {
+    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.',
+      ],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
