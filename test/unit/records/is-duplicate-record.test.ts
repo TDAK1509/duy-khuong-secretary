@@ -86,4 +86,10 @@ describe('isDuplicateRecord', () => {
   it('finds an item with another date not a duplicate', () => {
     expect(isDuplicateRecord(makeFields(), makeFields({ occurredOn: '2026-10-31' }))).toBe(false);
   });
+
+  it('finds an item with other identifiers not a duplicate', () => {
+    expect(isDuplicateRecord(makeFields({ identifiers: ['DT2024889'] }), makeFields({ identifiers: ['DT2024890'] }))).toBe(
+      false,
+    );
+  });
 });

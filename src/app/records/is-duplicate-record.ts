@@ -13,6 +13,7 @@ export function isDuplicateRecord(existing: DuplicateFields, candidate: Duplicat
     existing.amountVnd === candidate.amountVnd &&
     existing.occurredOn === candidate.occurredOn &&
     existing.vehiclePlate === candidate.vehiclePlate &&
+    isSameSet(existing.identifiers, candidate.identifiers) &&
     haveSameDetails(existing, candidate)
   );
 }
