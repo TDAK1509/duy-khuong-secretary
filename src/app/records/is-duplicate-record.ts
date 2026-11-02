@@ -9,6 +9,7 @@ export function isDuplicateRecord(existing: DuplicateFields, candidate: Duplicat
   return (
     existing.category === candidate.category &&
     existing.documentNumber === candidate.documentNumber &&
-    existing.amountVnd === candidate.amountVnd
+    existing.amountVnd === candidate.amountVnd &&
+    existing.vehiclePlate === candidate.vehiclePlate
   );
 }

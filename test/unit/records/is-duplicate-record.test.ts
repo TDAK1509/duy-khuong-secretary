@@ -29,4 +29,17 @@ describe('isDuplicateRecord', () => {
   it('finds an item with another amount not a duplicate', () => {
     expect(isDuplicateRecord(makeFields(), makeFields({ amountVnd: 1520000 }))).toBe(false);
   });
+
+  it('finds an item with another plate not a duplicate', () => {
+    const oilChange = makeFields({
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      documentNumber: null,
+      occurredOn: '2026-10-01',
+      amountVnd: 850000,
+    });
+
+    expect(isDuplicateRecord(oilChange, { ...oilChange, vehiclePlate: '29C12346' })).toBe(false);
+  });
 });
