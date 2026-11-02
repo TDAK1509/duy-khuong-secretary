@@ -42,4 +42,12 @@ describe('OpenAiCompatibleChat', () => {
     expect(server.requests[0]?.body['model']).toBe('gpt-6-luna');
     expect((server.requests[0]?.body['messages'] as unknown[])[0]).toEqual({ role: 'system', content: 'S' });
   });
+
+  it('sends the configured reasoning effort', async () => {
+    const server = await startServer(TEXT_REPLY);
+
+    await makeChat(server, { reasoningEffort: 'none' }).respond(REQUEST);
+
+    expect(server.requests[0]?.body['reasoning_effort']).toBe('none');
+  });
 });
