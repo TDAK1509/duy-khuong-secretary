@@ -32,9 +32,11 @@ export type PhotoStorageConfig = {
 export type PhotoStorageConfigResult = { ok: true; config: PhotoStorageConfig } | { ok: false; missing: string[] };
 
 export function loadPhotoStorageConfig(environment: NodeJS.ProcessEnv): PhotoStorageConfigResult {
-  const missing = REQUIRED_NAMES.filter((name) => !environment[name]);
+  const supplied = dropEmptyValues(environment);
+  checkSuppliedValues(supplied);
+  const missing = REQUIRED_NAMES.filter((name) => !supplied[name]);
   if (missing.length > 0) return { ok: false, missing };
-  const settings = parseSettings(environment);
+  const settings = environmentSchema.parse(supplied);
   return {
     ok: true,
     config: {
@@ -49,10 +51,9 @@ export function loadPhotoStorageConfig(environment: NodeJS.ProcessEnv): PhotoSto
   };
 }
 
-function parseSettings(environment: NodeJS.ProcessEnv): z.infer<typeof environmentSchema> {
-  const parsed = environmentSchema.safeParse(dropEmptyValues(environment));
+function checkSuppliedValues(supplied: Record<string, string>): void {
+  const parsed = environmentSchema.partial().safeParse(supplied);
   if (!parsed.success) throw new Error(`Invalid configuration: ${describeIssues(parsed.error)}`);
-  return parsed.data;
 }
 
 function dropEmptyValues(environment: NodeJS.ProcessEnv): Record<string, string> {

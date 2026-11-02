@@ -38,6 +38,10 @@ describe('loadPhotoStorageConfig', () => {
     expect(result).toMatchObject({ ok: true, config: { forcePathStyle: true } });
   });
 
+  it('refuses an unknown storage provider and names the value even when other values are missing', () => {
+    expect(() => loadPhotoStorageConfig({ PHOTO_STORAGE: 'invalid' })).toThrow(/PHOTO_STORAGE/);
+  });
+
   it('refuses a malformed endpoint and names the value', () => {
     expect(() => loadPhotoStorageConfig({ ...COMPLETE_ENVIRONMENT, S3_ENDPOINT: 'nope' })).toThrow(/S3_ENDPOINT/);
   });
