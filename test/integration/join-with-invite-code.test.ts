@@ -18,6 +18,7 @@ import { insertInvite, insertWorkspace } from './workspace-rows.ts';
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const CODE = 'MOI-7K4P9X';
+const SECOND_CODE = 'MOI-3M9QWE';
 const INVALID_CODE_TEXT = 'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.';
 
 describe('joining a workspace with an invite code', () => {
@@ -182,6 +183,21 @@ describe('joining a workspace with an invite code', () => {
     await sendQueuedTexts();
 
     expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-hung', INVALID_CODE_TEXT]]);
+  });
+
+  it('leaves the invite unused for someone who is already in that workspace', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await insertInvite(database, { workspaceId, code: SECOND_CODE, displayName: 'Lan', role: 'member' });
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+
+    await receiveText('zu-hung', SECOND_CODE);
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text).slice(1)).toEqual(['Bạn đã ở trong nhóm "Xe tải Duy Khương".']);
+    expect(await database.query('SELECT used_at FROM workspace_invites WHERE display_name = \'Lan\'')).toEqual([
+      { used_at: null },
+    ]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {

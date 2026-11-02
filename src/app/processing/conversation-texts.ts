@@ -9,7 +9,14 @@ const JOINED_ADMIN_HINT = 'Bạn có thể hỏi Trợ lý về dữ liệu củ
 const INVALID_CODE_TEXT = 'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.';
 
 export function formatJoinResult(result: JoinResult): string {
-  return result.kind === 'invalid_code' ? INVALID_CODE_TEXT : formatJoinedText(result);
+  switch (result.kind) {
+    case 'invalid_code':
+      return INVALID_CODE_TEXT;
+    case 'already_member':
+      return `Bạn đã ở trong nhóm "${result.workspaceName}".`;
+    case 'joined':
+      return formatJoinedText(result);
+  }
 }
 
 function formatJoinedText({ workspaceName, displayName, role }: Extract<JoinResult, { kind: 'joined' }>): string {
