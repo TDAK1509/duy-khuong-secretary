@@ -42,4 +42,18 @@ describe('isDuplicateRecord', () => {
 
     expect(isDuplicateRecord(oilChange, { ...oilChange, vehiclePlate: '29C12346' })).toBe(false);
   });
+
+  it('finds an item with the same details in another order a duplicate', () => {
+    const stationThenLiters = [
+      { label: 'Tên trạm', value: 'A' },
+      { label: 'Số lít', value: '50' },
+    ];
+
+    expect(
+      isDuplicateRecord(
+        makeFields({ details: stationThenLiters }),
+        makeFields({ details: [...stationThenLiters].reverse() }),
+      ),
+    ).toBe(true);
+  });
 });
