@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { OpenAiCompatibleChat, type OpenAiCompatibleChatSettings } from '../../src/providers/chat/openai-compatible-chat.ts';
 import type { ChatRequest } from '../../src/services/chat/chat-service.ts';
+import type { Photo } from '../../src/services/storage/photo-storage.ts';
 import { makeCompletionReply, makeToolCallReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
 
 const TEXT_REPLY = makeCompletionReply('Chào anh');
@@ -102,5 +103,16 @@ describe('OpenAiCompatibleChat', () => {
       },
       { role: 'tool', tool_call_id: 'call_1', content: '{"members":[]}' },
     ]);
+  });
+
+  it('sends a user photo as an image part', async () => {
+    const server = await startServer(TEXT_REPLY);
+    const image: Photo = { bytes: new Uint8Array([0xff, 0xd8, 0xff]), contentType: 'image/jpeg' };
+
+    await makeChat(server).respond({ ...REQUEST, turns: [{ role: 'user', text: 'Đây là gì?', image }] });
+
+    const [, user] = server.requests[0]?.body['messages'] as { content: { type: string; text?: string; image_url?: { url: string } }[] }[];
+    expect(user?.content[0]).toEqual({ type: 'text', text: 'Đây là gì?' });
+    expect(user?.content[1]?.image_url?.url).toMatch(/^data:image\/jpeg;base64,/);
   });
 });
