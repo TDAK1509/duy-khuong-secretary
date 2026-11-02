@@ -28,19 +28,6 @@ export function makeArchitectureConfig(rootDir) {
 }
 
 /** @returns {import('eslint').Linter.Config} */
-function makeMigrationEntryConfig() {
-  return { files: ['src/bootstrap/migrate.ts'], rules: { 'import-x/no-restricted-paths': 'off' } };
-}
-
-/** @returns {import('eslint').Linter.Config} */
-function makeTestConfig(rootDir) {
-  return {
-    files: ['test/**/*.ts'],
-    rules: restrictPaths(rootDir, [{ target: './test', from: MIGRATION_TOOL_PATH }]),
-  };
-}
-
-/** @returns {import('eslint').Linter.Config} */
 function makeParserConfig() {
   return {
     files: ['**/*.ts'],
@@ -102,5 +89,18 @@ function restrictVendorPackages() {
         ],
       },
     ],
+  };
+}
+
+/** @returns {import('eslint').Linter.Config} */
+function makeMigrationEntryConfig() {
+  return { files: ['src/bootstrap/migrate.ts'], rules: { 'import-x/no-restricted-paths': 'off' } };
+}
+
+/** @returns {import('eslint').Linter.Config} */
+function makeTestConfig(rootDir) {
+  return {
+    files: ['test/**/*.ts'],
+    rules: restrictPaths(rootDir, [{ target: './test', from: MIGRATION_TOOL_PATH }]),
   };
 }

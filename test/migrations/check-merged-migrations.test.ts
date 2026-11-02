@@ -11,15 +11,6 @@ describe('checkMergedMigrations', () => {
     fixtures.splice(0).forEach((fixture) => fixture.remove());
   });
 
-  function createFixtureWithMergedMigration(): GitFixture {
-    const fixture = createGitFixture();
-    fixtures.push(fixture);
-    fixture.writeFile(MIGRATION_A, 'CREATE TABLE a (id int);\n');
-    fixture.commitAll('add migration a');
-    fixture.startBranch('feature');
-    return fixture;
-  }
-
   it('fails when the branch edits a merged migration', () => {
     const fixture = createFixtureWithMergedMigration();
     fixture.writeFile(MIGRATION_A, 'CREATE TABLE a (id bigint);\n');
@@ -30,6 +21,15 @@ describe('checkMergedMigrations', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('0001_a.sql');
   });
+
+  function createFixtureWithMergedMigration(): GitFixture {
+    const fixture = createGitFixture();
+    fixtures.push(fixture);
+    fixture.writeFile(MIGRATION_A, 'CREATE TABLE a (id int);\n');
+    fixture.commitAll('add migration a');
+    fixture.startBranch('feature');
+    return fixture;
+  }
 
   it('fails when the branch renames a merged migration', () => {
     const fixture = createFixtureWithMergedMigration();
