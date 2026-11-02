@@ -1,8 +1,9 @@
-import type { Database } from '../db/transaction.ts';
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
 const LOCK_MS = 2 * 60 * 1000;
 const THROTTLE_WINDOW_MS = 60 * 1000;
+const CLAIM_LOCK_KEY = 80_001;
 
 type ClaimedRow = {
   id: string;
@@ -19,7 +20,16 @@ export async function claimOutboundMessage(
   now: Date,
   maxPerMinute: number,
 ): Promise<ClaimedMessage | null> {
-  const { rows } = await database.query<ClaimedRow>(
+  const rows = await runInTransaction(database, async (transaction) => {
+    await transaction.query('SELECT pg_advisory_xact_lock($1)', [CLAIM_LOCK_KEY]);
+    return claimNextRow(transaction, now, maxPerMinute);
+  });
+  const [row] = rows;
+  return row ? describeClaim(row) : null;
+}
+
+function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number): Promise<ClaimedRow[]> {
+  return transaction.query<ClaimedRow>(
     `WITH candidate AS (
        SELECT id FROM outbound_messages
        WHERE status = 'queued' AND kind = 'text' AND available_at <= $1
@@ -43,8 +53,6 @@ export async function claimOutboundMessage(
      RETURNING outbound_messages.id, channel, account_id, external_user_id, body, admin_membership_id, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
-  const [row] = rows;
-  return row ? describeClaim(row) : null;
 }
 
 function describeClaim(row: ClaimedRow): ClaimedMessage {
