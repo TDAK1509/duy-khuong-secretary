@@ -129,6 +129,17 @@ describe('the outbound worker step', () => {
     });
   });
 
+  it('fails a text and alerts after the fifth unreachable attempt', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { attempts: 4 });
+    channel.nextTextResult = { ok: false, reason: 'unavailable' };
+
+    await runStep();
+
+    expect((await readMessage(id)).status).toBe('failed');
+    expect(alertSink.texts).toEqual([`[alert] Outbound message ${id} failed after 5 attempts.`]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);

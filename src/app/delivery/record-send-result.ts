@@ -1,36 +1,21 @@
 import type { SendResult } from '../../services/messaging/messaging-channel.ts';
 import type { Clock } from '../../services/clock/clock.ts';
+import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import type { Database } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
+import { decideSendOutcome, type Settlement } from './decide-send-outcome.ts';
 
-const RATE_LIMIT_WAIT_MS = 60_000;
-const UNREACHABLE_FIRST_WAIT_MS = 30_000;
-
-export type ResultDependencies = { database: Database; clock: Clock };
-
-type Settlement = {
-  status: 'sent' | 'queued' | 'failed' | 'unknown';
-  availableAt?: Date;
-  sentAt?: Date;
-  lastError?: string;
-};
+export type ResultDependencies = { database: Database; clock: Clock; alerts: OperatorAlerts };
 
 export async function recordSendResult(
   dependencies: ResultDependencies,
   message: ClaimedMessage,
   result: SendResult,
 ): Promise<void> {
-  const now = dependencies.clock.now();
-  if (result.ok) {
-    await settleMessage(dependencies.database, message, { status: 'sent', sentAt: now });
-    return;
-  }
-  const waitMs = result.reason === 'unavailable' ? UNREACHABLE_FIRST_WAIT_MS * 2 ** (message.attempts - 1) : RATE_LIMIT_WAIT_MS;
-  await settleMessage(dependencies.database, message, {
-    status: 'queued',
-    availableAt: new Date(now.getTime() + waitMs),
-    lastError: result.reason,
-  });
+  const { database, clock, alerts } = dependencies;
+  const outcome = decideSendOutcome(message, result, clock.now());
+  const isSettled = await settleMessage(database, message, outcome.settlement);
+  if (isSettled && outcome.alert) await alerts.raise(outcome.alert);
 }
 
 async function settleMessage(database: Database, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {

@@ -1,0 +1,57 @@
+import type { SendResult } from '../../services/messaging/messaging-channel.ts';
+import { describeOutboundMessageFailed } from '../alerts/alert-texts.ts';
+import type { ClaimedMessage } from './claimed-message.ts';
+
+export type Settlement = {
+  status: 'sent' | 'queued' | 'failed' | 'unknown';
+  availableAt?: Date;
+  sentAt?: Date;
+  lastError?: string;
+};
+
+export type SendOutcome = { settlement: Settlement; alert?: string };
+
+type FailedSend = Extract<SendResult, { ok: false }>;
+
+const RATE_LIMIT_WAIT_MS = 60_000;
+const RATE_LIMIT_MAX_ATTEMPTS = 10;
+const UNREACHABLE_FIRST_WAIT_MS = 30_000;
+const UNREACHABLE_MAX_ATTEMPTS = 5;
+
+export function decideSendOutcome(message: ClaimedMessage, result: SendResult, now: Date): SendOutcome {
+  if (result.ok) return { settlement: { status: 'sent', sentAt: now } };
+  return decideFailureOutcome(message, result, now);
+}
+
+function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: Date): SendOutcome {
+  switch (result.reason) {
+    case 'rate_limited':
+      return retryOrGiveUp(message, result, now, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WAIT_MS);
+    case 'unavailable':
+      return retryOrGiveUp(
+        message,
+        result,
+        now,
+        UNREACHABLE_MAX_ATTEMPTS,
+        UNREACHABLE_FIRST_WAIT_MS * 2 ** (message.attempts - 1),
+      );
+    default:
+      return { settlement: { status: 'queued', lastError: result.reason } };
+  }
+}
+
+function retryOrGiveUp(
+  message: ClaimedMessage,
+  result: FailedSend,
+  now: Date,
+  maxAttempts: number,
+  waitMs: number,
+): SendOutcome {
+  if (message.attempts >= maxAttempts) {
+    return {
+      settlement: { status: 'failed', lastError: result.reason },
+      alert: describeOutboundMessageFailed(message.id, message.attempts),
+    };
+  }
+  return { settlement: { status: 'queued', availableAt: new Date(now.getTime() + waitMs), lastError: result.reason } };
+}
