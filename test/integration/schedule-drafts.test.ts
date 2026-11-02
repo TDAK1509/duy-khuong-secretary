@@ -338,4 +338,18 @@ describe('an admin drafts a scheduled task by chat', () => {
       { pending_choice: null },
     ]);
   });
+
+  it('clears the choice for a message received at the same moment as the event that offered it', async () => {
+    proposeThenReply({});
+    const sameMoment = new Date('2026-10-31T10:00:00+07:00');
+    await insertInboundEvent(database, { externalUserId: 'zu-duy', text: 'Mỗi ngày 18 giờ gửi tôi báo cáo', receivedAt: sameMoment });
+    await harness.runInbound();
+    await harness.sendQueuedTexts();
+    await insertInboundEvent(database, { externalUserId: 'zu-duy', text: 'chào', receivedAt: sameMoment });
+    await harness.runInbound();
+
+    await harness.receiveText('zu-duy', '1');
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+  });
 });

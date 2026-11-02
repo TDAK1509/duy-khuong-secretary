@@ -6,7 +6,7 @@ export async function storeOfferedChoice(transaction: Transaction, messageId: st
   if (await hasNewerInboundEvent(transaction, messageId)) return;
   await transaction.query(
     `UPDATE channel_identities
-     SET pending_choice = (SELECT offered_choice - 'source_received_at' FROM outbound_messages WHERE id = $2)
+     SET pending_choice = (SELECT offered_choice - 'source_received_at' - 'source_event_id' FROM outbound_messages WHERE id = $2)
      WHERE id = $1`,
     [recipient.id, messageId],
   );
