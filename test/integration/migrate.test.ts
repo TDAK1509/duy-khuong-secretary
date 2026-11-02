@@ -35,6 +35,20 @@ describe('the migration runner', () => {
 
     expect(lines).toContain('[migrate] nothing to apply');
   });
+
+  it('applies each migration once when two runners start together', async () => {
+    await database.query('CREATE TABLE fixture_rows (id integer)');
+    const directory = new URL('insert-row/', fixtures);
+    const environment = { MIGRATION_DATABASE_URL: database.url };
+
+    const exitCodes = await Promise.all([
+      runMigrationCommand(environment, { directory, log: () => {} }),
+      runMigrationCommand(environment, { directory, log: () => {} }),
+    ]);
+
+    expect(exitCodes).toEqual([0, 0]);
+    expect(await database.query('SELECT id FROM fixture_rows')).toHaveLength(1);
+  });
 });
 
 async function listAppliedMigrations(database: TemporaryDatabase): Promise<string[]> {

@@ -12,6 +12,7 @@ export async function migrateDatabase(run: MigrationRun): Promise<string[]> {
     direction: 'up',
     migrationsTable: 'pgmigrations',
     singleTransaction: false,
+    advisoryLockMode: 'wait',
     logger: { info: () => {}, warn: () => {}, error: console.error },
   });
   return applied.map((migration) => migration.name);
