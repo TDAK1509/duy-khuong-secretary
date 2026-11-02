@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleepFor } from 'node:timers/promises';
-import { jiti, runner, type MigrationBuilder, type RunnerOption } from 'node-pg-migrate';
+import { PG_MIGRATE_LOCK_ID, jiti, runner, type MigrationBuilder, type RunnerOption } from 'node-pg-migrate';
 import pg from 'pg';
 
 const APPLICATION_NAME = 'migrate';
@@ -42,7 +42,7 @@ export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutco
   const deadline = retry.now() + retry.budgetMs;
   for (;;) {
     try {
-      return await migrateOnce(run);
+      return await migrateOnce(run, deadline - retry.now());
     } catch (error) {
       if (!isLockBusy(error)) throw error;
       await sleepWithinBudget(retry, deadline, error);
@@ -50,7 +50,7 @@ export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutco
   }
 }
 
-async function migrateOnce(run: MigrationRun): Promise<MigrationOutcome> {
+async function migrateOnce(run: MigrationRun, lockWaitMs: number): Promise<MigrationOutcome> {
   const client = new pg.Client({
     connectionString: run.databaseUrl,
     application_name: APPLICATION_NAME,
@@ -58,7 +58,7 @@ async function migrateOnce(run: MigrationRun): Promise<MigrationOutcome> {
   client.on('error', () => {});
   await client.connect();
   try {
-    return await applyMigrations(client, run.directory);
+    return await applyMigrations(client, run.directory, lockWaitMs);
   } finally {
     await endCleanly(client);
   }
@@ -69,7 +69,12 @@ async function endCleanly(client: pg.Client): Promise<void> {
   await client.end();
 }
 
-async function applyMigrations(client: pg.Client, directory: string): Promise<MigrationOutcome> {
+async function applyMigrations(
+  client: pg.Client,
+  directory: string,
+  lockWaitMs: number,
+): Promise<MigrationOutcome> {
+  await takeMigrationLock(client, lockWaitMs);
   if (await isDatabaseAhead(client, directory)) return { kind: 'database-ahead' };
   const applied = await runner({
     dbClient: client,
@@ -77,11 +82,17 @@ async function applyMigrations(client: pg.Client, directory: string): Promise<Mi
     direction: 'up',
     migrationsTable: 'pgmigrations',
     singleTransaction: false,
-    advisoryLockMode: 'wait',
+    noLock: true,
     migrationLoaderStrategies: [{ extensions: MIGRATION_EXTENSIONS, loader: loadGuardedMigrations }],
     logger: { info: () => {}, warn: () => {}, error: () => {} },
   });
   return { kind: 'applied', names: applied.map((migration) => migration.name) };
+}
+
+async function takeMigrationLock(client: pg.Client, waitMs: number): Promise<void> {
+  await client.query(`SET lock_timeout = ${Math.max(1, Math.floor(waitMs))}`);
+  await client.query('SELECT pg_advisory_lock($1)', [PG_MIGRATE_LOCK_ID]);
+  await client.query('RESET lock_timeout');
 }
 
 async function isDatabaseAhead(client: pg.Client, directory: string): Promise<boolean> {
@@ -200,7 +211,7 @@ function isLockBusy(error: unknown): boolean {
 
 function giveUp(error: unknown, budgetMs: number): Error {
   const reason = error instanceof Error ? error.message : String(error);
-  return new Error(`gave up on busy table locks after ${budgetMs} ms: ${reason}`, { cause: error });
+  return new Error(`gave up waiting for locks after ${budgetMs} ms: ${reason}`, { cause: error });
 }
 
 function pickRetryDelayMs(): number {

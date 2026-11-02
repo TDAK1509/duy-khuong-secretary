@@ -1,3 +1,4 @@
+import { PG_MIGRATE_LOCK_ID } from 'node-pg-migrate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
 import { listAppliedMigrations } from './list-applied-migrations.ts';
@@ -92,4 +93,23 @@ describe('the migration runner', () => {
     );
     expect(await database.query('SELECT id FROM fixture_rows')).toEqual([]);
   });
+
+  it('gives up within the retry budget when another runner holds the migration lock', async () => {
+    const otherRunner = await database.openSession();
+    await otherRunner.query('SELECT pg_advisory_lock($1)', [PG_MIGRATE_LOCK_ID]);
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: new URL('two-tables/', fixtures),
+        log: (line) => lines.push(line),
+        retry: { budgetMs: 1000 },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('gave up waiting for locks after 1000 ms');
+    expect(await database.query("SELECT to_regclass('a') AS found")).toEqual([{ found: null }]);
+  }, 10_000);
 });
