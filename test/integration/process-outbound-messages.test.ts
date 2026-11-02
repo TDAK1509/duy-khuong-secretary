@@ -115,6 +115,20 @@ describe('the outbound worker step', () => {
     });
   });
 
+  it('retries a text that never reached Zalo after 30 seconds', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { attempts: 0 });
+    channel.nextTextResult = { ok: false, reason: 'unavailable' };
+
+    await runStep();
+
+    expect(await readMessage(id)).toMatchObject({
+      status: 'queued',
+      available_at: new Date(NOW.getTime() + 30_000),
+      last_error: 'unavailable',
+    });
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);

@@ -4,6 +4,7 @@ import type { Database } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
 const RATE_LIMIT_WAIT_MS = 60_000;
+const UNREACHABLE_FIRST_WAIT_MS = 30_000;
 
 export type ResultDependencies = { database: Database; clock: Clock };
 
@@ -24,9 +25,10 @@ export async function recordSendResult(
     await settleMessage(dependencies.database, message, { status: 'sent', sentAt: now });
     return;
   }
+  const waitMs = result.reason === 'unavailable' ? UNREACHABLE_FIRST_WAIT_MS * 2 ** (message.attempts - 1) : RATE_LIMIT_WAIT_MS;
   await settleMessage(dependencies.database, message, {
     status: 'queued',
-    availableAt: new Date(now.getTime() + RATE_LIMIT_WAIT_MS),
+    availableAt: new Date(now.getTime() + waitMs),
     lastError: result.reason,
   });
 }
