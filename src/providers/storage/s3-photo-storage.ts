@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 
 export type S3PhotoStorageSettings = {
@@ -10,7 +10,12 @@ export type S3PhotoStorageSettings = {
   forcePathStyle: boolean;
 };
 
-export type S3Sender = { send(command: PutObjectCommand): Promise<unknown> };
+export type S3Answer = {
+  ContentType?: string | undefined;
+  Body?: { transformToByteArray(): Promise<Uint8Array> } | undefined;
+};
+
+export type S3Sender = { send(command: PutObjectCommand | GetObjectCommand): Promise<S3Answer> };
 
 export class S3PhotoStorage implements PhotoStorage {
   private readonly bucket: string;
@@ -27,9 +32,20 @@ export class S3PhotoStorage implements PhotoStorage {
     );
   }
 
-  async get(): Promise<Photo | null> {
-    return null;
+  async get(key: string): Promise<Photo | null> {
+    const answer = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    return { bytes: await readBody(answer), contentType: readContentType(answer) };
   }
+}
+
+async function readBody(answer: S3Answer): Promise<Uint8Array> {
+  if (!answer.Body) throw new Error('the stored photo has no body');
+  return answer.Body.transformToByteArray();
+}
+
+function readContentType(answer: S3Answer): Photo['contentType'] {
+  if (answer.ContentType === 'image/jpeg' || answer.ContentType === 'image/png') return answer.ContentType;
+  throw new Error('the stored photo has an unknown content type');
 }
 
 function buildClient(settings: S3PhotoStorageSettings): S3Client {
