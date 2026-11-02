@@ -1,6 +1,8 @@
 import { runInTransaction, type Database } from '../db/transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
+const LOCK_MS = 5 * 60 * 1000;
+
 type ClaimedRow = {
   id: string;
   channel: string;
@@ -30,11 +32,11 @@ export async function claimInboundEvent(database: Database, now: Date): Promise<
          FOR UPDATE SKIP LOCKED
        )
        UPDATE inbound_events
-       SET status = 'processing', locked_until = $1 + interval '5 minutes', attempts = attempts + 1
+       SET status = 'processing', locked_until = $2, attempts = attempts + 1
        FROM candidate
        WHERE inbound_events.id = candidate.id
        RETURNING inbound_events.id, channel, account_id, external_user_id, kind, payload, attempts`,
-      [now],
+      [now, new Date(now.getTime() + LOCK_MS)],
     ),
   );
   return row ? describeClaim(row) : null;

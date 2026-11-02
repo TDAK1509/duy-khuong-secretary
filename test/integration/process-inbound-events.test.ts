@@ -228,11 +228,11 @@ describe('the inbound worker step', () => {
     const workerBEvent = await claim();
     await createStages(pool, workerBEvent, clock).finishEvent(async () => {});
 
-    const lateFinish = createStages(pool, workerAEvent, clock).finishEvent((transaction) =>
-      transaction.query(
+    const lateFinish = createStages(pool, workerAEvent, clock).finishEvent(async (transaction) => {
+      await transaction.query(
         `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at) VALUES ('zalo-oa', 'oa-1', 'zu-hung', now())`,
-      ).then(() => undefined),
-    );
+      );
+    });
 
     await expect(lateFinish).rejects.toThrow(ClaimLostError);
     expect(await database.query('SELECT 1 FROM channel_identities')).toEqual([]);

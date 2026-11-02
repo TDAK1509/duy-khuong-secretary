@@ -75,7 +75,7 @@ The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of 
 | `500 {"ok":false}` | The connection check or the insert failed | Nothing; the operator gets `[alert] Zalo webhook could not store an event: <error name>.` |
 | `503 {"ok":false}` | The `zalo-webhook` group is off: the `zalo` group plus `ZALO_OA_SECRET` | Nothing |
 
-The service logs `[config] zalo-webhook is off; missing: <NAMES>.` while the group is off. The body limit is 1 MB. Events stay `queued`; the background worker is a later step.
+The service logs `[config] zalo-webhook is off; missing: <NAMES>.` while the group is off. The body limit is 1 MB. The background worker then marks each stored event `done`, in order per sender, and records the sender in `channel_identities`.
 
 ## Migrations
 
