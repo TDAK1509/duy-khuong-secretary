@@ -123,4 +123,12 @@ describe('OpenAiCompatibleChat', () => {
 
     expect(result).toEqual({ ok: true, reply: { kind: 'text', text: 'Chào anh' } });
   });
+
+  it('turns a slow answer into a timeout', async () => {
+    const server = await startServer({ ...TEXT_REPLY, delayMs: 500 });
+
+    const result = await makeChat(server, { timeoutMs: 100 }).respond(REQUEST);
+
+    expect(result).toEqual({ ok: false, reason: 'timeout' });
+  });
 });

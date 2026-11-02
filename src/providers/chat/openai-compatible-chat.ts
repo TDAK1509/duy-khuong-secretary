@@ -27,13 +27,22 @@ export class OpenAiCompatibleChat implements ChatService {
   }
 
   async respond(request: ChatRequest): Promise<ChatResult> {
-    const completion = await this.client.chat.completions.create({
+    try {
+      const completion = await this.client.chat.completions.create(this.buildParameters(request));
+      return { ok: true, reply: readReply(completion) };
+    } catch (error) {
+      if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
+      return { ok: false, reason: 'unavailable' };
+    }
+  }
+
+  private buildParameters(request: ChatRequest): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming {
+    return {
       model: this.model,
       messages: [{ role: 'system', content: request.system }, ...request.turns.map(toMessage)],
       reasoning_effort: this.reasoningEffort,
       tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
-    });
-    return { ok: true, reply: readReply(completion) };
+    };
   }
 }
 
