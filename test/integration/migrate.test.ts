@@ -112,4 +112,22 @@ describe('the migration runner', () => {
     expect(lines.join('\n')).toContain('gave up waiting for locks after 1000 ms');
     expect(await database.query("SELECT to_regclass('a') AS found")).toEqual([{ found: null }]);
   }, 10_000);
+
+  it('gives up when a slow connection has used up the budget before the lock is taken', async () => {
+    let clock = -10_000;
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: new URL('two-tables/', fixtures),
+        log: (line) => lines.push(line),
+        retry: { budgetMs: 15_000, now: () => (clock += 10_000) },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('gave up waiting for locks after 15000 ms');
+    expect(await database.query("SELECT to_regclass('a') AS found")).toEqual([{ found: null }]);
+  });
 });

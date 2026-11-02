@@ -46,7 +46,7 @@ export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutco
   const deadline = retry.now() + retry.budgetMs;
   for (;;) {
     try {
-      return await migrateOnce(run, deadline - retry.now());
+      return await migrateOnce(run, budgetOf(retry, deadline));
     } catch (error) {
       if (!isLockBusy(error)) throw error;
       await sleepWithinBudget(retry, deadline, error);
@@ -54,15 +54,18 @@ export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutco
   }
 }
 
-async function migrateOnce(run: MigrationRun, lockWaitMs: number): Promise<MigrationOutcome> {
+type Budget = { totalMs: number; remainingMs: () => number };
+
+async function migrateOnce(run: MigrationRun, budget: Budget): Promise<MigrationOutcome> {
   const client = new pg.Client({
     connectionString: run.databaseUrl,
     application_name: APPLICATION_NAME,
+    connectionTimeoutMillis: takeRemainingMs(budget),
   });
   client.on('error', () => {});
   await client.connect();
   try {
-    return await applyMigrations(client, run.directory, lockWaitMs);
+    return await applyMigrations(client, run.directory, budget);
   } finally {
     await endCleanly(client);
   }
@@ -76,9 +79,9 @@ async function endCleanly(client: pg.Client): Promise<void> {
 async function applyMigrations(
   client: pg.Client,
   directory: string,
-  lockWaitMs: number,
+  budget: Budget,
 ): Promise<MigrationOutcome> {
-  await takeMigrationLock(client, lockWaitMs);
+  await takeMigrationLock(client, takeRemainingMs(budget));
   if (await isDatabaseAhead(client, directory)) return { kind: 'database-ahead' };
   const applied = await runner({
     dbClient: client,
@@ -94,7 +97,7 @@ async function applyMigrations(
 }
 
 async function takeMigrationLock(client: pg.Client, waitMs: number): Promise<void> {
-  await client.query(`SET lock_timeout = ${Math.max(1, Math.floor(waitMs))}`);
+  await client.query(`SET lock_timeout = ${waitMs}`);
   await client.query('SELECT pg_advisory_lock($1)', [PG_MIGRATE_LOCK_ID]);
   await client.query('RESET lock_timeout');
 }
@@ -207,6 +210,16 @@ async function sleepWithinBudget(retry: RetryPolicy, deadline: number, busy: unk
   if (remainingMs <= 0) throw giveUp(busy, retry.budgetMs);
   await retry.sleep(Math.min(pickRetryDelayMs(), remainingMs));
   if (deadline - retry.now() <= 0) throw giveUp(busy, retry.budgetMs);
+}
+
+function budgetOf(retry: RetryPolicy, deadline: number): Budget {
+  return { totalMs: retry.budgetMs, remainingMs: () => deadline - retry.now() };
+}
+
+function takeRemainingMs(budget: Budget): number {
+  const remainingMs = Math.floor(budget.remainingMs());
+  if (remainingMs <= 0) throw giveUp(new Error('no time left in the budget'), budget.totalMs);
+  return remainingMs;
 }
 
 function isLockBusy(error: unknown): boolean {
