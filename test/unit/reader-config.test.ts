@@ -63,4 +63,10 @@ describe('loadReaderConfig', () => {
   it('refuses a provider other than openai-compatible and names the value', () => {
     expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: 'other' })).toThrow(/READER_PROVIDER/);
   });
+
+  it('refuses a base URL that is not a URL and names the value', () => {
+    const environment = { ...COMPLETE_ENVIRONMENT, READER_CHEAP_2_BASE_URL: 'not a url' };
+
+    expect(() => loadReaderConfig(environment)).toThrow(/READER_CHEAP_2_BASE_URL/);
+  });
 });
