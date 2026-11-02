@@ -61,6 +61,16 @@ describe('joining a workspace with an invite code', () => {
     expect(identities).toEqual([{ external_user_id: 'zu-hung', user_id: membership?.user_id }]);
   });
 
+  it('uses up the invite', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', CODE);
+
+    const [membership] = await database.query<{ user_id: string }>('SELECT user_id FROM memberships');
+    const invites = await database.query('SELECT used_at, used_by FROM workspace_invites');
+    expect(invites).toEqual([{ used_at: NOW, used_by: membership?.user_id }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

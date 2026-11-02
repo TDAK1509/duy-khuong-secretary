@@ -26,7 +26,7 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
     return stages.finishEvent(async (transaction) => {
       const identity = await recordSenderIdentity(transaction, event);
       const inviteCode = readInviteCode(event);
-      if (inviteCode !== null) return joinWithInviteCode(transaction, identity, inviteCode);
+      if (inviteCode !== null) return joinWithInviteCode(transaction, { identity, code: inviteCode, now: clock.now() });
       await enqueueText(transaction, {
         to: describeSender(event),
         text: WELCOME_TEXT,

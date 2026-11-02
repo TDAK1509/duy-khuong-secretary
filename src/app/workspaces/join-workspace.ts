@@ -3,15 +3,14 @@ import { linkIdentityToNewUser } from '../identities/link-identity-to-new-user.t
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
 
-type InviteRow = { workspace_id: string; display_name: string; role: 'admin' | 'member' };
+type InviteRow = { id: string; workspace_id: string; display_name: string; role: 'admin' | 'member' };
 
-export async function joinWithInviteCode(
-  transaction: Transaction,
-  identity: ChannelIdentity,
-  code: string,
-): Promise<void> {
+export type JoinRequest = { identity: ChannelIdentity; code: string; now: Date };
+
+export async function joinWithInviteCode(transaction: Transaction, request: JoinRequest): Promise<void> {
+  const { identity, code, now } = request;
   const [invite] = await transaction.query<InviteRow>(
-    'SELECT workspace_id, display_name, role FROM workspace_invites WHERE code_hash = $1',
+    'SELECT id, workspace_id, display_name, role FROM workspace_invites WHERE code_hash = $1',
     [hashInviteCode(code)],
   );
   if (!invite) return;
@@ -20,4 +19,9 @@ export async function joinWithInviteCode(
     'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
     [invite.workspace_id, userId, invite.role, invite.display_name],
   );
+  await transaction.query('UPDATE workspace_invites SET used_at = $2, used_by = $3 WHERE id = $1', [
+    invite.id,
+    now,
+    userId,
+  ]);
 }
