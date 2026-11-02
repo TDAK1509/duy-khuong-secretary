@@ -30,6 +30,7 @@ describe('the maintenance status tool of an admin', () => {
   let workspaceId: string;
   let duy: AccessScope;
   let hungUserId: string;
+  let lanUserId: string;
 
   beforeEach(async () => {
     clock = new FakeClock(new Date('2026-11-02T10:00:00+07:00'));
@@ -38,6 +39,7 @@ describe('the maintenance status tool of an admin', () => {
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
     duy = { workspaceId, userId: duyUserId, role: 'admin' };
   });
 
@@ -69,5 +71,15 @@ describe('the maintenance status tool of an admin', () => {
     const result = await runStatus();
 
     expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'dầu máy']]);
+  });
+
+  it('keeps the newest record of a truck, whoever sent it', async () => {
+    const maintenance = { workspaceId, category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' };
+    await insertRecordRow(database, { ...maintenance, userId: hungUserId, senderName: 'Hùng', createdAt: new Date('2026-09-01T10:00:00+07:00') });
+    await insertRecordRow(database, { ...maintenance, userId: lanUserId, senderName: 'Lan', createdAt: new Date('2026-10-01T10:00:00+07:00') });
+
+    const result = await runStatus();
+
+    expect(result.items.map((row) => [row.sent_by, row.sent_on])).toEqual([['Lan', '2026-10-01']]);
   });
 });
