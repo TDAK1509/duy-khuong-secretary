@@ -58,4 +58,23 @@ describe('an admin proposes maintenance reminders by chat', () => {
       { maintenance_rules: [{ maintenance_item: 'dầu máy', age_days: 30 }] },
     ]);
   });
+
+  function findToolResult(): string {
+    const result = harness.chat.requests[1]?.turns.find((turn) => turn.role === 'tool_result');
+    if (result?.role !== 'tool_result') throw new Error('the model received no tool result');
+    return result.output;
+  }
+
+  it.each([
+    ['zero days', { maintenance_item: 'dầu máy', age_days: 0 }],
+    ['a part of spaces', { maintenance_item: '   ', age_days: 30 }],
+    ['a fraction of a day', { maintenance_item: 'dầu máy', age_days: 1.5 }],
+  ])('refuses a rule with %s', async (_description, rule) => {
+    proposeWithRules([rule]);
+
+    await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu máy');
+
+    expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+    expect(findToolResult()).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: maintenance_rules"}');
+  });
 });

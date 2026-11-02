@@ -23,7 +23,7 @@ const argumentsSchema = z.object({
   time_of_day: z.string().nullable(),
   weekday: z.number().int().nullable(),
   day_of_month: z.number().int().nullable(),
-  maintenance_rules: z.array(z.object({ maintenance_item: z.string(), age_days: z.number() })),
+  maintenance_rules: z.array(z.object({ maintenance_item: z.string().trim().min(1), age_days: z.number().int().min(1) })),
 });
 
 type ProposalArguments = z.infer<typeof argumentsSchema>;
@@ -55,7 +55,7 @@ function readDraft(args: ProposalArguments, scope: AccessScope): NewDraft {
 }
 
 function readRule(rule: ProposalArguments['maintenance_rules'][number]): MaintenanceRule {
-  return { maintenanceItem: rule.maintenance_item.trim().toLowerCase(), ageDays: rule.age_days };
+  return { maintenanceItem: rule.maintenance_item.toLowerCase(), ageDays: rule.age_days };
 }
 
 function readText(text: string, field: string, maxLength: number): string {
