@@ -201,6 +201,26 @@ describe('the maintenance status tool of an admin', () => {
     });
   });
 
+  it('pages past a plate and a part that contain a bar', async () => {
+    for (let number = 0; number < 60; number += 1) {
+      await insertRecordRow(database, {
+        workspaceId,
+        userId: hungUserId,
+        senderName: 'Hùng',
+        category: 'maintenance',
+        maintenanceItem: 'dầu|máy',
+        vehiclePlate: `29C|${String(10000 + number)}`,
+      });
+    }
+    const first = await runStatus();
+
+    const second = await runStatus({ cursor: first.next_cursor ?? '' });
+
+    expect(second.items.map((row) => row.plate)).toEqual(
+      Array.from({ length: 10 }, (_, number) => `29C|${String(10050 + number)}`),
+    );
+  });
+
   it('refuses an unreadable cursor', async () => {
     const output = await runStatusOutput({ cursor: 'xyz' });
 
