@@ -32,6 +32,10 @@ export class OpenAiCompatibleReader implements ReaderService {
         { role: 'system', content: request.system },
         { role: 'user', content: buildUserContent(request) },
       ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: request.schemaName, schema: request.schema, strict: true },
+      },
     });
     return { ok: true, json: {} };
   }

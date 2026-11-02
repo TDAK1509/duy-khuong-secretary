@@ -49,6 +49,18 @@ describe('OpenAiCompatibleReader', () => {
     expect(imageParts).toHaveLength(1);
     expect((imageParts[0]?.['image_url'] as { url: string }).url).toMatch(/^data:image\/jpeg;base64,/);
   });
+
+  it('sends the schema in strict mode', async () => {
+    const server = await startServer(VALID_REPLY);
+    const schema = { type: 'object', properties: { has_work_data: { type: 'boolean' } } };
+
+    await makeReader(server).read({ ...REQUEST, schemaName: 'work_message_reading', schema });
+
+    expect(server.requests[0]?.body['response_format']).toEqual({
+      type: 'json_schema',
+      json_schema: { name: 'work_message_reading', schema, strict: true },
+    });
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {
