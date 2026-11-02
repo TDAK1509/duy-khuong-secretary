@@ -6,9 +6,9 @@ export class PhotoAttachments {
   private readonly photos: AttachablePhoto[] = [];
 
   add(photos: AttachablePhoto[]): number {
-    const before = this.photos.length;
-    this.photos.push(...photos);
-    return this.photos.length - before;
+    const accepted = photos.slice(0, MAX_ATTACHED_PHOTOS - this.photos.length);
+    this.photos.push(...accepted);
+    return accepted.length;
   }
 
   list(): AttachablePhoto[] {

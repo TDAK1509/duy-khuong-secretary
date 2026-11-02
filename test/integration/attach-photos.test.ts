@@ -97,4 +97,14 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":0}');
   });
+
+  it('attaches at most four photos', async () => {
+    const recordIds = [];
+    for (let number = 1; number <= 6; number += 1) recordIds.push(await insertPhotoRecord());
+    attachThenReply(recordIds);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":4}');
+  });
 });
