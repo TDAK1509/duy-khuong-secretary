@@ -81,6 +81,14 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(server.requests[0]?.body['reasoning_effort']).toBe('low');
   });
+
+  it('sends no reasoning effort when none is configured', async () => {
+    const server = await startServer(VALID_REPLY);
+
+    await makeReader(server).read(REQUEST);
+
+    expect(server.requests[0]?.body).not.toHaveProperty('reasoning_effort');
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {
