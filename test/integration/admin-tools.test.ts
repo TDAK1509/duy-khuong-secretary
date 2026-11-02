@@ -357,4 +357,16 @@ describe('the data tools of an admin', () => {
       expect(result.members.find((member) => member.name === 'Hùng')?.zalo_name).toBe('Hung Nguyen');
     });
   });
+
+  it('refuses a tool called with a member\'s scope', async () => {
+    const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+
+    const output = await runAdminTool(pool, memberScope, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+  });
 });
