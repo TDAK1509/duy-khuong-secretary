@@ -1,5 +1,14 @@
+import { z } from 'zod';
 import type { ChannelAuth, AuthResult } from '../../services/channel-auth/channel-auth.ts';
 import type { Clock } from '../../services/clock/clock.ts';
+
+const REFRESH_KEY_VALID_FOR_MS = 90 * 24 * 60 * 60 * 1000;
+
+const tokenAnswerSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string(),
+  expires_in: z.coerce.number(),
+});
 
 export type ZaloOaAuthSettings = {
   appId: string;
@@ -26,12 +35,26 @@ export class ZaloOaAuth implements ChannelAuth {
   }
 
   async exchangeAuthorization(input: { code: string; codeVerifier: string }): Promise<AuthResult> {
-    await this.postForm({
+    const response = await this.postForm({
       code: input.code,
       code_verifier: input.codeVerifier,
       grant_type: 'authorization_code',
     });
-    return { ok: false, reason: 'rejected' };
+    return this.readTokens(await response.json());
+  }
+
+  private readTokens(answer: unknown): AuthResult {
+    const { access_token, refresh_token, expires_in } = tokenAnswerSchema.parse(answer);
+    const now = this.settings.clock.now().getTime();
+    return {
+      ok: true,
+      tokens: {
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        accessExpiresAt: new Date(now + expires_in * 1000),
+        refreshExpiresAt: new Date(now + REFRESH_KEY_VALID_FOR_MS),
+      },
+    };
   }
 
   async refresh(): Promise<AuthResult> {

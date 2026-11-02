@@ -29,6 +29,22 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     });
   });
 
+  it('turns a token answer into a key pair with its expiry times', async () => {
+    const { auth } = await startAuth(VALID_TOKEN_ANSWER);
+
+    const result = await auth.exchangeAuthorization({ code: 'k1', codeVerifier: 'v1' });
+
+    expect(result).toEqual({
+      ok: true,
+      tokens: {
+        accessToken: 'a1',
+        refreshToken: 'r1',
+        accessExpiresAt: new Date('2026-11-03T11:00:00+07:00'),
+        refreshExpiresAt: new Date('2027-01-31T10:00:00+07:00'),
+      },
+    });
+  });
+
   async function startAuth(answer: StubAnswer): Promise<{ auth: ZaloOaAuth; server: StubHttpServer }> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
