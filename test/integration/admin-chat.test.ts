@@ -173,4 +173,22 @@ describe('an admin asks the bot', () => {
     const lastTurn = turns[turns.length - 1];
     expect(lastTurn).toMatchObject({ role: 'user', image: { contentType: 'image/jpeg' } });
   });
+
+  it('sends older photos to the model as text', async () => {
+    const duyUserId = await findUserId('Duy');
+    await insertChatMessage(database, {
+      workspaceId,
+      userId: duyUserId,
+      author: 'user',
+      text: null,
+      imageKey: `${workspaceId}/old.jpg`,
+      createdAt: new Date('2026-11-01T10:00:00+07:00'),
+    });
+
+    await harness.receiveText('zu-duy', 'Còn gì nữa không?');
+
+    const turns = harness.chat.requests[0]?.turns ?? [];
+    expect(turns.some((turn) => turn.role === 'user' && turn.image !== null)).toBe(false);
+    expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]', image: null });
+  });
 });
