@@ -2,7 +2,7 @@ import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import type { Schedule } from '../../schedules/schedule.ts';
 import { refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 
-export type ProposedSchedule = {
+export type TaskScheduleArguments = {
   repeat: 'once' | 'daily' | 'weekly' | 'monthly';
   run_once_at: string | null;
   time_of_day: string | null;
@@ -12,7 +12,7 @@ export type ProposedSchedule = {
 
 type ScheduleField = 'run_once_at' | 'time_of_day' | 'weekday' | 'day_of_month';
 
-const UNUSED_FIELDS: Record<ProposedSchedule['repeat'], ScheduleField[]> = {
+const UNUSED_FIELDS: Record<TaskScheduleArguments['repeat'], ScheduleField[]> = {
   once: ['time_of_day', 'weekday', 'day_of_month'],
   daily: ['run_once_at', 'weekday', 'day_of_month'],
   weekly: ['run_once_at', 'day_of_month'],
@@ -24,23 +24,23 @@ const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MAX_DAY_OF_MONTH = 28;
 const DAYS_IN_WEEK = 7;
 
-export function readProposedSchedule(proposed: ProposedSchedule): Schedule {
-  for (const field of UNUSED_FIELDS[proposed.repeat]) if (proposed[field] !== null) refuseInvalidArgument(field);
-  return SCHEDULE_READERS[proposed.repeat](proposed);
+export function readTaskSchedule(requested: TaskScheduleArguments): Schedule {
+  for (const field of UNUSED_FIELDS[requested.repeat]) if (requested[field] !== null) refuseInvalidArgument(field);
+  return SCHEDULE_READERS[requested.repeat](requested);
 }
 
-const SCHEDULE_READERS: Record<ProposedSchedule['repeat'], (proposed: ProposedSchedule) => Schedule> = {
-  once: (proposed) => ({ repeat: 'once', runOnceAt: readRunOnceAt(proposed.run_once_at) }),
-  daily: (proposed) => ({ repeat: 'daily', timeOfDay: readTimeOfDay(proposed.time_of_day) }),
-  weekly: (proposed) => ({
+const SCHEDULE_READERS: Record<TaskScheduleArguments['repeat'], (requested: TaskScheduleArguments) => Schedule> = {
+  once: (requested) => ({ repeat: 'once', runOnceAt: readRunOnceAt(requested.run_once_at) }),
+  daily: (requested) => ({ repeat: 'daily', timeOfDay: readTimeOfDay(requested.time_of_day) }),
+  weekly: (requested) => ({
     repeat: 'weekly',
-    timeOfDay: readTimeOfDay(proposed.time_of_day),
-    weekday: readNumberBetween(proposed.weekday, 'weekday', DAYS_IN_WEEK),
+    timeOfDay: readTimeOfDay(requested.time_of_day),
+    weekday: readNumberBetween(requested.weekday, 'weekday', DAYS_IN_WEEK),
   }),
-  monthly: (proposed) => ({
+  monthly: (requested) => ({
     repeat: 'monthly',
-    timeOfDay: readTimeOfDay(proposed.time_of_day),
-    dayOfMonth: readNumberBetween(proposed.day_of_month, 'day_of_month', MAX_DAY_OF_MONTH),
+    timeOfDay: readTimeOfDay(requested.time_of_day),
+    dayOfMonth: readNumberBetween(requested.day_of_month, 'day_of_month', MAX_DAY_OF_MONTH),
   }),
 };
 

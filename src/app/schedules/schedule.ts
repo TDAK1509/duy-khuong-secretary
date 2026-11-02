@@ -7,9 +7,10 @@ export type Schedule = { repeat: 'once'; runOnceAt: Date } | RepeatingSchedule;
 
 export type MaintenanceRule = { maintenanceItem: string; ageDays: number };
 
-export type NewDraft = {
+export type NewScheduledTask = {
   workspaceId: string;
   createdBy: string;
+  creationKey: string;
   title: string;
   instruction: string;
   schedule: Schedule;

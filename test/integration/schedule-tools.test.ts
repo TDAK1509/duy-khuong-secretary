@@ -1,11 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
-import { DraftProposals } from '../../src/app/admin-chat/draft-proposals.ts';
+import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+
+const DAILY_REPORT = {
+  title: 'Báo cáo hằng ngày',
+  instruction: 'Lập báo cáo.',
+  repeat: 'daily',
+  run_once_at: null,
+  time_of_day: '18:00',
+  weekday: null,
+  day_of_month: null,
+  maintenance_rules: [],
+};
 
 describe('the scheduling tools', () => {
   let harness: IntakeHarness;
@@ -20,16 +31,84 @@ describe('the scheduling tools', () => {
     await harness.close();
   });
 
-  function runTool(scope: AccessScope, name: string, args: unknown): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
+  function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null)): Promise<string> {
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
-  it('refuses a member who proposes a task', async () => {
+  it('refuses a member who creates a task', async () => {
     const hung: AccessScope = { workspaceId, userId: harness.hungUserId, role: 'member' };
-    const proposal = { title: 'Báo cáo', instruction: 'Lập báo cáo.', repeat: 'daily', run_once_at: null, time_of_day: '18:00', weekday: null, day_of_month: null };
+    const request = { title: 'Báo cáo', instruction: 'Lập báo cáo.', repeat: 'daily', run_once_at: null, time_of_day: '18:00', weekday: null, day_of_month: null };
 
-    const output = await runTool(hung, 'propose_scheduled_task', proposal);
+    const output = await runTool(hung, 'create_scheduled_task', request);
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+    expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+  });
+
+  async function addAdmin(): Promise<AccessScope> {
+    const userId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    return { workspaceId, userId, role: 'admin' };
+  }
+
+  it('stores one task when the same creation runs twice', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const first = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    const again = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    expect(again).toBe(first);
+    expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'message-1:1' }]);
+  });
+
+  it('returns the stored one-time task when the creation is repeated after its time passed', async () => {
+    const duy = await addAdmin();
+    const oneTime = { ...DAILY_REPORT, repeat: 'once', run_once_at: '2026-10-31 15:30', time_of_day: null };
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const first = await runTool(duy, 'create_scheduled_task', oneTime, new CreatedTasks('message-1'));
+    harness.clock.setTo(new Date('2026-10-31T16:00:00+07:00'));
+    const created = new CreatedTasks('message-1');
+
+    const again = await runTool(duy, 'create_scheduled_task', oneTime, created);
+
+    expect(again).toBe(first);
+    expect(created.listTaskIds()).toHaveLength(1);
+    expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toHaveLength(1);
+  });
+
+  it('stores two tasks when one turn creates two', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const created = new CreatedTasks('message-1');
+
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, created);
+    await runTool(duy, 'create_scheduled_task', { ...DAILY_REPORT, title: 'Báo cáo tuần' }, created);
+
+    expect(await harness.database.query(`SELECT status, creation_key FROM scheduled_tasks ORDER BY creation_key`)).toEqual([
+      { status: 'active', creation_key: 'message-1:1' },
+      { status: 'active', creation_key: 'message-1:2' },
+    ]);
+  });
+
+  it('keeps the first task active when a new message creates another', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    await runTool(duy, 'create_scheduled_task', { ...DAILY_REPORT, title: 'Báo cáo tuần' }, new CreatedTasks('message-2'));
+
+    expect(await harness.database.query('SELECT title, status FROM scheduled_tasks ORDER BY title')).toEqual([
+      { title: 'Báo cáo hằng ngày', status: 'active' },
+      { title: 'Báo cáo tuần', status: 'active' },
+    ]);
+  });
+
+  it('refuses a task creation in a scheduled run', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+
+    const output = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks(null));
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
     expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
@@ -42,7 +121,7 @@ describe('the scheduling tools', () => {
     const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
     const nextRunAt = new Date('2026-11-02T18:00:00+07:00');
     await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Của Duy', status: 'active', nextRunAt });
-    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Nháp của Duy', status: 'draft' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Nháp cũ của Duy', status: 'draft' });
     await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, title: 'Của Khương', status: 'active', nextRunAt });
     await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active', nextRunAt });
 
@@ -53,6 +132,15 @@ describe('the scheduling tools', () => {
         { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026' },
       ],
     });
+  });
+
+  it('lists an active task without a next run as null', async () => {
+    const duy = await addAdmin();
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'active', nextRunAt: null });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', {});
+
+    expect(JSON.parse(output)).toMatchObject({ tasks: [{ title: 'Báo cáo hằng ngày', next_run: null }] });
   });
 
   it('cancels a task of the caller and clears its next run', async () => {
@@ -66,6 +154,16 @@ describe('the scheduling tools', () => {
     expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([
       { status: 'cancelled', next_run_at: null },
     ]);
+  });
+
+  it('cannot cancel a leftover draft', async () => {
+    const duy = await addAdmin();
+    const draftId = await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'draft' });
+
+    const output = await runTool(duy, 'cancel_scheduled_task', { task_id: draftId });
+
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy lịch này."}');
+    expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
   });
 
   it('cannot cancel the task of another admin', async () => {
