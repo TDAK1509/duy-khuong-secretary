@@ -75,4 +75,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(false);
   });
+
+  it('agrees when document numbers differ only in case and punctuation', () => {
+    const first = succeed(makeReading([makeItem({ document_number: 'AA/26E-0001234' })]));
+    const second = succeed(makeReading([makeItem({ document_number: 'aa26e 0001234' })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
 });
