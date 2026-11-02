@@ -57,4 +57,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("../../providers/storage/s3-photo-storage.ts");
   });
+
+  it('rejects an import of the migration tool outside the migration entry', async () => {
+    const messages = await lintFixture('bootstrap-import-migration-tool', 'src/bootstrap/main.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("../providers/database/migration-tool.ts");
+  });
 });

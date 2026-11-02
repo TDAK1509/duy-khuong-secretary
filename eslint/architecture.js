@@ -5,6 +5,7 @@ import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescrip
 import tseslint from 'typescript-eslint';
 
 const SOURCE_FOLDERS = ['app', 'services', 'providers', 'bootstrap'];
+const MIGRATION_TOOL_PATH = './src/providers/database/migration-tool.ts';
 const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
 
 /** @returns {import('eslint').Linter.Config[]} */
@@ -18,6 +19,11 @@ export function makeArchitectureConfig(rootDir) {
       files: ['providers/database/postgres.ts'],
     }),
     ...makeProviderConfigs(rootDir),
+    makeFolderConfig(rootDir, 'bootstrap', {
+      folders: SOURCE_FOLDERS,
+      mayImportVendors: true,
+      isMigrationToolForbidden: true,
+    }),
   ];
 }
 
@@ -55,10 +61,18 @@ function makeFolderConfig(rootDir, folder, importable) {
   return {
     files: [`src/${folder}/**/*.ts`],
     rules: {
-      ...restrictPaths(rootDir, forbidFolders(folder, importable)),
+      ...restrictPaths(rootDir, listZones(folder, importable)),
       ...(importable.mayImportVendors ? {} : restrictVendorPackages()),
     },
   };
+}
+
+function listZones(folder, importable) {
+  const zones = forbidFolders(folder, importable);
+  if (importable.isMigrationToolForbidden) {
+    zones.push({ target: `./src/${folder}`, from: MIGRATION_TOOL_PATH });
+  }
+  return zones;
 }
 
 function forbidFolders(folder, { folders, files = [] }) {
