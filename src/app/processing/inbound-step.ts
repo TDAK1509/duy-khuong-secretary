@@ -20,7 +20,7 @@ export async function runInboundStep(dependencies: InboundDependencies): Promise
   const event = await claimInboundEvent(database, clock.now());
   if (!event) return 'idle';
   try {
-    await handler(event, createStages(database, event, clock.now()));
+    await handler(event, createStages(database, event, clock));
   } catch (error) {
     await recordFailure(dependencies, event, clock.now(), error);
   }

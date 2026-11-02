@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
+import { claimInboundEvent } from '../../src/app/processing/claim-inbound-event.ts';
+import type { ClaimedEvent } from '../../src/app/processing/claimed-event.ts';
 import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
+import { ClaimLostError, createStages } from '../../src/app/processing/stages.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
@@ -172,6 +175,30 @@ describe('the inbound worker step', () => {
 
     expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2 });
   });
+
+  it('rolls back the last stage of a worker that lost its claim', async () => {
+    const id = await insertInboundEvent(database, {});
+    const workerAEvent = await claim();
+    clock.advanceBy(6 * 60_000);
+    const workerBEvent = await claim();
+    await createStages(pool, workerBEvent, clock).finishEvent(async () => {});
+
+    const lateFinish = createStages(pool, workerAEvent, clock).finishEvent((transaction) =>
+      transaction.query(
+        `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at) VALUES ('zalo-oa', 'oa-1', 'zu-hung', now())`,
+      ).then(() => undefined),
+    );
+
+    await expect(lateFinish).rejects.toThrow(ClaimLostError);
+    expect(await database.query('SELECT 1 FROM channel_identities')).toEqual([]);
+    expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2, processed_at: clock.now() });
+  });
+
+  async function claim(): Promise<ClaimedEvent> {
+    const event = await claimInboundEvent(pool, clock.now());
+    if (!event) throw new Error('no event to claim');
+    return event;
+  }
 
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
     return runInboundStep({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), handler });

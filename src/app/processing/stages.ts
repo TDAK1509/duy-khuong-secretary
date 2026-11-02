@@ -1,3 +1,4 @@
+import type { Clock } from '../../services/clock/clock.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
@@ -7,16 +8,29 @@ export type Stages = {
   finishEvent(write: (transaction: Transaction) => Promise<void>): Promise<Finished>;
 };
 
-export function createStages(database: Database, event: ClaimedEvent, now: Date): Stages {
+export class ClaimLostError extends Error {
+  override name = 'ClaimLostError';
+}
+
+export function createStages(database: Database, event: ClaimedEvent, clock: Clock): Stages {
   return {
     finishEvent: (write) =>
       runInTransaction(database, async (transaction) => {
+        await holdClaim(transaction, event);
         await write(transaction);
         await transaction.query(
           `UPDATE inbound_events SET status = 'done', processed_at = $2, locked_until = NULL WHERE id = $1`,
-          [event.id, now],
+          [event.id, clock.now()],
         );
         return { kind: 'finished' };
       }),
   };
+}
+
+async function holdClaim(transaction: Transaction, event: ClaimedEvent): Promise<void> {
+  const rows = await transaction.query(
+    `SELECT 1 FROM inbound_events WHERE id = $1 AND status = 'processing' AND attempts = $2 FOR UPDATE`,
+    [event.id, event.attempts],
+  );
+  if (rows.length === 0) throw new ClaimLostError(`the claim on event ${event.id} was lost`);
 }
