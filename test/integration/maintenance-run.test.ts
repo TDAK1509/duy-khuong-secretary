@@ -146,4 +146,25 @@ describe('the daily maintenance reminder run', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('queues nothing and records no notification when the model has nothing to report', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask();
+    harness.chat.replyWith('KHONG_CO_THONG_BAO');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+    expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
+  });
+
+  it('records no notification when the model fails', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask();
+    harness.chat.failWith('unavailable');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
+  });
 });
