@@ -297,5 +297,18 @@ describe('the data tools of an admin', () => {
 
       expect(result.members.find((row) => row.member === 'Hùng')?.total_count).toBe(2);
     });
+
+    it('sums the amounts per category', async () => {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'fuel', amountVnd: 1000000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'fuel', amountVnd: 1500000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'toll', amountVnd: 35000 });
+
+      const result = await runCount();
+
+      expect(result.members.find((row) => row.member === 'Hùng')?.by_category).toEqual([
+        { category: 'fuel', count: 2, amount_vnd: 2500000 },
+        { category: 'toll', count: 1, amount_vnd: 35000 },
+      ]);
+    });
   });
 });
