@@ -40,22 +40,22 @@ async function answerSender(
   { channel, clock }: InboundHandlerDependencies,
   message: Message,
 ): Promise<void> {
+  const now = clock.now();
   const identity = await recordSenderIdentity(transaction, message.event);
-  const reply = await decideReply(transaction, identity, { ...message, now: clock.now() });
+  const reply = await decideReply(transaction, { ...message, identity, now });
   if (reply === null) return;
   await enqueueText(transaction, {
     to: describeSender(message.event),
     text: reply,
     maxTextLength: channel.maxTextLength,
-    availableAt: clock.now(),
+    availableAt: now,
   });
 }
 
-async function decideReply(
-  transaction: Transaction,
-  identity: ChannelIdentity,
-  { inviteCode, zaloName, now }: Message & { now: Date },
-): Promise<string | null> {
+type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date };
+
+async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<string | null> {
+  const { identity, inviteCode, zaloName, now } = message;
   if (inviteCode === null) return replyToOtherMessage(transaction, identity);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   return formatJoinResult(joined);
