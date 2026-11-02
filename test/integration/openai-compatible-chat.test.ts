@@ -58,4 +58,15 @@ describe('OpenAiCompatibleChat', () => {
 
     expect(server.requests[0]?.body).not.toHaveProperty('reasoning_effort');
   });
+
+  it('sends tools as strict functions', async () => {
+    const server = await startServer(TEXT_REPLY);
+    const tool = { name: 'list_members', description: 'Liệt kê', parameters: { type: 'object' } };
+
+    await makeChat(server).respond({ ...REQUEST, tools: [tool] });
+
+    expect(server.requests[0]?.body['tools']).toEqual([
+      { type: 'function', function: { name: 'list_members', description: 'Liệt kê', parameters: { type: 'object' }, strict: true } },
+    ]);
+  });
 });

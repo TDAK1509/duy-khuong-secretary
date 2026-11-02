@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ChatRequest, ChatResult, ChatService } from '../../services/chat/chat-service.ts';
+import type { ChatRequest, ChatResult, ChatService, ToolSpec } from '../../services/chat/chat-service.ts';
 
 export type OpenAiCompatibleChatSettings = {
   baseUrl: string;
@@ -30,7 +30,12 @@ export class OpenAiCompatibleChat implements ChatService {
       model: this.model,
       messages: [{ role: 'system', content: request.system }],
       reasoning_effort: this.reasoningEffort,
+      tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
     });
     return { ok: true, reply: { kind: 'text', text: '' } };
   }
+}
+
+function toFunctionTool(tool: ToolSpec): OpenAI.Chat.ChatCompletionTool {
+  return { type: 'function', function: { ...tool, strict: true } };
 }
