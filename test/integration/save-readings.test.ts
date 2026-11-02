@@ -447,6 +447,17 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('does not read a text again when it is processed again', async () => {
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
+    const expiredLock = new Date(NOW.getTime() - 60_000).toISOString();
+    await database.query(`UPDATE inbound_events SET status = 'processing', locked_until = '${expiredLock}'`);
+
+    await harness.runInbound();
+
+    expect(harness.readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
