@@ -16,6 +16,7 @@
     "check:migrations": "node src/bootstrap/check-migrations.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1161.0",
     "fastify": "5.12.7",
     "node-pg-migrate": "9.0.0",
     "openai": "7.47.0",
