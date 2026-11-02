@@ -33,6 +33,18 @@ describe('POST /webhooks/zalo', () => {
     ]);
   });
 
+  it('stores a resent event once', async () => {
+    await connectOa('oa-1');
+    await postWebhook(loadSignedFixture('text-event'));
+
+    const response = await postWebhook(loadSignedFixture('text-event'));
+
+    expect(response.statusCode).toBe(200);
+    expect(await database.query('SELECT external_event_id FROM inbound_events')).toEqual([
+      { external_event_id: 'm1' },
+    ]);
+  });
+
   async function connectOa(accountId: string): Promise<void> {
     const connection = { channel: 'zalo-oa' as const, accountId, tokens: makeTokenPair(), storedAt: new Date() };
     await storeConnection(pool, connection, 'a'.repeat(64));

@@ -6,7 +6,8 @@ export type StorableEvent = Exclude<InboundEvent, { kind: 'ignored' }>;
 export async function storeInboundEvent(database: Database, event: StorableEvent): Promise<void> {
   await database.query(
     `INSERT INTO inbound_events (channel, account_id, external_event_id, external_user_id, kind, payload)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (channel, account_id, external_event_id) DO NOTHING`,
     [
       event.from.channel,
       event.from.accountId,
