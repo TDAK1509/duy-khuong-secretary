@@ -35,4 +35,19 @@ describe('the migration that removes the schedule drafts', () => {
       { status: 'cancelled', next_run_at: null },
     ]);
   });
+
+  it('clears a waiting draft confirmation and keeps a waiting workspace pick', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    const draftConfirm = JSON.stringify({ kind: 'draft_confirm', task_id: 't', workspace_id: workspaceId });
+    const workspacePick = JSON.stringify({ kind: 'workspace_pick', workspace_ids: [workspaceId] });
+    await database.query(`UPDATE channel_identities SET pending_choice = '${draftConfirm}'::jsonb WHERE external_user_id = 'zu-duy'`);
+    await database.query(`UPDATE channel_identities SET pending_choice = '${workspacePick}'::jsonb WHERE external_user_id = 'zu-hung'`);
+
+    await runMigration();
+
+    expect(await database.query('SELECT external_user_id, pending_choice FROM channel_identities ORDER BY external_user_id')).toEqual([
+      { external_user_id: 'zu-duy', pending_choice: null },
+      { external_user_id: 'zu-hung', pending_choice: { kind: 'workspace_pick', workspace_ids: [workspaceId] } },
+    ]);
+  });
 });
