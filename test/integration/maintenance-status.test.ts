@@ -138,4 +138,21 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items.map((row) => [row.sent_on, row.days_since_sent])).toEqual([['2026-10-01', 30]]);
   });
+
+  it('counts the age from the upload time, not the save time', async () => {
+    clock = new FakeClock(new Date('2026-10-31T08:00:00+07:00'));
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      createdAt: new Date('2026-10-01T10:00:00+07:00'),
+      savedAt: new Date('2026-10-31T07:00:00+07:00'),
+    });
+
+    const result = await runStatus();
+
+    expect(result.items.map((row) => [row.sent_on, row.days_since_sent])).toEqual([['2026-10-01', 30]]);
+  });
 });

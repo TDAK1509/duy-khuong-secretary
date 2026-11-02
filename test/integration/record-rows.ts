@@ -16,6 +16,7 @@ export type NewRecordRow = {
   summary?: string;
   details?: { label: string; value: string }[];
   createdAt?: Date;
+  savedAt?: Date;
   hasPhoto?: boolean;
 };
 
@@ -42,7 +43,7 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
        ${literal(category)}, ${nullable(maintenanceItem)}, ${nullable(vehiclePlate)}, ${nullable(row.documentNumber ?? null)},
        ${nullable(row.occurredOn ?? null)}, ${row.amountVnd ?? 'NULL'},
        ARRAY[${(row.identifiers ?? []).map(literal).join(',')}]::text[], ${literal(row.summary ?? 'Mục')},
-       ${literal(JSON.stringify(row.details ?? []))}::jsonb, 'cheap_pair', ${timestamp(createdAt)})
+       ${literal(JSON.stringify(row.details ?? []))}::jsonb, 'cheap_pair', ${timestamp(row.savedAt ?? createdAt)})
      RETURNING id`,
   );
   if (!inserted) throw new Error('record not inserted');
