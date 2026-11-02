@@ -182,6 +182,14 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('saves no record for the question of a member', async () => {
+    answerPair(harness.readers.cheap, makeQuestionOnly());
+
+    await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
