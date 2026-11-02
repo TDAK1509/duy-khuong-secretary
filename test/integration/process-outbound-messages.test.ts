@@ -8,7 +8,7 @@ import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { insertOutboundMessage } from './outbound-message-rows.ts';
+import { insertOutboundMessage, type OutboundRow } from './outbound-message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -49,9 +49,24 @@ describe('the outbound worker step', () => {
     ]);
   });
 
+  it('marks a delivered text sent at the clock time', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, {});
+
+    await runStep();
+
+    expect(await readMessage(id)).toMatchObject({ status: 'sent', sent_at: NOW });
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
+  }
+
+  async function readMessage(id: string): Promise<OutboundRow> {
+    const [row] = await database.query<OutboundRow>(`SELECT * FROM outbound_messages WHERE id = '${id}'`);
+    if (!row) throw new Error('message not found');
+    return row;
   }
 
   function runStep(maxPerMinute = 90): Promise<'processed' | 'idle'> {

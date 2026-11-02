@@ -5,6 +5,7 @@ import { readAccessKey } from '../channel-auth/read-access-key.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
+import { recordSendResult } from './record-send-result.ts';
 
 export type OutboundDependencies = {
   database: Database;
@@ -26,5 +27,6 @@ async function deliverMessage(dependencies: OutboundDependencies, message: Claim
   const { database, channel, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return;
-  await channel.sendText(message.to, message.body, accessKey);
+  const result = await channel.sendText(message.to, message.body, accessKey);
+  await recordSendResult(dependencies, message, result);
 }
