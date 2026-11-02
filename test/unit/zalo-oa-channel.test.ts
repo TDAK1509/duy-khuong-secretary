@@ -17,4 +17,10 @@ describe('ZaloOaChannel.verifyWebhook', () => {
 
     expect(channel.verifyWebhook(body, headers)).toBe(false);
   });
+
+  it('refuses an event without a signature header', () => {
+    const { body } = loadSignedFixture('text-event');
+
+    expect(channel.verifyWebhook(body, {})).toBe(false);
+  });
 });

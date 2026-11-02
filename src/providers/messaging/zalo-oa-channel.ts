@@ -17,14 +17,20 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): boolean {
-    const sent = (headers[SIGNATURE_HEADER] ?? '').slice(SIGNATURE_PREFIX.length);
+    const header = headers[SIGNATURE_HEADER];
+    if (!header?.startsWith(SIGNATURE_PREFIX)) return false;
     const { timestamp } = JSON.parse(rawBody) as { timestamp: string };
-    const expected = this.computeMac(rawBody, timestamp);
-    return timingSafeEqual(Buffer.from(sent), Buffer.from(expected));
+    return isSameText(header.slice(SIGNATURE_PREFIX.length), this.computeMac(rawBody, timestamp));
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+function isSameText(first: string, second: string): boolean {
+  const firstBytes = Buffer.from(first);
+  const secondBytes = Buffer.from(second);
+  return firstBytes.length === secondBytes.length && timingSafeEqual(firstBytes, secondBytes);
 }
