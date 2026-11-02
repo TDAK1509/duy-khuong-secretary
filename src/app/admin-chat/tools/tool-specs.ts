@@ -215,3 +215,69 @@ export const ATTACH_PHOTOS_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const PROPOSE_SCHEDULED_TASK_SPEC: ToolSpec = {
+  "name": "propose_scheduled_task",
+  "description": "Đặt lịch để Trợ lý tự làm một việc vào giờ đã hẹn và gửi kết quả cho quản lý. Giờ là giờ Việt Nam. Lịch mới là bản nháp cho tới khi quản lý trả lời 1 để lưu.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Tên ngắn của lịch, tối đa 80 ký tự, ví dụ \"Báo cáo hằng ngày\"."
+      },
+      "instruction": {
+        "type": "string",
+        "description": "Yêu cầu đầy đủ mà Trợ lý sẽ làm mỗi lần chạy, tối đa 2000 ký tự. Phải tự hiểu được mà không cần cuộc trò chuyện."
+      },
+      "repeat": {
+        "type": "string",
+        "enum": [
+          "once",
+          "daily",
+          "weekly",
+          "monthly"
+        ],
+        "description": "once: một lần. daily: hằng ngày. weekly: hằng tuần. monthly: hằng tháng."
+      },
+      "run_once_at": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Chỉ dùng khi repeat là once. Thời điểm chạy, dạng YYYY-MM-DD HH:mm. null với các loại khác."
+      },
+      "time_of_day": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Dùng khi repeat là daily, weekly hoặc monthly. Giờ chạy, dạng HH:mm. null khi repeat là once."
+      },
+      "weekday": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Chỉ dùng khi repeat là weekly. 1 là thứ Hai, 7 là Chủ nhật. null với các loại khác."
+      },
+      "day_of_month": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Chỉ dùng khi repeat là monthly. Ngày trong tháng, từ 1 đến 28. null với các loại khác."
+      }
+    },
+    "required": [
+      "title",
+      "instruction",
+      "repeat",
+      "run_once_at",
+      "time_of_day",
+      "weekday",
+      "day_of_month"
+    ],
+    "additionalProperties": false
+  }
+};
