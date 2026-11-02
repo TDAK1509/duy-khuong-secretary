@@ -256,6 +256,14 @@ describe('the maintenance status tool of an admin', () => {
     ]);
   });
 
+  it('refuses a cursor that is not a pair of texts', async () => {
+    const cursor = Buffer.from(JSON.stringify(['29C12345', 7])).toString('base64url');
+
+    const output = await runStatusOutput({ cursor });
+
+    expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
+  });
+
   it('refuses a member', async () => {
     const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
 
