@@ -15,6 +15,7 @@ export type Database = {
 
 export type Transaction = {
   query<Row>(statement: string, values?: unknown[]): Promise<Row[]>;
+  withScope<Result>(scope: DatabaseScope, work: () => Promise<Result>): Promise<Result>;
 };
 
 export function runInTransaction<Result>(
@@ -22,7 +23,15 @@ export function runInTransaction<Result>(
   work: (transaction: Transaction) => Promise<Result>,
 ): Promise<Result> {
   return runWithClient(database, (client) =>
-    work({ query: async <Row>(statement: string, values?: unknown[]) => (await client.query(statement, values)).rows as Row[] }),
+    work({
+      query: async <Row>(statement: string, values?: unknown[]) => (await client.query(statement, values)).rows as Row[],
+      withScope: async (scope, scoped) => {
+        await applyScope(client, scope);
+        const result = await scoped();
+        await applyScope(client, database.scope ?? null);
+        return result;
+      },
+    }),
   );
 }
 
@@ -45,9 +54,9 @@ export async function runWithClient<Result>(
   }
 }
 
-async function applyScope(client: DatabaseClient, scope: DatabaseScope): Promise<void> {
+async function applyScope(client: DatabaseClient, scope: DatabaseScope | null): Promise<void> {
   await client.query(`SELECT set_config('app.workspace_id', $1, true), set_config('app.owner_user_id', $2, true)`, [
-    scope.workspaceId,
-    scope.ownerUserId ?? '',
+    scope?.workspaceId ?? '',
+    scope?.ownerUserId ?? '',
   ]);
 }

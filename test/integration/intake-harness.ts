@@ -61,7 +61,7 @@ export function makeJpeg(size: number): Uint8Array {
 
 export async function createIntakeHarness(): Promise<IntakeHarness> {
   const database = await createMigratedDatabase();
-  const pool = createPostgresPool(database.url);
+  const pool = createPostgresPool(database.runtimeUrl);
   const clock = new FakeClock(NOW);
   const channel = new FakeMessagingChannel();
   const photoStorage = new FakePhotoStorage();
