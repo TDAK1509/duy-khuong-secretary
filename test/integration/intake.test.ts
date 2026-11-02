@@ -194,6 +194,20 @@ describe('storing what a member sends', () => {
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
+  it('adds nothing when an event is processed again after a crash', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    await receivePhoto('zu-hung');
+    await database.query(
+      `UPDATE inbound_events SET status = 'processing', locked_until = '${new Date(NOW.getTime() - 60_000).toISOString()}'`,
+    );
+
+    await runInbound();
+
+    expect(await database.query(`SELECT author FROM messages ORDER BY author`)).toEqual([{ author: 'bot' }, { author: 'user' }]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toHaveLength(1);
+    expect(channel.downloadedUrls).toEqual([PHOTO_URL]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();

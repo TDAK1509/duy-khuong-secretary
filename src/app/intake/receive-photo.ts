@@ -10,14 +10,16 @@ import {
   PHOTO_RECEIVED_TEXT,
   PHOTO_TOO_LARGE_TEXT,
 } from './intake-texts.ts';
-import { runStoreStage } from './store-user-message.ts';
+import { findUserMessage, runStoreStage } from './store-user-message.ts';
 
 const MAX_PHOTO_BYTES = 5_000_000;
 
 export type PhotoPart = IntakePart & { imageUrl: string };
 
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
-  const { channel } = context.dependencies;
+  const { channel, database } = context.dependencies;
+  const existing = await findUserMessage(database, context.event, part.index);
+  if (existing?.hasReply) return { kind: 'already_replied' };
   const download = await channel.downloadAttachment(part.imageUrl, MAX_PHOTO_BYTES);
   if (!download.ok) return refuse(download.reason === 'too_large' ? PHOTO_TOO_LARGE_TEXT : PHOTO_NOT_DOWNLOADED_TEXT);
   const image = detectImageType(download.bytes);
