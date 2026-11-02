@@ -88,4 +88,11 @@ describe('import rules', () => {
 
     expect(messages).toEqual([]);
   });
+
+  it('rejects a test importing the migration tool', async () => {
+    const messages = await lintFixture('test-import-migration-tool', 'test/migrate-by-hand.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("../src/providers/database/migration-tool.ts");
+  });
 });
