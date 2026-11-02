@@ -4,6 +4,7 @@ import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember } from './workspace-rows.ts';
 
 describe('saving what two readers agree on', () => {
   let harness: IntakeHarness;
@@ -130,6 +131,20 @@ describe('saving what two readers agree on', () => {
         ].join('\n'),
       ],
     ]);
+  });
+
+  it('sends the saved reply only to the Zalo account of the sender', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT external_user_id FROM outbound_messages')).toEqual([
+      { external_user_id: 'zu-hung' },
+    ]);
+    expect(harness.channel.texts.filter((sent) => sent.to.externalUserId === 'zu-lan')).toEqual([]);
   });
 
   function makeFuelItem() {
