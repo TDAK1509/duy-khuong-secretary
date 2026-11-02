@@ -43,4 +43,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("../../app/save-record.ts");
   });
+
+  it('rejects an import from one provider to another', async () => {
+    const messages = await lintFixture('provider-import-provider', 'src/providers/chat/x.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("../storage/y.ts");
+  });
 });
