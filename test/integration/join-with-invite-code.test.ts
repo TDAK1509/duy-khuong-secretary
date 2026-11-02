@@ -143,6 +143,15 @@ describe('joining a workspace with an invite code', () => {
     expect(channel.nameLookupCredentials).toEqual([]);
   });
 
+  it('accepts a code typed in lowercase with spaces', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', ' moi 7k4p 9x ');
+
+    const memberships = await database.query('SELECT display_name FROM memberships');
+    expect(memberships).toEqual([{ display_name: 'Hùng' }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
