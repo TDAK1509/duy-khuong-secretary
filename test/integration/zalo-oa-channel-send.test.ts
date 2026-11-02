@@ -34,6 +34,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("turns Zalo's rate-limit error into rate limited", async () => {
+    const server = await startStubServer(replyWithJson({ error: -32, message: 'Request exceeded limit' }));
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'rate_limited' });
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);

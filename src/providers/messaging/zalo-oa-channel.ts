@@ -7,6 +7,7 @@ const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
+const RATE_LIMIT_ERROR = -32;
 
 const attachmentSchema = z.object({
   type: z.string(),
@@ -24,6 +25,8 @@ const eventSchema = z.object({
     attachments: z.array(attachmentSchema).default([]),
   }),
 });
+
+const sendAnswerSchema = z.object({ error: z.coerce.number() });
 
 const envelopeSchema = z.object({
   app_id: z.string(),
@@ -65,14 +68,19 @@ export class ZaloOaChannel implements MessagingChannel {
       body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     });
-    await response.arrayBuffer();
-    return { ok: true };
+    return toSendResult(await response.json());
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+function toSendResult(answer: unknown): SendResult {
+  const { error } = sendAnswerSchema.parse(answer);
+  if (error === 0) return { ok: true };
+  return { ok: false, reason: error === RATE_LIMIT_ERROR ? 'rate_limited' : 'rejected' };
 }
 
 function isSameText(first: string, second: string): boolean {
