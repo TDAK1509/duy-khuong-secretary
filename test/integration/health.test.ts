@@ -49,4 +49,15 @@ describe('GET /health', () => {
 
     expect(response.json()).toEqual({ ok: true, commit: 'abc123' });
   });
+
+  it('falls back to the commit Render sets', async () => {
+    const config = loadConfig({ DATABASE_URL: testDatabaseUrl, RENDER_GIT_COMMIT: 'def456' });
+    const pool = createPostgresPool(config.databaseUrl);
+    const server = buildServer(pool, config.commit);
+    cleanups.push(() => server.close(), () => pool.end());
+
+    const response = await server.inject({ method: 'GET', url: '/health' });
+
+    expect(response.json()).toEqual({ ok: true, commit: 'def456' });
+  });
 });
