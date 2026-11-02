@@ -306,5 +306,19 @@ describe('an admin asks the bot', () => {
         expect(harness.readers.strong[0].requests).toHaveLength(0);
       });
     });
+
+    it('stores no answer when the worker lost its claim while the model answered', async () => {
+      harness.chat.follow(async () => {
+        await database.query(`UPDATE inbound_events SET attempts = attempts + 1`);
+        return replyWithText('Trả lời');
+      });
+
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+
+      expect(await database.query(`SELECT 1 FROM messages WHERE reply_kind = 'answer'`)).toEqual([]);
+      expect(await database.query(`SELECT question_pending FROM messages WHERE author = 'user'`)).toEqual([
+        { question_pending: true },
+      ]);
+    });
   });
 });
