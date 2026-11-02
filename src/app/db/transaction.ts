@@ -1,22 +1,49 @@
-import type { PostgresPool } from '../../providers/database/postgres.ts';
+export type DatabaseScope = { workspaceId: string; ownerUserId?: string };
 
-export type Database = PostgresPool;
+export type QueryResult<Row> = { rows: Row[]; rowCount: number | null };
+
+export type DatabaseClient = {
+  query(statement: string, values?: unknown[]): Promise<QueryResult<unknown>>;
+  release(): void;
+};
+
+export type Database = {
+  scope?: DatabaseScope;
+  connect(): Promise<DatabaseClient>;
+  query<Row extends Record<string, unknown>>(statement: string, values?: unknown[]): Promise<QueryResult<Row>>;
+};
 
 export type Transaction = {
   query<Row>(statement: string, values?: unknown[]): Promise<Row[]>;
+  withScope<Result>(scope: DatabaseScope, work: () => Promise<Result>): Promise<Result>;
 };
 
-export async function runInTransaction<Result>(
+export function runInTransaction<Result>(
   database: Database,
   work: (transaction: Transaction) => Promise<Result>,
+): Promise<Result> {
+  return runWithClient(database, (client) =>
+    work({
+      query: async <Row>(statement: string, values?: unknown[]) => (await client.query(statement, values)).rows as Row[],
+      withScope: async (scope, scoped) => {
+        await applyScope(client, scope);
+        const result = await scoped();
+        await applyScope(client, database.scope ?? null);
+        return result;
+      },
+    }),
+  );
+}
+
+export async function runWithClient<Result>(
+  database: Database,
+  work: (client: DatabaseClient) => Promise<Result>,
 ): Promise<Result> {
   const client = await database.connect();
   try {
     await client.query('BEGIN');
-    const result = await work({
-      query: async <Row>(statement: string, values?: unknown[]) =>
-        (await client.query(statement, values)).rows as Row[],
-    });
+    if (database.scope) await applyScope(client, database.scope);
+    const result = await work(client);
     await client.query('COMMIT');
     return result;
   } catch (error) {
@@ -25,4 +52,11 @@ export async function runInTransaction<Result>(
   } finally {
     client.release();
   }
+}
+
+async function applyScope(client: DatabaseClient, scope: DatabaseScope | null): Promise<void> {
+  await client.query(`SELECT set_config('app.workspace_id', $1, true), set_config('app.owner_user_id', $2, true)`, [
+    scope?.workspaceId ?? '',
+    scope?.ownerUserId ?? '',
+  ]);
 }

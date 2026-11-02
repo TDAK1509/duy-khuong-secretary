@@ -1,5 +1,6 @@
 import type { Clock } from '../../services/clock/clock.ts';
-import type { Database, Transaction } from '../db/transaction.ts';
+import { scopeDatabase } from '../db/scoped-database.ts';
+import type { Database, DatabaseScope, Transaction } from '../db/transaction.ts';
 import { runInClaimedTransaction } from './claimed-transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
@@ -15,6 +16,7 @@ export type Stage = {
 export type Stages = {
   runStage(stage: Stage): Promise<void>;
   finishEvent(write: (transaction: Transaction) => Promise<void>): Promise<Finished>;
+  forScope(scope: DatabaseScope): Stages;
 };
 
 export function createStages(database: Database, event: ClaimedEvent, clock: Clock): Stages {
@@ -32,5 +34,6 @@ export function createStages(database: Database, event: ClaimedEvent, clock: Clo
         );
         return { kind: 'finished' };
       }),
+    forScope: (scope) => createStages(scopeDatabase(database, scope), event, clock),
   };
 }

@@ -64,11 +64,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Create the roles of the local compose database
+        run: |
+          psql "$DATABASE_URL" -c "CREATE ROLE app_owner LOGIN CREATEDB PASSWORD 'app_owner'"
+          psql "$DATABASE_URL" -c "CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime'"
       - name: Build the schema by running the migrations
         run: node dist/bootstrap/migrate.js
         env:
           MIGRATION_DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
       - run: npm test
+        env:
+          SUPERUSER_DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
 
   migrations:
     runs-on: ubuntu-24.04
@@ -122,6 +128,7 @@ jobs:
           --health-retries 30
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
+      SUPERUSER_DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -131,6 +138,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Create the roles of the local compose database
+        run: |
+          psql "$DATABASE_URL" -c "CREATE ROLE app_owner LOGIN CREATEDB PASSWORD 'app_owner'"
+          psql "$DATABASE_URL" -c "CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime'"
       - name: Mutate this shard's share of the app files the pull request changes
         env:
           BASE_REF: ${{ github.base_ref }}

@@ -7,6 +7,7 @@ const OUTBOUND_CONCURRENCY = 1;
 const SHUTDOWN_WAIT_MS = 25_000;
 
 const service = assembleService(process.env);
+await service.checkDatabaseRole();
 const ticker = setInterval(() => void tick(), TICK_INTERVAL_MS);
 const inboundWorker = startQueueWorker({
   name: 'inbound',

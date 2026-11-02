@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { toDatabaseScope } from '../access/to-database-scope.ts';
+import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -15,11 +17,14 @@ import { replyToMessage } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage } from './store-user-message.ts';
 
 export async function receiveIntake(
-  dependencies: IntakeDependencies,
-  stages: Stages,
+  unscopedDependencies: IntakeDependencies,
+  unscopedStages: Stages,
   event: ClaimedEvent,
   sender: IntakeSender,
 ): Promise<Finished | NotConfigured> {
+  const scope = toDatabaseScope(sender);
+  const dependencies = { ...unscopedDependencies, database: scopeDatabase(unscopedDependencies.database, scope) };
+  const stages = unscopedStages.forScope(scope);
   const { photoStorage, readers, chat } = dependencies;
   if (sender.role === 'admin' && chat === null) return { kind: 'not_configured', group: 'chat' };
   if (event.kind === 'images' && photoStorage === null) return { kind: 'not_configured', group: 'photos' };
