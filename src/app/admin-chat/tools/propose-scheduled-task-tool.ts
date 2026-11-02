@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
+import { computeNextRun } from '../../schedules/compute-next-run.ts';
+import { formatSchedule } from '../../schedules/format-schedule.ts';
 import { storeDraft } from '../../schedules/store-draft.ts';
+import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
 const argumentsSchema = z.object({
@@ -14,12 +17,13 @@ const argumentsSchema = z.object({
 });
 
 export async function runProposeScheduledTask(
-  { database }: AdminToolDependencies,
+  { database, clock }: AdminToolDependencies,
   scope: AccessScope,
   parsedArguments: unknown,
 ): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const schedule = { repeat: 'daily' as const, timeOfDay: args.time_of_day ?? '' };
   await storeDraft(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, title: args.title, instruction: args.instruction, schedule });
-  return JSON.stringify({ ok: true, draft: true });
+  const firstRun = computeNextRun(schedule, clock.now());
+  return JSON.stringify({ ok: true, draft: true, schedule: formatSchedule(schedule), first_run: formatVietnamDateTime(firstRun) });
 }

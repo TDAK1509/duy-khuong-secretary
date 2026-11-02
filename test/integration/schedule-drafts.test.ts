@@ -57,6 +57,13 @@ describe('an admin drafts a scheduled task by chat', () => {
     harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(reply)));
   }
 
+  function findToolResult(): string {
+    const turns = harness.chat.requests[1]?.turns ?? [];
+    const result = turns.find((turn) => turn.role === 'tool_result');
+    if (result?.role !== 'tool_result') throw new Error('the model received no tool result');
+    return result.output;
+  }
+
   it('stores a draft with no next run', async () => {
     proposeThenReply({});
 
@@ -67,5 +74,13 @@ describe('an admin drafts a scheduled task by chat', () => {
     ).toEqual([
       { workspace_id: workspaceId, created_by: duyUserId, title: 'Báo cáo hằng ngày', status: 'draft', next_run_at: null },
     ]);
+  });
+
+  it('tells the model the schedule and the first run', async () => {
+    proposeThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"18:00 hằng ngày","first_run":"18:00 31/10/2026"}');
   });
 });
