@@ -12,6 +12,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly maxTextLength = 2000;
   readonly texts: RecordedText[] = [];
   readonly displayNames = new Map<string, string>();
+  readonly nameLookupCredentials: string[] = [];
   nextTextResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
@@ -27,7 +28,8 @@ export class FakeMessagingChannel implements MessagingChannel {
     return this.nextTextResult;
   }
 
-  async getDisplayName(user: ChannelRecipient): Promise<string | null> {
+  async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
+    this.nameLookupCredentials.push(credential);
     return this.displayNames.get(user.externalUserId) ?? null;
   }
 }

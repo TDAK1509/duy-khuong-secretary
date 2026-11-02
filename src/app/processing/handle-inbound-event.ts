@@ -4,6 +4,7 @@ import type { MessagingChannel } from '../../services/messaging/messaging-channe
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
+import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
 import { formatJoinedText, WELCOME_TEXT } from './conversation-texts.ts';
@@ -23,27 +24,39 @@ const textPayloadSchema = z.object({ text: z.string() });
 export function createInboundHandler(dependencies: InboundHandlerDependencies | null): InboundHandler {
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
-    const { channel, clock } = dependencies;
-    return stages.finishEvent(async (transaction) => {
-      const identity = await recordSenderIdentity(transaction, event);
-      const reply = await decideReply(transaction, { identity, event, now: clock.now() });
-      if (reply === null) return;
-      await enqueueText(transaction, {
-        to: describeSender(event),
-        text: reply,
-        maxTextLength: channel.maxTextLength,
-        availableAt: clock.now(),
-      });
-    });
+    const inviteCode = readInviteCode(event);
+    const zaloName = inviteCode === null ? null : await lookUpZaloName(dependencies, describeSender(event));
+    return stages.finishEvent((transaction) =>
+      answerSender(transaction, dependencies, { event, inviteCode, zaloName }),
+    );
   };
 }
 
-type Message = { identity: ChannelIdentity; event: ClaimedEvent; now: Date };
+type Message = { event: ClaimedEvent; inviteCode: string | null; zaloName: string | null };
 
-async function decideReply(transaction: Transaction, { identity, event, now }: Message): Promise<string | null> {
-  const inviteCode = readInviteCode(event);
+async function answerSender(
+  transaction: Transaction,
+  { channel, clock }: InboundHandlerDependencies,
+  message: Message,
+): Promise<void> {
+  const identity = await recordSenderIdentity(transaction, message.event);
+  const reply = await decideReply(transaction, identity, { ...message, now: clock.now() });
+  if (reply === null) return;
+  await enqueueText(transaction, {
+    to: describeSender(message.event),
+    text: reply,
+    maxTextLength: channel.maxTextLength,
+    availableAt: clock.now(),
+  });
+}
+
+async function decideReply(
+  transaction: Transaction,
+  identity: ChannelIdentity,
+  { inviteCode, zaloName, now }: Message & { now: Date },
+): Promise<string | null> {
   if (inviteCode === null) return WELCOME_TEXT;
-  const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, now });
+  const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   return joined && formatJoinedText(joined);
 }
 

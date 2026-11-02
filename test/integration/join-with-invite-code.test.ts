@@ -109,6 +109,17 @@ describe('joining a workspace with an invite code', () => {
     ]);
   });
 
+  it("stores the person's Zalo name", async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    channel.displayNames.set('zu-hung', 'Hung Nguyen');
+
+    await receiveText('zu-hung', CODE);
+
+    const identities = await database.query('SELECT zalo_name FROM channel_identities');
+    expect(identities).toEqual([{ zalo_name: 'Hung Nguyen' }]);
+    expect(channel.nameLookupCredentials).toEqual(['a1']);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

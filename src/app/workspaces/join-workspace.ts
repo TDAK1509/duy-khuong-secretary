@@ -1,5 +1,6 @@
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { linkIdentityToNewUser } from '../identities/link-identity-to-new-user.ts';
+import { rememberZaloName } from '../identities/remember-zalo-name.ts';
 import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
@@ -12,12 +13,12 @@ type InviteRow = {
   role: 'admin' | 'member';
 };
 
-export type JoinRequest = { identity: ChannelIdentity; code: string; now: Date };
+export type JoinRequest = { identity: ChannelIdentity; code: string; zaloName: string | null; now: Date };
 
 export type JoinResult = { workspaceName: string; displayName: string; role: 'admin' | 'member' } | null;
 
 export async function joinWithInviteCode(transaction: Transaction, request: JoinRequest): Promise<JoinResult> {
-  const { identity, code, now } = request;
+  const { identity, code, zaloName, now } = request;
   const [invite] = await transaction.query<InviteRow>(
     `SELECT invite.id, invite.workspace_id, workspace.name AS workspace_name, invite.display_name, invite.role
      FROM workspace_invites invite
@@ -32,6 +33,7 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     [invite.workspace_id, userId, invite.role, invite.display_name],
   );
   await setCurrentWorkspace(transaction, identity, invite.workspace_id);
+  await rememberZaloName(transaction, identity, zaloName);
   await transaction.query('UPDATE workspace_invites SET used_at = $2, used_by = $3 WHERE id = $1', [
     invite.id,
     now,
