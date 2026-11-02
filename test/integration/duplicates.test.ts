@@ -91,15 +91,29 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('saves a new paper once when two drivers send it at the same moment', async () => {
+    await processSamePaperFromHungAndLanTogether();
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
+  it('gives the later of two simultaneous copies the duplicate reply', async () => {
+    await processSamePaperFromHungAndLanTogether();
+
+    await harness.sendQueuedTexts();
+    await harness.sendQueuedTexts();
+
+    const sentTexts = harness.channel.texts.map((sent) => sent.text);
+    expect(sentTexts.filter((text) => text.startsWith('Đã lưu:'))).toHaveLength(1);
+    expect(sentTexts).toContain('Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.');
+  });
+
+  async function processSamePaperFromHungAndLanTogether(): Promise<void> {
     answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
     holdReaderUntilArrivals(harness.readers.cheap[0], 2);
     await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
     await insertInboundEvent(database, { externalUserId: 'zu-lan', kind: 'images', imageUrls: [PHOTO_URL] });
-
     await Promise.all([harness.runInbound(), harness.runInbound()]);
-
-    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
-  });
+  }
 
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
