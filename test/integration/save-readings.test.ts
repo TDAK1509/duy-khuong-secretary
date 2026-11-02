@@ -315,6 +315,14 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('copies the display name of the sender onto the record', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT sender_name FROM records')).toEqual([{ sender_name: 'Hùng' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
