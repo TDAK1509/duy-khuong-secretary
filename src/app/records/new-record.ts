@@ -1,4 +1,4 @@
-import { normalizeCode, normalizeCodeSet } from '../reading/normalize.ts';
+import { normalizeCode, normalizeCodeSet, normalizeMaintenanceItem } from '../reading/normalize.ts';
 import type { ReadingItem } from '../reading/reading.ts';
 import { summarizeRecord } from './summarize-record.ts';
 
@@ -22,7 +22,7 @@ export function buildNewRecords(items: ReadingItem[]): NewRecord[] {
 function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
   const fields = {
     category: item.category,
-    maintenanceItem: item.maintenance_item,
+    maintenanceItem: item.category === 'maintenance' ? normalizeMaintenanceItem(item.maintenance_item) : null,
     vehiclePlate: normalizeCode(item.vehicle_plate),
     documentNumber: normalizeCode(item.document_number),
     identifiers: normalizeCodeSet(item.identifiers),

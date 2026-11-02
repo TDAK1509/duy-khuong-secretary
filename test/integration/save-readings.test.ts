@@ -233,6 +233,15 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT document_number FROM records')).toEqual([{ document_number: 'AA26E0001234' }]);
   });
 
+  it('stores the maintenance item trimmed and lowercased', async () => {
+    const oilChange = makeItem({ category: 'maintenance', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([oilChange]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: 'dầu máy' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
