@@ -49,6 +49,15 @@ describe('key renewal on the ticker', () => {
     expect(channelAuth.refreshes).toEqual([]);
   });
 
+  it('renews once when two ticks start at the same moment', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshDelayMs = 200;
+
+    await Promise.all([runOneTick(), runOneTick()]);
+
+    expect(channelAuth.refreshes).toHaveLength(1);
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
