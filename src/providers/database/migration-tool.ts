@@ -110,16 +110,24 @@ const loadGuardedMigrations: MigrationLoader = (filePaths) =>
     }),
   );
 
+type Recording = { statements: string[]; usesTransaction: boolean };
+
 function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => void {
   return (pgm) => {
-    const statements = recordStatements(up);
-    TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
+    const { statements, usesTransaction } = record(up);
+    if (usesTransaction) TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
+    else pgm.noTransaction();
     statements.forEach((statement) => pgm.sql(statement));
   };
 }
 
-function recordStatements(up: AppMigration['up']): string[] {
-  const statements: string[] = [];
-  up({ sql: (statement) => statements.push(statement), noTransaction: () => {} });
-  return statements;
+function record(up: AppMigration['up']): Recording {
+  const recording: Recording = { statements: [], usesTransaction: true };
+  up({
+    sql: (statement) => recording.statements.push(statement),
+    noTransaction: () => {
+      recording.usesTransaction = false;
+    },
+  });
+  return recording;
 }
