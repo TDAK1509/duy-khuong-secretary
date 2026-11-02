@@ -79,4 +79,10 @@ describe('an admin asks the bot', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Lưu dữ liệu:');
   });
+
+  it('puts the search section in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(harness.chat.requests[0]?.system).toContain('Tìm dữ liệu:');
+  });
 });
