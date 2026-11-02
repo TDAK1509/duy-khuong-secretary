@@ -17,10 +17,10 @@ export type TemporaryDatabase = {
   drop: () => Promise<void>;
 };
 
-export async function createTemporaryDatabase(): Promise<TemporaryDatabase> {
+export async function createTemporaryDatabase(creatorUrl: string = testDatabaseUrl): Promise<TemporaryDatabase> {
   const name = `migrate_${randomUUID().replaceAll('-', '')}`;
-  await runAs(testDatabaseUrl, (client) => client.query(`CREATE DATABASE ${name}`));
-  const url = pointToDatabase(testDatabaseUrl, name);
+  await runAs(creatorUrl, (client) => client.query(`CREATE DATABASE ${name}`));
+  const url = pointToDatabase(creatorUrl, name);
   const runtimeUrl = signInAs(url, RUNTIME_ROLE);
   const sessions: pg.Client[] = [];
   async function openSessionAt(connectionString: string): Promise<pg.Client> {
@@ -60,7 +60,7 @@ function isBackgroundWorkerOfAnotherRole(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === INSUFFICIENT_PRIVILEGE;
 }
 
-function signInAs(databaseUrl: string, role: string): string {
+export function signInAs(databaseUrl: string, role: string): string {
   const url = new URL(databaseUrl);
   url.username = role;
   url.password = role;

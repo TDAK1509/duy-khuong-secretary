@@ -4,6 +4,7 @@ import { runOutboundStep } from '../app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
+import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
 import type { ReaderSlots } from '../app/reading/decide-reading.ts';
 import type { ChatService } from '../services/chat/chat-service.ts';
@@ -31,6 +32,7 @@ export type Service = {
   config: Config;
   server: FastifyInstance;
   pool: PostgresPool;
+  checkDatabaseRole: () => Promise<void>;
   runTick: () => Promise<void>;
   runInboundStep: () => Promise<'processed' | 'idle'>;
   runOutboundStep: () => Promise<'processed' | 'idle'>;
@@ -61,7 +63,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     chat: chatConfig && buildChatService(chatConfig),
     log,
   });
-  return { config, server, pool, runTick: () => runTick({ renewal }), ...queueSteps };
+  return { config, server, pool, checkDatabaseRole: () => checkDatabaseRole(pool, log), runTick: () => runTick({ renewal }), ...queueSteps };
 }
 
 type HttpParts = {

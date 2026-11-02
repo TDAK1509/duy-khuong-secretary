@@ -3,8 +3,8 @@ import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-dat
 
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
-export async function createMigratedDatabase(): Promise<TemporaryDatabase> {
-  const database = await createTemporaryDatabase();
+export async function createMigratedDatabase(creatorUrl?: string): Promise<TemporaryDatabase> {
+  const database = await createTemporaryDatabase(creatorUrl);
   const exitCode = await runMigrationCommand(
     { MIGRATION_DATABASE_URL: database.url },
     { directory: migrationsDirectory, log: () => {} },
