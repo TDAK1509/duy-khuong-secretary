@@ -104,6 +104,21 @@ describe('an admin creates a scheduled task by chat', () => {
     expect(findToolResult()).toBe('{"ok":true,"saved":true,"schedule":"18:00 hằng ngày","first_run":"18:00 31/10/2026"}');
   });
 
+  it('creates one task when the message is processed again after the worker stopped', async () => {
+    const call = { id: 'call_1', name: 'create_scheduled_task', argumentsJson: JSON.stringify(DAILY_REPORT) };
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 2) throw new Error('the worker stopped');
+      return callNumber % 2 === 1 ? replyWithToolCalls(call) : replyWithText(SAVED_TEXT);
+    });
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await database.query(`UPDATE inbound_events SET status = 'processing', locked_until = '2026-10-30T00:00:00Z', attempts = 1`);
+
+    await harness.runInbound();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
+    expect(await database.query(`SELECT text FROM messages WHERE reply_kind = 'answer'`)).toEqual([{ text: SAVED_TEXT }]);
+  });
+
   it('refuses a one-time task in the past', async () => {
     createThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
 
