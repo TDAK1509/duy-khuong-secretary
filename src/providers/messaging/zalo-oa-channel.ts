@@ -23,6 +23,7 @@ const SEND_TEMPLATE_PATH = '/v3.0/oa/message/template';
 const UPLOAD_IMAGE_PATH = '/v2.0/oa/upload/image';
 const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
+const WINDOW_CLOSED_ERROR = -230;
 const SERVER_ERROR_STATUS = 500;
 const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
@@ -362,7 +363,8 @@ async function readUploadResult(response: Response): Promise<UploadResult> {
 }
 
 function toFailedSend(error: number): FailedSend {
-  return { ok: false, reason: error === RATE_LIMIT_ERROR ? 'rate_limited' : 'rejected' };
+  if (error === RATE_LIMIT_ERROR) return { ok: false, reason: 'rate_limited' };
+  return { ok: false, reason: error === WINDOW_CLOSED_ERROR ? 'window_closed' : 'rejected' };
 }
 
 function wasNeverSent(error: unknown): boolean {

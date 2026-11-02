@@ -43,6 +43,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: false, reason: 'rate_limited' });
   });
 
+  it("turns Zalo's error for a user outside the 7-day window into window closed", async () => {
+    const server = await startStubServer(replyWithJson({ error: -230, message: 'User has not interacted with the OA in the past 7 days' }));
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'window_closed' });
+  });
+
   it('turns another Zalo error into rejected', async () => {
     const server = await startStubServer(replyWithJson({ error: -213, message: 'User has not interacted' }));
 
