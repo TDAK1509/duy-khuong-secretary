@@ -164,6 +164,24 @@ describe('saving what two readers agree on', () => {
     ).toEqual([[['Xe 29C-123.45', 'image/jpeg']], [['Xe 29C-123.45', 'image/jpeg']]]);
   });
 
+  function makeQuestionOnly(): Reading {
+    return makeReading([], { has_work_data: false, has_question: true });
+  }
+
+  it('answers the question of a member with the upload-only reply', async () => {
+    answerPair(harness.readers.cheap, makeQuestionOnly());
+
+    await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+      ],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
