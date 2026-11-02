@@ -57,6 +57,14 @@ async function deliverMessage(dependencies: OutboundDependencies, message: Claim
   await sendToRecipient(dependencies, message, payload);
 }
 
+async function isOutsideWindow({ database, clock }: OutboundDependencies, message: ClaimedMessage): Promise<boolean> {
+  return message.scheduledTaskId !== null && !(await isRecipientInWindow(database, message.to, clock.now()));
+}
+
+function holdMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
+  return applyOutcome(dependencies, message, { settlement: { status: 'held', lastError: 'outside_window', recheckWindow: true } });
+}
+
 async function sendToRecipient(dependencies: OutboundDependencies, message: ClaimedMessage, payload: Payload): Promise<void> {
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
@@ -64,14 +72,6 @@ async function sendToRecipient(dependencies: OutboundDependencies, message: Clai
   if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result);
-}
-
-async function isOutsideWindow({ database, clock }: OutboundDependencies, message: ClaimedMessage): Promise<boolean> {
-  return message.scheduledTaskId !== null && !(await isRecipientInWindow(database, message.to, clock.now()));
-}
-
-function holdMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  return applyOutcome(dependencies, message, { settlement: { status: 'held', lastError: 'outside_window', recheckWindow: true } });
 }
 
 function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage, reason: string): Promise<void> {
