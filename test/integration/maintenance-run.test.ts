@@ -214,4 +214,39 @@ describe('the daily maintenance reminder run', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('measures the age from the upload time, not from the time the record was saved', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      createdAt: new Date('2026-10-01T10:00:00+07:00'),
+      savedAt: new Date('2026-10-30T10:00:00+07:00'),
+    });
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toHaveLength(1);
+  });
+
+  it('counts days by the Vietnam date of the upload', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      createdAt: new Date('2026-10-01T00:30:00+07:00'),
+    });
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.turns[0]).toMatchObject({ text: expect.stringContaining('"sent_on":"01/10/2026"') });
+  });
 });
