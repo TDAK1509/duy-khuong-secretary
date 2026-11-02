@@ -310,5 +310,18 @@ describe('the data tools of an admin', () => {
         { category: 'toll', count: 1, amount_vnd: 35000 },
       ]);
     });
+
+    it('never includes another workspace', async () => {
+      const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+      const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+      for (let number = 0; number < 5; number += 1) {
+        await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy' });
+      }
+
+      const result = await runCount();
+
+      expect(result.members.every((row) => row.total_count === 0)).toBe(true);
+      expect(result.members.map((row) => row.member)).not.toContain('Vy');
+    });
   });
 });
