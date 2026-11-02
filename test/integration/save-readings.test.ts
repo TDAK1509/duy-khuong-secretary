@@ -242,6 +242,18 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: 'dầu máy' }]);
   });
 
+  function makePlatelessMaintenanceItem() {
+    return makeItem({ category: 'maintenance', maintenance_item: 'dầu máy', vehicle_plate: null });
+  }
+
+  it('saves nothing for a maintenance item without a plate', async () => {
+    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
