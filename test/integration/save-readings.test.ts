@@ -209,6 +209,14 @@ describe('saving what two readers agree on', () => {
     expect(harness.channel.texts[0]?.text).toMatch(/^Đã lưu: Đổ xăng dầu/);
   });
 
+  it('stores the identifiers normalized', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeItem({ identifiers: ['DT2024-889'] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT identifiers FROM records')).toEqual([{ identifiers: ['DT2024889'] }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
