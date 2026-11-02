@@ -5,6 +5,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const CHECK_VIOLATION = '23514';
+const FOREIGN_KEY_VIOLATION = '23503';
 
 describe('the records table', () => {
   let database: TemporaryDatabase;
@@ -39,6 +40,14 @@ describe('the records table', () => {
     await expect(insertRecord({ category: 'maintenance', maintenanceItem: 'lốp', vehiclePlate: null })).rejects.toMatchObject({
       code: CHECK_VIOLATION,
     });
+  });
+
+  it('refuses a record whose workspace differs from its message', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+
+    await expect(
+      insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null, workspaceId: otherWorkspaceId }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
   });
 
   async function insertUserMessage(): Promise<string> {
