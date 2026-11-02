@@ -370,6 +370,22 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
   });
 
+  it('saves nothing when the worker lost its claim while the readers read', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    const [reader] = harness.readers.cheap;
+    const readOnce = reader.read.bind(reader);
+    reader.read = async (request) => {
+      await database.query(`UPDATE inbound_events SET attempts = attempts + 1`);
+      return readOnce(request);
+    };
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
