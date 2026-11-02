@@ -2,6 +2,7 @@ import type { ChannelRecipient } from '../../services/messaging/messaging-channe
 import { enqueueImage } from '../delivery/enqueue-image.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Transaction } from '../db/transaction.ts';
+import type { PendingChoice } from '../identities/pending-choice.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import type { IntakeContext } from './intake-context.ts';
 
@@ -10,14 +11,16 @@ export async function enqueueReply(
   context: IntakeContext,
   text: string,
   adminMembershipId?: string,
+  offeredChoice?: PendingChoice,
 ): Promise<void> {
-  const { dependencies } = context;
+  const { dependencies, event } = context;
   await enqueueText(transaction, {
     to: findRecipient(context),
     text,
     maxTextLength: dependencies.channel.maxTextLength,
     availableAt: dependencies.clock.now(),
     ...(adminMembershipId !== undefined && { adminMembershipId }),
+    ...(offeredChoice !== undefined && { offeredChoice: { choice: offeredChoice, sourceEventId: event.id } }),
   });
 }
 

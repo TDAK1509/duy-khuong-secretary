@@ -15,7 +15,7 @@ import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { DraftProposals, type DraftProposal } from './draft-proposals.ts';
-import { loadDraftCard } from '../schedules/draft-card.ts';
+import { loadDraftCard, type DraftCard } from '../schedules/draft-card.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
@@ -57,19 +57,19 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
   if (!(await isStillSameAdmin(transaction, sender.membershipId))) return;
-  const text = await appendDraftCard(transaction, context, answer);
+  const card = await loadCard(transaction, context, answer);
+  const text = card === null ? answer.text : `${answer.text}\n\n${card.text}`;
   await storeBotReply(transaction, messageId, { text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, text, sender.membershipId);
+  await enqueueReply(transaction, context, text, sender.membershipId, card?.choice);
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
 }
 
-async function appendDraftCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<string> {
-  if (answer.draft === null) return answer.text;
-  const card = await loadDraftCard(transaction, answer.draft.taskId, context.sender, context.dependencies.clock.now());
-  return card === null ? answer.text : `${answer.text}\n\n${card}`;
+async function loadCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<DraftCard | null> {
+  if (answer.draft === null) return null;
+  return loadDraftCard(transaction, answer.draft.taskId, context.sender, context.dependencies.clock.now());
 }
 
 async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {

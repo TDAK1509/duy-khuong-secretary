@@ -111,4 +111,16 @@ describe('an admin drafts a scheduled task by chat', () => {
       ],
     ]);
   });
+
+  it('stores the sent draft as the pending choice', async () => {
+    proposeThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    const [task] = await database.query<{ id: string }>('SELECT id FROM scheduled_tasks');
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      { pending_choice: { kind: 'draft_confirm', task_id: task?.id, workspace_id: workspaceId } },
+    ]);
+  });
 });

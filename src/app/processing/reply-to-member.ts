@@ -16,6 +16,6 @@ export async function replyToMember(transaction: Transaction, message: MemberMes
 
 async function answerBareNumber(transaction: Transaction, message: MemberMessage, number: number): Promise<Reply> {
   const { pendingChoice } = message.identity;
-  if (pendingChoice === null) return { text: NO_PENDING_CHOICE_TEXT };
+  if (pendingChoice?.kind !== 'workspace_pick') return { text: NO_PENDING_CHOICE_TEXT };
   return pickWorkspace(transaction, message, pendingChoice, number);
 }
