@@ -32,7 +32,7 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
     tools: ADMIN_TOOLS,
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  return runToolLoop(requireChat(context), request, (call) => runAdminTool(database, caller, call));
+  return runToolLoop(requireChat(context), request, (call) => runAdminTool({ database, clock }, caller, call));
 }
 
 function requireChat(context: IntakeContext): ChatService {
