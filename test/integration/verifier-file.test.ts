@@ -20,6 +20,12 @@ describe('the Zalo domain verification file', () => {
     expect(response.body).toBe('<html>abc</html>');
   });
 
+  it('is absent when not configured', async () => {
+    const response = await getVerifierPath({});
+
+    expect(response.statusCode).toBe(404);
+  });
+
   async function getVerifierPath(options: ServerOptions) {
     const pool = createPostgresPool(testDatabaseUrl);
     const server = buildServer(pool, null, options);
