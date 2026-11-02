@@ -41,4 +41,14 @@ describe('checkMergedMigrations', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('0001_a.sql');
   });
+
+  it('passes when the branch only adds a migration', () => {
+    const fixture = createFixtureWithMergedMigration();
+    fixture.writeFile('src/app/db/migrations/0002_b.sql', 'CREATE TABLE b (id int);\n');
+    fixture.commitAll('add migration b');
+
+    const problems = checkMergedMigrations(fixture.directory, 'main');
+
+    expect(problems).toEqual([]);
+  });
 });
