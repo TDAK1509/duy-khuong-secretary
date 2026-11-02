@@ -114,6 +114,17 @@ describe('switching between workspaces', () => {
     expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
   });
 
+  it('understands the switch command without accents and in capitals', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+
+    await receiveText('zu-duy', 'DOI NHOM');
+    await sendQueuedTexts();
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([
+      { pending_choice: { kind: 'workspace_pick', workspace_ids: [workspaceId, otherWorkspaceId] } },
+    ]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
