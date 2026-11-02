@@ -5,6 +5,7 @@ import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
+import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertMembership } from './workspace-rows.ts';
 
@@ -289,6 +290,32 @@ describe('an admin asks the bot', () => {
 
       expect(sentTexts()).toEqual([['zu-duy', 'Xin lỗi, tôi chưa xử lý được. Bạn thử lại nhé.']]);
       expect(harness.chat.requests).toHaveLength(6);
+    });
+
+    it('stores no answer built from tool results for an admin demoted during the answer', async () => {
+      const hungUserId = await findUserId('Hùng');
+      await insertRecordRow(database, {
+        workspaceId,
+        userId: hungUserId,
+        senderName: 'Hùng',
+        category: 'maintenance',
+        maintenanceItem: 'lốp',
+        identifiers: ['DT2024889'],
+        summary: 'Bảo dưỡng: lốp, xe 29C12345, mã DT2024889',
+      });
+      const searchArguments = { text: 'DT2024-889', category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
+      harness.chat.follow(async (_request, callNumber) => {
+        if (callNumber === 1) return replyWithToolCalls({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(searchArguments) });
+        const [{ user_id: userId } = { user_id: '' }] = await database.query<{ user_id: string }>(
+          `DELETE FROM memberships WHERE display_name = 'Duy' RETURNING user_id`,
+        );
+        await insertMembership(database, { workspaceId, userId, displayName: 'Duy', role: 'member' });
+        return replyWithText('Bảo dưỡng: lốp, xe 29C12345, mã DT2024889');
+      });
+
+      await harness.receiveText('zu-duy', 'Lốp DT2024-889 thế nào?');
+
+      expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
     });
   });
 
