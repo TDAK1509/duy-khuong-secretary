@@ -24,11 +24,6 @@ export async function decideReading(slots: ReaderSlots, request: ReaderRequest):
   return { outcome: 'unresolved', cheap, strong, agreed: null };
 }
 
-function pickAgreedReadings(attempts: AttemptPair): AgreedReadings | null {
-  const [first, second] = attempts;
-  return first.ok && second.ok && areAgreeing(first, second) ? [first.reading, second.reading] : null;
-}
-
 async function readWithPair(pair: ReaderPair, request: ReaderRequest): Promise<AttemptPair> {
   const [first, second] = pair;
   return Promise.all([readOnce(first, request), readOnce(second, request)]);
@@ -37,4 +32,9 @@ async function readWithPair(pair: ReaderPair, request: ReaderRequest): Promise<A
 async function readOnce(reader: ReaderService, request: ReaderRequest): Promise<ReadAttempt> {
   const result = await reader.read(request);
   return result.ok ? validateReading(result.json) : result;
+}
+
+function pickAgreedReadings(attempts: AttemptPair): AgreedReadings | null {
+  const [first, second] = attempts;
+  return first.ok && second.ok && areAgreeing(first, second) ? [first.reading, second.reading] : null;
 }
