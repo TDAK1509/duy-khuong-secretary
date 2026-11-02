@@ -48,6 +48,12 @@ describe('render.yaml database', () => {
   });
 });
 
+describe('render.yaml database access', () => {
+  it('allows no external connection', () => {
+    expect(blueprint.databases[0]?.['ipAllowList']).toEqual([]);
+  });
+});
+
 describe('render.yaml other env vars', () => {
   it('leaves every value that is not a database URL to be entered by hand', () => {
     const others = listEnvVars(blueprint.services[0]).filter(

@@ -25,3 +25,4 @@ databases:
     plan: 0.1c-256mb
     region: singapore
     postgresMajorVersion: "17"
+    ipAllowList: []
