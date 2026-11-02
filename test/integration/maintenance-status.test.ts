@@ -200,4 +200,10 @@ describe('the maintenance status tool of an admin', () => {
       expect(second.next_cursor).toBeNull();
     });
   });
+
+  it('refuses an unreadable cursor', async () => {
+    const output = await runStatusOutput({ cursor: 'xyz' });
+
+    expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
+  });
 });

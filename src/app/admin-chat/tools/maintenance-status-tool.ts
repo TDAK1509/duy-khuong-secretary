@@ -3,6 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import { decodeMaintenanceCursor } from '../../records/maintenance-cursor.ts';
 import { findLatestMaintenance } from '../../records/find-latest-maintenance.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
+import { failTool, INVALID_CURSOR_ERROR } from './tool-result.ts';
 
 const argumentsSchema = z.object({
   plate: z.string().nullable(),
@@ -13,6 +14,7 @@ const argumentsSchema = z.object({
 export async function runMaintenanceStatus(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const cursor = args.cursor === null ? null : decodeMaintenanceCursor(args.cursor);
+  if (args.cursor !== null && cursor === null) return failTool(INVALID_CURSOR_ERROR);
   const page = await findLatestMaintenance(
     dependencies.database,
     scope,
