@@ -121,4 +121,12 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toHaveLength(1);
   });
+
+  it('matches an identifier typed with punctuation', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', identifiers: ['DT2024889'] });
+
+    const result = await runSearch({ text: 'dt2024-889' });
+
+    expect(result.items).toHaveLength(1);
+  });
 });
