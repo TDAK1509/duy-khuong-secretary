@@ -118,9 +118,24 @@ To run with MinIO by hand (never in CI): `docker compose --profile minio up -d -
 
 ## Save what two readers agree on
 
-Every text and photo from a person in a workspace goes to the readers (the cheap pair, then the strong pair when the cheap pair disagrees). When a pair agrees on work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. `read_by` is `cheap_pair` or `expensive_pair`. When no pair agrees, nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message with no work data gets the upload-only reply. A question in a message with work data is ignored.
+Every text and photo from a person in a workspace goes to the readers (the cheap pair, then the strong pair when the cheap pair disagrees). When a pair agrees on work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. `read_by` is `cheap_pair` or `expensive_pair`. When no pair agrees, nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message from a member with no work data gets the upload-only reply. A question in a member's message is ignored. Admins get the chat model (see "Admins ask the bot").
 
 The `readers` group is on only when `READER_PROVIDER` and the 12 `READER_<SLOT>_BASE_URL/_API_KEY/_MODEL` values are set (see "Evaluate the readers"). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
+
+## Admins ask the bot
+
+A message from an admin goes to the chat model when it has no work data. When it has work data and a question, the server saves the data and sends the saved reply first, then the chat model answers. Unresolved, no-plate and duplicate messages get their fixed replies and never reach the model. Members never reach the model. The model calls three tools, up to 5 rounds: `search_records`, `count_records` and `list_members`. Each tool reloads the caller's membership and refuses anyone who is not a current admin of the workspace. The answer is stored only when the admin's membership row is still the same row and still `admin`. If the chat model fails, the admin gets the failure text; the saved records stay.
+
+The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the readers run.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `CHAT_PROVIDER` | none, required | `openai-compatible` |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | Chat Completions endpoint, key and model (`gpt-6-luna` in production) |
+| `LLM_TIMEOUT_MS` | `60000` | Wait for one chat reply |
+| `LLM_REASONING_EFFORT` | `none` | Sent as `reasoning_effort`; an empty value means it is not sent. `gpt-6-luna` supports function calling on Chat Completions only with `none` |
+
+The search uses the Postgres `unaccent` extension. The migrations enable it.
 
 ## Migrations
 

@@ -1,3 +1,4 @@
+import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
@@ -13,6 +14,7 @@ export type IntakeDependencies = {
   database: Database;
   photoStorage: PhotoStorage | null;
   readers: ReaderSlots | null;
+  chat: ChatService | null;
 };
 
 export type IntakeContext = {

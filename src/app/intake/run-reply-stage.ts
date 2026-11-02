@@ -5,7 +5,7 @@ import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { enqueueReply } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
-import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
+import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
 export async function runReplyStage(context: IntakeContext, messageId: string, plan: ReplyPlan): Promise<void> {
   await context.stages.runStage({
@@ -32,6 +32,7 @@ async function saveReply(
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReply(transaction, context, plan.replyText);
+  if (plan.saved && plan.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, messageId);
 }
 
 async function rejectDuplicates(transaction: Transaction, workspaceId: string, plan: ReplyPlan): Promise<ReplyPlan> {

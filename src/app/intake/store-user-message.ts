@@ -5,7 +5,7 @@ import type { IntakeContext } from './intake-context.ts';
 
 export type NewUserMessage = { id: string; text: string | null; imageKey: string | null; partIndex: number };
 
-export type StoredUserMessage = { id: string; imageKey: string | null; hasReply: boolean };
+export type StoredUserMessage = { id: string; imageKey: string | null; hasReply: boolean; questionPending: boolean };
 
 export async function runStoreStage(context: IntakeContext, message: NewUserMessage): Promise<StoredUserMessage> {
   const { dependencies, stages, event, sender } = context;
@@ -45,13 +45,21 @@ export async function findUserMessage(
   event: ClaimedEvent,
   partIndex: number,
 ): Promise<StoredUserMessage | null> {
-  const { rows } = await database.query<{ id: string; image_key: string | null; has_reply: boolean }>(
-    `SELECT id, image_key, EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = messages.id) AS has_reply
+  const { rows } = await database.query<{
+    id: string;
+    image_key: string | null;
+    has_reply: boolean;
+    question_pending: boolean;
+  }>(
+    `SELECT id, image_key, question_pending,
+       EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = messages.id) AS has_reply
      FROM messages WHERE inbound_event_id = $1 AND event_part = $2`,
     [event.id, partIndex],
   );
   const [row] = rows;
-  return row ? { id: row.id, imageKey: row.image_key, hasReply: row.has_reply } : null;
+  return row
+    ? { id: row.id, imageKey: row.image_key, hasReply: row.has_reply, questionPending: row.question_pending }
+    : null;
 }
 
 export async function storeBotReply(
@@ -73,4 +81,20 @@ export async function setSubmissionStatus(
   status: 'accepted' | 'unresolved' | 'duplicate',
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
+}
+
+export async function markQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {
+  await transaction.query('UPDATE messages SET question_pending = true WHERE id = $1', [userMessageId]);
+}
+
+export async function clearQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {
+  await transaction.query('UPDATE messages SET question_pending = false WHERE id = $1', [userMessageId]);
+}
+
+export async function isQuestionPending(database: Database, userMessageId: string): Promise<boolean> {
+  const { rows } = await database.query<{ question_pending: boolean }>(
+    'SELECT question_pending FROM messages WHERE id = $1',
+    [userMessageId],
+  );
+  return rows[0]?.question_pending ?? false;
 }

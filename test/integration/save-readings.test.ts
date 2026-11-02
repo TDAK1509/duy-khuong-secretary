@@ -388,21 +388,6 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
-  it('gives an admin the upload-only reply until admin chat exists', async () => {
-    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
-    answerPair(harness.readers.cheap, makeQuestionOnly());
-
-    await harness.receiveText('zu-duy', 'Chào bạn');
-    await harness.sendQueuedTexts();
-
-    expect(sentTexts()).toEqual([
-      [
-        'zu-duy',
-        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
-      ],
-    ]);
-  });
-
   it('keeps a message waiting while the readers are not configured', async () => {
     await insertInboundEvent(database, { externalUserId: 'zu-hung', text: 'Đổ dầu 500.000đ' });
 

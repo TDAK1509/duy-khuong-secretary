@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { assembleService, type Service } from '../../src/bootstrap/assemble-service.ts';
-import { PHOTOS_OFF_LINE, READERS_OFF_LINE } from './off-group-lines.ts';
+import { CHAT_OFF_LINE, PHOTOS_OFF_LINE, READERS_OFF_LINE } from './off-group-lines.ts';
 import { testDatabaseUrl } from './test-database-url.ts';
 
 const PHOTO_ENVIRONMENT: NodeJS.ProcessEnv = {
@@ -23,6 +23,13 @@ const READER_ENVIRONMENT: NodeJS.ProcessEnv = {
   ),
 };
 
+const CHAT_ENVIRONMENT: NodeJS.ProcessEnv = {
+  CHAT_PROVIDER: 'openai-compatible',
+  LLM_BASE_URL: 'https://ai.test/v1',
+  LLM_API_KEY: 'key',
+  LLM_MODEL: 'model',
+};
+
 describe('assembling the service', () => {
   let service: Service;
 
@@ -43,6 +50,7 @@ describe('assembling the service', () => {
       '[config] zalo-webhook is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL, ZALO_OA_SECRET.',
       PHOTOS_OFF_LINE,
       READERS_OFF_LINE,
+      CHAT_OFF_LINE,
     ]);
   });
 
@@ -60,6 +68,7 @@ describe('assembling the service', () => {
         ZALO_OA_SECRET: 'oa-sec-1',
         ...PHOTO_ENVIRONMENT,
         ...READER_ENVIRONMENT,
+        ...CHAT_ENVIRONMENT,
       },
       (line) => lines.push(line),
     );

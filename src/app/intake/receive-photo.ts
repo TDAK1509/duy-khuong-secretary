@@ -9,6 +9,7 @@ import {
   PHOTO_NOT_JPEG_OR_PNG_TEXT,
   PHOTO_TOO_LARGE_TEXT,
 } from './intake-texts.ts';
+import { answerOwedQuestion } from './answer-owed-question.ts';
 import { replyToMessage } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage, type StoredUserMessage } from './store-user-message.ts';
 
@@ -18,8 +19,9 @@ export type PhotoPart = IntakePart & { imageUrl: string };
 
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
-  if (existing?.hasReply) return { kind: 'replied' };
+  if (existing?.hasReply && !existing.questionPending) return { kind: 'replied' };
   const keptPhoto = existing && (await loadKeptPhoto(context, existing));
+  if (existing?.questionPending) return answerOwedQuestion(context, { id: existing.id, text: part.text, photo: keptPhoto });
   if (existing && keptPhoto) return replyToMessage(context, { id: existing.id, text: part.text, photo: keptPhoto });
   const downloaded = await downloadImage(context, part.imageUrl);
   if (!downloaded.ok) return { kind: 'refused', replyText: downloaded.replyText };
