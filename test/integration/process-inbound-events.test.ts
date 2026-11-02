@@ -161,6 +161,18 @@ describe('the inbound worker step', () => {
     expect(handler.calls).toEqual([]);
   });
 
+  it('claims an event again after its lock expired', async () => {
+    const id = await insertInboundEvent(database, {
+      status: 'processing',
+      attempts: 1,
+      lockedUntil: new Date(NOW.getTime() - 60_000),
+    });
+
+    await runStep(finishWithoutWriting);
+
+    expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2 });
+  });
+
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
     return runInboundStep({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), handler });
   }
