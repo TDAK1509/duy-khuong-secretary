@@ -285,4 +285,19 @@ describe('the ticker runs the due scheduled tasks', () => {
       'list_members',
     ]);
   });
+
+  it('refuses a tool the run was not offered', async () => {
+    await insertDueTask();
+    harness.chat.follow(async (_request, callNumber) =>
+      callNumber === 1
+        ? replyWithToolCalls({ id: 'call_1', name: 'remove_member', argumentsJson: JSON.stringify({ member_id: harness.hungUserId }) })
+        : replyWithText('Xong'),
+    );
+
+    await harness.runTick();
+
+    const toolResult = harness.chat.requests[1]?.turns.find((turn) => turn.role === 'tool_result');
+    expect(toolResult).toMatchObject({ output: '{"ok":false,"error":"Dữ liệu không hợp lệ: name"}' });
+    expect(await database.query('SELECT 1 FROM memberships')).toHaveLength(2);
+  });
 });

@@ -5,12 +5,11 @@ import type { AccessScope } from '../access/access-scope.ts';
 import { DraftProposals } from '../admin-chat/draft-proposals.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
 import { runToolLoop } from '../admin-chat/run-tool-loop.ts';
-import { runAdminTool } from '../admin-chat/tools/run-admin-tool.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
-import { SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
+import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 
@@ -44,5 +43,5 @@ async function produceResultText(
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
   const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName, now: clock.now() };
   const request = { system: buildScheduledRunPrompt(facts), turns: [{ role: 'user' as const, text: task.instruction, image: null }], tools: SCHEDULED_RUN_TOOLS };
-  return runToolLoop(chat, request, (call) => runAdminTool(toolDependencies, caller, call));
+  return runToolLoop(chat, request, (call) => runScheduledTool(toolDependencies, caller, call));
 }
