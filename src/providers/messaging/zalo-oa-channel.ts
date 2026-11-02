@@ -8,6 +8,7 @@ const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
 const RATE_LIMIT_ERROR = -32;
+const SERVER_ERROR_STATUS = 500;
 
 const REQUEST_NEVER_SENT_CODES = [
   'ECONNREFUSED',
@@ -78,6 +79,7 @@ export class ZaloOaChannel implements MessagingChannel {
         body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
         signal: AbortSignal.timeout(this.settings.timeoutMs),
       });
+      if (response.status >= SERVER_ERROR_STATUS) return { ok: false, reason: 'no_answer' };
       return toSendResult(await response.json());
     } catch (error) {
       return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
