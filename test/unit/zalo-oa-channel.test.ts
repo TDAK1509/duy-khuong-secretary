@@ -23,4 +23,10 @@ describe('ZaloOaChannel.verifyWebhook', () => {
 
     expect(channel.verifyWebhook(body, {})).toBe(false);
   });
+
+  it('refuses an event whose body changed after signing', () => {
+    const { body, headers } = loadSignedFixture('text-event');
+
+    expect(channel.verifyWebhook(body.replace('chào', 'chao'), headers)).toBe(false);
+  });
 });
