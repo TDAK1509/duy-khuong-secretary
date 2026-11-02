@@ -7,7 +7,7 @@ export type Settlement = {
   availableAt?: Date;
   sentAt?: Date;
   lastError?: string;
-  recheckWindow?: boolean;
+  recheck?: { lastInboundAt: Date | null };
 };
 
 export type SendOutcome = { settlement: Settlement; alert?: string };

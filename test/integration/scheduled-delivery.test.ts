@@ -168,6 +168,22 @@ describe('the delivery rule for scheduled results', () => {
     expect(await readStatuses()).toEqual([{ status: 'sent' }]);
   });
 
+  it('sends a result instead of holding it when the admin wrote while Zalo was answering that the window is closed', async () => {
+    await wroteDaysAgo(2);
+    await insertScheduledResult();
+    harness.channel.nextTextResult = { ok: false, reason: 'window_closed' };
+    harness.channel.whileSendingText = async () => {
+      await database.query(`UPDATE channel_identities SET last_inbound_at = '${NOW.toISOString()}' WHERE external_user_id = 'zu-duy'`);
+    };
+
+    await harness.sendQueuedTexts();
+    harness.channel.nextTextResult = { ok: true };
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+    expect(harness.channel.texts).toHaveLength(2);
+  });
+
   it('sends a result when the admin wrote while the chat still answers', async () => {
     await wroteDaysAgo(8);
     await insertScheduledResult();
