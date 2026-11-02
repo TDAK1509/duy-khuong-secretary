@@ -1,6 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceTasks } from './lock-workspace-tasks.ts';
-import type { NewDraft } from './schedule.ts';
+import type { MaintenanceRule, NewDraft } from './schedule.ts';
 import { toScheduleValues } from './schedule-columns.ts';
 
 export const MAX_OPEN_TASKS_PER_WORKSPACE = 20;
@@ -38,10 +38,21 @@ async function cancelOlderDraft(transaction: Transaction, { workspaceId, created
 async function insertDraft(transaction: Transaction, draft: NewDraft): Promise<string> {
   const [stored] = await transaction.query<{ id: string }>(
     `INSERT INTO scheduled_tasks
-       (workspace_id, created_by, title, instruction, repeat, run_once_at, time_of_day, weekday, day_of_month)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-    [draft.workspaceId, draft.createdBy, draft.title, draft.instruction, ...toScheduleValues(draft.schedule)],
+       (workspace_id, created_by, title, instruction, repeat, run_once_at, time_of_day, weekday, day_of_month, maintenance_rules)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+    [
+      draft.workspaceId,
+      draft.createdBy,
+      draft.title,
+      draft.instruction,
+      ...toScheduleValues(draft.schedule),
+      JSON.stringify(toStoredRules(draft.maintenanceRules)),
+    ],
   );
   if (!stored) throw new Error('the draft was not stored');
   return stored.id;
+}
+
+function toStoredRules(rules: MaintenanceRule[]): { maintenance_item: string; age_days: number }[] {
+  return rules.map((rule) => ({ maintenance_item: rule.maintenanceItem, age_days: rule.ageDays }));
 }

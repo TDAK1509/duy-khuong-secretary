@@ -19,6 +19,7 @@ type ProposalArguments = {
   time_of_day: string | null;
   weekday: number | null;
   day_of_month: number | null;
+  maintenance_rules: { maintenance_item: string; age_days: number }[];
 };
 
 const DAILY_REPORT: ProposalArguments = {
@@ -29,6 +30,7 @@ const DAILY_REPORT: ProposalArguments = {
   time_of_day: '18:00',
   weekday: null,
   day_of_month: null,
+  maintenance_rules: [],
 };
 
 describe('an admin drafts a scheduled task by chat', () => {
