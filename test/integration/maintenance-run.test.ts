@@ -62,4 +62,29 @@ describe('the daily maintenance reminder run', () => {
     expect(userTurn).toMatchObject({ role: 'user', text: expect.stringContaining('Hồ sơ bảo dưỡng đến hạn:') });
     expect(userTurn).toMatchObject({ text: expect.stringContaining('29C12345') });
   });
+
+  it('writes each due record in the shape of the plan', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask({ instruction: 'Nhắc tôi.' });
+
+    await harness.runTick();
+
+    const dueList = '[{"plate":"29C12345","maintenance_item":"dầu máy","sent_by":"Lan","sent_on":"01/10/2026","occurred_on":null,"days_since_sent":30}]';
+    expect(harness.chat.requests[0]?.turns).toEqual([
+      { role: 'user', text: `Nhắc tôi.\n\nHồ sơ bảo dưỡng đến hạn:\n${dueList}`, image: null },
+    ]);
+  });
+
+  it('sends the reminder the model wrote for a record old enough', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask();
+    harness.chat.replyWith('Xe 29C12345 cần thay dầu máy.');
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      ['zu-duy', 'Xe 29C12345 cần thay dầu máy.'],
+    ]);
+  });
 });
