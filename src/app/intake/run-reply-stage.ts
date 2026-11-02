@@ -1,6 +1,6 @@
-import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { insertRecords } from '../records/insert-records.ts';
+import { enqueueReply } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
@@ -23,15 +23,10 @@ async function saveReply(
   messageId: string,
   plan: ReplyPlan,
 ): Promise<void> {
-  const { event, sender, dependencies } = context;
+  const { sender } = context;
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved.readBy, plan.saved.records);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
-  await enqueueText(transaction, {
-    to: { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId },
-    text: plan.replyText,
-    maxTextLength: dependencies.channel.maxTextLength,
-    availableAt: dependencies.clock.now(),
-  });
+  await enqueueReply(transaction, context, plan.replyText);
 }
