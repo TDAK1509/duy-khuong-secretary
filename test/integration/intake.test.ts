@@ -172,6 +172,18 @@ describe('storing what a member sends', () => {
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
+  it('refuses a file that is not a JPEG or a PNG without storing a message', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: new TextEncoder().encode('%PDF-1.7 not a photo') });
+
+    await receivePhoto('zu-hung');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([
+      'Trợ lý chỉ nhận ảnh dạng JPEG hoặc PNG. Bạn chụp lại rồi gửi nhé.',
+    ]);
+    expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
