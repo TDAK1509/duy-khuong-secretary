@@ -6,9 +6,8 @@ import { computeNextRun } from '../schedules/compute-next-run.ts';
 import type { ClaimedTask } from './claim-due-task.ts';
 import type { TaskCreator } from './find-task-creator.ts';
 import type { ScheduledRunDependencies } from './run-due-tasks.ts';
+import { NOTHING_TO_REPORT } from './scheduled-run-texts.ts';
 import { turnOffTaskIn } from './turn-off-task.ts';
-
-const NOTHING_TO_REPORT = 'KHONG_CO_THONG_BAO';
 
 type IdentityRow = { channel: string; account_id: string; external_user_id: string };
 
