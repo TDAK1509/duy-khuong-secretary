@@ -35,9 +35,14 @@ function writeFileIn(directory: string, relativePath: string, content: string): 
   writeFileSync(absolutePath, content);
 }
 
+const FIXTURE_GIT_CONFIG = [
+  'user.name=Test',
+  'user.email=test@example.com',
+  'commit.gpgsign=false',
+  'core.hooksPath=/dev/null',
+];
+
 function runGit(directory: string, args: string[]): void {
-  execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], {
-    cwd: directory,
-    stdio: 'pipe',
-  });
+  const configArgs = FIXTURE_GIT_CONFIG.flatMap((setting) => ['-c', setting]);
+  execFileSync('git', [...configArgs, ...args], { cwd: directory, stdio: 'pipe' });
 }
