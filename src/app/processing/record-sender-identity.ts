@@ -14,7 +14,7 @@ async function saveIdentity(transaction: Transaction, event: ClaimedEvent, sentA
   await transaction.query(
     `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (channel, account_id, external_user_id) DO NOTHING`,
+     ON CONFLICT (channel, account_id, external_user_id) DO UPDATE SET last_inbound_at = EXCLUDED.last_inbound_at`,
     [event.channel, event.accountId, event.externalUserId, sentAt],
   );
 }

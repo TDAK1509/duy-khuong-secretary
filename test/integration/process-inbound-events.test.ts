@@ -53,6 +53,27 @@ describe('the inbound worker step', () => {
     ]);
   });
 
+  it('moves the latest message time forward when a later message arrives', async () => {
+    await insertIdentity('2026-11-02T10:00:00+07:00');
+    await insertInboundEvent(database, { sentAt: '2026-11-02T11:00:00+07:00' });
+
+    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+
+    expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
+  });
+
+  async function insertIdentity(lastInboundAt: string): Promise<void> {
+    await database.query(
+      `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at)
+       VALUES ('zalo-oa', 'oa-1', 'zu-hung', '${lastInboundAt}')`,
+    );
+  }
+
+  async function readLastInboundAt(): Promise<Date | undefined> {
+    const [identity] = await database.query<{ last_inbound_at: Date }>('SELECT last_inbound_at FROM channel_identities');
+    return identity?.last_inbound_at;
+  }
+
   async function readEvent(id: string): Promise<EventRow> {
     const [event] = await database.query<EventRow>(`SELECT * FROM inbound_events WHERE id = '${id}'`);
     if (!event) throw new Error('event not found');
