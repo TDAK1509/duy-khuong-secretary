@@ -120,4 +120,14 @@ describe('the delivery rule for scheduled results', () => {
       { to: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-duy' }, templateId: 'tpl-1', params: {}, credential: 'a1' },
     ]);
   });
+
+  it("holds a scheduled result when Zalo answers that the window is closed", async () => {
+    await wroteDaysAgo(2);
+    await insertScheduledResult();
+    harness.channel.nextTextResult = { ok: false, reason: 'window_closed' };
+
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'held' }]);
+  });
 });
