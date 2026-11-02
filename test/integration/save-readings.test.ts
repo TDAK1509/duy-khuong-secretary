@@ -53,6 +53,16 @@ describe('saving what two readers agree on', () => {
     expect(sentTexts()).toEqual([['zu-hung', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
   });
 
+  it('marks a saved message as accepted', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
+      { submission_status: 'accepted' },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }

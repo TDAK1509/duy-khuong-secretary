@@ -54,13 +54,23 @@ export async function findUserMessage(
   return row ? { id: row.id, imageKey: row.image_key, hasReply: row.has_reply } : null;
 }
 
-export async function storeBotReply(transaction: Transaction, userMessageId: string, text: string): Promise<boolean> {
-  const stored = await transaction.query(
+export async function storeBotReply(
+  transaction: Transaction,
+  userMessageId: string,
+  reply: { text: string; kind: 'saved' | 'answer' },
+): Promise<void> {
+  await transaction.query(
     `INSERT INTO messages (workspace_id, user_id, author, text, reply_to, reply_kind, submission_status)
-     SELECT workspace_id, user_id, 'bot', $2, id, 'answer', 'accepted' FROM messages WHERE id = $1
-     ON CONFLICT (reply_to, reply_kind) DO NOTHING
-     RETURNING id`,
-    [userMessageId, text],
+     SELECT workspace_id, user_id, 'bot', $2, id, $3, 'accepted' FROM messages WHERE id = $1
+     ON CONFLICT (reply_to, reply_kind) DO NOTHING`,
+    [userMessageId, reply.text, reply.kind],
   );
-  return stored.length > 0;
+}
+
+export async function setSubmissionStatus(
+  transaction: Transaction,
+  userMessageId: string,
+  status: 'accepted' | 'unresolved',
+): Promise<void> {
+  await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
 }

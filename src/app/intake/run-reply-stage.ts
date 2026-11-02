@@ -3,7 +3,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { ReplyPlan } from './plan-reply.ts';
-import { storeBotReply } from './store-user-message.ts';
+import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
 export async function runReplyStage(context: IntakeContext, messageId: string, plan: ReplyPlan): Promise<void> {
   await context.stages.runStage({
@@ -26,7 +26,8 @@ async function saveReply(
   const { event, sender, dependencies } = context;
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   await insertRecords(transaction, message, plan.readBy, plan.records);
-  await storeBotReply(transaction, messageId, plan.replyText);
+  await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
+  await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueText(transaction, {
     to: { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId },
     text: plan.replyText,
