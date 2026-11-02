@@ -132,6 +132,16 @@ describe('the scheduling tools', () => {
     ]);
   });
 
+  it('cannot cancel a leftover draft', async () => {
+    const duy = await addAdmin();
+    const draftId = await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'draft' });
+
+    const output = await runTool(duy, 'cancel_scheduled_task', { task_id: draftId });
+
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy lịch này."}');
+    expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+  });
+
   it('cannot cancel the task of another admin', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
