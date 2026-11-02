@@ -79,8 +79,7 @@ export class ZaloOaChannel implements MessagingChannel {
         body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
         signal: AbortSignal.timeout(this.settings.timeoutMs),
       });
-      if (response.status >= SERVER_ERROR_STATUS) return { ok: false, reason: 'no_answer' };
-      return toSendResult(await response.json());
+      return await readSendResult(response);
     } catch (error) {
       return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
     }
@@ -90,6 +89,12 @@ export class ZaloOaChannel implements MessagingChannel {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+async function readSendResult(response: Response): Promise<SendResult> {
+  if (response.status < SERVER_ERROR_STATUS) return toSendResult(await response.json());
+  await response.body?.cancel();
+  return { ok: false, reason: 'no_answer' };
 }
 
 function toSendResult(answer: unknown): SendResult {

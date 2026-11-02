@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
 import type { ChannelRecipient, SendResult } from '../../src/services/messaging/messaging-channel.ts';
 import { TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
-import { replyWithJson, staySilent, startStubHttpServer, type StubAnswer, type StubHttpServer } from './stub-http-server.ts';
+import { replyWithJson, staySilent, startStubHttpServer, streamEndlessBody, type StubAnswer, type StubHttpServer } from './stub-http-server.ts';
 
 const HUNG: ChannelRecipient = { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-hung' };
 
@@ -82,6 +82,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
 
     expect(result).toEqual({ ok: false, reason: 'no_answer' });
   });
+
+  it('stops reading the body of a server error answer', async () => {
+    const server = await startStubServer(streamEndlessBody(502));
+
+    await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    await server.responseClosed;
+  }, 2000);
 
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
