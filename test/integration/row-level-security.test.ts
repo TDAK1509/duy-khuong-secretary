@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { insertChatMessage } from './message-rows.ts';
+import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -9,14 +12,17 @@ describe('row-level security for the runtime role', () => {
   let database: TemporaryDatabase;
   let workspaceId: string;
   let hungUserId: string;
+  let runtimePool: PostgresPool;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
+    runtimePool = createPostgresPool(database.runtimeUrl);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
   });
 
   afterEach(async () => {
+    await runtimePool.end();
     await database.drop();
   });
 
@@ -56,4 +62,29 @@ describe('row-level security for the runtime role', () => {
 
     expect(rows).toHaveLength(0);
   });
+
+  it('shows a member scope only that member\'s messages, even with no filter', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const hungMessageIds = await insertMessages(hungUserId, 2);
+    await insertMessages(lanUserId, 2);
+
+    const rows = await selectIds('messages', { workspaceId, ownerUserId: hungUserId });
+
+    expect(rows.sort()).toEqual(hungMessageIds.sort());
+  });
+
+  async function insertMessages(userId: string, count: number): Promise<string[]> {
+    const ids: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      ids.push(await insertChatMessage(database, { workspaceId, userId, author: 'user', text: 'tin', createdAt: new Date() }));
+    }
+    return ids;
+  }
+
+  async function selectIds(table: string, scope: { workspaceId: string; ownerUserId?: string }): Promise<string[]> {
+    const rows = await runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
+      transaction.query<{ id: string }>(`SELECT id FROM ${table}`),
+    );
+    return rows.map((row) => row.id);
+  }
 });
