@@ -25,4 +25,12 @@ describe('splitText', () => {
 
     expect(parts).toEqual(['a'.repeat(1950), 'b'.repeat(549)]);
   });
+
+  it('cuts a long text without spaces at the limit', () => {
+    const text = 'a'.repeat(2500);
+
+    const parts = splitText(text, LIMIT);
+
+    expect(parts).toEqual(['a'.repeat(2000), 'a'.repeat(500)]);
+  });
 });
