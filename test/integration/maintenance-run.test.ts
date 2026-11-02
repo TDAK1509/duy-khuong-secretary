@@ -266,4 +266,16 @@ describe('the daily maintenance reminder run', () => {
       { task_id: taskId, record_id: recordId },
     ]);
   });
+
+  it('records no notification when the creator has no channel identity to send to', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask();
+    await database.query(`DELETE FROM channel_identities WHERE user_id = '${duyUserId}'`);
+    harness.chat.replyWith('Xe 29C12345 cần thay dầu máy.');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+    expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
+  });
 });

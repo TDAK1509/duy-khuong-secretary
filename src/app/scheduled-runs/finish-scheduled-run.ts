@@ -47,20 +47,20 @@ async function deliverResult(
     task.createdBy,
     result.text,
   ]);
-  await enqueueResult(transaction, dependencies, { task, creator, text: result.text });
-  await recordNotifications(transaction, task, result.remindedRecordIds);
+  const isQueued = await enqueueResult(transaction, dependencies, { task, creator, text: result.text });
+  if (isQueued) await recordNotifications(transaction, task, result.remindedRecordIds);
 }
 
 async function enqueueResult(
   transaction: Transaction,
   { channel, clock }: ScheduledRunDependencies,
   { task, creator, text }: { task: ClaimedTask; creator: TaskCreator; text: string },
-): Promise<void> {
+): Promise<boolean> {
   const [identity] = await transaction.query<IdentityRow>(
     'SELECT channel, account_id, external_user_id FROM channel_identities WHERE user_id = $1',
     [task.createdBy],
   );
-  if (!identity) return;
+  if (!identity) return false;
   await enqueueText(transaction, {
     to: { channel: identity.channel, accountId: identity.account_id, externalUserId: identity.external_user_id },
     text,
@@ -69,6 +69,7 @@ async function enqueueResult(
     adminMembershipId: creator.membershipId,
     scheduledTaskId: task.id,
   });
+  return true;
 }
 
 async function moveToNextRun(transaction: Transaction, task: ClaimedTask, now: Date): Promise<void> {
