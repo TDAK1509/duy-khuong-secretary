@@ -82,4 +82,8 @@ describe('isDuplicateRecord', () => {
 
     expect(isDuplicateRecord(toll, { ...toll, documentNumber: '0012345' })).toBe(false);
   });
+
+  it('finds an item with another date not a duplicate', () => {
+    expect(isDuplicateRecord(makeFields(), makeFields({ occurredOn: '2026-10-31' }))).toBe(false);
+  });
 });

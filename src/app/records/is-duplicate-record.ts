@@ -11,6 +11,7 @@ export function isDuplicateRecord(existing: DuplicateFields, candidate: Duplicat
     existing.category === candidate.category &&
     existing.documentNumber === candidate.documentNumber &&
     existing.amountVnd === candidate.amountVnd &&
+    existing.occurredOn === candidate.occurredOn &&
     existing.vehiclePlate === candidate.vehiclePlate &&
     haveSameDetails(existing, candidate)
   );
