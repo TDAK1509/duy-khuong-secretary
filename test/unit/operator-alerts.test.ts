@@ -30,14 +30,31 @@ describe('OperatorAlerts', () => {
     expect(sink.texts).toEqual(['x', 'x']);
   });
 
-  it('logs a failing sink and does not stop the caller', async () => {
-    const failingSink = { notify: () => Promise.reject(new Error('webhook down')) };
-    const alerts = new OperatorAlerts(failingSink, new FakeClock(new Date('2026-11-02T10:00:00+07:00')));
+  it('logs which alert failed and the HTTP status, never the webhook URL', async () => {
+    const failure = Object.assign(new Error('POST https://hooks.example/secret-path failed'), { status: 502 });
+    const alerts = new OperatorAlerts(
+      { notify: () => Promise.reject(failure) },
+      new FakeClock(new Date('2026-11-02T10:00:00+07:00')),
+    );
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(alerts.raise('x')).resolves.toBeUndefined();
 
-    expect(logged).toHaveBeenCalledWith('[alerts] the alert sink failed:', 'Error');
+    expect(logged).toHaveBeenCalledWith('[alerts] could not send alert:', 'x', 'HTTP 502');
+    expect(JSON.stringify(logged.mock.calls)).not.toContain('secret-path');
+    logged.mockRestore();
+  });
+
+  it('logs the error name when the failing sink has no HTTP status', async () => {
+    const alerts = new OperatorAlerts(
+      { notify: () => Promise.reject(new TypeError('fetch failed')) },
+      new FakeClock(new Date('2026-11-02T10:00:00+07:00')),
+    );
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await alerts.raise('x');
+
+    expect(logged).toHaveBeenCalledWith('[alerts] could not send alert:', 'x', 'TypeError');
     logged.mockRestore();
   });
 });

@@ -19,7 +19,7 @@ export class OperatorAlerts {
     try {
       await this.sink.notify(text);
     } catch (error) {
-      console.error('[alerts] the alert sink failed:', error instanceof Error ? error.name : 'unknown error');
+      console.error('[alerts] could not send alert:', text, describeFailure(error));
     }
   }
 
@@ -27,4 +27,9 @@ export class OperatorAlerts {
     const sentAt = this.lastSentAt.get(text);
     return sentAt !== undefined && this.clock.now().getTime() - sentAt < SAME_ALERT_INTERVAL_MS;
   }
+}
+
+function describeFailure(error: unknown): string {
+  if (error instanceof Error && 'status' in error && typeof error.status === 'number') return `HTTP ${error.status}`;
+  return error instanceof Error ? error.name : 'unknown error';
 }
