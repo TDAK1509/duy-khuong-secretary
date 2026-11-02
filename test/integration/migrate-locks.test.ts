@@ -7,7 +7,6 @@ import { listAppliedMigrations } from './list-applied-migrations.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
 
 const alterThroughLock = new URL('./migration-fixtures/alter-through-lock/', import.meta.url);
-const shortRetry = { budgetMs: 300, sleep: () => setTimeout(100) };
 
 describe('the migration runner on a busy table', () => {
   let database: TemporaryDatabase;
@@ -31,7 +30,7 @@ describe('the migration runner on a busy table', () => {
     const lines: string[] = [];
     const running = runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
-      { directory: alterThroughLock, log: (line) => lines.push(line), retry: shortRetry },
+      { directory: alterThroughLock, log: (line) => lines.push(line), retry: createShortRetry() },
     );
 
     const counts = repeatUntilSettled(running, () => sessionC.query('SELECT count(*) FROM t'));
@@ -41,11 +40,62 @@ describe('the migration runner on a busy table', () => {
     expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
   });
 
+  it('reports the busy table when the budget is used up before the next attempt connects', async () => {
+    const lines: string[] = [];
+    let readsAfterSleep = 0;
+    let hasSlept = false;
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: (line) => lines.push(line),
+        retry: {
+          budgetMs: 1000,
+          now: () => {
+            if (!hasSlept) return 0;
+            readsAfterSleep += 1;
+            return readsAfterSleep === 1 ? 999 : 1000;
+          },
+          sleep: async () => {
+            hasSlept = true;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
+  });
+
+  it('reports the busy table when the budget runs out while connecting', async () => {
+    const lines: string[] = [];
+    let clock = 0;
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: (line) => lines.push(line),
+        retry: {
+          budgetMs: 1000,
+          now: () => clock,
+          sleep: async () => {
+            clock += 999;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
+  });
+
   it('fails its lock attempt at once instead of waiting for the lock', async () => {
     const observer = await database.openSession();
     const running = runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
-      { directory: alterThroughLock, log: () => {}, retry: shortRetry },
+      { directory: alterThroughLock, log: () => {}, retry: createShortRetry() },
     );
 
     const waitingCounts = await repeatUntilSettled(running, () => countWaitingLocks(observer));
@@ -136,6 +186,18 @@ describe('the migration runner on a busy table', () => {
     expect(await listAppliedMigrations(database)).toEqual([]);
   }, 15_000);
 });
+
+function createShortRetry() {
+  let clock = 0;
+  return {
+    budgetMs: 300,
+    now: () => clock,
+    sleep: async () => {
+      await setTimeout(100);
+      clock += 100;
+    },
+  };
+}
 
 type RunnerState = { openTransactions: number; locksOnT: number };
 
