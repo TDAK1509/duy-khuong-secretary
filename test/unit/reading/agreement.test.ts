@@ -82,4 +82,10 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(true);
   });
+
+  it('agrees when both document numbers are empty', () => {
+    const reading = makeReading([makeItem({ document_number: null })]);
+
+    expect(areAgreeing(succeed(reading), succeed(reading))).toBe(true);
+  });
 });
