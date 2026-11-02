@@ -172,4 +172,10 @@ describe('an admin attaches the photos of records to the answer', () => {
         WHERE outbound.kind = 'image' AND membership.display_name = 'Duy'`),
     ).toEqual([{ carries_membership: true }]);
   });
+
+  it('offers the photo tool', async () => {
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toContain('attach_photos');
+  });
 });
