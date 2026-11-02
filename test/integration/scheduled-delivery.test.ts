@@ -107,7 +107,7 @@ describe('the delivery rule for scheduled results', () => {
   it('sends no second template for another held result in the same quiet period', async () => {
     harness.setReportReadyTemplate('tpl-1');
     await wroteDaysAgo(8);
-    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1', status: 'sent' });
+    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1', status: 'sent', createdAt: NOW });
     await insertScheduledResult();
 
     await harness.sendQueuedTexts();
@@ -172,15 +172,18 @@ describe('the delivery rule for scheduled results', () => {
     await wroteDaysAgo(8);
     await insertScheduledResult();
     let openAnswerGate = (): void => {};
+    let markAnswerStarted = (): void => {};
     const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
+    const answerStarted = new Promise<void>((resolve) => (markAnswerStarted = resolve));
     harness.chat.follow(async () => {
+      markAnswerStarted();
       await answerGate;
       return replyWithText('Chào anh');
     });
 
     const inbound = harness.receiveText('zu-duy', 'chào');
     try {
-      await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1), { timeout: 5000 });
+      await answerStarted;
       await harness.sendQueuedTexts();
       expect(await readStatuses()).toEqual([{ status: 'sent' }]);
     } finally {

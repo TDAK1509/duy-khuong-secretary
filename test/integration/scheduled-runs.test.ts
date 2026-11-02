@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
@@ -156,18 +156,15 @@ describe('the ticker runs the due scheduled tasks', () => {
 
   it('sends once when two ticks start at the same moment', async () => {
     await insertDueTask();
-    let openAnswerGate = (): void => {};
-    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
-    harness.chat.follow(async () => {
-      await answerGate;
-      return replyWithText('Báo cáo');
-    });
-
+    const firstAnswer = holdFirstAnswer();
     const firstTick = harness.runTick();
-    await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1));
-    await harness.runTick();
-    openAnswerGate();
-    await firstTick;
+    try {
+      await firstAnswer.started;
+      await harness.runTick();
+    } finally {
+      firstAnswer.release();
+      await firstTick;
+    }
 
     expect(await database.query('SELECT count(*)::int AS count FROM messages')).toEqual([{ count: 1 }]);
   });
@@ -190,19 +187,16 @@ describe('the ticker runs the due scheduled tasks', () => {
 
   it("sends nothing when a stale runner's lock expired and another runner finished the task", async () => {
     await insertDueTask({ runOnceAt: undefined });
-    let openAnswerGate = (): void => {};
-    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
-    harness.chat.follow(async (_request, callNumber) => {
-      if (callNumber === 1) await answerGate;
-      return replyWithText(callNumber === 1 ? 'Báo cáo của runner A' : 'Báo cáo của runner B');
-    });
-
+    const staleAnswer = holdFirstAnswer();
     const staleTick = harness.runTick();
-    await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1));
-    harness.clock.advanceBy(11 * MINUTE_MS);
-    await harness.runTick();
-    openAnswerGate();
-    await staleTick;
+    try {
+      await staleAnswer.started;
+      harness.clock.advanceBy(11 * MINUTE_MS);
+      await harness.runTick();
+    } finally {
+      staleAnswer.release();
+      await staleTick;
+    }
 
     expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Báo cáo của runner B' }]);
   });
@@ -216,6 +210,21 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
+
+  function holdFirstAnswer(): { started: Promise<void>; release: () => void } {
+    let release = (): void => {};
+    let markStarted = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const started = new Promise<void>((resolve) => (markStarted = resolve));
+    harness.chat.follow(async (_request, callNumber) => {
+      if (callNumber === 1) {
+        markStarted();
+        await gate;
+      }
+      return replyWithText(callNumber === 1 ? 'Báo cáo của runner A' : 'Báo cáo của runner B');
+    });
+    return { started, release };
+  }
 
   async function searchEverythingDuringRun(): Promise<string[]> {
     harness.chat.follow(async (_request, callNumber) =>

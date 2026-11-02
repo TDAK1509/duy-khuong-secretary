@@ -24,16 +24,17 @@ export type NewOutboundMessage = {
   adminMembershipId?: string | null;
   scheduledTaskId?: string | null;
   templateId?: string;
+  createdAt?: Date;
 };
 
 export async function insertOutboundMessage(database: TemporaryDatabase, message: NewOutboundMessage): Promise<string> {
   const [row] = await database.query<{ id: string }>(
     `INSERT INTO outbound_messages
-       (channel, account_id, external_user_id, kind, body, photo_key, template_id, admin_membership_id, scheduled_task_id, status, attempts, available_at, locked_until, sent_at)
+       (channel, account_id, external_user_id, kind, body, photo_key, template_id, admin_membership_id, scheduled_task_id, status, attempts, available_at, locked_until, sent_at, created_at)
      VALUES ('zalo-oa', ${literal(message.accountId ?? 'oa-1')}, ${literal(message.externalUserId ?? 'zu-hung')},
        ${describeContent(message)}, ${message.adminMembershipId ? literal(message.adminMembershipId) : 'NULL'}, ${message.scheduledTaskId ? literal(message.scheduledTaskId) : 'NULL'},
        ${literal(message.status ?? 'queued')}, ${message.attempts ?? 0}, ${timestamp(message.availableAt ?? new Date(0))},
-       ${timestamp(message.lockedUntil ?? null)}, ${timestamp(message.sentAt ?? null)})
+       ${timestamp(message.lockedUntil ?? null)}, ${timestamp(message.sentAt ?? null)}, ${message.createdAt ? timestamp(message.createdAt) : 'now()'})
      RETURNING id`,
   );
   if (!row) throw new Error('outbound message not inserted');
