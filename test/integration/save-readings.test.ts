@@ -323,6 +323,23 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT sender_name FROM records')).toEqual([{ sender_name: 'Hùng' }]);
   });
 
+  it('builds the summary from the agreed fields', async () => {
+    const tyre = makeItem({
+      category: 'maintenance',
+      maintenance_item: 'lốp',
+      vehicle_plate: '29C-123.45',
+      identifiers: ['DT2024-889'],
+      document_number: null,
+    });
+    answerPair(harness.readers.cheap, makeReading([tyre]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT summary FROM records')).toEqual([
+      { summary: 'Bảo dưỡng: lốp, xe 29C12345, mã DT2024889' },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
