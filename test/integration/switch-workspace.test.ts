@@ -196,6 +196,25 @@ describe('switching between workspaces', () => {
     expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
   });
 
+  it('clears the stored choice when the person sends an invite code that is refused', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await receiveText('zu-duy', 'đổi nhóm');
+    await sendQueuedTexts();
+
+    await receiveText('zu-duy', 'MOI-AAAAAA');
+    await receiveText('zu-duy', '2');
+    await sendQueuedTexts();
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text).slice(1)).toEqual([
+      'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.',
+      'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.',
+    ]);
+    expect(await database.query('SELECT current_workspace_id FROM channel_identities')).toEqual([
+      { current_workspace_id: workspaceId },
+    ]);
+  });
+
   async function waitUntilSomeStatementWaitsForALock(): Promise<void> {
     await vi.waitFor(async () => {
       const waiting = await database.query(

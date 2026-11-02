@@ -4,6 +4,7 @@ import type { MessagingChannel } from '../../services/messaging/messaging-channe
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
+import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
@@ -65,6 +66,7 @@ async function answerSender(
 ): Promise<void> {
   const now = clock.now();
   const identity = await recordSenderIdentity(transaction, message.event);
+  await clearChoiceUnlessAnswered(transaction, identity, message.text);
   const reply = await decideReply(transaction, { ...message, identity, now });
   if (reply === null) return;
   await enqueueText(transaction, {
