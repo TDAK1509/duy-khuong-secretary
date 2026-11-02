@@ -18,6 +18,14 @@ export async function claimOutboundMessage(database: Database, now: Date): Promi
     `WITH candidate AS (
        SELECT id FROM outbound_messages
        WHERE status = 'queued' AND kind = 'text' AND available_at <= $1
+         AND NOT EXISTS (
+           SELECT 1 FROM outbound_messages earlier
+           WHERE earlier.channel = outbound_messages.channel
+             AND earlier.account_id = outbound_messages.account_id
+             AND earlier.external_user_id = outbound_messages.external_user_id
+             AND earlier.status IN ('queued', 'sending')
+             AND earlier.seq < outbound_messages.seq
+         )
        ORDER BY seq
        LIMIT 1
        FOR UPDATE SKIP LOCKED

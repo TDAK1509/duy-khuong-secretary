@@ -69,6 +69,16 @@ describe('the outbound worker step', () => {
     expect(channel.texts.map((sent) => sent.text)).toEqual(['phần 1', 'phần 2']);
   });
 
+  it("holds a person's later text while an earlier one waits for a retry", async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { availableAt: new Date(NOW.getTime() + 30_000), body: 'phần 1' });
+    await insertOutboundMessage(database, { body: 'phần 2' });
+
+    await runStep();
+
+    expect(channel.texts).toEqual([]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
