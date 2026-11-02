@@ -6,8 +6,8 @@ import type { PendingChoice } from '../identities/pending-choice.ts';
 import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 import { computeNextRun } from './compute-next-run.ts';
 import type { ConfirmAction } from './confirm-reply.ts';
-import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './read-schedule.ts';
-import { formatSavedText } from './schedule-texts.ts';
+import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './schedule-columns.ts';
+import { formatSavedText, RUN_TIME_PASSED_TEXT } from './schedule-texts.ts';
 
 export type Confirmer = { identity: ChannelIdentity; userId: string; now: Date };
 
@@ -43,6 +43,7 @@ function lockOwnDraft(transaction: Transaction, userId: string, choice: DraftCho
 
 async function saveDraft(transaction: Transaction, draft: OwnDraft, now: Date): Promise<Reply> {
   const firstRun = computeNextRun(readSchedule(draft), now);
+  if (firstRun === null) return { text: RUN_TIME_PASSED_TEXT, adminMembershipId: draft.membership_id };
   await transaction.query(`UPDATE scheduled_tasks SET status = 'active', next_run_at = $2 WHERE id = $1`, [draft.id, firstRun]);
   return { text: formatSavedText(draft.title, formatVietnamDateTime(firstRun)), adminMembershipId: draft.membership_id };
 }

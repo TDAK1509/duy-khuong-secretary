@@ -199,4 +199,13 @@ describe('an admin drafts a scheduled task by chat', () => {
       'Lịch mới: Báo cáo mới',
     ]);
   });
+
+  it('refuses a one-time task in the past', async () => {
+    proposeThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
+
+    await harness.receiveText('zu-duy', 'Nhắc tôi vào 9 giờ hôm qua');
+
+    expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+    expect(findToolResult()).toBe('{"ok":false,"error":"Thời điểm chạy đã qua."}');
+  });
 });

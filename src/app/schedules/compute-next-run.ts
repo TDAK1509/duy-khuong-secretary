@@ -1,18 +1,20 @@
-import type { Schedule } from './schedule.ts';
+import type { RepeatingSchedule, Schedule } from './schedule.ts';
 
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAYS_IN_WEEK = 7;
 
 type VietnamDay = { year: number; month: number; day: number; weekday: number };
 
-export function computeNextRun(schedule: Schedule, now: Date): Date {
-  const runs = listCandidateDays(schedule, findVietnamDay(now)).map((day) => atVietnamTime(day, schedule.timeOfDay));
-  const nextRun = runs.find((run) => run > now);
-  if (nextRun === undefined) throw new Error('a repeating schedule always has a next run');
-  return nextRun;
+export function computeNextRun(schedule: Schedule, now: Date): Date | null {
+  return listCandidateRuns(schedule, now).find((run) => run > now) ?? null;
 }
 
-function listCandidateDays(schedule: Schedule, today: VietnamDay): VietnamDay[] {
+function listCandidateRuns(schedule: Schedule, now: Date): Date[] {
+  if (schedule.repeat === 'once') return [schedule.runOnceAt];
+  return listCandidateDays(schedule, findVietnamDay(now)).map((day) => atVietnamTime(day, schedule.timeOfDay));
+}
+
+function listCandidateDays(schedule: RepeatingSchedule, today: VietnamDay): VietnamDay[] {
   switch (schedule.repeat) {
     case 'daily':
       return [today, addDays(today, 1)];

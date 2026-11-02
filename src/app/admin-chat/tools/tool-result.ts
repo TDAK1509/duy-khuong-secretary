@@ -9,3 +9,9 @@ export function failTool(error: string): string {
 export function failInvalidArgument(field: string): string {
   return failTool(`Dữ liệu không hợp lệ: ${field}`);
 }
+
+export class ToolRefusal extends Error {}
+
+export function refuseInvalidArgument(field: string): never {
+  throw new ToolRefusal(`Dữ liệu không hợp lệ: ${field}`);
+}

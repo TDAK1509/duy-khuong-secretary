@@ -3,7 +3,7 @@ import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 import type { PendingChoice } from '../identities/pending-choice.ts';
 import { computeNextRun } from './compute-next-run.ts';
 import { formatSchedule } from './format-schedule.ts';
-import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './read-schedule.ts';
+import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './schedule-columns.ts';
 
 export type DraftCard = { text: string; choice: PendingChoice };
 
@@ -22,18 +22,18 @@ export async function loadDraftCard(
      WHERE id = $1 AND created_by = $2 AND workspace_id = $3 AND status = 'draft'`,
     [proposal.taskId, owner.userId, owner.workspaceId],
   );
-  if (!draft) return null;
+  const firstRun = draft ? computeNextRun(readSchedule(draft), now) : null;
+  if (!draft || firstRun === null) return null;
   const choice: PendingChoice = { kind: 'draft_confirm', taskId: proposal.taskId, workspaceId: owner.workspaceId };
-  return { text: formatDraftCard(draft, proposal.replacedTitle, now), choice };
+  return { text: formatDraftCard(draft, proposal.replacedTitle, firstRun), choice };
 }
 
-function formatDraftCard(draft: DraftRow, replacedTitle: string | null, now: Date): string {
-  const schedule = readSchedule(draft);
+function formatDraftCard(draft: DraftRow, replacedTitle: string | null, firstRun: Date): string {
   return [
     ...(replacedTitle === null ? [] : [`Lịch nháp trước "${replacedTitle}" đã được thay bằng lịch này.`]),
     `Lịch mới: ${draft.title}`,
-    `Chạy: ${formatSchedule(schedule)}`,
-    `Lần chạy đầu: ${formatVietnamDateTime(computeNextRun(schedule, now))}`,
+    `Chạy: ${formatSchedule(readSchedule(draft))}`,
+    `Lần chạy đầu: ${formatVietnamDateTime(firstRun)}`,
     'Việc cần làm:',
     draft.instruction,
     'Lịch này chưa được lưu.',

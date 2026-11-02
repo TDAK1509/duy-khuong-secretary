@@ -11,7 +11,7 @@ import { runProposeScheduledTask } from './propose-scheduled-task-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-import { failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
+import { failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
@@ -24,6 +24,7 @@ async function runToolByName(dependencies: AdminToolDependencies, scope: AccessS
     return await dispatchTool(dependencies, scope, call);
   } catch (error) {
     if (error instanceof z.ZodError) return failInvalidArgument(String(error.issues[0]?.path[0] ?? 'arguments'));
+    if (error instanceof ToolRefusal) return failTool(error.message);
     if (error instanceof SyntaxError) return failInvalidArgument('arguments');
     throw error;
   }
