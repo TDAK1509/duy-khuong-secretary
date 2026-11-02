@@ -1,4 +1,5 @@
 import type { Clock } from '../../services/clock/clock.ts';
+import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimInboundEvent } from './claim-inbound-event.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
@@ -10,6 +11,7 @@ export type InboundHandler = (event: ClaimedEvent, stages: Stages) => Promise<Fi
 export type InboundDependencies = {
   database: Database;
   clock: Clock;
+  alerts: OperatorAlerts;
   handler: InboundHandler;
 };
 
@@ -20,7 +22,7 @@ export async function runInboundStep(dependencies: InboundDependencies): Promise
   try {
     await handler(event, createStages(database, event, clock.now()));
   } catch (error) {
-    await recordFailure(database, event, clock.now(), error);
+    await recordFailure(dependencies, event, clock.now(), error);
   }
   return 'processed';
 }

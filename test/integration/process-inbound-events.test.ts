@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertInboundEvent, type EventRow } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -15,15 +17,25 @@ const throwBoom: InboundHandler = async () => {
   throw new Error('boom');
 };
 
+class BoomError extends Error {
+  override name = 'BoomError';
+}
+
+const throwBoomError: InboundHandler = async () => {
+  throw new BoomError('boom');
+};
+
 describe('the inbound worker step', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let alertSink: FakeAlertSink;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
+    alertSink = new FakeAlertSink();
   });
 
   afterEach(async () => {
@@ -111,8 +123,17 @@ describe('the inbound worker step', () => {
     });
   });
 
+  it('marks the event failed and alerts after the fifth failed attempt', async () => {
+    const id = await insertInboundEvent(database, { attempts: 4 });
+
+    await runStep(throwBoomError);
+
+    expect((await readEvent(id)).status).toBe('failed');
+    expect(alertSink.texts).toEqual([`[alert] Inbound event ${id} failed after 5 attempts: BoomError.`]);
+  });
+
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
-    return runInboundStep({ database: pool, clock, handler });
+    return runInboundStep({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), handler });
   }
 
   async function readEvent(id: string): Promise<EventRow> {

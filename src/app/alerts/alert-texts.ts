@@ -9,3 +9,7 @@ export function describeRenewalGotNoAnswer(oaId: string): string {
 export function describeWebhookStoreFailed(errorName: string): string {
   return `[alert] Zalo webhook could not store an event: ${errorName}.`;
 }
+
+export function describeInboundEventFailed(eventId: string, attempts: number, errorName: string): string {
+  return `[alert] Inbound event ${eventId} failed after ${attempts} attempts: ${errorName}.`;
+}
