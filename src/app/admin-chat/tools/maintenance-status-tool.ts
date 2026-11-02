@@ -11,6 +11,6 @@ const argumentsSchema = z.object({
 
 export async function runMaintenanceStatus(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
-  const items = await findLatestMaintenance(database, scope, { plate: args.plate });
+  const items = await findLatestMaintenance(database, scope, { plate: args.plate, maintenanceItem: args.maintenance_item });
   return JSON.stringify({ items, next_cursor: null });
 }

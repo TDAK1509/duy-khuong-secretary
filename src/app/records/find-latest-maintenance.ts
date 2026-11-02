@@ -1,9 +1,9 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
-import { normalizeCode } from '../reading/normalize.ts';
+import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
 import { WhereClause } from './where-clause.ts';
 
-export type MaintenanceFilters = { plate: string | null };
+export type MaintenanceFilters = { plate: string | null; maintenanceItem: string | null };
 
 export type LatestMaintenance = { plate: string; maintenance_item: string; sent_by: string; sent_on: string };
 
@@ -32,5 +32,11 @@ function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClaus
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   where.require(`record.category = 'maintenance'`);
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
+  if (filters.maintenanceItem !== null) where.require(buildItemCondition(where, filters.maintenanceItem));
   return where;
+}
+
+function buildItemCondition(where: WhereClause, maintenanceItem: string): string {
+  const bound = where.bind(toAccentFreeForm(maintenanceItem) ?? '');
+  return `regexp_replace(trim(lower(unaccent(record.maintenance_item))), '\\s+', ' ', 'g') = ${bound}`;
 }
