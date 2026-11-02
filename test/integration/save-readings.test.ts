@@ -86,6 +86,21 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('asks the sender to send again when both pairs disagree', async () => {
+    disagreeOnAmount(harness.readers.cheap);
+    disagreeOnAmount(harness.readers.strong);
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".',
+      ],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
