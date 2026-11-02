@@ -91,4 +91,15 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(harness.readers.cheap[0].requests).toEqual([]);
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('confirms nothing with a 1 sent after another message', async () => {
+    await showDraft();
+    await harness.receiveText('zu-duy', 'chào');
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    expect(sentTexts().at(-1)).toEqual(['zu-duy', 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.']);
+  });
 });
