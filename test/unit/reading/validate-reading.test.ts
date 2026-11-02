@@ -37,4 +37,10 @@ describe('validateReading', () => {
 
     expect(attempt).toEqual({ ok: false, reason: 'invalid_output' });
   });
+
+  it('fails the read when the reading has an extra property', () => {
+    const json = { ...(makeFuelJson() as object), confidence: 0.9 };
+
+    expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });

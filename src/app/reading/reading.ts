@@ -11,7 +11,7 @@ const itemSchema = z.object({
   details: z.array(z.object({ label: z.string(), value: z.string() })),
 });
 
-const readingSchema = z.object({
+const readingSchema = z.strictObject({
   has_work_data: z.boolean(),
   has_question: z.boolean(),
   items: z.array(itemSchema),
