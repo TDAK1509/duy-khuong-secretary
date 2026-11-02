@@ -34,6 +34,32 @@ DATABASE_URL=postgres://app_owner:app_owner@localhost:5432/secretary node dist/b
 
 It prints `Workspace "<name>" created: <id>` and `First admin invite for <admin>: MOI-XXXXXX (valid until HH:mm dd/MM/yyyy)`. The code works once and for 7 days. Only its SHA-256 hash is stored, so the printed code is the only copy. Every run creates a new workspace. A name that is empty after trimming prints `Invalid workspace name.` or `Invalid admin name.` (exit 1) and creates nothing. On Render, run the same command in the service shell as `node dist/bootstrap/create-workspace.js "<workspace>" "<admin>"`.
 
+## Connect the Zalo OA
+
+The service talks to one shared Zalo Official Account. The operator connects it once:
+
+```sh
+npm run build
+node dist/bootstrap/connect-zalo.js
+```
+
+It prints a link. Open it in a browser logged in to Zalo as an OA admin and approve. The browser shows `Zalo OA <oa id> connected.` and `channel_connections` holds one row for the OA with its keys encrypted (AES-256-GCM, `CHANNEL_TOKEN_ENCRYPTION_KEY`). On Render, run the same command in the service shell. Set the Zalo app's callback URL to `<PUBLIC_BASE_URL>/oauth/zalo/callback`.
+
+Every 60 seconds the service renews each connection whose access key expires within 60 minutes. A rejected or unreachable renewal keeps the keys, alerts the operator and tries again on the next tick. A renewal that gets no answer may have spent the single-use renewal key: the connection becomes `reauthorization_required`, automatic renewal stops, and the operator is alerted. Run `connect-zalo` again before the access key expires (25 hours). The same alert text is sent at most once per hour per process.
+
+The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `ZALO_APP_SECRET`, `CHANNEL_TOKEN_ENCRYPTION_KEY` and `PUBLIC_BASE_URL` are all set. While it is off the service logs `[config] zalo is off; missing: <NAMES>.`, the callback answers `503 Zalo is not configured.`, renewal is skipped, and `connect-zalo` prints `zalo is not configured: missing <NAMES>.` (exit 1).
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `MESSAGING_PROVIDER` | none | `zalo-oa` |
+| `ZALO_APP_ID`, `ZALO_APP_SECRET` | none | The Zalo app's id and secret key |
+| `ZALO_OAUTH_BASE_URL` | `https://oauth.zaloapp.com` | Zalo OAuth host |
+| `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
+| `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
+| `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
+| `ALERT_PROVIDER` | `log` | `log` writes alerts to the error log; `webhook` posts `{"text":"..."}` to `ALERT_WEBHOOK_URL` |
+| `ALERT_WEBHOOK_URL` | none | Required when `ALERT_PROVIDER=webhook`; the start fails without it |
+
 ## Migrations
 
 Run them by hand against the local database:
