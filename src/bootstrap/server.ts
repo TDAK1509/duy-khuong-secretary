@@ -7,13 +7,12 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
+import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
-
-export type VerifierFile = { fileName: string; content: string };
 
 export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
-  verifierFile?: VerifierFile;
+  verifierFile?: VerifierFile | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
