@@ -25,4 +25,8 @@ describe('isDuplicateRecord', () => {
   it('finds an item with another document number not a duplicate', () => {
     expect(isDuplicateRecord(makeFields(), makeFields({ documentNumber: '0001235' }))).toBe(false);
   });
+
+  it('finds an item with another amount not a duplicate', () => {
+    expect(isDuplicateRecord(makeFields(), makeFields({ amountVnd: 1520000 }))).toBe(false);
+  });
 });
