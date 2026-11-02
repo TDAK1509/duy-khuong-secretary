@@ -6,5 +6,5 @@ export type DuplicateFields = Pick<
 >;
 
 export function isDuplicateRecord(existing: DuplicateFields, candidate: DuplicateFields): boolean {
-  return existing.category === candidate.category;
+  return existing.category === candidate.category && existing.documentNumber === candidate.documentNumber;
 }
