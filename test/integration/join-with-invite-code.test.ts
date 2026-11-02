@@ -177,6 +177,13 @@ describe('joining a workspace with an invite code', () => {
     expect(await database.query('SELECT 1 FROM memberships')).toEqual([]);
   });
 
+  it('refuses a code that no invite has', async () => {
+    await receiveText('zu-hung', 'MOI-AAAAAA');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-hung', INVALID_CODE_TEXT]]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
