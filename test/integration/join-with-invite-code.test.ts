@@ -13,7 +13,7 @@ import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertInvite, insertWorkspace } from './workspace-rows.ts';
+import { insertInvite, insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -270,6 +270,23 @@ describe('joining a workspace with an invite code', () => {
     expect(channel.nameLookupCredentials).toEqual([]);
   });
 
+  describe('telling the admin who made the invite', () => {
+    const joinedNotice =
+      'Hùng (tên Zalo: Hung Nguyen) đã tham gia nhóm "Xe tải Duy Khương", vai trò thành viên.\nNếu không đúng người, bạn nhắn Trợ lý: "Xóa Hùng khỏi nhóm".';
+
+    it('tells the admin who joined, with the Zalo name', async () => {
+      const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+      await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member', createdBy: duyUserId });
+      channel.displayNames.set('zu-hung', 'Hung Nguyen');
+
+      await receiveText('zu-hung', CODE);
+      await sendAllQueuedTexts();
+
+      const duyTexts = channel.texts.filter((sent) => sent.to.externalUserId === 'zu-duy');
+      expect(duyTexts.map((sent) => sent.text)).toEqual([joinedNotice]);
+    });
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInbound();
@@ -283,6 +300,10 @@ describe('joining a workspace with an invite code', () => {
       notices: new OffGroupNotices(clock, () => {}),
       handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, readers: null, chat: null }),
     });
+  }
+
+  async function sendAllQueuedTexts(): Promise<void> {
+    while ((await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 })) === 'processed');
   }
 
   async function sendQueuedTexts(): Promise<void> {

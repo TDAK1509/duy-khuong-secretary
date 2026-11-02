@@ -25,7 +25,14 @@ export function formatJoinResult(result: JoinResult): string {
   }
 }
 
-function formatJoinedText({ workspaceName, displayName, role }: Extract<JoinResult, { kind: 'joined' }>): string {
+function formatJoinedText({ workspaceName, displayName, role }: JoinedPerson): string {
   const hint = role === 'admin' ? JOINED_ADMIN_HINT : JOINED_MEMBER_HINT;
   return `Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.\n${hint}`;
+}
+
+export type JoinedPerson = Extract<JoinResult, { kind: 'joined' }>;
+
+export function formatInviterNotice(joined: JoinedPerson, zaloName: string | null): string {
+  const { displayName, workspaceName, role } = joined;
+  return `${displayName} (tên Zalo: ${zaloName ?? 'không rõ'}) đã tham gia nhóm "${workspaceName}", vai trò ${labelRole(role)}.\nNếu không đúng người, bạn nhắn Trợ lý: "Xóa ${displayName} khỏi nhóm".`;
 }

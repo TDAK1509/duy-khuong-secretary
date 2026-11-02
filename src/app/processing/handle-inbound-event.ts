@@ -16,7 +16,13 @@ import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
 import { findPersonWorkspace } from '../workspaces/find-person-workspace.ts';
-import { formatJoinResult, NO_LONGER_IN_A_WORKSPACE_TEXT, WELCOME_TEXT } from './conversation-texts.ts';
+import {
+  formatInviterNotice,
+  formatJoinResult,
+  NO_LONGER_IN_A_WORKSPACE_TEXT,
+  WELCOME_TEXT,
+  type JoinedPerson,
+} from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
@@ -77,7 +83,7 @@ async function answerSender(
   const now = clock.now();
   const identity = await recordSenderIdentity(transaction, message.event);
   await clearChoiceUnlessAnswered(transaction, identity, message.text);
-  const reply = await decideReply(transaction, { ...message, identity, now });
+  const reply = await decideReply(transaction, { ...message, identity, now, maxTextLength: channel.maxTextLength });
   if (reply === null) return;
   await enqueueText(transaction, {
     to: describeSender(message.event),
@@ -88,13 +94,25 @@ async function answerSender(
   });
 }
 
-type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date };
+type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxTextLength: number };
 
 async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
   if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
+  if (joined.kind === 'joined') await tellInviter(transaction, joined, message);
   return { text: formatJoinResult(joined) };
+}
+
+async function tellInviter(transaction: Transaction, joined: JoinedPerson, message: ReceivedMessage): Promise<void> {
+  if (joined.inviter === null) return;
+  await enqueueText(transaction, {
+    to: joined.inviter.recipient,
+    text: formatInviterNotice(joined, message.zaloName),
+    maxTextLength: message.maxTextLength,
+    availableAt: message.now,
+    adminMembershipId: joined.inviter.membershipId,
+  });
 }
 
 async function replyToOtherMessage(
