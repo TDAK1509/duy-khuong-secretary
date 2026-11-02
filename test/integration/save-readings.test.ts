@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Reading } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -399,6 +400,17 @@ describe('saving what two readers agree on', () => {
         'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
       ],
     ]);
+  });
+
+  it('keeps a message waiting while the readers are not configured', async () => {
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', text: 'Đổ dầu 500.000đ' });
+
+    await harness.runInbound({ readers: null });
+
+    expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([
+      { status: 'queued', attempts: 0 },
+    ]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
   function makeFuelItem() {
