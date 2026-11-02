@@ -87,6 +87,22 @@ describe('row-level security for the runtime role', () => {
     expect(rows.sort()).toEqual(hungRecordIds.sort());
   });
 
+  it('never shows a workspace scope another workspace\'s records', async () => {
+    const wRecordIds = [
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' }),
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' }),
+    ];
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-v', displayName: 'V' });
+    for (let index = 0; index < 3; index += 1) {
+      await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vUserId, senderName: 'V' });
+    }
+
+    const rows = await selectIds('records', { workspaceId });
+
+    expect(rows.sort()).toEqual(wRecordIds.sort());
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
