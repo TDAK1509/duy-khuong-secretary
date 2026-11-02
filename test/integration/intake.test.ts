@@ -14,7 +14,7 @@ import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -218,6 +218,28 @@ describe('storing what a member sends', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
+  it('stores a message in the current workspace of the person', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+    await insertMembership(database, { workspaceId: otherWorkspaceId, userId: hungUserId, displayName: 'Hùng' });
+    await database.query(`UPDATE channel_identities SET current_workspace_id = '${otherWorkspaceId}'`);
+
+    await receiveText('zu-hung', 'chào');
+
+    expect(await database.query(`SELECT workspace_id FROM messages WHERE author = 'user'`)).toEqual([
+      { workspace_id: otherWorkspaceId },
+    ]);
+  });
+
+  it('keeps a photo waiting while photo storage is not configured', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    await runInboundWithoutPhotoStorage();
+
+    expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([{ status: 'queued', attempts: 0 }]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
@@ -228,13 +250,21 @@ describe('storing what a member sends', () => {
     await runInbound();
   }
 
-  async function runInbound(): Promise<unknown> {
+  function runInbound(): Promise<unknown> {
+    return runInboundWith(photoStorage);
+  }
+
+  function runInboundWithoutPhotoStorage(): Promise<unknown> {
+    return runInboundWith(null);
+  }
+
+  function runInboundWith(storage: FakePhotoStorage | null): Promise<unknown> {
     return runInboundStep({
       database: pool,
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: storage }),
     });
   }
 
