@@ -3,5 +3,6 @@
   "testRunner": "vitest",
   "mutate": ["src/app/**/*.ts"],
   "reporters": ["clear-text", "progress"],
+  "ignoreStatic": true,
   "tempDirName": ".stryker-tmp"
 }
