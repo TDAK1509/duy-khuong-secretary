@@ -338,4 +338,14 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(sentTexts()).toEqual([['zu-duy', 'Lịch "Báo cáo hằng ngày" chạy lỗi. Lần chạy sau sẽ thử lại.']]);
   });
+
+  it('runs at most five due tasks in one tick and leaves the rest due for the next tick', async () => {
+    for (let number = 0; number < 7; number += 1) await insertDueTask({ title: `Lịch ${number}` });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toHaveLength(5);
+    await harness.runTick();
+    expect(harness.chat.requests).toHaveLength(7);
+  });
 });

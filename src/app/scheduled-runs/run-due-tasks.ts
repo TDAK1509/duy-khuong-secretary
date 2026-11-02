@@ -14,6 +14,8 @@ import { describeFailedRun } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 
+const MAX_TASKS_PER_TICK = 5;
+
 export type ScheduledRunDependencies = {
   database: Database;
   clock: Clock;
@@ -22,8 +24,9 @@ export type ScheduledRunDependencies = {
 };
 
 export async function runDueTasks(dependencies: ScheduledRunDependencies): Promise<void> {
-  const { database, clock } = dependencies;
-  for (let task = await claimDueTask(database, clock.now()); task; task = await claimDueTask(database, clock.now())) {
+  for (let started = 0; started < MAX_TASKS_PER_TICK; started += 1) {
+    const task = await claimDueTask(dependencies.database, dependencies.clock.now());
+    if (task === null) return;
     await runClaimedTask(dependencies, task);
   }
 }
