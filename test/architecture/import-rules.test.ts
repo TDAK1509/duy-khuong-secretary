@@ -76,4 +76,10 @@ describe('import rules', () => {
 
     expect(messages).toEqual([]);
   });
+
+  it('allows a provider to import its vendor package and a service', async () => {
+    const messages = await lintFixture('provider-import-vendor-and-service', 'src/providers/chat/openai-compatible-chat.ts');
+
+    expect(messages).toEqual([]);
+  });
 });
