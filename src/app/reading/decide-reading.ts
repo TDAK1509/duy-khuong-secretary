@@ -1,4 +1,5 @@
 import type { ReaderRequest, ReaderService } from '../../services/reading/reader-service.ts';
+import { areAgreeing } from './agreement.ts';
 import { validateReading, type ReadAttempt } from './reading.ts';
 
 export type ReaderPair = readonly [ReaderService, ReaderService];
@@ -13,7 +14,9 @@ export type ReadingDecision = {
 
 export async function decideReading(slots: ReaderSlots, request: ReaderRequest): Promise<ReadingDecision> {
   const cheap = await readWithPair(slots.cheap, request);
-  return { outcome: 'cheap_pair', cheap, strong: null };
+  if (areAgreeing(...cheap)) return { outcome: 'cheap_pair', cheap, strong: null };
+  const strong = await readWithPair(slots.strong, request);
+  return { outcome: 'expensive_pair', cheap, strong };
 }
 
 async function readWithPair(pair: ReaderPair, request: ReaderRequest): Promise<AttemptPair> {

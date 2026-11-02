@@ -14,6 +14,7 @@ const REQUEST: ReaderRequest = {
 };
 
 const FUEL_READING = makeReading([makeItem()]);
+const OTHER_AMOUNT_READING = makeReading([makeItem({ amount_vnd: 1520000 })]);
 
 function makeSlots(readings: { cheap: [Reading, Reading]; strong: [Reading, Reading] }) {
   return {
@@ -37,5 +38,16 @@ describe('decideReading', () => {
     await decideReading(slots, REQUEST);
 
     expect(slots.strong.flatMap((reader) => reader.requests)).toEqual([]);
+  });
+
+  it('escalates to an agreeing strong pair when the cheap readers disagree', async () => {
+    const slots = makeSlots({
+      cheap: [FUEL_READING, OTHER_AMOUNT_READING],
+      strong: [FUEL_READING, FUEL_READING],
+    });
+
+    const decision = await decideReading(slots, REQUEST);
+
+    expect(decision.outcome).toBe('expensive_pair');
   });
 });
