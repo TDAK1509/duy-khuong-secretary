@@ -54,6 +54,22 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     expect(lookedUp).toEqual([]);
   });
 
+  it('does not fetch a host outside the allow-list', async () => {
+    const lookedUp: string[] = [];
+    const channel = new ZaloOaChannel({
+      ...TEST_CHANNEL_SETTINGS,
+      lookupAddresses: async (hostname) => {
+        lookedUp.push(hostname);
+        return ['127.0.0.1'];
+      },
+    });
+
+    const result = await channel.downloadAttachment('https://evil.example/a.jpg', FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+    expect(lookedUp).toEqual([]);
+  });
+
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
     const server = await startStubMediaServer(handler);
     servers.push(server);

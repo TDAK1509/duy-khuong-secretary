@@ -123,10 +123,19 @@ export class ZaloOaChannel implements MessagingChannel {
 
   async downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult> {
     try {
-      return await readLimited(await this.openResponse(new URL(url)), maxBytes);
+      const target = this.parseAllowedUrl(url);
+      if (target === null) return { ok: false, reason: 'unavailable' };
+      return await readLimited(await this.openResponse(target), maxBytes);
     } catch {
       return { ok: false, reason: 'unavailable' };
     }
+  }
+
+  private parseAllowedUrl(url: string): URL | null {
+    const target = URL.canParse(url) ? new URL(url) : null;
+    if (target !== null && isAllowedAttachmentUrl(target, this.settings.mediaHosts)) return target;
+    console.error('[download] refused an attachment URL:', target === null ? 'not a URL' : `${target.origin}${target.pathname}`);
+    return null;
   }
 
   private openResponse(url: URL): Promise<IncomingMessage> {
@@ -173,6 +182,11 @@ async function readLimited(response: IncomingMessage, maxBytes: number): Promise
     chunks.push(chunk);
   }
   return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+function isAllowedAttachmentUrl(url: URL, mediaHosts: string[]): boolean {
+  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') return false;
+  return mediaHosts.some((mediaHost) => url.hostname === mediaHost || url.hostname.endsWith(`.${mediaHost}`));
 }
 
 function isSuccessStatus(status: number | undefined): boolean {
