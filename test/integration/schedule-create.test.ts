@@ -145,7 +145,7 @@ describe('an admin creates a scheduled task by chat', () => {
 
     await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
 
-    expect(await database.query(`SELECT 1 FROM scheduled_tasks WHERE status = 'draft'`)).toEqual([]);
+    expect(await database.query(`SELECT 1 FROM scheduled_tasks`)).toHaveLength(20);
     expect(findToolResult()).toBe('{"ok":false,"error":"Nhóm đã có 20 lịch. Xóa bớt lịch cũ trước."}');
   });
 
