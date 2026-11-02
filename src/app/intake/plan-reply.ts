@@ -11,7 +11,7 @@ export type SavedRecords = { readBy: ReadBy; records: NewRecord[] };
 export type ReplyPlan = {
   replyText: string;
   replyKind: 'saved' | 'answer';
-  status: 'accepted' | 'unresolved';
+  status: 'accepted' | 'unresolved' | 'duplicate';
   saved: SavedRecords | null;
 };
 
@@ -37,7 +37,7 @@ function isMaintenanceWithoutPlate(record: NewRecord): boolean {
 }
 
 export function planDuplicateReply(): ReplyPlan {
-  return { replyText: DUPLICATE_TEXT, replyKind: 'answer', status: 'accepted', saved: null };
+  return { replyText: DUPLICATE_TEXT, replyKind: 'answer', status: 'duplicate', saved: null };
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {

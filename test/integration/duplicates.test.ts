@@ -48,6 +48,20 @@ describe('rejecting duplicate papers', () => {
     ]);
   });
 
+  it('marks the message of a duplicate as duplicate', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    await harness.receivePhoto('zu-hung');
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(
+      await database.query(
+        `SELECT submission_status FROM messages
+         WHERE author = 'user' AND user_id <> '${harness.hungUserId}'`,
+      ),
+    ).toEqual([{ submission_status: 'duplicate' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
