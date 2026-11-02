@@ -60,6 +60,7 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
 | `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
+| `ZALO_MEDIA_HOSTS` | `zdn.vn,zadn.vn` | Comma-separated hosts that photo downloads may use. A host matches when it equals an entry or ends with `.` plus an entry |
 | `ZALO_OA_SECRET` | none | The OA secret key shown in the Zalo app's webhook settings; turns the webhook on |
 | `ALERT_PROVIDER` | `log` | `log` writes alerts to the error log; `webhook` posts `{"text":"..."}` to `ALERT_WEBHOOK_URL` |
 | `ALERT_WEBHOOK_URL` | none | Required when `ALERT_PROVIDER=webhook`; the start fails without it |
@@ -95,6 +96,25 @@ Replies wait in the `outbound_messages` table (one row per message, at most 2,00
 The worker sends at most `OUTBOUND_MAX_PER_MINUTE` messages in any 60 seconds (sent plus still sending). Zalo's rate-limit error waits 60 seconds and retries up to 10 attempts. A request that never left the server (connection refused, DNS failure) waits 30 s, 60 s, 120 s, ... and fails after 5 attempts. A missing OA connection waits 60 s and fails after 5 attempts. A `sending` row whose lock passed becomes `unknown`.
 
 The operator gets `[alert] Zalo send got no answer for outbound message <id>. It will not be resent. Check the chat in OA Manager.` for each `unknown` message, `[alert] Outbound message <id> failed after <n> attempts.` when retries run out, and `[alert] No Zalo connection for OA <oa id>. Run connect-zalo.` while the OA has no stored keys. A row with `admin_membership_id` is sent only while that membership exists; otherwise it becomes `failed` (`membership_changed`).
+
+## Store photos and texts
+
+Everything a person in a workspace sends is stored in the `messages` table, in their chat of the workspace they chose. A text gets the upload-only reply. A photo is downloaded from Zalo at once and kept in the private bucket under `<workspace id>/<message id>.jpg` (or `.png`). The reply to a photo is `Đã nhận ảnh.`. Every reply is also stored as a bot message. A photo over 5 MB, a file that is not JPEG or PNG (the first bytes are checked; the server never decodes the image), or a download that fails gets its own reply and stores no message.
+
+The download uses `https` only, from a host in `ZALO_MEDIA_HOSTS`. It follows at most 3 redirects, checks each target the same way, and refuses a host whose addresses are loopback, private, link-local, unique-local or unspecified. A refused URL is logged without its query string.
+
+The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except `S3_FORCE_PATH_STYLE` are set. While it is off the service logs `[config] photos is off; missing: <NAMES>.` and photo messages wait; texts are still stored.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `PHOTO_STORAGE` | none | `s3` (Cloudflare R2, MinIO or any S3-compatible store) |
+| `S3_ENDPOINT` | none | Store URL, for example `https://<account>.r2.cloudflarestorage.com` |
+| `S3_REGION` | none | `auto` for R2 |
+| `S3_BUCKET` | none | Bucket name |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | Access key of the bucket |
+| `S3_FORCE_PATH_STYLE` | `false` | `true` for MinIO |
+
+To run with MinIO by hand (never in CI): `docker compose --profile minio up -d --wait minio`. It creates the bucket `photos`. Then set `PHOTO_STORAGE=s3`, `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=photos`, `S3_ACCESS_KEY_ID=minioadmin`, `S3_SECRET_ACCESS_KEY=minioadmin` and `S3_FORCE_PATH_STYLE=true`. Set `MINIO_PORT` if port 9000 is taken. The MinIO console is at `http://localhost:9001`. The image is `bitnamilegacy/minio`, because MinIO no longer publishes images on Docker Hub.
 
 ## Migrations
 
