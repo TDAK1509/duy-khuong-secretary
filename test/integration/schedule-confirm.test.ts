@@ -82,4 +82,13 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
     expect(sentTexts()).toEqual([['zu-duy', 'Thời điểm chạy đã qua. Nhắn lại cho Trợ lý để đặt giờ khác.']]);
   });
+
+  it('never sends a confirm reply to the readers', async () => {
+    await showDraft();
+
+    await harness.receiveText('zu-duy', '1');
+
+    expect(harness.readers.cheap[0].requests).toEqual([]);
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
