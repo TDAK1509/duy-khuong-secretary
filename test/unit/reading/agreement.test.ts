@@ -40,4 +40,11 @@ describe('areAgreeing', () => {
 
     expect(agree).toBe(true);
   });
+
+  it('agrees when plates differ only in case and punctuation', () => {
+    const first = succeed(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+    const second = succeed(makeReading([makeItem({ vehicle_plate: '29c12345' })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
 });
