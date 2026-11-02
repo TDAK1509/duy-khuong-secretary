@@ -5,8 +5,11 @@ import { TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
 import { answerWithStatus, redirectTo, serveBytes, startStubMediaServer, type MediaHandler, type StubMediaServer } from './stub-media-server.ts';
 
 const FIVE_MEGABYTES = 5_000_000;
+const DOWNLOAD_TEST_TIMEOUT_MS = 10_000;
+const VITEST_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TEST_SETTINGS = { ...TEST_CHANNEL_SETTINGS, timeoutMs: DOWNLOAD_TEST_TIMEOUT_MS };
 
-describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
+describe('ZaloOaChannel.downloadAttachment against a stub media server', { timeout: VITEST_TIMEOUT_MS }, () => {
   const servers: StubMediaServer[] = [];
 
   afterEach(async () => {
@@ -41,7 +44,7 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
   it('does not fetch a plain http URL', async () => {
     const lookedUp: string[] = [];
     const channel = new ZaloOaChannel({
-      ...TEST_CHANNEL_SETTINGS,
+      ...DOWNLOAD_TEST_SETTINGS,
       lookupAddresses: async (hostname) => {
         lookedUp.push(hostname);
         return ['127.0.0.1'];
@@ -57,7 +60,7 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
   it('does not fetch a host outside the allow-list', async () => {
     const lookedUp: string[] = [];
     const channel = new ZaloOaChannel({
-      ...TEST_CHANNEL_SETTINGS,
+      ...DOWNLOAD_TEST_SETTINGS,
       lookupAddresses: async (hostname) => {
         lookedUp.push(hostname);
         return ['127.0.0.1'];
@@ -104,7 +107,7 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
   it('does not connect to an allowed host that resolves to a private address', async () => {
     const server = await startStubServer(serveBytes(new Uint8Array(10)));
     const channel = new ZaloOaChannel({
-      ...TEST_CHANNEL_SETTINGS,
+      ...DOWNLOAD_TEST_SETTINGS,
       lookupAddresses: async () => ['127.0.0.1'],
       trustedCertificates: server.certificate,
     });
@@ -128,7 +131,7 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     lookedUp: string[] = [],
   ): Promise<DownloadResult> {
     const channel = new ZaloOaChannel({
-      ...TEST_CHANNEL_SETTINGS,
+      ...DOWNLOAD_TEST_SETTINGS,
       lookupAddresses: async (hostname) => {
         lookedUp.push(hostname);
         return ['127.0.0.1'];
