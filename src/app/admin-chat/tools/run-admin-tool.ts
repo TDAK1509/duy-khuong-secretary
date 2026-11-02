@@ -5,6 +5,7 @@ import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
+import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
@@ -37,6 +38,8 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
       return runListMembers(database, scope);
     case 'create_invite':
       return runCreateInvite(dependencies, scope, parsedArguments);
+    case 'remove_member':
+      return runRemoveMember(database, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }

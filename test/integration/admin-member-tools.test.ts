@@ -82,4 +82,21 @@ describe('the member tools of an admin', () => {
       expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
     });
   });
+
+  describe('removing a member', () => {
+    async function findMembershipId(displayName: string): Promise<string> {
+      const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE display_name = '${displayName}'`);
+      if (!row) throw new Error(`no member named ${displayName}`);
+      return row.id;
+    }
+
+    it('deletes the membership of the person', async () => {
+      await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+
+      const output = await runTool('remove_member', { member_id: await findMembershipId('Hùng') });
+
+      expect(output).toBe('{"ok":true,"removed":"Hùng"}');
+      expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Duy' }]);
+    });
+  });
 });
