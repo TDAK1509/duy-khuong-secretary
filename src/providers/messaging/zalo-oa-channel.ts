@@ -9,6 +9,15 @@ const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
 const RATE_LIMIT_ERROR = -32;
 
+const REQUEST_NEVER_SENT_CODES = [
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+];
+
 const attachmentSchema = z.object({
   type: z.string(),
   payload: z.object({ url: z.string().optional() }).optional(),
@@ -62,13 +71,17 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
-    const response = await fetch(new URL(SEND_TEXT_PATH, this.settings.apiBaseUrl), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', access_token: credential },
-      body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
-      signal: AbortSignal.timeout(this.settings.timeoutMs),
-    });
-    return toSendResult(await response.json());
+    try {
+      const response = await fetch(new URL(SEND_TEXT_PATH, this.settings.apiBaseUrl), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', access_token: credential },
+        body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
+        signal: AbortSignal.timeout(this.settings.timeoutMs),
+      });
+      return toSendResult(await response.json());
+    } catch (error) {
+      return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
+    }
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
@@ -81,6 +94,12 @@ function toSendResult(answer: unknown): SendResult {
   const { error } = sendAnswerSchema.parse(answer);
   if (error === 0) return { ok: true };
   return { ok: false, reason: error === RATE_LIMIT_ERROR ? 'rate_limited' : 'rejected' };
+}
+
+function wasNeverSent(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : null;
+  const code = cause instanceof Error && 'code' in cause ? cause.code : null;
+  return typeof code === 'string' && REQUEST_NEVER_SENT_CODES.includes(code);
 }
 
 function isSameText(first: string, second: string): boolean {

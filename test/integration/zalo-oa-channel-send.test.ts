@@ -50,6 +50,15 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: false, reason: 'rejected' });
   });
 
+  it('turns a refused connection into unavailable', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0 }));
+    await server.close();
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
