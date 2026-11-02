@@ -142,6 +142,24 @@ describe('storing what a member sends', () => {
     expect((await photoStorage.get(key ?? ''))?.contentType).toBe('image/png');
   });
 
+  it('turns two photos of one event into two messages', async () => {
+    channel.attachments.set('https://z.test/1.jpg', { ok: true, bytes: makeJpeg(1000) });
+    channel.attachments.set('https://z.test/2.jpg', { ok: true, bytes: makeJpeg(2000) });
+
+    await insertInboundEvent(database, {
+      externalUserId: 'zu-hung',
+      kind: 'images',
+      imageUrls: ['https://z.test/1.jpg', 'https://z.test/2.jpg'],
+    });
+    await runInbound();
+
+    expect(await database.query(`SELECT event_part FROM messages WHERE author = 'user' ORDER BY event_part`)).toEqual([
+      { event_part: 0 },
+      { event_part: 1 },
+    ]);
+    expect(photoStorage.listKeys()).toHaveLength(2);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
