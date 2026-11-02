@@ -35,4 +35,13 @@ describe('createWorkspaceWithFirstAdminInvite', () => {
     ]);
     expect(await database.query('SELECT count(*)::int AS n FROM workspaces')).toEqual([{ n: 2 }]);
   });
+
+  it('fails clearly when every generated code is taken', async () => {
+    await createWorkspaceWithFirstAdminInvite(pool, newWorkspace, now, () => 'MOI-AAAAAA');
+
+    const failing = createWorkspaceWithFirstAdminInvite(pool, newWorkspace, now, () => 'MOI-AAAAAA');
+
+    await expect(failing).rejects.toThrow('no unused invite code found in 5 attempts');
+    expect(await database.query('SELECT count(*)::int AS n FROM workspaces')).toEqual([{ n: 1 }]);
+  });
 });

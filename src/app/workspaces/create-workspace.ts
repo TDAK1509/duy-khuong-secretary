@@ -29,20 +29,38 @@ export async function createWorkspaceWithFirstAdminInvite(
     return { kind: 'invalid', field: 'admin_name' };
   }
   const expiresAt = new Date(now.getTime() + INVITE_VALID_FOR_MS);
+  return createWithFreshCode(database, { workspaceName, adminName, expiresAt }, generateCode);
+}
+
+type ValidWorkspace = { workspaceName: string; adminName: string; expiresAt: Date };
+
+async function createWithFreshCode(
+  database: Database,
+  workspace: ValidWorkspace,
+  generateCode: () => string,
+): Promise<CreateWorkspaceResult> {
   for (let attempt = 1; attempt <= MAX_CODE_ATTEMPTS; attempt++) {
     const inviteCode = generateCode();
     try {
-      const workspaceId = await runInTransaction(database, async (transaction) => {
-        const workspaceId = await insertWorkspace(transaction, workspaceName);
-        await insertAdminInvite(transaction, { workspaceId, adminName, inviteCode, expiresAt });
-        return workspaceId;
-      });
-      return { kind: 'created', workspaceId, workspaceName, inviteCode, expiresAt };
+      const workspaceId = await insertWorkspaceWithInvite(database, workspace, inviteCode);
+      return { kind: 'created', workspaceId, inviteCode, ...workspace };
     } catch (error) {
       if (!isTakenCodeError(error)) throw error;
     }
   }
   throw new Error(`no unused invite code found in ${MAX_CODE_ATTEMPTS} attempts`);
+}
+
+function insertWorkspaceWithInvite(
+  database: Database,
+  { workspaceName, adminName, expiresAt }: ValidWorkspace,
+  inviteCode: string,
+): Promise<string> {
+  return runInTransaction(database, async (transaction) => {
+    const workspaceId = await insertWorkspace(transaction, workspaceName);
+    await insertAdminInvite(transaction, { workspaceId, adminName, inviteCode, expiresAt });
+    return workspaceId;
+  });
 }
 
 function isTakenCodeError(error: unknown): boolean {
