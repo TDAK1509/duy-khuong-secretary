@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: duy-khuong-secretary
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    branch: main
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    preDeployCommand: node dist/bootstrap/migrate.js
