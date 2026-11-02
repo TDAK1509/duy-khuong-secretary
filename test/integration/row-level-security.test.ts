@@ -73,6 +73,20 @@ describe('row-level security for the runtime role', () => {
     expect(rows.sort()).toEqual(hungMessageIds.sort());
   });
 
+  it('shows a member scope only that member\'s records, even with no filter', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const hungRecordIds = [
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' }),
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' }),
+    ];
+    await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan' });
+    await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan' });
+
+    const rows = await selectIds('records', { workspaceId, ownerUserId: hungUserId });
+
+    expect(rows.sort()).toEqual(hungRecordIds.sort());
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
