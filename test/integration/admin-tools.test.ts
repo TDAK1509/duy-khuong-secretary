@@ -428,4 +428,15 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: category"}');
   });
+
+  async function runCall(name: string, argumentsJson: string): Promise<string> {
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+    return runAdminTool(dependencies, duy, { id: 'call_1', name, argumentsJson });
+  }
+
+  it('refuses a tool name it does not know', async () => {
+    const output = await runCall('delete_everything', '{}');
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: name"}');
+  });
 });
