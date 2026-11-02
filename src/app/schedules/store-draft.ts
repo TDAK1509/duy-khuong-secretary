@@ -1,4 +1,5 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
+import { lockWorkspaceTasks } from './lock-workspace-tasks.ts';
 import type { NewDraft } from './schedule.ts';
 import { toScheduleValues } from './schedule-columns.ts';
 
@@ -13,10 +14,6 @@ export async function storeDraft(database: Database, draft: NewDraft): Promise<S
     const replacedTitle = await cancelOlderDraft(transaction, draft);
     return { taskId: await insertDraft(transaction, draft), replacedTitle };
   });
-}
-
-async function lockWorkspaceTasks(transaction: Transaction, workspaceId: string): Promise<void> {
-  await transaction.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`scheduled_tasks:${workspaceId}`]);
 }
 
 async function isWorkspaceFull(transaction: Transaction, { workspaceId, createdBy }: NewDraft): Promise<boolean> {
