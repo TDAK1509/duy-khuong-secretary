@@ -26,6 +26,13 @@ export function answerWithStatus(status: number): MediaHandler {
   };
 }
 
+export function redirectTo(location: string): MediaHandler {
+  return (_request, response) => {
+    response.writeHead(302, { location });
+    response.end();
+  };
+}
+
 export async function startStubMediaServer(handler: MediaHandler): Promise<StubMediaServer> {
   const { key, certificate } = generateSelfSignedCertificate();
   const requestedPaths: string[] = [];

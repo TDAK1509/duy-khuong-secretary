@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
 import type { DownloadResult } from '../../src/services/messaging/messaging-channel.ts';
 import { TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
-import { answerWithStatus, serveBytes, startStubMediaServer, type MediaHandler, type StubMediaServer } from './stub-media-server.ts';
+import { answerWithStatus, redirectTo, serveBytes, startStubMediaServer, type MediaHandler, type StubMediaServer } from './stub-media-server.ts';
 
 const FIVE_MEGABYTES = 5_000_000;
 
@@ -70,16 +70,34 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     expect(lookedUp).toEqual([]);
   });
 
+  it('does not follow a redirect to a host outside the allow-list', async () => {
+    const server = await startStubServer(redirectTo('https://evil.example/a.jpg'));
+    const lookedUp: string[] = [];
+
+    const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES, lookedUp);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+    expect(lookedUp).toEqual(['photo.zdn.vn']);
+  });
+
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
     const server = await startStubMediaServer(handler);
     servers.push(server);
     return server;
   }
 
-  function downloadFromAllowedHost(server: StubMediaServer, path: string, maxBytes: number): Promise<DownloadResult> {
+  function downloadFromAllowedHost(
+    server: StubMediaServer,
+    path: string,
+    maxBytes: number,
+    lookedUp: string[] = [],
+  ): Promise<DownloadResult> {
     const channel = new ZaloOaChannel({
       ...TEST_CHANNEL_SETTINGS,
-      lookupAddresses: async () => ['127.0.0.1'],
+      lookupAddresses: async (hostname) => {
+        lookedUp.push(hostname);
+        return ['127.0.0.1'];
+      },
       isPublicAddress: () => true,
       trustedCertificates: server.certificate,
     });

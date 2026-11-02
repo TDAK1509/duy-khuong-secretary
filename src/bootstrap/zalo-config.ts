@@ -58,7 +58,7 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
       oauthBaseUrl: settings.ZALO_OAUTH_BASE_URL,
       apiBaseUrl: settings.ZALO_API_BASE_URL,
       apiTimeoutMs: settings.ZALO_TIMEOUT_MS,
-      mediaHosts: settings.ZALO_MEDIA_HOSTS.split(',').map((host) => host.trim()).filter(Boolean),
+      mediaHosts: settings.ZALO_MEDIA_HOSTS.split(',').map((host) => host.trim().toLowerCase()).filter(Boolean),
       outboundMaxPerMinute: settings.OUTBOUND_MAX_PER_MINUTE,
       encryptionKey: settings.CHANNEL_TOKEN_ENCRYPTION_KEY,
       publicBaseUrl: settings.PUBLIC_BASE_URL,
