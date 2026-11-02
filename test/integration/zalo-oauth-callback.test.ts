@@ -113,6 +113,15 @@ describe('GET /oauth/zalo/callback', () => {
     expect(response.body).toBe('Zalo is not configured.');
   });
 
+  it('refuses a callback without an OA id or a code', async () => {
+    const withoutOaId = await callCallback({ code: 'k1', state: makeState(NOW) });
+    const withoutCode = await callCallback({ oa_id: 'oa-1', state: makeState(NOW) });
+
+    expect([withoutOaId.statusCode, withoutCode.statusCode]).toEqual([400, 400]);
+    expect(channelAuth.exchanges).toEqual([]);
+    expect(await database.query('SELECT id FROM channel_connections')).toEqual([]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }

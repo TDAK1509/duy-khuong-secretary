@@ -19,14 +19,11 @@ export async function handleZaloOAuthCallback(
   query: OAuthCallbackQuery,
 ): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
-  const codeVerifier = openConnectState(query['state'] ?? '', dependencies.clock.now(), dependencies.encryptionKey);
-  if (codeVerifier === null) return respondWithConnectionFailure();
-  const exchange = await dependencies.channelAuth.exchangeAuthorization({
-    code: query['code'] ?? '',
-    codeVerifier,
-  });
+  const { oa_id: accountId, code, state } = query;
+  const codeVerifier = openConnectState(state ?? '', dependencies.clock.now(), dependencies.encryptionKey);
+  if (!accountId || !code || codeVerifier === null) return respondWithConnectionFailure();
+  const exchange = await dependencies.channelAuth.exchangeAuthorization({ code, codeVerifier });
   if (!exchange.ok) return respondWithConnectionFailure();
-  const accountId = query['oa_id'] ?? '';
   await storeConnection(
     dependencies.database,
     { channel: 'zalo-oa', accountId, tokens: exchange.tokens, storedAt: dependencies.clock.now() },
