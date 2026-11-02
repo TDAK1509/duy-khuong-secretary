@@ -87,4 +87,25 @@ describe('the daily maintenance reminder run', () => {
       ['zu-duy', 'Xe 29C12345 cần thay dầu máy.'],
     ]);
   });
+
+  it('calls no model and queues nothing for a record not yet old enough', async () => {
+    await insertOilChange('2026-10-02');
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
+  it('still moves the next run of a task that had nothing due', async () => {
+    await insertOilChange('2026-10-02');
+    await insertReminderTask({ nextRunAt: new Date('2026-10-31T06:59:00+07:00') });
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT next_run_at, last_run_at, locked_until FROM scheduled_tasks')).toEqual([
+      { next_run_at: new Date('2026-10-31T18:00:00+07:00'), last_run_at: harness.clock.now(), locked_until: null },
+    ]);
+  });
 });
