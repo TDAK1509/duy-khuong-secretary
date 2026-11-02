@@ -4,6 +4,7 @@ import type { Database } from '../db/transaction.ts';
 import { ClaimLostError } from './claimed-transaction.ts';
 import { claimInboundEvent } from './claim-inbound-event.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
+import type { OffGroupNotices } from './off-group-notices.ts';
 import { postponeEvent } from './postpone-event.ts';
 import { recordFailure } from './record-failure.ts';
 import { createStages, type Finished, type NotConfigured, type Stages } from './stages.ts';
@@ -14,6 +15,7 @@ export type InboundDependencies = {
   database: Database;
   clock: Clock;
   alerts: OperatorAlerts;
+  notices: OffGroupNotices;
   handler: InboundHandler;
 };
 
@@ -34,7 +36,7 @@ async function handleClaimedEvent(dependencies: InboundDependencies, event: Clai
   const { database, clock, handler } = dependencies;
   try {
     const result = await handler(event, createStages(database, event, clock));
-    if (result.kind === 'not_configured') await postponeEvent(database, event, clock.now());
+    if (result.kind === 'not_configured') await postponeEvent(dependencies, event, result.group);
   } catch (error) {
     await recordFailure(dependencies, event, clock.now(), error);
   }

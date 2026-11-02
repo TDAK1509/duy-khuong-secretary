@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { claimInboundEvent } from '../../src/app/processing/claim-inbound-event.ts';
 import type { ClaimedEvent } from '../../src/app/processing/claimed-event.ts';
+import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
 import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
 import type { Transaction } from '../../src/app/db/transaction.ts';
 import { ClaimLostError } from '../../src/app/processing/claimed-transaction.ts';
@@ -82,12 +83,18 @@ describe('the inbound worker step', () => {
   let pool: PostgresPool;
   let clock: FakeClock;
   let alertSink: FakeAlertSink;
+  let logLines: string[];
+  let alerts: OperatorAlerts;
+  let notices: OffGroupNotices;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
     alertSink = new FakeAlertSink();
+    logLines = [];
+    alerts = new OperatorAlerts(alertSink, clock);
+    notices = new OffGroupNotices(clock, (line) => logLines.push(line));
   });
 
   afterEach(async () => {
@@ -335,6 +342,19 @@ describe('the inbound worker step', () => {
     while ((await runStep(handler)) === 'processed');
   }
 
+  it('logs once per hour that a feature is off', async () => {
+    await insertInboundEvent(database, {});
+    const waitForFeature: InboundHandler = async () => ({ kind: 'not_configured', group: 'photos' });
+
+    await runStep(waitForFeature);
+    clock.advanceBy(61_000);
+    await runStep(waitForFeature);
+    clock.advanceBy(60 * 60_000);
+    await runStep(waitForFeature);
+
+    expect(logLines).toEqual(['[config] photos is off; events wait.', '[config] photos is off; events wait.']);
+  });
+
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
     if (!event) throw new Error('no event to claim');
@@ -342,7 +362,7 @@ describe('the inbound worker step', () => {
   }
 
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
-    return runInboundStep({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), handler });
+    return runInboundStep({ database: pool, clock, alerts, notices, handler });
   }
 
   async function readEvent(id: string): Promise<EventRow> {

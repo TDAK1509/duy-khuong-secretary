@@ -1,31 +1,23 @@
 import type { AlertSink } from '../../services/alerts/alert-sink.ts';
 import type { Clock } from '../../services/clock/clock.ts';
-
-const SAME_ALERT_INTERVAL_MS = 60 * 60 * 1000;
+import { OncePerHour } from './once-per-hour.ts';
 
 export class OperatorAlerts {
   private readonly sink: AlertSink;
-  private readonly clock: Clock;
-  private readonly lastSentAt = new Map<string, number>();
+  private readonly oncePerHour: OncePerHour;
 
   constructor(sink: AlertSink, clock: Clock) {
     this.sink = sink;
-    this.clock = clock;
+    this.oncePerHour = new OncePerHour(clock);
   }
 
   async raise(text: string): Promise<void> {
-    if (this.wasSentRecently(text)) return;
-    this.lastSentAt.set(text, this.clock.now().getTime());
+    if (!this.oncePerHour.allow(text)) return;
     try {
       await this.sink.notify(text);
     } catch (error) {
       console.error('[alerts] could not send alert:', text, describeFailure(error));
     }
-  }
-
-  private wasSentRecently(text: string): boolean {
-    const sentAt = this.lastSentAt.get(text);
-    return sentAt !== undefined && this.clock.now().getTime() - sentAt < SAME_ALERT_INTERVAL_MS;
   }
 }
 
