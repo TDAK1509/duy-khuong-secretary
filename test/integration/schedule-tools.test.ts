@@ -89,6 +89,16 @@ describe('the scheduling tools', () => {
     ]);
   });
 
+  it('refuses a task creation in a scheduled run', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+
+    const output = await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks(null));
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+    expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+  });
+
   it('lists only the active tasks the caller created in this workspace', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
