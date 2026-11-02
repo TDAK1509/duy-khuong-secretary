@@ -16,4 +16,9 @@ describe('selectShardFiles', () => {
 
     expect(allShards.sort()).toEqual([...files].sort());
   });
+
+  it('gives a shard nothing when there are more shards than files', () => {
+    expect(selectShardFiles(['src/app/a.ts'], 2, 4)).toEqual([]);
+    expect(selectShardFiles([], 1, 4)).toEqual([]);
+  });
 });
