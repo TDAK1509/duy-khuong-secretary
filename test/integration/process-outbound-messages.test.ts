@@ -140,6 +140,19 @@ describe('the outbound worker step', () => {
     expect(alertSink.texts).toEqual([`[alert] Outbound message ${id} failed after 5 attempts.`]);
   });
 
+  it('marks a send with no answer unknown and alerts', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, {});
+    channel.nextTextResult = { ok: false, reason: 'no_answer' };
+
+    await runStep();
+
+    expect((await readMessage(id)).status).toBe('unknown');
+    expect(alertSink.texts).toEqual([
+      `[alert] Zalo send got no answer for outbound message ${id}. It will not be resent. Check the chat in OA Manager.`,
+    ]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);

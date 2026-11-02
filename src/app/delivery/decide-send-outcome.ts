@@ -1,5 +1,5 @@
 import type { SendResult } from '../../services/messaging/messaging-channel.ts';
-import { describeOutboundMessageFailed } from '../alerts/alert-texts.ts';
+import { describeOutboundMessageFailed, describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
 export type Settlement = {
@@ -35,6 +35,8 @@ function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: 
         UNREACHABLE_MAX_ATTEMPTS,
         UNREACHABLE_FIRST_WAIT_MS * 2 ** (message.attempts - 1),
       );
+    case 'no_answer':
+      return { settlement: { status: 'unknown', lastError: result.reason }, alert: describeSendGotNoAnswer(message.id) };
     default:
       return { settlement: { status: 'queued', lastError: result.reason } };
   }
