@@ -230,5 +230,14 @@ describe('an admin asks the bot', () => {
 
       expect(recordsSeenByModel).toBe(1);
     });
+
+    it('sends the saved reply first', async () => {
+      harness.chat.replyWith('Hôm nay tổng 1.250.000đ.');
+
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(sentTexts()[0]).toEqual(['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']);
+    });
   });
 });
