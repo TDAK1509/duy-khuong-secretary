@@ -51,6 +51,19 @@ describe('GET /oauth/zalo/callback', () => {
     expect(decryptToken(String(row?.['access_token_encrypted']), ENCRYPTION_KEY)).toBe('a1-plain');
   });
 
+  it('replaces the keys when the same OA connects again', async () => {
+    await callCallback({ oa_id: 'oa-1', code: 'k1', state: makeState(NOW) });
+    channelAuth.exchangeResult = { ok: true, tokens: makeTokenPair({ accessToken: 'a2' }) };
+
+    await callCallback({ oa_id: 'oa-1', code: 'k2', state: makeState(NOW) });
+
+    const rows = await database.query<{ access_token_encrypted: string }>(
+      'SELECT access_token_encrypted FROM channel_connections',
+    );
+    expect(rows).toHaveLength(1);
+    expect(decryptToken(rows[0]?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a2');
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }

@@ -18,7 +18,13 @@ export async function storeConnection(
     `INSERT INTO channel_connections
        (channel, account_id, access_token_encrypted, refresh_token_encrypted,
         access_expires_at, refresh_expires_at, refreshed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (channel, account_id) DO UPDATE SET
+       access_token_encrypted = EXCLUDED.access_token_encrypted,
+       refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
+       access_expires_at = EXCLUDED.access_expires_at,
+       refresh_expires_at = EXCLUDED.refresh_expires_at,
+       refreshed_at = EXCLUDED.refreshed_at`,
     [
       connection.channel,
       connection.accountId,
