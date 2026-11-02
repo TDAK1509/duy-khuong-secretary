@@ -134,6 +134,15 @@ describe('the scheduling tools', () => {
     });
   });
 
+  it('lists an active task without a next run as null', async () => {
+    const duy = await addAdmin();
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'active', nextRunAt: null });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', {});
+
+    expect(JSON.parse(output)).toMatchObject({ tasks: [{ title: 'Báo cáo hằng ngày', next_run: null }] });
+  });
+
   it('cancels a task of the caller and clears its next run', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const nextRunAt = new Date('2026-11-02T18:00:00+07:00');
