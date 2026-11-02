@@ -217,6 +217,14 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT identifiers FROM records')).toEqual([{ identifiers: ['DT2024889'] }]);
   });
 
+  it('stores the plate normalized', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: '29C12345' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
