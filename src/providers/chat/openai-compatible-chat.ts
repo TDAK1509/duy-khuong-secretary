@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ChatRequest, ChatResult, ChatService, ToolSpec } from '../../services/chat/chat-service.ts';
+import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall, ToolSpec } from '../../services/chat/chat-service.ts';
 
 export type OpenAiCompatibleChatSettings = {
   baseUrl: string;
@@ -28,7 +28,7 @@ export class OpenAiCompatibleChat implements ChatService {
   async respond(request: ChatRequest): Promise<ChatResult> {
     const completion = await this.client.chat.completions.create({
       model: this.model,
-      messages: [{ role: 'system', content: request.system }],
+      messages: [{ role: 'system', content: request.system }, ...request.turns.map(toMessage)],
       reasoning_effort: this.reasoningEffort,
       tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
     });
@@ -44,4 +44,21 @@ function readReply(completion: OpenAI.Chat.ChatCompletion): Extract<ChatResult, 
 
 function toFunctionTool(tool: ToolSpec): OpenAI.Chat.ChatCompletionTool {
   return { type: 'function', function: { ...tool, strict: true } };
+}
+
+function toMessage(turn: ChatTurn): OpenAI.Chat.ChatCompletionMessageParam {
+  switch (turn.role) {
+    case 'user':
+      return { role: 'user', content: [{ type: 'text', text: turn.text ?? '' }] };
+    case 'assistant':
+      return { role: 'assistant', content: turn.text };
+    case 'assistant_tool_calls':
+      return { role: 'assistant', content: null, tool_calls: turn.calls.map(toToolCall) };
+    case 'tool_result':
+      return { role: 'tool', tool_call_id: turn.callId, content: turn.output };
+  }
+}
+
+function toToolCall(call: ToolCall): OpenAI.Chat.ChatCompletionMessageToolCall {
+  return { id: call.id, type: 'function', function: { name: call.name, arguments: call.argumentsJson } };
 }

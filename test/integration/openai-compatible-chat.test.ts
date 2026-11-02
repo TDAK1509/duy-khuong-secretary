@@ -80,4 +80,27 @@ describe('OpenAiCompatibleChat', () => {
       reply: { kind: 'tool_calls', calls: [{ id: 'call_1', name: 'list_members', argumentsJson: '{}' }] },
     });
   });
+
+  it('sends a tool result back with its call id', async () => {
+    const server = await startServer(TEXT_REPLY);
+    const call = { id: 'call_1', name: 'list_members', argumentsJson: '{}' };
+
+    await makeChat(server).respond({
+      ...REQUEST,
+      turns: [
+        ...REQUEST.turns,
+        { role: 'assistant_tool_calls', calls: [call] },
+        { role: 'tool_result', callId: 'call_1', output: '{"members":[]}' },
+      ],
+    });
+
+    expect((server.requests[0]?.body['messages'] as unknown[]).slice(2)).toEqual([
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'list_members', arguments: '{}' } }],
+      },
+      { role: 'tool', tool_call_id: 'call_1', content: '{"members":[]}' },
+    ]);
+  });
 });
