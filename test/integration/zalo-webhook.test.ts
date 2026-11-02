@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CHAT_OFF_LINE, PHOTOS_OFF_LINE, READERS_OFF_LINE } from './off-group-lines.ts';
+import { CHAT_OFF_LINE, PHOTOS_OFF_LINE, READERS_OFF_LINE, REPORT_TEMPLATE_OFF_LINE } from './off-group-lines.ts';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { assembleService } from '../../src/bootstrap/assemble-service.ts';
@@ -161,6 +161,7 @@ describe('POST /webhooks/zalo', () => {
       PHOTOS_OFF_LINE,
       READERS_OFF_LINE,
       CHAT_OFF_LINE,
+      REPORT_TEMPLATE_OFF_LINE,
     ]);
   });
 

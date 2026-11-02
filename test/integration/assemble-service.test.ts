@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { assembleService, type Service } from '../../src/bootstrap/assemble-service.ts';
-import { CHAT_OFF_LINE, PHOTOS_OFF_LINE, READERS_OFF_LINE } from './off-group-lines.ts';
+import { CHAT_OFF_LINE, PHOTOS_OFF_LINE, READERS_OFF_LINE, REPORT_TEMPLATE_OFF_LINE } from './off-group-lines.ts';
 import { testDatabaseUrl } from './test-database-url.ts';
 
 const PHOTO_ENVIRONMENT: NodeJS.ProcessEnv = {
@@ -51,6 +51,7 @@ describe('assembling the service', () => {
       PHOTOS_OFF_LINE,
       READERS_OFF_LINE,
       CHAT_OFF_LINE,
+      REPORT_TEMPLATE_OFF_LINE,
     ]);
   });
 
@@ -69,6 +70,7 @@ describe('assembling the service', () => {
         ...PHOTO_ENVIRONMENT,
         ...READER_ENVIRONMENT,
         ...CHAT_ENVIRONMENT,
+        ZALO_REPORT_READY_TEMPLATE_ID: 'tpl-1',
       },
       (line) => lines.push(line),
     );
