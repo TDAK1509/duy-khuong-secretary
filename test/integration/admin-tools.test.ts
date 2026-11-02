@@ -324,4 +324,29 @@ describe('the data tools of an admin', () => {
       expect(result.members.map((row) => row.member)).not.toContain('Vy');
     });
   });
+
+  describe('listing members', () => {
+    type MembersResult = { members: { id: string; name: string; zalo_name: string | null; role: string }[] };
+
+    async function runListMembers(scope: AccessScope = duy): Promise<MembersResult> {
+      const output = await runAdminTool(pool, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
+      return JSON.parse(output) as MembersResult;
+    }
+
+    it('lists only the caller\'s workspace', async () => {
+      const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+      for (const [externalUserId, displayName] of [['zu-vy', 'Vy'], ['zu-a', 'An'], ['zu-b', 'Bình']] as const) {
+        await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId, displayName });
+      }
+
+      const result = await runListMembers();
+
+      expect(result.members.map((member) => [member.name, member.role])).toEqual([
+        ['Duy', 'quản lý'],
+        ['Hùng', 'thành viên'],
+        ['Lan', 'thành viên'],
+      ]);
+      expect(result.members.every((member) => member.id !== '')).toBe(true);
+    });
+  });
 });

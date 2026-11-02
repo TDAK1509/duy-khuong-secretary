@@ -3,6 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { runCountRecords } from './count-records-tool.ts';
+import { runListMembers } from './list-members-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
 
@@ -19,6 +20,8 @@ async function runToolByName(database: Database, scope: AccessScope, call: ToolC
       return runSearchRecords(database, scope, parsedArguments);
     case 'count_records':
       return runCountRecords(database, scope, parsedArguments);
+    case 'list_members':
+      return runListMembers(database, scope);
     default:
       return failInvalidArgument('name');
   }
