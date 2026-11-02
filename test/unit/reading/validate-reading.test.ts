@@ -43,4 +43,10 @@ describe('validateReading', () => {
 
     expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
   });
+
+  it('fails the read when an item has an extra property', () => {
+    const json = makeFuelJson({ currency: 'VND' });
+
+    expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });

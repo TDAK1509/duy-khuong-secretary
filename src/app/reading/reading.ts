@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const itemSchema = z.object({
+const itemSchema = z.strictObject({
   category: z.enum(['fuel', 'toll', 'delivery_pickup', 'delivery_dropoff', 'maintenance', 'certificate', 'other']),
   maintenance_item: z.string().nullable(),
   occurred_on: z.iso.date().nullable(),
