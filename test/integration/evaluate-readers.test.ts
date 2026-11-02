@@ -76,4 +76,17 @@ describe('evaluateReaders', () => {
 
     expect(output).toContain('amounts correct: 1/2');
   });
+
+  it('compares dates with expected.json', async () => {
+    const expected = {
+      'a.jpg': { amount_vnd: 1250000, occurred_on: '2026-10-30' },
+      'b.jpg': { amount_vnd: 1250000, occurred_on: '2026-10-29' },
+    };
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE, 'b.jpg': SECOND_PHOTO_BYTE }, expected);
+    const slots = makeAgreeingSlots({ [FIRST_PHOTO_BYTE]: AGREED_FUEL, [SECOND_PHOTO_BYTE]: AGREED_FUEL });
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('dates correct: 1/2');
+  });
 });
