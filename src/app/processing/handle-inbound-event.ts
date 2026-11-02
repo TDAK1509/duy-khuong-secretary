@@ -7,7 +7,8 @@ import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
-import { formatJoinResult, WELCOME_TEXT } from './conversation-texts.ts';
+import { findPersonWorkspace } from '../workspaces/find-person-workspace.ts';
+import { formatJoinResult, NO_LONGER_IN_A_WORKSPACE_TEXT, WELCOME_TEXT } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
@@ -55,9 +56,15 @@ async function decideReply(
   identity: ChannelIdentity,
   { inviteCode, zaloName, now }: Message & { now: Date },
 ): Promise<string | null> {
-  if (inviteCode === null) return WELCOME_TEXT;
+  if (inviteCode === null) return replyToOtherMessage(transaction, identity);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   return formatJoinResult(joined);
+}
+
+async function replyToOtherMessage(transaction: Transaction, identity: ChannelIdentity): Promise<string | null> {
+  if (identity.userId === null) return WELCOME_TEXT;
+  const workspaceId = await findPersonWorkspace(transaction, identity);
+  return workspaceId === null ? NO_LONGER_IN_A_WORKSPACE_TEXT : null;
 }
 
 function readInviteCode(event: ClaimedEvent): string | null {

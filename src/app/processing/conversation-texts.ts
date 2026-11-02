@@ -3,6 +3,9 @@ import type { JoinResult } from '../workspaces/join-workspace.ts';
 export const WELCOME_TEXT =
   'Chào bạn. Đây là Trợ lý ghi chép công việc cho nhóm xe tải. Để bắt đầu, bạn nhắn mã mời mà quản lý nhóm đã gửi, ví dụ: MOI-7K4P9X.';
 
+export const NO_LONGER_IN_A_WORKSPACE_TEXT =
+  'Bạn không còn trong nhóm nào. Nếu cần tham gia lại, bạn xin quản lý một mã mời mới rồi nhắn mã đó vào đây.';
+
 const JOINED_MEMBER_HINT = 'Từ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé.';
 const JOINED_ADMIN_HINT = 'Bạn có thể hỏi Trợ lý về dữ liệu của nhóm, mời hoặc xóa thành viên và đặt lịch tự động.';
 

@@ -19,6 +19,8 @@ const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const CODE = 'MOI-7K4P9X';
 const SECOND_CODE = 'MOI-3M9QWE';
+const NO_LONGER_IN_A_WORKSPACE_TEXT =
+  'Bạn không còn trong nhóm nào. Nếu cần tham gia lại, bạn xin quản lý một mã mời mới rồi nhắn mã đó vào đây.';
 const INVALID_CODE_TEXT = 'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.';
 
 describe('joining a workspace with an invite code', () => {
@@ -238,6 +240,18 @@ describe('joining a workspace with an invite code', () => {
     const refusals = channel.texts.filter((sent) => sent.text === INVALID_CODE_TEXT);
     expect(channel.texts).toHaveLength(2);
     expect(refusals).toHaveLength(1);
+  });
+
+  it('tells someone whose membership is gone that they are in no workspace', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+    await database.query('DELETE FROM memberships');
+
+    await receiveText('zu-hung', 'chào');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text).slice(1)).toEqual([NO_LONGER_IN_A_WORKSPACE_TEXT]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
