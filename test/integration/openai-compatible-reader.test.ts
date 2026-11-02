@@ -121,6 +121,14 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(result).toEqual({ ok: false, reason: 'unavailable' });
   });
+
+  it('turns an authentication error into unavailable', async () => {
+    const server = await startServer({ status: 401, body: { error: { message: 'bad key' } } });
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {
