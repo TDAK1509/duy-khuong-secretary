@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Reading } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -338,6 +338,22 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT summary FROM records')).toEqual([
       { summary: 'Bảo dưỡng: lốp, xe 29C12345, mã DT2024889' },
     ]);
+  });
+
+  async function processSavedPhotoAgain(): Promise<void> {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    await harness.receivePhoto('zu-hung');
+    const expiredLock = new Date(NOW.getTime() - 60_000).toISOString();
+    await database.query(`UPDATE inbound_events SET status = 'processing', locked_until = '${expiredLock}'`);
+    harness.readers.cheap.forEach((reader) => reader.requests.splice(0));
+    await harness.runInbound();
+  }
+
+  it('sends no second reply when a saved message is processed again', async () => {
+    await processSavedPhotoAgain();
+
+    expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toHaveLength(1);
   });
 
   function makeFuelItem() {
