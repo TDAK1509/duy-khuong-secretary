@@ -245,4 +245,10 @@ describe('an admin drafts a scheduled task by chat', () => {
     const toolNames = harness.chat.requests[0]?.tools.map((tool) => tool.name);
     expect(toolNames).toEqual(expect.arrayContaining(['propose_scheduled_task', 'list_scheduled_tasks', 'cancel_scheduled_task']));
   });
+
+  it('puts the scheduling section in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    expect(harness.chat.requests[0]?.system).toContain('Lịch tự động:');
+  });
 });
