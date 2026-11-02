@@ -123,4 +123,13 @@ describe('an admin attaches the photos of records to the answer', () => {
       { photo_key: 'w/first.jpg' },
     ]);
   });
+
+  it('skips a record without a photo', async () => {
+    const textRecordId = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng' });
+    attachThenReply([textRecordId]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":0}');
+  });
 });

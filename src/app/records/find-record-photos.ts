@@ -11,7 +11,7 @@ export async function findRecordPhotos(database: Database, scope: AccessScope, r
      FROM unnest($2::uuid[]) WITH ORDINALITY AS wanted (id, position)
      JOIN records record ON record.id = wanted.id
      JOIN messages message ON message.id = record.message_id
-     WHERE record.workspace_id = $1
+     WHERE record.workspace_id = $1 AND message.image_key IS NOT NULL
      ORDER BY wanted.position`,
     [scope.workspaceId, recordIds],
   );
