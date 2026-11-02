@@ -280,6 +280,16 @@ describe('an admin asks the bot', () => {
 
       expect(sentTexts()).toEqual([['zu-duy', 'Nhóm có 3 người.']]);
     });
+
+    it('stops after five rounds of tool calls', async () => {
+      harness.chat.follow(() => replyWithToolCalls(LIST_MEMBERS_CALL));
+
+      await harness.receiveText('zu-duy', 'Nhóm có ai?');
+      await harness.sendQueuedTexts();
+
+      expect(sentTexts()).toEqual([['zu-duy', 'Xin lỗi, tôi chưa xử lý được. Bạn thử lại nhé.']]);
+      expect(harness.chat.requests).toHaveLength(6);
+    });
   });
 
   describe('with data and a question', () => {
