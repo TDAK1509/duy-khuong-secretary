@@ -303,6 +303,20 @@ describe('the inbound worker step', () => {
     expect(handler.calls.toSorted()).toEqual(ids.toSorted());
   });
 
+  it('skips an event that another transaction is claiming', async () => {
+    const lockedId = await insertInboundEvent(database, { externalUserId: 'zu-hung' });
+    const otherId = await insertInboundEvent(database, { externalUserId: 'zu-lan' });
+    const claimingSession = await database.openSession();
+    await claimingSession.query('BEGIN');
+    await claimingSession.query(`SELECT 1 FROM inbound_events WHERE id = '${lockedId}' FOR UPDATE`);
+
+    await runStep(finishWithoutWriting);
+    await claimingSession.query('ROLLBACK');
+
+    expect((await readEvent(otherId)).status).toBe('done');
+    expect((await readEvent(lockedId)).status).toBe('queued');
+  });
+
   async function runUntilIdle(handler: InboundHandler): Promise<void> {
     while ((await runStep(handler)) === 'processed');
   }
