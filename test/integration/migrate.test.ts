@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
+import { listAppliedMigrations } from './list-applied-migrations.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
 
 const fixtures = new URL('./migration-fixtures/', import.meta.url);
@@ -61,8 +62,3 @@ describe('the migration runner', () => {
     expect(await listAppliedMigrations(database)).toEqual(['0001_create_a']);
   });
 });
-
-async function listAppliedMigrations(database: TemporaryDatabase): Promise<string[]> {
-  const rows = await database.query<{ name: string }>('SELECT name FROM pgmigrations ORDER BY id');
-  return rows.map((row) => row.name);
-}

@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
 import { repeatUntilSettled } from './repeat-until-settled.ts';
+import { listAppliedMigrations } from './list-applied-migrations.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
 
 const alterThroughLock = new URL('./migration-fixtures/alter-through-lock/', import.meta.url);
@@ -73,6 +74,28 @@ describe('the migration runner on a busy table', () => {
 
     expect(exitCode).toBe(0);
     expect(observedWhileSleeping).toEqual([{ openTransactions: 0, locksOnT: 0 }]);
+  });
+
+  it('lands the migration once the conflicting transaction has ended', async () => {
+    let sleeps = 0;
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: () => {},
+        retry: {
+          sleep: async () => {
+            sleeps += 1;
+            if (sleeps === 2) await sessionA.query('COMMIT');
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(sleeps).toBe(2);
+    expect(await listAppliedMigrations(database)).toEqual(['0001_alter_t']);
   });
 });
 
