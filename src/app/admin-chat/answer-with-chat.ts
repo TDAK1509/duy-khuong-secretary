@@ -1,13 +1,15 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
+import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
 import { ADMIN_TOOLS } from './tools/admin-tools.ts';
+import { runToolLoop } from './run-tool-loop.ts';
+import { runAdminTool } from './tools/run-admin-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
-import { CHAT_FAILURE_TEXT } from './chat-texts.ts';
 import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 
@@ -24,12 +26,13 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<string> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
-  const result = await requireChat(context).respond({
+  const request = {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history, await buildUserTurn(database, message)],
     tools: ADMIN_TOOLS,
-  });
-  return result.ok && result.reply.kind === 'text' ? result.reply.text : CHAT_FAILURE_TEXT;
+  };
+  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
+  return runToolLoop(requireChat(context), request, (call) => runAdminTool(database, caller, call));
 }
 
 function requireChat(context: IntakeContext): ChatService {

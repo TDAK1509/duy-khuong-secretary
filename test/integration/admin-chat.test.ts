@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
-import { replyWithText } from '../fakes/fake-chat-service.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -250,6 +250,25 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-duy', 'Nhóm có ai?');
 
     expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual(['search_records', 'count_records', 'list_members']);
+  });
+
+  describe('with tool calls', () => {
+    const LIST_MEMBERS_CALL = { id: 'call_1', name: 'list_members', argumentsJson: '{}' };
+
+    it('sends the tool result back to the model with its call id', async () => {
+      harness.chat.follow((_request, callNumber) =>
+        callNumber === 1 ? replyWithToolCalls(LIST_MEMBERS_CALL) : replyWithText('Nhóm có 3 người.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Nhóm có ai?');
+
+      const turns = harness.chat.requests[1]?.turns ?? [];
+      expect(turns.slice(-2)).toMatchObject([
+        { role: 'assistant_tool_calls', calls: [LIST_MEMBERS_CALL] },
+        { role: 'tool_result', callId: 'call_1' },
+      ]);
+      expect(JSON.stringify(turns.at(-1))).toContain('Hùng');
+    });
   });
 
   describe('with data and a question', () => {
