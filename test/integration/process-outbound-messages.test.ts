@@ -101,6 +101,20 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('puts a rate-limited text back in the queue for one minute', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, {});
+    channel.nextTextResult = { ok: false, reason: 'rate_limited' };
+
+    await runStep();
+
+    expect(await readMessage(id)).toMatchObject({
+      status: 'queued',
+      available_at: new Date(NOW.getTime() + 60_000),
+      last_error: 'rate_limited',
+    });
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);

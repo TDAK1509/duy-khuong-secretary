@@ -3,6 +3,8 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
+const RATE_LIMIT_WAIT_MS = 60_000;
+
 export type ResultDependencies = { database: Database; clock: Clock };
 
 type Settlement = {
@@ -17,7 +19,16 @@ export async function recordSendResult(
   message: ClaimedMessage,
   result: SendResult,
 ): Promise<void> {
-  if (result.ok) await settleMessage(dependencies.database, message, { status: 'sent', sentAt: dependencies.clock.now() });
+  const now = dependencies.clock.now();
+  if (result.ok) {
+    await settleMessage(dependencies.database, message, { status: 'sent', sentAt: now });
+    return;
+  }
+  await settleMessage(dependencies.database, message, {
+    status: 'queued',
+    availableAt: new Date(now.getTime() + RATE_LIMIT_WAIT_MS),
+    lastError: result.reason,
+  });
 }
 
 async function settleMessage(database: Database, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {
