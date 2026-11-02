@@ -112,5 +112,12 @@ describe('the member tools of an admin', () => {
 
       expect((JSON.parse(output) as { items: unknown[] }).items).toHaveLength(2);
     });
+
+    it('refuses to remove the caller', async () => {
+      const output = await runTool('remove_member', { member_id: await findMembershipId('Duy') });
+
+      expect(output).toBe('{"ok":false,"error":"Không thể tự xóa chính mình."}');
+      expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Duy' }]);
+    });
   });
 });
