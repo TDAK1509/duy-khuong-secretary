@@ -29,6 +29,12 @@ describe('the records table', () => {
     });
   });
 
+  it('refuses a fuel record with a maintenance item', async () => {
+    await expect(insertRecord({ category: 'fuel', maintenanceItem: 'dầu máy', vehiclePlate: null })).rejects.toMatchObject({
+      code: CHECK_VIOLATION,
+    });
+  });
+
   async function insertUserMessage(): Promise<string> {
     const eventId = await insertInboundEvent(database, { externalUserId: 'zu-hung' });
     const [row] = await database.query<{ id: string }>(
