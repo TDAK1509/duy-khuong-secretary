@@ -52,6 +52,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
   const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
+  const chat = chatConfig && buildChatService(chatConfig);
   const queueSteps = buildQueueSteps({
     pool,
     clock,
@@ -60,10 +61,18 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     zalo,
     photoStorage: photoStorage && buildPhotoStorage(photoStorage),
     readers: readerConfig && buildReaderSlots(readerConfig),
-    chat: chatConfig && buildChatService(chatConfig),
+    chat,
     log,
   });
-  return { config, server, pool, checkDatabaseRole: () => checkDatabaseRole(pool, log), runTick: () => runTick({ renewal }), ...queueSteps };
+  const scheduledRuns = channel && chat && { database: pool, clock, chat, channel };
+  return {
+    config,
+    server,
+    pool,
+    checkDatabaseRole: () => checkDatabaseRole(pool, log),
+    runTick: () => runTick({ renewal, scheduledRuns }),
+    ...queueSteps,
+  };
 }
 
 type HttpParts = {

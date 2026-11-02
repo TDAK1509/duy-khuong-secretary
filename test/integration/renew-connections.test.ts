@@ -272,6 +272,7 @@ describe('key renewal on the ticker', () => {
         callTimeoutMs: CALL_TIMEOUT_MS,
         alerts: new OperatorAlerts(alertSink, clock),
       },
+      scheduledRuns: null,
     });
   }
 });
