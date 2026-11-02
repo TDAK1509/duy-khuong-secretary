@@ -13,6 +13,10 @@ export type SendResult =
   | { ok: true }
   | { ok: false; reason: 'rate_limited' | 'window_closed' | 'rejected' | 'unavailable' | 'no_answer' };
 
+export type DownloadResult =
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; reason: 'too_large' | 'unavailable' };
+
 export interface MessagingChannel {
   readonly channel: string;
   readonly maxTextLength: number;
@@ -20,4 +24,5 @@ export interface MessagingChannel {
   parseEvent(rawBody: string): InboundEvent;
   sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult>;
   getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null>;
+  downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult>;
 }

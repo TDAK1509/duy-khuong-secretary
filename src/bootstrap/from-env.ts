@@ -10,7 +10,10 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { AlertSink } from '../services/alerts/alert-sink.ts';
 import { LogAlertSink } from '../providers/alerts/log-alert-sink.ts';
 import { WebhookAlertSink } from '../providers/alerts/webhook-alert-sink.ts';
+import { S3PhotoStorage } from '../providers/storage/s3-photo-storage.ts';
+import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import type { AlertConfig, Config } from './config.ts';
+import type { PhotoStorageConfig } from './photo-storage-config.ts';
 import type { ReaderConfig, ReaderSlotConfig } from './reader-config.ts';
 import type { ZaloConfig } from './zalo-config.ts';
 
@@ -56,7 +59,15 @@ export function buildMessagingChannel(config: ZaloConfig, oaSecret: string): Mes
         oaSecret,
         apiBaseUrl: config.apiBaseUrl,
         timeoutMs: config.apiTimeoutMs,
+        mediaHosts: config.mediaHosts,
       });
+  }
+}
+
+export function buildPhotoStorage(config: PhotoStorageConfig): PhotoStorage {
+  switch (config.provider) {
+    case 's3':
+      return new S3PhotoStorage(config);
   }
 }
 

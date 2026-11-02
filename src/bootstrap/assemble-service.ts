@@ -7,9 +7,11 @@ import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
+import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
-import { buildAlertSink, buildChannelAuth, buildClock, buildMessagingChannel } from './from-env.ts';
+import { buildAlertSink, buildChannelAuth, buildClock, buildMessagingChannel, buildPhotoStorage } from './from-env.ts';
+import { loadPhotoStorageConfig } from './photo-storage-config.ts';
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
 
@@ -33,7 +35,8 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
   const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, alerts, connection, channel, webhookConfig }));
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
-  const queueSteps = buildQueueSteps({ pool, clock, alerts, channel, zalo, log });
+  const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
+  const queueSteps = buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage: photoStorage && buildPhotoStorage(photoStorage), log });
   return { config, server, pool, runTick: () => runTick({ renewal }), ...queueSteps };
 }
 
@@ -60,18 +63,21 @@ type QueueParts = {
   alerts: OperatorAlerts;
   channel: MessagingChannel | null;
   zalo: ZaloConfig | null;
+  photoStorage: PhotoStorage | null;
   log: (line: string) => void;
 };
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, log }: QueueParts): QueueSteps {
   const inbound = {
     database: pool,
     clock,
     alerts,
     notices: new OffGroupNotices(clock, log),
-    handler: createInboundHandler(channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey }),
+    handler: createInboundHandler(
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage },
+    ),
   };
   const outbound = channel &&
     zalo && {

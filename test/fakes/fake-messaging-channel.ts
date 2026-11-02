@@ -1,5 +1,6 @@
 import type {
   ChannelRecipient,
+  DownloadResult,
   InboundEvent,
   MessagingChannel,
   SendResult,
@@ -13,6 +14,8 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly texts: RecordedText[] = [];
   readonly displayNames = new Map<string, string>();
   readonly nameLookupCredentials: string[] = [];
+  readonly downloadedUrls: string[] = [];
+  readonly attachments = new Map<string, DownloadResult>();
   nextTextResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
@@ -31,5 +34,10 @@ export class FakeMessagingChannel implements MessagingChannel {
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
     this.nameLookupCredentials.push(credential);
     return this.displayNames.get(user.externalUserId) ?? null;
+  }
+
+  async downloadAttachment(url: string): Promise<DownloadResult> {
+    this.downloadedUrls.push(url);
+    return this.attachments.get(url) ?? { ok: false, reason: 'unavailable' };
   }
 }

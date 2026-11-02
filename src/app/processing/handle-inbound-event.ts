@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
+import { findIntakeSender } from '../intake/find-intake-sender.ts';
+import { receiveIntake } from '../intake/receive-intake.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -22,6 +25,7 @@ export type InboundHandlerDependencies = {
   clock: Clock;
   database: Database;
   encryptionKey: string;
+  photoStorage: PhotoStorage | null;
 };
 
 const textPayloadSchema = z.object({ text: z.string() });
@@ -30,6 +34,8 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
     const text = readText(event);
+    const sender = await findIntakeSender(dependencies.database, event, text);
+    if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
     const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
     const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
     return stages.finishEvent((transaction) =>

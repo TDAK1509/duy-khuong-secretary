@@ -14,6 +14,8 @@ export type EventRow = {
 export type NewInboundEvent = {
   kind?: 'text' | 'images';
   text?: string;
+  imageUrls?: string[];
+  caption?: string | null;
   externalUserId?: string;
   accountId?: string;
   externalEventId?: string;
@@ -34,7 +36,7 @@ export async function insertInboundEvent(database: TemporaryDatabase, event: New
   const kind = event.kind ?? 'text';
   const sentAt = event.sentAt ?? '2026-11-02T10:00:00+07:00';
   const payload = JSON.stringify(
-    kind === 'text' ? { text: event.text ?? 'chào', sent_at: sentAt } : { image_urls: ['https://z.test/1.jpg'], caption: null, sent_at: sentAt },
+    kind === 'text' ? { text: event.text ?? 'chào', sent_at: sentAt } : { image_urls: event.imageUrls ?? ['https://z.test/1.jpg'], caption: event.caption ?? null, sent_at: sentAt },
   );
   const [row] = await database.query<{ id: string }>(
     `INSERT INTO inbound_events
