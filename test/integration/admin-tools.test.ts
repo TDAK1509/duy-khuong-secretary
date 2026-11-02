@@ -160,4 +160,23 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Ngày không hợp lệ."}');
   });
+
+  describe('with 60 records', () => {
+    let recordIds: string[];
+
+    beforeEach(async () => {
+      recordIds = [];
+      for (let number = 0; number < 60; number += 1) {
+        const createdAt = new Date(Date.UTC(2026, 9, 31, 0, 0, number));
+        recordIds.push(await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', createdAt }));
+      }
+    });
+
+    it('holds 50 items and a cursor on the first page, newest first', async () => {
+      const result = await runSearch();
+
+      expect(result.items.map((item) => item.id)).toEqual(recordIds.slice(10).reverse());
+      expect(result.next_cursor).not.toBeNull();
+    });
+  });
 });

@@ -1,7 +1,10 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
+import { encodeSearchCursor } from './search-cursor.ts';
 import { WhereClause } from './where-clause.ts';
+
+const PAGE_SIZE = 50;
 
 export type SearchFilters = {
   text: string | null;
@@ -31,7 +34,56 @@ export type FoundRecord = {
 
 export type SearchPage = { items: FoundRecord[]; nextCursor: string | null };
 
+type FoundRow = FoundRecord & { created_at_utc: string };
+
 export async function searchRecords(database: Database, scope: AccessScope, filters: SearchFilters): Promise<SearchPage> {
+  const where = buildWhere(scope, filters);
+  const { rows } = await database.query<FoundRow>(
+    `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
+       record.vehicle_plate AS plate, record.document_number,
+       to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
+       record.summary, record.identifiers, record.details,
+       to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') AS added_at,
+       message.image_key IS NOT NULL AS has_photo,
+       to_char(record.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc
+     FROM records record JOIN messages message ON message.id = record.message_id
+     WHERE ${where.toSql()}
+     ORDER BY record.created_at DESC, record.id DESC
+     LIMIT ${PAGE_SIZE + 1}`,
+    where.values,
+  );
+  return toPage(rows);
+}
+
+function toPage(rows: FoundRow[]): SearchPage {
+  const pageRows = rows.slice(0, PAGE_SIZE);
+  const last = pageRows[pageRows.length - 1];
+  const hasMore = rows.length > PAGE_SIZE && last !== undefined;
+  return {
+    items: pageRows.map(toFoundRecord),
+    nextCursor: hasMore ? encodeSearchCursor({ createdAt: last.created_at_utc, id: last.id }) : null,
+  };
+}
+
+function toFoundRecord(row: FoundRow): FoundRecord {
+  return {
+    id: row.id,
+    member: row.member,
+    category: row.category,
+    maintenance_item: row.maintenance_item,
+    plate: row.plate,
+    document_number: row.document_number,
+    occurred_on: row.occurred_on,
+    amount_vnd: row.amount_vnd,
+    summary: row.summary,
+    identifiers: row.identifiers,
+    details: row.details,
+    added_at: row.added_at,
+    has_photo: row.has_photo,
+  };
+}
+
+function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
@@ -39,19 +91,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
   addDateConditions(where, filters);
-  const { rows } = await database.query<FoundRecord>(
-    `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
-       record.vehicle_plate AS plate, record.document_number,
-       to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
-       record.summary, record.identifiers, record.details,
-       to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') AS added_at,
-       message.image_key IS NOT NULL AS has_photo
-     FROM records record JOIN messages message ON message.id = record.message_id
-     WHERE ${where.toSql()}
-     ORDER BY record.created_at DESC, record.id DESC`,
-    where.values,
-  );
-  return { items: rows, nextCursor: null };
+  return where;
 }
 
 function buildTextCondition(where: WhereClause, text: string): string {
