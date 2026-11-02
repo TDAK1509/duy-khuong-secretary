@@ -198,6 +198,17 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
 
+  it('sends only the saved reply to a member who also asks a question', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()], { has_question: true }));
+
+    await harness.receivePhoto('zu-hung', 'Lưu giúp tôi, còn bao nhiêu tiền?');
+    await harness.sendQueuedTexts();
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts).toHaveLength(1);
+    expect(harness.channel.texts[0]?.text).toMatch(/^Đã lưu: Đổ xăng dầu/);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
