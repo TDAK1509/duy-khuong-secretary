@@ -6,6 +6,7 @@ import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
 import type { ReaderSlots } from '../app/reading/decide-reading.ts';
+import type { ChatService } from '../services/chat/chat-service.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
@@ -13,12 +14,14 @@ import { createPostgresPool, type PostgresPool } from '../providers/database/pos
 import { loadConfig, type Config } from './config.ts';
 import {
   buildAlertSink,
+  buildChatService,
   buildChannelAuth,
   buildClock,
   buildMessagingChannel,
   buildPhotoStorage,
   buildReaderSlots,
 } from './from-env.ts';
+import { loadChatConfig } from './chat-config.ts';
 import { loadPhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReaderConfig } from './reader-config.ts';
 import { buildServer, type ServerOptions } from './server.ts';
@@ -46,6 +49,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
   const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
+  const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
   const queueSteps = buildQueueSteps({
     pool,
     clock,
@@ -54,6 +58,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     zalo,
     photoStorage: photoStorage && buildPhotoStorage(photoStorage),
     readers: readerConfig && buildReaderSlots(readerConfig),
+    chat: chatConfig && buildChatService(chatConfig),
     log,
   });
   return { config, server, pool, runTick: () => runTick({ renewal }), ...queueSteps };
@@ -84,19 +89,20 @@ type QueueParts = {
   zalo: ZaloConfig | null;
   photoStorage: PhotoStorage | null;
   readers: ReaderSlots | null;
+  chat: ChatService | null;
   log: (line: string) => void;
 };
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, chat, log }: QueueParts): QueueSteps {
   const inbound = {
     database: pool,
     clock,
     alerts,
     notices: new OffGroupNotices(clock, log),
     handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers, chat: null },
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers, chat },
     ),
   };
   const outbound = channel &&
