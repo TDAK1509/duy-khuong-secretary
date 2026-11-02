@@ -224,4 +224,14 @@ describe('the data tools of an admin', () => {
     expect(result.items).toHaveLength(3);
     expect(result.items.every((item) => item.member === 'Hùng')).toBe(true);
   });
+
+  it('refuses an unreadable cursor', async () => {
+    const output = await runAdminTool(pool, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: 'xyz' }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
+  });
 });
