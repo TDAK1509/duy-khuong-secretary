@@ -136,6 +136,14 @@ describe('row-level security for the runtime role', () => {
     }
   });
 
+  it('gives the runtime role neither superuser nor bypass rights', async () => {
+    const rows = await database.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+      `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'app_runtime'`,
+    );
+
+    expect(rows).toEqual([{ rolsuper: false, rolbypassrls: false }]);
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
