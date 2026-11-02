@@ -41,9 +41,37 @@ describe('the migration runner on a busy table', () => {
     expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
   });
 
-  it('reports the busy table when the budget runs out while connecting', async () => {
-    let clock = 0;
+  it('reports the busy table when the budget is used up before the next attempt connects', async () => {
     const lines: string[] = [];
+    let readsAfterSleep = 0;
+    let hasSlept = false;
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: (line) => lines.push(line),
+        retry: {
+          budgetMs: 1000,
+          now: () => {
+            if (!hasSlept) return 0;
+            readsAfterSleep += 1;
+            return readsAfterSleep === 1 ? 999 : 1000;
+          },
+          sleep: async () => {
+            hasSlept = true;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
+  });
+
+  it('reports the busy table when the budget runs out while connecting', async () => {
+    const lines: string[] = [];
+    let clock = 0;
 
     const exitCode = await runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
@@ -54,7 +82,7 @@ describe('the migration runner on a busy table', () => {
           budgetMs: 1000,
           now: () => clock,
           sleep: async () => {
-            clock = 999;
+            clock += 999;
           },
         },
       },
