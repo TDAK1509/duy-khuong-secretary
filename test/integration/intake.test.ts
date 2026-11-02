@@ -20,6 +20,12 @@ const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const PHOTO_URL = 'https://z.test/1.jpg';
 
+function makePng(size: number): Uint8Array {
+  const bytes = new Uint8Array(size).fill(1);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return bytes;
+}
+
 function makeJpeg(size: number): Uint8Array {
   const bytes = new Uint8Array(size).fill(1);
   bytes.set([0xff, 0xd8, 0xff]);
@@ -124,6 +130,16 @@ describe('storing what a member sends', () => {
     await sendQueuedTexts();
 
     expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-hung', 'Đã nhận ảnh.']]);
+  });
+
+  it('stores a PNG with the PNG extension and content type', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makePng(1000) });
+
+    await receivePhoto('zu-hung');
+
+    const [key] = photoStorage.listKeys();
+    expect(key).toMatch(/\.png$/);
+    expect((await photoStorage.get(key ?? ''))?.contentType).toBe('image/png');
   });
 
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
