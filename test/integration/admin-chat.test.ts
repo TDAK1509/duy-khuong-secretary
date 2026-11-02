@@ -91,4 +91,10 @@ describe('an admin asks the bot', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Người này là quản lý.');
   });
+
+  it('keeps the person identifier out of the model input', async () => {
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(JSON.stringify(harness.chat.requests)).not.toContain('zu-duy');
+  });
 });
