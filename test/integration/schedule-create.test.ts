@@ -141,6 +141,17 @@ describe('an admin creates a scheduled task by chat', () => {
     ]);
   });
 
+  it('cuts a long instruction in the summary to its first 200 characters', async () => {
+    const instruction = 'Việc '.repeat(100);
+    createThenReply({ instruction });
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    const line = sentTexts()[0]?.[1]?.split('\n').find((text) => text.startsWith('Việc cần làm:'));
+    expect(line).toBe(`Việc cần làm: ${instruction.slice(0, 200)}…`);
+  });
+
   it('refuses a one-time task in the past', async () => {
     createThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
 
