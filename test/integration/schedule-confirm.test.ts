@@ -54,4 +54,12 @@ describe('an admin replies to the draft the bot showed', () => {
 
     expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu lịch "Báo cáo hằng ngày". Lần chạy đầu: 18:00 31/10/2026.']]);
   });
+
+  it('saves the draft when the admin replies with the words for save', async () => {
+    await showDraft();
+
+    await harness.receiveText('zu-duy', 'Lưu lịch.');
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
+  });
 });

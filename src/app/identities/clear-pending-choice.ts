@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from './channel-identity.ts';
+import { isConfirmReplyTo } from '../schedules/confirm-reply.ts';
 import { isBareNumber } from './pending-choice.ts';
 
 export async function clearPendingChoice(transaction: Transaction, identity: ChannelIdentity): Promise<void> {
@@ -11,6 +12,6 @@ export async function clearChoiceUnlessAnswered(
   identity: ChannelIdentity,
   text: string | null,
 ): Promise<void> {
-  const isAnswer = text !== null && isBareNumber(text);
+  const isAnswer = text !== null && (isBareNumber(text) || isConfirmReplyTo(identity.pendingChoice, text));
   if (!isAnswer) await clearPendingChoice(transaction, identity);
 }
