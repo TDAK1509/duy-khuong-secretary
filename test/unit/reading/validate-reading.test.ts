@@ -49,4 +49,10 @@ describe('validateReading', () => {
 
     expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
   });
+
+  it('fails the read when a detail has an extra property', () => {
+    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '50', unit: 'l' }] });
+
+    expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });

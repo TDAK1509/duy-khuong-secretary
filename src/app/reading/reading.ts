@@ -8,7 +8,7 @@ const itemSchema = z.strictObject({
   identifiers: z.array(z.string()),
   vehicle_plate: z.string().nullable(),
   document_number: z.string().nullable(),
-  details: z.array(z.object({ label: z.string(), value: z.string() })),
+  details: z.array(z.strictObject({ label: z.string(), value: z.string() })),
 });
 
 const readingSchema = z.strictObject({
