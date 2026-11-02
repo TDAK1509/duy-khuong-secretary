@@ -13,8 +13,12 @@ export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
   );
 }
 
+export function sortItemsForComparison(reading: Reading): ReadingItem[] {
+  return reading.items.toSorted((first, second) => compareBySortKey(toComparableItem(first), toComparableItem(second)));
+}
+
 function listComparableItems(reading: Reading): ComparableItem[] {
-  return reading.items.map(toComparableItem).toSorted(compareBySortKey);
+  return sortItemsForComparison(reading).map(toComparableItem);
 }
 
 function toComparableItem(item: ReadingItem) {
