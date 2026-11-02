@@ -7,6 +7,8 @@ const LOCK_NOT_AVAILABLE = '55P03';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
 const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
+const BUILD_STATEMENT_TIMEOUT = "SET statement_timeout = '10min'";
+const RESET_STATEMENT_TIMEOUT = 'RESET statement_timeout';
 const TRANSACTION_TIMEOUTS = [
   "SET LOCAL lock_timeout = '1s'",
   "SET LOCAL statement_timeout = '30s'",
@@ -115,10 +117,21 @@ type Recording = { statements: string[]; usesTransaction: boolean };
 function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => void {
   return (pgm) => {
     const { statements, usesTransaction } = record(up);
-    if (usesTransaction) TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
-    else pgm.noTransaction();
-    statements.forEach((statement) => pgm.sql(statement));
+    if (usesTransaction) guardTransaction(pgm, statements);
+    else guardBuild(pgm, statements);
   };
+}
+
+function guardTransaction(pgm: MigrationBuilder, statements: string[]): void {
+  TRANSACTION_TIMEOUTS.forEach((timeout) => pgm.sql(timeout));
+  statements.forEach((statement) => pgm.sql(statement));
+}
+
+function guardBuild(pgm: MigrationBuilder, statements: string[]): void {
+  pgm.noTransaction();
+  pgm.sql(BUILD_STATEMENT_TIMEOUT);
+  statements.forEach((statement) => pgm.sql(statement));
+  pgm.sql(RESET_STATEMENT_TIMEOUT);
 }
 
 function record(up: AppMigration['up']): Recording {

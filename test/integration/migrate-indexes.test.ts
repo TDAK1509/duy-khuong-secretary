@@ -28,4 +28,15 @@ describe('the migration runner building indexes', () => {
     expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = 't_idx'::regclass`))
       .toEqual([{ indisvalid: true }]);
   });
+
+  it('gives a migration outside a transaction ten minutes per statement', async () => {
+    await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: new URL('./migration-fixtures/record-build-timeout/', import.meta.url), log: () => {} },
+    );
+
+    expect(await database.query('SELECT statement_timeout FROM seen')).toEqual([
+      { statement_timeout: '10min' },
+    ]);
+  });
 });
