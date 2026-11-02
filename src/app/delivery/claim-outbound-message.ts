@@ -10,9 +10,11 @@ type ClaimedRow = {
   channel: string;
   account_id: string;
   external_user_id: string;
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'template';
   body: string | null;
   photo_key: string | null;
+  template_id: string | null;
+  template_params: Record<string, string> | null;
   admin_membership_id: string | null;
   scheduled_task_id: string | null;
   attempts: number;
@@ -35,7 +37,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
   return transaction.query<ClaimedRow>(
     `WITH candidate AS (
        SELECT id FROM outbound_messages
-       WHERE status = 'queued' AND kind IN ('text', 'image') AND available_at <= $1
+       WHERE status = 'queued' AND kind IN ('text', 'image', 'template') AND available_at <= $1
          AND NOT EXISTS (
            SELECT 1 FROM outbound_messages earlier
            WHERE earlier.channel = outbound_messages.channel
@@ -53,7 +55,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      SET status = 'sending', locked_until = $2, attempts = attempts + 1
      FROM candidate
      WHERE outbound_messages.id = candidate.id
-     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, scheduled_task_id, attempts`,
+     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
 }
@@ -72,5 +74,8 @@ function describeClaim(row: ClaimedRow): ClaimedMessage {
 function describeContent(row: ClaimedRow): MessageContent {
   if (row.kind === 'image' && row.photo_key !== null) return { kind: 'image', photoKey: row.photo_key };
   if (row.kind === 'text' && row.body !== null) return { kind: 'text', body: row.body };
+  if (row.kind === 'template' && row.template_id !== null) {
+    return { kind: 'template', templateId: row.template_id, params: row.template_params ?? {} };
+  }
   throw new Error(`outbound message ${row.id} has no content for its kind`);
 }

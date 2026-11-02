@@ -109,4 +109,15 @@ describe('the delivery rule for scheduled results', () => {
 
     expect(await readStatuses()).toEqual([{ status: 'sent' }, { status: 'held' }]);
   });
+
+  it('sends a template although the admin is quiet', async () => {
+    await wroteDaysAgo(8);
+    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1' });
+
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.templates).toEqual([
+      { to: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-duy' }, templateId: 'tpl-1', params: {}, credential: 'a1' },
+    ]);
+  });
 });

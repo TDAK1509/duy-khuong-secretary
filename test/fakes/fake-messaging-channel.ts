@@ -5,24 +5,30 @@ import type {
   InboundEvent,
   MessagingChannel,
   SendResult,
+  TemplateMessage,
 } from '../../src/services/messaging/messaging-channel.ts';
 
 export type RecordedText = { to: ChannelRecipient; text: string; credential: string };
 
+export type RecordedTemplate = { to: ChannelRecipient; templateId: string; params: Record<string, string>; credential: string };
+
 export type RecordedSend =
   | { kind: 'text'; to: string; text: string }
-  | { kind: 'image'; to: string; photo: Photo };
+  | { kind: 'image'; to: string; photo: Photo }
+  | { kind: 'template'; to: string; templateId: string };
 
 export class FakeMessagingChannel implements MessagingChannel {
   readonly channel = 'zalo-oa';
   readonly maxTextLength = 2000;
   readonly texts: RecordedText[] = [];
+  readonly templates: RecordedTemplate[] = [];
   readonly sends: RecordedSend[] = [];
   readonly displayNames = new Map<string, string>();
   readonly nameLookupCredentials: string[] = [];
   readonly downloadedUrls: string[] = [];
   readonly attachments = new Map<string, DownloadResult>();
   nextTextResult: SendResult = { ok: true };
+  nextTemplateResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
     return true;
@@ -41,6 +47,12 @@ export class FakeMessagingChannel implements MessagingChannel {
   async sendImage(to: ChannelRecipient, photo: Photo): Promise<SendResult> {
     this.sends.push({ kind: 'image', to: to.externalUserId, photo });
     return { ok: true };
+  }
+
+  async sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult> {
+    this.templates.push({ to, templateId: template.templateId, params: template.params, credential });
+    this.sends.push({ kind: 'template', to: to.externalUserId, templateId: template.templateId });
+    return this.nextTemplateResult;
   }
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {

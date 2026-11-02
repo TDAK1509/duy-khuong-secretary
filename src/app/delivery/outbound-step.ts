@@ -78,16 +78,23 @@ function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage
   return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: reason } });
 }
 
-type Payload = { kind: 'text'; body: string } | { kind: 'image'; photo: Photo };
+type Payload = Exclude<MessageContent, { kind: 'image' }> | { kind: 'image'; photo: Photo };
 
 async function loadPayload(photoStorage: PhotoStorage | null, content: MessageContent): Promise<Payload | null> {
-  if (content.kind === 'text') return content;
+  if (content.kind !== 'image') return content;
   const photo = await photoStorage?.get(content.photoKey);
   return photo ? { kind: 'image', photo } : null;
 }
 
 function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: Payload, accessKey: string): Promise<SendResult> {
-  return payload.kind === 'text' ? channel.sendText(to, payload.body, accessKey) : channel.sendImage(to, payload.photo, accessKey);
+  switch (payload.kind) {
+    case 'text':
+      return channel.sendText(to, payload.body, accessKey);
+    case 'image':
+      return channel.sendImage(to, payload.photo, accessKey);
+    case 'template':
+      return channel.sendTemplate(to, payload, accessKey);
+  }
 }
 
 async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {

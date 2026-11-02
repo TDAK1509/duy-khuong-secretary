@@ -135,6 +135,10 @@ export class ZaloOaChannel implements MessagingChannel {
     });
   }
 
+  async sendTemplate(): Promise<SendResult> {
+    throw new Error('sending a template is not implemented yet');
+  }
+
   private async postMessage(to: ChannelRecipient, message: object, credential: string): Promise<SendResult> {
     const response = await fetch(new URL(SEND_MESSAGE_PATH, this.settings.apiBaseUrl), {
       method: 'POST',

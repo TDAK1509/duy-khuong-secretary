@@ -19,6 +19,8 @@ export type DownloadResult =
   | { ok: true; bytes: Uint8Array }
   | { ok: false; reason: 'too_large' | 'unavailable' };
 
+export type TemplateMessage = { templateId: string; params: Record<string, string> };
+
 export interface MessagingChannel {
   readonly channel: string;
   readonly maxTextLength: number;
@@ -26,6 +28,7 @@ export interface MessagingChannel {
   parseEvent(rawBody: string): InboundEvent;
   sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult>;
   sendImage(to: ChannelRecipient, photo: Photo, credential: string): Promise<SendResult>;
+  sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult>;
   getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null>;
   downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult>;
 }
