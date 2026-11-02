@@ -10,13 +10,14 @@ export type MemberMessage = { identity: ChannelIdentity; userId: string; workspa
 
 export async function replyToMember(transaction: Transaction, message: MemberMessage): Promise<Reply | null> {
   const { identity, userId, workspaceId, text } = message;
-  if (text !== null && isBareNumber(text)) return answerBareNumber(transaction, identity, Number(text.trim()));
+  if (text !== null && isBareNumber(text)) return answerBareNumber(transaction, message, Number(text.trim()));
   await clearPendingChoice(transaction, identity);
   if (text !== null && isSwitchCommand(text)) return answerSwitchCommand(transaction, userId, workspaceId);
   return null;
 }
 
-async function answerBareNumber(transaction: Transaction, identity: ChannelIdentity, number: number): Promise<Reply> {
-  if (identity.pendingChoice === null) return { text: NO_PENDING_CHOICE_TEXT };
-  return pickWorkspace(transaction, identity, identity.pendingChoice, number);
+async function answerBareNumber(transaction: Transaction, message: MemberMessage, number: number): Promise<Reply> {
+  const { pendingChoice } = message.identity;
+  if (pendingChoice === null) return { text: NO_PENDING_CHOICE_TEXT };
+  return pickWorkspace(transaction, message, pendingChoice, number);
 }

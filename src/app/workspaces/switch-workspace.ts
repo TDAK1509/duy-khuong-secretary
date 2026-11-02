@@ -29,18 +29,25 @@ export async function answerSwitchCommand(
   };
 }
 
+export type Chooser = { identity: ChannelIdentity; userId: string };
+
 export async function pickWorkspace(
   transaction: Transaction,
-  identity: ChannelIdentity,
+  chooser: Chooser,
   choice: PendingChoice,
   number: number,
 ): Promise<Reply> {
-  await clearPendingChoice(transaction, identity);
-  const workspaceId = choice.workspaceIds[number - 1];
-  if (workspaceId === undefined) return { text: NUMBER_NOT_IN_LIST_TEXT };
-  await setCurrentWorkspace(transaction, identity, workspaceId);
-  const [workspace] = await transaction.query<{ name: string }>('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
-  return { text: `Đã chuyển sang nhóm "${workspace?.name ?? ''}". Tin nhắn tiếp theo sẽ lưu vào nhóm này.` };
+  await clearPendingChoice(transaction, chooser.identity);
+  const offeredId = choice.workspaceIds[number - 1];
+  const workspace = offeredId === undefined ? null : await findWorkspaceOfUser(transaction, chooser.userId, offeredId);
+  if (workspace === null) return { text: NUMBER_NOT_IN_LIST_TEXT };
+  await setCurrentWorkspace(transaction, chooser.identity, workspace.id);
+  return { text: `Đã chuyển sang nhóm "${workspace.name}". Tin nhắn tiếp theo sẽ lưu vào nhóm này.` };
+}
+
+async function findWorkspaceOfUser(transaction: Transaction, userId: string, workspaceId: string): Promise<WorkspaceChoice | null> {
+  const workspaces = await findWorkspacesOfUser(transaction, userId);
+  return workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
 }
 
 function findWorkspacesOfUser(transaction: Transaction, userId: string): Promise<WorkspaceChoice[]> {
