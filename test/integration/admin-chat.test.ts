@@ -85,4 +85,10 @@ describe('an admin asks the bot', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Tìm dữ liệu:');
   });
+
+  it('puts the admin block in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(harness.chat.requests[0]?.system).toContain('Người này là quản lý.');
+  });
 });

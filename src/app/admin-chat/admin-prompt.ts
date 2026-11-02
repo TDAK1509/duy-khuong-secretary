@@ -4,7 +4,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 export type PromptFacts = { workspaceName: string; displayName: string; now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, ADMIN_SECTION].join('\n\n');
 }
 
 function buildIntroSection({ workspaceName, displayName, now }: PromptFacts): string {
@@ -35,3 +35,6 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Để đếm hoặc cộng tiền, dùng count_records. Không tự đếm từ kết quả search_records.
 - Nếu kết quả có "next_cursor" khác null và cần thêm dữ liệu, gọi lại công cụ với cursor đó. Nếu không đọc hết, nói rõ kết quả chưa đầy đủ.
 - Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."`;
+
+const ADMIN_SECTION =
+  'Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.';
