@@ -1,5 +1,5 @@
 import { sortItemsForComparison } from './agreement.ts';
-import { toAccentFreeForm } from './normalize.ts';
+import { buildDetailKey } from './build-detail-key.ts';
 import type { Reading, ReadingItem } from './reading.ts';
 
 export type SavedReading = {
@@ -22,8 +22,4 @@ function pairItemsForComparison(first: Reading, second: Reading): Map<ReadingIte
 function keepSharedDetails(item: ReadingItem, other: ReadingItem | undefined): ReadingItem {
   const otherKeys = new Set(other?.details.map(buildDetailKey));
   return { ...item, details: item.details.filter((detail) => otherKeys.has(buildDetailKey(detail))) };
-}
-
-function buildDetailKey(detail: ReadingItem['details'][number]): string {
-  return JSON.stringify([toAccentFreeForm(detail.label), toAccentFreeForm(detail.value)]);
 }

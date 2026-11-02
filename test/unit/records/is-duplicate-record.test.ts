@@ -63,4 +63,11 @@ describe('isDuplicateRecord', () => {
 
     expect(isDuplicateRecord(existing, candidate)).toBe(true);
   });
+
+  it('finds an item with one extra detail pair not a duplicate', () => {
+    const station = { label: 'Tên trạm', value: 'A' };
+    const liters = { label: 'Số lít', value: '50' };
+
+    expect(isDuplicateRecord(makeFields({ details: [station] }), makeFields({ details: [station, liters] }))).toBe(false);
+  });
 });
