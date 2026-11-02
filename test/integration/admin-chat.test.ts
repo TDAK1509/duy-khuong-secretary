@@ -220,6 +220,18 @@ describe('an admin asks the bot', () => {
     expect(harness.readers.cheap[0].requests).toEqual([]);
   });
 
+  it('stores no answer for an admin removed while the model answers', async () => {
+    harness.chat.follow(async () => {
+      await database.query(`DELETE FROM memberships WHERE display_name = 'Duy'`);
+      return replyWithText('Chào anh');
+    });
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
+    expect(await database.query(`SELECT 1 FROM outbound_messages WHERE body = 'Chào anh'`)).toEqual([]);
+  });
+
   describe('with data and a question', () => {
     beforeEach(() => {
       harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
