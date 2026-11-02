@@ -102,4 +102,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("./b.ts");
   });
+
+  it('rejects the Postgres provider importing the migration tool', async () => {
+    const messages = await lintFixture('postgres-import-migration-tool', 'src/providers/database/postgres.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("./migration-tool.ts");
+  });
 });
