@@ -379,4 +379,14 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: text"}');
   });
+
+  it('refuses a category that does not exist', async () => {
+    const output = await runAdminTool(pool, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: 'banana', member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: category"}');
+  });
 });
