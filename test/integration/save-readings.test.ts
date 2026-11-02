@@ -286,6 +286,14 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('saves a fuel item without a plate', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', vehicle_plate: null })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: null }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
