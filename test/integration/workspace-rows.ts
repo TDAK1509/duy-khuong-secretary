@@ -14,15 +14,16 @@ export type NewInvite = {
   displayName: string;
   role: 'admin' | 'member';
   expiresAt?: Date;
+  createdBy?: string;
 };
 
 const FAR_FUTURE = new Date('2026-12-01T00:00:00+07:00');
 
 export async function insertInvite(database: TemporaryDatabase, invite: NewInvite): Promise<void> {
   await database.query(
-    `INSERT INTO workspace_invites (workspace_id, code_hash, display_name, role, expires_at)
+    `INSERT INTO workspace_invites (workspace_id, code_hash, display_name, role, created_by, expires_at)
      VALUES (${literal(invite.workspaceId)}, ${literal(hashInviteCode(invite.code))}, ${literal(invite.displayName)},
-       ${literal(invite.role)}, ${timestamp(invite.expiresAt ?? FAR_FUTURE)})`,
+       ${literal(invite.role)}, ${invite.createdBy ? literal(invite.createdBy) : 'NULL'}, ${timestamp(invite.expiresAt ?? FAR_FUTURE)})`,
   );
 }
 

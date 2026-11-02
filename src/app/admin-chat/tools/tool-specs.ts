@@ -112,3 +112,48 @@ export const LIST_MEMBERS_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const CREATE_INVITE_SPEC: ToolSpec = {
+  "name": "create_invite",
+  "description": "Tạo mã mời dùng một lần để một người vào nhóm với tên và vai trò cho trước. Mã hết hạn sau 7 ngày. Người được mời mở Zalo của Trợ lý rồi nhắn mã này.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "display_name": {
+        "type": "string",
+        "description": "Tên của người được mời trong nhóm, tối đa 60 ký tự, ví dụ \"Hùng\"."
+      },
+      "role": {
+        "type": "string",
+        "enum": [
+          "member",
+          "admin"
+        ],
+        "description": "member: thành viên, chỉ gửi ảnh và thông tin công việc. admin: quản lý, xem được mọi dữ liệu của nhóm."
+      }
+    },
+    "required": [
+      "display_name",
+      "role"
+    ],
+    "additionalProperties": false
+  }
+};
+
+export const REMOVE_MEMBER_SPEC: ToolSpec = {
+  "name": "remove_member",
+  "description": "Xóa một người khỏi nhóm. Lấy id từ list_members. Dữ liệu người đó đã gửi vẫn được giữ. Không xóa được chính mình.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "member_id": {
+        "type": "string",
+        "description": "id của người cần xóa, lấy từ list_members."
+      }
+    },
+    "required": [
+      "member_id"
+    ],
+    "additionalProperties": false
+  }
+};
