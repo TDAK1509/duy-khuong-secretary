@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { ToolCall } from '../../../services/chat/chat-service.ts';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
@@ -14,6 +15,16 @@ export async function runAdminTool(database: Database, caller: AccessScope, call
 }
 
 async function runToolByName(database: Database, scope: AccessScope, call: ToolCall): Promise<string> {
+  try {
+    return await dispatchTool(database, scope, call);
+  } catch (error) {
+    if (error instanceof z.ZodError) return failInvalidArgument(String(error.issues[0]?.path[0] ?? 'arguments'));
+    if (error instanceof SyntaxError) return failInvalidArgument('arguments');
+    throw error;
+  }
+}
+
+async function dispatchTool(database: Database, scope: AccessScope, call: ToolCall): Promise<string> {
   const parsedArguments: unknown = JSON.parse(call.argumentsJson);
   switch (call.name) {
     case 'search_records':

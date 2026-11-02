@@ -369,4 +369,14 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
   });
+
+  it('names the argument that has the wrong type', async () => {
+    const output = await runAdminTool(pool, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: 5, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: text"}');
+  });
 });
