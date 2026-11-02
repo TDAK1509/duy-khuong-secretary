@@ -11,6 +11,10 @@ const NOW = new Date('2026-11-02T10:00:00+07:00');
 
 const finishWithoutWriting: InboundHandler = (_event, stages) => stages.finishEvent(async () => {});
 
+const throwBoom: InboundHandler = async () => {
+  throw new Error('boom');
+};
+
 describe('the inbound worker step', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
@@ -30,7 +34,7 @@ describe('the inbound worker step', () => {
   it('marks a queued event done', async () => {
     const id = await insertInboundEvent(database, {});
 
-    await runInboundStep({ database: pool, clock, handler: finishWithoutWriting });
+    await runStep(finishWithoutWriting);
 
     const event = await readEvent(id);
     expect(event.status).toBe('done');
@@ -40,7 +44,7 @@ describe('the inbound worker step', () => {
   it('records the sender Zalo account with the time of the message', async () => {
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+    await runStep(recordSenderIdentity);
 
     expect(await database.query('SELECT channel, account_id, external_user_id, last_inbound_at, user_id FROM channel_identities')).toEqual([
       {
@@ -57,7 +61,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T10:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T11:00:00+07:00' });
 
-    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+    await runStep(recordSenderIdentity);
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });
@@ -66,7 +70,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T11:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+    await runStep(recordSenderIdentity);
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });
@@ -81,6 +85,22 @@ describe('the inbound worker step', () => {
   async function readLastInboundAt(): Promise<Date | undefined> {
     const [identity] = await database.query<{ last_inbound_at: Date }>('SELECT last_inbound_at FROM channel_identities');
     return identity?.last_inbound_at;
+  }
+
+  it('puts a failed event back to queued with a wait of 30 seconds', async () => {
+    const id = await insertInboundEvent(database, {});
+
+    await runStep(throwBoom);
+
+    expect(await readEvent(id)).toMatchObject({
+      status: 'queued',
+      attempts: 1,
+      available_at: new Date(NOW.getTime() + 30_000),
+    });
+  });
+
+  function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
+    return runInboundStep({ database: pool, clock, handler });
   }
 
   async function readEvent(id: string): Promise<EventRow> {
