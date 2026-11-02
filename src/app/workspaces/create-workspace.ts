@@ -4,6 +4,9 @@ import { generateInviteCode, hashInviteCode } from './invite-code.ts';
 const MAX_WORKSPACE_NAME_LENGTH = 80;
 const MAX_DISPLAY_NAME_LENGTH = 60;
 const INVITE_VALID_FOR_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_CODE_ATTEMPTS = 5;
+const UNIQUE_VIOLATION = '23505';
+const CODE_HASH_CONSTRAINT = 'workspace_invites_code_hash_key';
 
 export type NewWorkspace = { workspaceName: string; adminName: string };
 
@@ -15,6 +18,7 @@ export async function createWorkspaceWithFirstAdminInvite(
   database: Database,
   newWorkspace: NewWorkspace,
   now: Date,
+  generateCode: () => string = generateInviteCode,
 ): Promise<CreateWorkspaceResult> {
   const workspaceName = newWorkspace.workspaceName.trim();
   const adminName = newWorkspace.adminName.trim();
@@ -24,14 +28,31 @@ export async function createWorkspaceWithFirstAdminInvite(
   if (!hasLengthBetween(adminName, MAX_DISPLAY_NAME_LENGTH)) {
     return { kind: 'invalid', field: 'admin_name' };
   }
-  const inviteCode = generateInviteCode();
   const expiresAt = new Date(now.getTime() + INVITE_VALID_FOR_MS);
-  const workspaceId = await runInTransaction(database, async (transaction) => {
-    const workspaceId = await insertWorkspace(transaction, workspaceName);
-    await insertAdminInvite(transaction, { workspaceId, adminName, inviteCode, expiresAt });
-    return workspaceId;
-  });
-  return { kind: 'created', workspaceId, workspaceName, inviteCode, expiresAt };
+  for (let attempt = 1; attempt <= MAX_CODE_ATTEMPTS; attempt++) {
+    const inviteCode = generateCode();
+    try {
+      const workspaceId = await runInTransaction(database, async (transaction) => {
+        const workspaceId = await insertWorkspace(transaction, workspaceName);
+        await insertAdminInvite(transaction, { workspaceId, adminName, inviteCode, expiresAt });
+        return workspaceId;
+      });
+      return { kind: 'created', workspaceId, workspaceName, inviteCode, expiresAt };
+    } catch (error) {
+      if (!isTakenCodeError(error)) throw error;
+    }
+  }
+  throw new Error(`no unused invite code found in ${MAX_CODE_ATTEMPTS} attempts`);
+}
+
+function isTakenCodeError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    error.code === UNIQUE_VIOLATION &&
+    'constraint' in error &&
+    error.constraint === CODE_HASH_CONSTRAINT
+  );
 }
 
 function hasLengthBetween(name: string, maxLength: number): boolean {
