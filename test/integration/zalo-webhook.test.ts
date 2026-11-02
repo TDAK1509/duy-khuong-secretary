@@ -183,6 +183,15 @@ describe('POST /webhooks/zalo', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('refuses an unsigned request of any content type', async () => {
+    const response = await postWebhook({
+      body: '{"event_name":"user_send_text"}',
+      headers: { 'x-zevent-signature': 'mac=00', 'content-type': 'application/x-www-form-urlencoded' },
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
   it('refuses a body larger than 1 MB', async () => {
     const { headers } = loadSignedFixture('text-event');
 
