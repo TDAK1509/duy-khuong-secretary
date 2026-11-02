@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { hasOfferedChoice } from '../delivery/has-offered-choice.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
@@ -59,7 +60,9 @@ async function finishIntake(
   outcomes: IntakeOutcome[],
 ): Promise<void> {
   const identity = await recordSenderIdentity(transaction, context.event);
-  await clearChoiceUnlessAnswered(transaction, identity, answeredText);
+  if (!(await hasOfferedChoice(transaction, context.event.id))) {
+    await clearChoiceUnlessAnswered(transaction, identity, answeredText);
+  }
   for (const outcome of outcomes) await sendRefusal(transaction, context, outcome);
 }
 

@@ -6,6 +6,7 @@ import type { PendingChoice } from '../identities/pending-choice.ts';
 import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 import { computeNextRun } from './compute-next-run.ts';
 import type { ConfirmAction } from './confirm-reply.ts';
+import { lockWorkspaceTasks } from './lock-workspace-tasks.ts';
 import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './schedule-columns.ts';
 import { formatCancelledText, formatSavedText, RUN_TIME_PASSED_TEXT } from './schedule-texts.ts';
 
@@ -23,6 +24,7 @@ export async function confirmDraft(
 ): Promise<Reply | null> {
   await clearPendingChoice(transaction, confirmer.identity);
   if (action === null) return null;
+  await lockWorkspaceTasks(transaction, choice.workspaceId);
   const draft = await lockOwnDraft(transaction, confirmer.userId, choice);
   if (draft === null) return null;
   return action === 'save' ? saveDraft(transaction, draft, confirmer.now) : cancelDraft(transaction, draft);

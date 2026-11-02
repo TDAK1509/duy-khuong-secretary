@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
@@ -151,5 +152,34 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(await database.query('SELECT pending_choice FROM channel_identities WHERE external_user_id = \'zu-duy\'')).toEqual([
       { pending_choice: null },
     ]);
+  });
+
+  async function waitUntilBlockedOnAdvisoryLock(work: Promise<unknown>): Promise<void> {
+    let isSettled = false;
+    const settle = () => {
+      isSettled = true;
+    };
+    work.then(settle, settle);
+    while (!isSettled) {
+      const waiting = await database.query(`SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`);
+      if (waiting.length > 0) return;
+      await sleep(20);
+    }
+    throw new Error('the confirmation finished without waiting for the lock of the workspace tasks');
+  }
+
+  it('waits for the lock of the workspace tasks before it confirms a draft', async () => {
+    await showDraft();
+    const session = await database.openSession();
+    await session.query('BEGIN');
+    await session.query(`SELECT pg_advisory_xact_lock(hashtextextended('scheduled_tasks:${workspaceId}', 0))`);
+
+    const confirming = harness.receiveText('zu-duy', '1');
+    await waitUntilBlockedOnAdvisoryLock(confirming);
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    await session.query('COMMIT');
+    await confirming;
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
   });
 });

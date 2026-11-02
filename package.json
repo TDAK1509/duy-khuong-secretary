@@ -14,7 +14,7 @@
     "test": "vitest run",
     "mutation": "stryker run",
     "check:migrations": "node src/bootstrap/check-migrations.ts",
-    "changed:app-files": "node src/bootstrap/print-changed-app-files.ts"
+    "mutation:shard-files": "node src/bootstrap/print-mutation-shard-files.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",

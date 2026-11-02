@@ -1,6 +1,7 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { clearPendingChoiceOfSender } from '../identities/clear-pending-choice.ts';
 import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
@@ -58,6 +59,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   const { sender } = context;
   if (!(await isStillSameAdmin(transaction, sender.membershipId))) return;
   const card = await loadCard(transaction, context, answer);
+  if (card !== null) await clearPendingChoiceOfSender(transaction, context.event);
   const text = card === null ? answer.text : `${answer.text}\n\n${card.text}`;
   await storeBotReply(transaction, messageId, { text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);

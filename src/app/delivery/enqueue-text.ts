@@ -23,7 +23,9 @@ export async function enqueueText(transaction: Transaction, message: TextToEnque
       `INSERT INTO outbound_messages
          (channel, account_id, external_user_id, kind, body, admin_membership_id, available_at, scheduled_task_id, offered_choice)
        VALUES ($1, $2, $3, 'text', $4, $5, $6, $7,
-         $8::jsonb || jsonb_build_object('source_received_at', (SELECT received_at FROM inbound_events WHERE id = $9)))`,
+         $8::jsonb || jsonb_build_object(
+           'source_received_at', (SELECT received_at FROM inbound_events WHERE id = $9),
+           'source_event_id', $9::text))`,
       [
         message.to.channel,
         message.to.accountId,
