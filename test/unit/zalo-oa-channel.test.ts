@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
-import { loadSignedFixture, signBody, TEST_APP_ID, TEST_OA_SECRET } from '../fixtures/zalo/zalo-fixtures.ts';
+import { loadSignedFixture, signBody, TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
 
 describe('ZaloOaChannel.verifyWebhook', () => {
-  const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+  const channel = new ZaloOaChannel(TEST_CHANNEL_SETTINGS);
 
   it('accepts a correctly signed event', () => {
     const { body, headers } = loadSignedFixture('text-event');
@@ -32,7 +32,7 @@ describe('ZaloOaChannel.verifyWebhook', () => {
 });
 
 describe('ZaloOaChannel.verifyWebhook on a body that is not a Zalo event', () => {
-  const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+  const channel = new ZaloOaChannel(TEST_CHANNEL_SETTINGS);
   const headers = { 'x-zevent-signature': 'mac=00' };
 
   it.each([
@@ -45,7 +45,7 @@ describe('ZaloOaChannel.verifyWebhook on a body that is not a Zalo event', () =>
 });
 
 describe('ZaloOaChannel.parseEvent', () => {
-  const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+  const channel = new ZaloOaChannel(TEST_CHANNEL_SETTINGS);
 
   it('parses a text event', () => {
     const { body } = loadSignedFixture('text-event');

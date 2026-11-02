@@ -1,11 +1,12 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import type { ChannelRecipient, InboundEvent, MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { ChannelRecipient, InboundEvent, MessagingChannel, SendResult } from '../../services/messaging/messaging-channel.ts';
 
 const ZALO_CHANNEL = 'zalo-oa';
 const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
+const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
 
 const attachmentSchema = z.object({
   type: z.string(),
@@ -33,7 +34,7 @@ type ZaloEvent = z.infer<typeof eventSchema>;
 
 const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
 
-export type ZaloOaChannelSettings = { appId: string; oaSecret: string };
+export type ZaloOaChannelSettings = { appId: string; oaSecret: string; apiBaseUrl: string; timeoutMs: number };
 
 export class ZaloOaChannel implements MessagingChannel {
   readonly channel = ZALO_CHANNEL;
@@ -55,6 +56,17 @@ export class ZaloOaChannel implements MessagingChannel {
   parseEvent(rawBody: string): InboundEvent {
     const event = readJson(rawBody, eventSchema);
     return event === null ? IGNORED_EVENT : toInboundEvent(event);
+  }
+
+  async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
+    const response = await fetch(new URL(SEND_TEXT_PATH, this.settings.apiBaseUrl), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', access_token: credential },
+      body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+    await response.arrayBuffer();
+    return { ok: true };
   }
 
   private computeMac(rawBody: string, timestamp: string): string {

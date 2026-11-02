@@ -16,7 +16,7 @@ describe('loadZaloConfig', () => {
     expect(result).toEqual({ ok: false, missing: ['ZALO_APP_ID', 'PUBLIC_BASE_URL'] });
   });
 
-  it('reads the values with the default OAuth base URL', () => {
+  it('reads the values with the default base URLs, timeout and send rate', () => {
     expect(loadZaloConfig(COMPLETE_ENVIRONMENT)).toEqual({
       ok: true,
       config: {
@@ -25,6 +25,9 @@ describe('loadZaloConfig', () => {
         appId: 'app-1',
         appSecret: 'sec-1',
         oauthBaseUrl: 'https://oauth.zaloapp.com',
+        apiBaseUrl: 'https://openapi.zalo.me',
+        apiTimeoutMs: 15_000,
+        outboundMaxPerMinute: 90,
         encryptionKey: 'a'.repeat(64),
         publicBaseUrl: 'https://x.test',
       },

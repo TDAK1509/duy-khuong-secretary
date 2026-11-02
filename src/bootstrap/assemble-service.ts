@@ -27,7 +27,8 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
   const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
   const webhookConfig = readGroupConfig('zalo-webhook', loadZaloWebhookConfig(environment), log);
-  const webhook = webhookConfig && { channel: buildMessagingChannel(webhookConfig), database: pool, alerts };
+  const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
+  const webhook = channel && webhookConfig && { channel, database: pool, alerts };
   const server = buildServer(pool, config.commit, {
     oauthCallback: connection,
     webhook,
