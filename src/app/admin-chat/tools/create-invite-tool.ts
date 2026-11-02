@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { createInvite } from '../../workspaces/create-invite.ts';
+import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 import { hasLengthBetween, INVITE_VALID_FOR_MS, MAX_DISPLAY_NAME_LENGTH } from '../../workspaces/invite-rules.ts';
+import { labelRole } from '../../workspaces/role-label.ts';
 import { failInvalidArgument } from './tool-result.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
@@ -23,5 +25,11 @@ export async function runCreateInvite(
     role: args.role,
     expiresAt,
   });
-  return JSON.stringify({ ok: true, code });
+  return JSON.stringify({
+    ok: true,
+    code,
+    display_name: displayName,
+    role: labelRole(args.role),
+    expires: formatVietnamDateTime(expiresAt),
+  });
 }

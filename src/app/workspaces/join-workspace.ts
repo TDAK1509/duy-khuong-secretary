@@ -4,8 +4,7 @@ import { rememberZaloName } from '../identities/remember-zalo-name.ts';
 import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
-
-type Role = 'admin' | 'member';
+import type { Role } from './role-label.ts';
 
 export type JoinRequest = { identity: ChannelIdentity; code: string; zaloName: string | null; now: Date };
 

@@ -43,5 +43,17 @@ describe('the member tools of an admin', () => {
         { workspace_id: workspaceId, display_name: 'Hùng', role: 'member', used_at: null, created_by: duy.userId },
       ]);
     });
+
+    it('answers with the code, the role label and the expiry', async () => {
+      const output = await runTool('create_invite', { display_name: 'Hùng', role: 'member' });
+
+      expect(JSON.parse(output)).toMatchObject({
+        ok: true,
+        code: expect.stringMatching(/^MOI-[A-Z2-9]{6}$/),
+        display_name: 'Hùng',
+        role: 'thành viên',
+        expires: '14:05 09/11/2026',
+      });
+    });
   });
 });

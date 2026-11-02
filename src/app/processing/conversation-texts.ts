@@ -1,4 +1,5 @@
 import type { JoinResult } from '../workspaces/join-workspace.ts';
+import { labelRole } from '../workspaces/role-label.ts';
 
 export const WELCOME_TEXT =
   'Chào bạn. Đây là Trợ lý ghi chép công việc cho nhóm xe tải. Để bắt đầu, bạn nhắn mã mời mà quản lý nhóm đã gửi, ví dụ: MOI-7K4P9X.';
@@ -25,7 +26,6 @@ export function formatJoinResult(result: JoinResult): string {
 }
 
 function formatJoinedText({ workspaceName, displayName, role }: Extract<JoinResult, { kind: 'joined' }>): string {
-  const roleLabel = role === 'admin' ? 'quản lý' : 'thành viên';
   const hint = role === 'admin' ? JOINED_ADMIN_HINT : JOINED_MEMBER_HINT;
-  return `Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${roleLabel}.\n${hint}`;
+  return `Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.\n${hint}`;
 }
