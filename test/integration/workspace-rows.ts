@@ -39,11 +39,7 @@ export async function insertMember(database: TemporaryDatabase, member: NewMembe
     `INSERT INTO users DEFAULT VALUES RETURNING id`,
   );
   if (!user) throw new Error('user not inserted');
-  await database.query(
-    `INSERT INTO memberships (workspace_id, user_id, role, display_name, created_at)
-     VALUES (${literal(member.workspaceId)}, ${literal(user.id)}, ${literal(member.role ?? 'member')}, ${literal(member.displayName)},
-       ${timestamp(member.joinedAt ?? new Date('2026-10-01T10:00:00+07:00'))})`,
-  );
+  await insertMembership(database, { ...member, userId: user.id });
   await database.query(
     `INSERT INTO channel_identities (channel, account_id, external_user_id, user_id, current_workspace_id, last_inbound_at)
      VALUES ('zalo-oa', 'oa-1', ${literal(member.externalUserId)}, ${literal(user.id)}, ${literal(member.workspaceId)},
@@ -51,4 +47,20 @@ export async function insertMember(database: TemporaryDatabase, member: NewMembe
      ON CONFLICT (channel, account_id, external_user_id) DO NOTHING`,
   );
   return user.id;
+}
+
+export type NewMembership = {
+  workspaceId: string;
+  userId: string;
+  displayName: string;
+  role?: 'admin' | 'member';
+  joinedAt?: Date;
+};
+
+export async function insertMembership(database: TemporaryDatabase, membership: NewMembership): Promise<void> {
+  await database.query(
+    `INSERT INTO memberships (workspace_id, user_id, role, display_name, created_at)
+     VALUES (${literal(membership.workspaceId)}, ${literal(membership.userId)}, ${literal(membership.role ?? 'member')},
+       ${literal(membership.displayName)}, ${timestamp(membership.joinedAt ?? new Date('2026-10-01T10:00:00+07:00'))})`,
+  );
 }
