@@ -26,6 +26,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(request?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"chào"}}');
   });
 
+  it('turns a success answer into ok', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0 }));
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: true });
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
