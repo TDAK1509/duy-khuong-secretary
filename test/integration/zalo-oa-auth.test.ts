@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZaloOaAuth } from '../../src/providers/channel-auth/zalo-oa-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { replyWithJson, staySilent, startStubHttpServer, type StubAnswer, type StubHttpServer } from './stub-http-server.ts';
@@ -9,6 +9,7 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
   const servers: StubHttpServer[] = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(servers.splice(0).map((server) => server.close()));
   });
 
@@ -68,8 +69,9 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
   });
 
   it('turns a refused connection into unavailable', async () => {
-    const { auth, server } = await startAuth(VALID_TOKEN_ANSWER);
-    await server.close();
+    const { auth } = await startAuth(VALID_TOKEN_ANSWER);
+    const refusal = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed', { cause: refusal }));
 
     const result = await auth.refresh('r1');
 
