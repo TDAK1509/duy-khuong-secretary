@@ -95,7 +95,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
   }
 
   function outboundDependencies() {
-    return { database: pool, clock, alerts, channel, photoStorage, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 };
+    return { database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 };
   }
 
   return {

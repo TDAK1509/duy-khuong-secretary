@@ -5,15 +5,18 @@ import { describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { readAccessKey } from '../channel-auth/read-access-key.ts';
 import type { Database } from '../db/transaction.ts';
+import type { OffGroupNotices } from '../processing/off-group-notices.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
 import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
 import { decideNoConnectionOutcome } from './decide-send-outcome.ts';
+import { postponeOutboundMessage } from './postpone-outbound-message.ts';
 import { applyOutcome, recordSendResult } from './record-send-result.ts';
 
 export type OutboundDependencies = {
   database: Database;
   clock: Clock;
   alerts: OperatorAlerts;
+  notices: OffGroupNotices;
   channel: MessagingChannel;
   photoStorage: PhotoStorage | null;
   encryptionKey: string;
@@ -43,11 +46,19 @@ async function markLostSendsUnknown({ database, clock, alerts }: OutboundDepende
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
   if (!(await isAdminStillMember(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
+  if (message.content.kind === 'image' && dependencies.photoStorage === null) {
+    return postponeOutboundMessage(dependencies, message, 'photos');
+  }
   const payload = await loadPayload(dependencies.photoStorage, message.content);
   if (payload === null) return failMessage(dependencies, message, 'photo_missing');
+  await sendToRecipient(dependencies, message, payload);
+}
+
+async function sendToRecipient(dependencies: OutboundDependencies, message: ClaimedMessage, payload: Payload): Promise<void> {
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
+  if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result);
 }

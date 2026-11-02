@@ -96,11 +96,12 @@ type QueueParts = {
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
 function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, chat, log }: QueueParts): QueueSteps {
+  const notices = new OffGroupNotices(clock, log);
   const inbound = {
     database: pool,
     clock,
     alerts,
-    notices: new OffGroupNotices(clock, log),
+    notices,
     handler: createInboundHandler(
       channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers, chat },
     ),
@@ -110,6 +111,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
       database: pool,
       clock,
       alerts,
+      notices,
       channel,
       photoStorage,
       encryptionKey: zalo.encryptionKey,
