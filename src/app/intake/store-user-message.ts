@@ -70,7 +70,7 @@ export async function storeBotReply(
 export async function setSubmissionStatus(
   transaction: Transaction,
   userMessageId: string,
-  status: 'accepted' | 'unresolved',
+  status: 'accepted' | 'unresolved' | 'duplicate',
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
 }

@@ -2,7 +2,7 @@ import type { ReadingDecision } from '../reading/decide-reading.ts';
 import { saveAgreedReading } from '../reading/save-agreed-reading.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
-import { MAINTENANCE_WITHOUT_PLATE_TEXT, UNRESOLVED_TEXT, UPLOAD_ONLY_TEXT } from './intake-texts.ts';
+import { DUPLICATE_TEXT, MAINTENANCE_WITHOUT_PLATE_TEXT, UNRESOLVED_TEXT, UPLOAD_ONLY_TEXT } from './intake-texts.ts';
 
 type ReadBy = 'cheap_pair' | 'expensive_pair';
 
@@ -11,7 +11,7 @@ export type SavedRecords = { readBy: ReadBy; records: NewRecord[] };
 export type ReplyPlan = {
   replyText: string;
   replyKind: 'saved' | 'answer';
-  status: 'accepted' | 'unresolved';
+  status: 'accepted' | 'unresolved' | 'duplicate';
   saved: SavedRecords | null;
 };
 
@@ -34,6 +34,10 @@ function isMaintenanceWithoutName(record: NewRecord): boolean {
 
 function isMaintenanceWithoutPlate(record: NewRecord): boolean {
   return record.category === 'maintenance' && record.vehiclePlate === null;
+}
+
+export function planDuplicateReply(): ReplyPlan {
+  return { replyText: DUPLICATE_TEXT, replyKind: 'answer', status: 'duplicate', saved: null };
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {
