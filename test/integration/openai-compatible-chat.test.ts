@@ -115,4 +115,12 @@ describe('OpenAiCompatibleChat', () => {
     expect(user?.content[0]).toEqual({ type: 'text', text: 'Đây là gì?' });
     expect(user?.content[1]?.image_url?.url).toMatch(/^data:image\/jpeg;base64,/);
   });
+
+  it('turns a text answer into text', async () => {
+    const server = await startServer(makeCompletionReply('Chào anh'));
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toEqual({ ok: true, reply: { kind: 'text', text: 'Chào anh' } });
+  });
 });

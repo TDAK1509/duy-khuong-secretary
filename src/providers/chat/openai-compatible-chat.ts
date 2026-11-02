@@ -40,7 +40,12 @@ export class OpenAiCompatibleChat implements ChatService {
 function readReply(completion: OpenAI.Chat.ChatCompletion): Extract<ChatResult, { ok: true }>['reply'] {
   const message = completion.choices[0]?.message;
   const calls = (message?.tool_calls ?? []).filter((call) => call.type === 'function');
-  return { kind: 'tool_calls', calls: calls.map((call) => ({ id: call.id, name: call.function.name, argumentsJson: call.function.arguments })) };
+  if (calls.length > 0) return { kind: 'tool_calls', calls: calls.map(toChatToolCall) };
+  return { kind: 'text', text: message?.content ?? '' };
+}
+
+function toChatToolCall(call: OpenAI.Chat.ChatCompletionMessageFunctionToolCall): ToolCall {
+  return { id: call.id, name: call.function.name, argumentsJson: call.function.arguments };
 }
 
 function toFunctionTool(tool: ToolSpec): OpenAI.Chat.ChatCompletionTool {
