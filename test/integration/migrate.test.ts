@@ -49,6 +49,17 @@ describe('the migration runner', () => {
     expect(exitCodes).toEqual([0, 0]);
     expect(await database.query('SELECT id FROM fixture_rows')).toHaveLength(1);
   });
+
+  it('leaves no partial schema when a migration fails', async () => {
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: new URL('second-fails/', fixtures), log: () => {} },
+    );
+
+    expect(exitCode).not.toBe(0);
+    expect(await database.query("SELECT to_regclass('b') AS found")).toEqual([{ found: null }]);
+    expect(await listAppliedMigrations(database)).toEqual(['0001_create_a']);
+  });
 });
 
 async function listAppliedMigrations(database: TemporaryDatabase): Promise<string[]> {

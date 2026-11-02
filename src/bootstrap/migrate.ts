@@ -11,12 +11,17 @@ export async function runMigrationCommand(
   options: MigrationCommandOptions,
 ): Promise<number> {
   const log = options.log ?? console.log;
-  const applied = await migrateDatabase({
-    databaseUrl: environment['MIGRATION_DATABASE_URL'] ?? '',
-    directory: fileURLToPath(options.directory),
-  });
-  log(describeApplied(applied));
-  return 0;
+  try {
+    const applied = await migrateDatabase({
+      databaseUrl: environment['MIGRATION_DATABASE_URL'] ?? '',
+      directory: fileURLToPath(options.directory),
+    });
+    log(describeApplied(applied));
+    return 0;
+  } catch (error) {
+    log(`[migrate] failed: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
 }
 
 function describeApplied(applied: string[]): string {
