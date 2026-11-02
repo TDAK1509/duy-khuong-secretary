@@ -17,4 +17,12 @@ describe('computeNextRun', () => {
 
     expect(nextRun).toEqual(new Date('2026-11-01T18:00:00+07:00'));
   });
+
+  it('runs a weekly task on the next matching weekday', () => {
+    const saturdayMorning = new Date('2026-10-31T10:00:00+07:00');
+
+    const nextRun = computeNextRun({ repeat: 'weekly', timeOfDay: '07:00', weekday: 1 }, saturdayMorning);
+
+    expect(nextRun).toEqual(new Date('2026-11-02T07:00:00+07:00'));
+  });
 });
