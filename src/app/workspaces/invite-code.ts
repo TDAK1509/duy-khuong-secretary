@@ -13,3 +13,7 @@ export function generateInviteCode(): string {
 export function normalizeInviteCode(text: string): string {
   return text.trim().toUpperCase().replaceAll(/[ -]/g, '');
 }
+
+export function isInviteCodeMessage(text: string): boolean {
+  return /^MOI.{6}$/s.test(normalizeInviteCode(text));
+}
