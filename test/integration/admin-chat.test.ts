@@ -6,7 +6,7 @@ import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertMembership } from './workspace-rows.ts';
 
 describe('an admin asks the bot', () => {
   let harness: IntakeHarness;
@@ -230,6 +230,20 @@ describe('an admin asks the bot', () => {
 
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
     expect(await database.query(`SELECT 1 FROM outbound_messages WHERE body = 'Chào anh'`)).toEqual([]);
+  });
+
+  it('stores no answer for an admin removed and invited again as a member while the model answers', async () => {
+    harness.chat.follow(async () => {
+      const [{ user_id: userId } = { user_id: '' }] = await database.query<{ user_id: string }>(
+        `DELETE FROM memberships WHERE display_name = 'Duy' RETURNING user_id`,
+      );
+      await insertMembership(database, { workspaceId, userId, displayName: 'Duy', role: 'member' });
+      return replyWithText('Chào anh');
+    });
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
   });
 
   describe('with data and a question', () => {
