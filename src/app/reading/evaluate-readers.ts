@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { extname } from 'node:path';
+import { basename, extname } from 'node:path';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { ReaderRequest } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
@@ -7,7 +7,8 @@ import { decideReading, type ReaderSlots } from './decide-reading.ts';
 import { listPhotoFiles } from './list-photo-files.ts';
 import { buildReaderPrompt } from './reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from './reader-schema.ts';
-import { summarizeDecisions } from './summarize-decisions.ts';
+import { loadExpectedAnswers } from './load-expected-answers.ts';
+import { summarizeResults, type PhotoResult } from './summarize-results.ts';
 
 export type EvaluationInput = {
   folderPath: string;
@@ -18,11 +19,13 @@ export type EvaluationInput = {
 
 export async function evaluateReaders(input: EvaluationInput): Promise<void> {
   const system = buildReaderPrompt(input.clock.now());
-  const decisions = [];
+  const results: PhotoResult[] = [];
   for (const filePath of await listPhotoFiles(input.folderPath)) {
-    decisions.push(await decideReading(input.slots, await buildRequest(system, filePath)));
+    const decision = await decideReading(input.slots, await buildRequest(system, filePath));
+    results.push({ fileName: basename(filePath), decision });
   }
-  summarizeDecisions(decisions).forEach(input.print);
+  const expected = await loadExpectedAnswers(input.folderPath);
+  summarizeResults(results, expected).forEach(input.print);
 }
 
 async function buildRequest(system: string, filePath: string): Promise<ReaderRequest> {

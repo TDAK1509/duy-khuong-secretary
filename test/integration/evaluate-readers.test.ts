@@ -22,10 +22,11 @@ describe('evaluateReaders', () => {
     await Promise.all(folders.splice(0).map((folder) => rm(folder, { recursive: true, force: true })));
   });
 
-  async function makePhotoFolder(files: Record<string, number>): Promise<string> {
+  async function makePhotoFolder(files: Record<string, number>, expected?: unknown): Promise<string> {
     const folder = await mkdtemp(join(tmpdir(), 'evaluate-readers-'));
     folders.push(folder);
     for (const [name, byte] of Object.entries(files)) await writeFile(join(folder, name), new Uint8Array([byte]));
+    if (expected !== undefined) await writeFile(join(folder, 'expected.json'), JSON.stringify(expected));
     return folder;
   }
 
@@ -38,6 +39,11 @@ describe('evaluateReaders', () => {
     const clock = new FakeClock(new Date('2026-10-31T03:00:00Z'));
     await evaluateReaders({ folderPath, slots, clock, print: (line) => lines.push(line) });
     return lines.join('\n');
+  }
+
+  function makeAgreeingSlots(readings: Record<number, Reading>): ReaderSlots {
+    const makeReader = (label: string) => makeReaderPerPhoto(label, readings);
+    return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
   }
 
   it('prints the escalation rate', async () => {
@@ -56,5 +62,18 @@ describe('evaluateReaders', () => {
     const output = await runCommand(folder, slots);
 
     expect(output).toContain('escalation rate: 50%');
+  });
+
+  it('compares amounts with expected.json', async () => {
+    const expected = {
+      'a.jpg': { amount_vnd: 1250000, occurred_on: '2026-10-30' },
+      'b.jpg': { amount_vnd: 999, occurred_on: '2026-10-30' },
+    };
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE, 'b.jpg': SECOND_PHOTO_BYTE }, expected);
+    const slots = makeAgreeingSlots({ [FIRST_PHOTO_BYTE]: AGREED_FUEL, [SECOND_PHOTO_BYTE]: AGREED_FUEL });
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('amounts correct: 1/2');
   });
 });
