@@ -24,4 +24,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(true);
   });
+
+  it('agrees when maintenance items differ only in accents and case', () => {
+    const first = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'Dầu máy' })]));
+    const second = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'dau may' })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
 });

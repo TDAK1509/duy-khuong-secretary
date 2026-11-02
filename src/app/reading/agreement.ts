@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { normalizeCodeSet } from './normalize.ts';
+import { normalizeCodeSet, toAccentFreeForm } from './normalize.ts';
 import type { ReadAttempt, ReadingItem } from './reading.ts';
 
 export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
@@ -14,7 +14,7 @@ export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
 function toComparableItem(item: ReadingItem): unknown {
   return {
     category: item.category,
-    maintenance_item: item.maintenance_item,
+    maintenance_item: toAccentFreeForm(item.maintenance_item),
     occurred_on: item.occurred_on,
     amount_vnd: item.amount_vnd,
     identifiers: normalizeCodeSet(item.identifiers),
