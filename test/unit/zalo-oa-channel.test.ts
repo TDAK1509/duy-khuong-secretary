@@ -31,6 +31,19 @@ describe('ZaloOaChannel.verifyWebhook', () => {
   });
 });
 
+describe('ZaloOaChannel.verifyWebhook on a body that is not a Zalo event', () => {
+  const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+  const headers = { 'x-zevent-signature': 'mac=00' };
+
+  it.each([
+    ['not JSON', 'not json'],
+    ['a body without a timestamp', '{"app_id":"app-test","event_name":"user_send_text"}'],
+    ['a body without an app id', '{"timestamp":"1","event_name":"user_send_text"}'],
+  ])('refuses %s', (_name, body) => {
+    expect(channel.verifyWebhook(body, headers)).toBe(false);
+  });
+});
+
 describe('ZaloOaChannel.parseEvent', () => {
   const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
 
@@ -70,5 +83,16 @@ describe('ZaloOaChannel.parseEvent', () => {
     const { body } = loadSignedFixture('follow-event');
 
     expect(channel.parseEvent(body)).toEqual({ kind: 'ignored' });
+  });
+
+  it('ignores an image event without an image attachment', () => {
+    const { body } = loadSignedFixture('image-event');
+    const withoutImage = body.replace('"type":"image"', '"type":"file"');
+
+    expect(channel.parseEvent(withoutImage)).toEqual({ kind: 'ignored' });
+  });
+
+  it('ignores a body that is not a Zalo event', () => {
+    expect(channel.parseEvent('not json')).toEqual({ kind: 'ignored' });
   });
 });
