@@ -148,6 +148,15 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('tells a bare number with nothing stored that no choice is waiting', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+
+    await receiveText('zu-duy', '1');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.']);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
