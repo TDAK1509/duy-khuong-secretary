@@ -33,10 +33,6 @@ export async function renewDueConnections(dependencies: RenewalDependencies): Pr
   }
 }
 
-function renewalDeadline(now: Date): Date {
-  return new Date(now.getTime() + RENEW_WHEN_EXPIRING_WITHIN_MS);
-}
-
 async function renewConnection(dependencies: RenewalDependencies, id: string): Promise<void> {
   const outcome = await renewInTransaction(dependencies, id);
   if (outcome.kind === 'failed') {
@@ -50,23 +46,38 @@ async function renewConnection(dependencies: RenewalDependencies, id: string): P
 async function renewInTransaction(dependencies: RenewalDependencies, id: string): Promise<RenewalOutcome> {
   const now = dependencies.clock.now();
   return runInTransaction(dependencies.database, async (transaction) => {
-    const [connection] = await transaction.query<DueConnection>(
-      `SELECT id, account_id, refresh_token_encrypted FROM channel_connections
-       WHERE id = $1 AND status = 'active' AND access_expires_at < $2
-       FOR UPDATE SKIP LOCKED`,
-      [id, renewalDeadline(now)],
-    );
+    const connection = await lockDueConnection(transaction, id, now);
     if (!connection) return { kind: 'skipped' };
-    const refreshToken = decryptToken(connection.refresh_token_encrypted, dependencies.encryptionKey);
-    const result = await dependencies.channelAuth.refresh(refreshToken);
-    if (!result.ok && result.reason === 'no_answer') {
-      await requireReauthorization(transaction, connection.id);
-      return { kind: 'no_answer', accountId: connection.account_id };
-    }
-    if (!result.ok) return { kind: 'failed', accountId: connection.account_id, reason: result.reason };
-    await storeRenewedTokens(transaction, connection.id, result.tokens, now, dependencies.encryptionKey);
-    return { kind: 'renewed' };
+    return refreshLockedConnection(dependencies, transaction, connection);
   });
+}
+
+async function lockDueConnection(transaction: Transaction, id: string, now: Date): Promise<DueConnection | undefined> {
+  const [connection] = await transaction.query<DueConnection>(
+    `SELECT id, account_id, refresh_token_encrypted FROM channel_connections
+     WHERE id = $1 AND status = 'active' AND access_expires_at < $2
+     FOR UPDATE SKIP LOCKED`,
+    [id, renewalDeadline(now)],
+  );
+  return connection;
+}
+
+async function refreshLockedConnection(
+  dependencies: RenewalDependencies,
+  transaction: Transaction,
+  connection: DueConnection,
+): Promise<RenewalOutcome> {
+  const refreshToken = decryptToken(connection.refresh_token_encrypted, dependencies.encryptionKey);
+  const result = await dependencies.channelAuth.refresh(refreshToken);
+  if (result.ok) {
+    await storeRenewedTokens(transaction, connection.id, result.tokens, dependencies);
+    return { kind: 'renewed' };
+  }
+  if (result.reason === 'no_answer') {
+    await requireReauthorization(transaction, connection.id);
+    return { kind: 'no_answer', accountId: connection.account_id };
+  }
+  return { kind: 'failed', accountId: connection.account_id, reason: result.reason };
 }
 
 async function requireReauthorization(transaction: Transaction, id: string): Promise<void> {
@@ -77,8 +88,7 @@ async function storeRenewedTokens(
   transaction: Transaction,
   id: string,
   tokens: TokenPair,
-  refreshedAt: Date,
-  encryptionKey: string,
+  { clock, encryptionKey }: RenewalDependencies,
 ): Promise<void> {
   await transaction.query(
     `UPDATE channel_connections SET
@@ -91,7 +101,11 @@ async function storeRenewedTokens(
       encryptToken(tokens.refreshToken, encryptionKey),
       tokens.accessExpiresAt,
       tokens.refreshExpiresAt,
-      refreshedAt,
+      clock.now(),
     ],
   );
+}
+
+function renewalDeadline(now: Date): Date {
+  return new Date(now.getTime() + RENEW_WHEN_EXPIRING_WITHIN_MS);
 }

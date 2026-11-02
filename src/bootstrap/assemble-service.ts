@@ -21,17 +21,13 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const pool = createPostgresPool(config.databaseUrl);
   const clock = buildClock();
   const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
-  const connectionDependencies = zalo && buildConnectionDependencies(zalo, pool, clock);
+  const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
   const server = buildServer(pool, config.commit, {
-    oauthCallback: connectionDependencies,
+    oauthCallback: connection,
     verifierFile: config.verifierFile,
   });
-  return {
-    config,
-    server,
-    pool,
-    runTick: () => runTick({ renewal: connectionDependencies && { ...connectionDependencies, alerts } }),
-  };
+  const renewal = connection && { ...connection, alerts };
+  return { config, server, pool, runTick: () => runTick({ renewal }) };
 }
 
 function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {

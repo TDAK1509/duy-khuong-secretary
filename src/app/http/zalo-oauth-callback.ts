@@ -1,4 +1,4 @@
-import type { ChannelAuth } from '../../services/channel-auth/channel-auth.ts';
+import type { ChannelAuth, TokenPair } from '../../services/channel-auth/channel-auth.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import { openConnectState } from '../channel-auth/connect-state.ts';
 import { storeConnection } from '../channel-auth/store-connection.ts';
@@ -24,12 +24,13 @@ export async function handleZaloOAuthCallback(
   if (!accountId || !code || codeVerifier === null) return respondWithConnectionFailure();
   const exchange = await dependencies.channelAuth.exchangeAuthorization({ code, codeVerifier });
   if (!exchange.ok) return respondWithConnectionFailure();
-  await storeConnection(
-    dependencies.database,
-    { channel: 'zalo-oa', accountId, tokens: exchange.tokens, storedAt: dependencies.clock.now() },
-    dependencies.encryptionKey,
-  );
+  await storeOaConnection(dependencies, accountId, exchange.tokens);
   return respondWithText(200, `Zalo OA ${accountId} connected.`);
+}
+
+function storeOaConnection(dependencies: OAuthCallbackDependencies, accountId: string, tokens: TokenPair): Promise<void> {
+  const connection = { channel: 'zalo-oa' as const, accountId, tokens, storedAt: dependencies.clock.now() };
+  return storeConnection(dependencies.database, connection, dependencies.encryptionKey);
 }
 
 function respondWithConnectionFailure(): HttpResponse {

@@ -21,6 +21,11 @@ export function buildServer(pool: PostgresPool, commit: string | null, options: 
     const response = await handleHealth(() => pingDatabase(pool), commit);
     return sendResponse(reply, response);
   });
+  registerZaloRoutes(server, options);
+  return server;
+}
+
+function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): void {
   const oauthCallback = options.oauthCallback ?? null;
   server.get('/oauth/zalo/callback', async (request, reply) =>
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
@@ -31,7 +36,6 @@ export function buildServer(pool: PostgresPool, commit: string | null, options: 
       sendResponse(reply, respondWithHtml(verifierFile.content)),
     );
   }
-  return server;
 }
 
 function sendResponse(reply: FastifyReply, response: HttpResponse): FastifyReply {
