@@ -105,6 +105,14 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(result).toEqual({ ok: false, reason: 'timeout' });
   });
+
+  it('turns a reply that is not JSON into invalid output', async () => {
+    const server = await startServer(makeCompletionReply('Xin chào'));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {

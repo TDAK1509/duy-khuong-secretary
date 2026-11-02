@@ -31,7 +31,7 @@ export class OpenAiCompatibleReader implements ReaderService {
   async read(request: ReaderRequest): Promise<ReaderResult> {
     try {
       const completion = await this.client.chat.completions.create(this.buildParameters(request));
-      return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
+      return parseReply(completion);
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
       throw error;
@@ -51,6 +51,14 @@ export class OpenAiCompatibleReader implements ReaderService {
         json_schema: { name: request.schemaName, schema: request.schema, strict: true },
       },
     };
+  }
+}
+
+function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
+  try {
+    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
+  } catch {
+    return { ok: false, reason: 'invalid_output' };
   }
 }
 
