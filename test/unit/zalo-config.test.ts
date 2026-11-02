@@ -40,4 +40,10 @@ describe('loadZaloConfig', () => {
   it('refuses a messaging provider other than zalo-oa and names the value', () => {
     expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, MESSAGING_PROVIDER: 'other' })).toThrow(/MESSAGING_PROVIDER/);
   });
+
+  it('refuses a supplied invalid value even when other values are missing', () => {
+    const environment = { MESSAGING_PROVIDER: 'other', PUBLIC_BASE_URL: 'not a url' };
+
+    expect(() => loadZaloConfig(environment)).toThrow(/MESSAGING_PROVIDER.*PUBLIC_BASE_URL/);
+  });
 });
