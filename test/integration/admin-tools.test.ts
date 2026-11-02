@@ -250,4 +250,14 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
   });
+
+  it('keeps the records of a removed sender visible under the saved name', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    await database.query(`DELETE FROM memberships WHERE display_name = 'Hùng'`);
+
+    const result = await runSearch({ member: 'Hùng' });
+
+    expect(result.items.map((item) => item.member)).toEqual(['Hùng', 'Hùng']);
+  });
 });
