@@ -6,6 +6,8 @@ import type { PendingChoice } from '../identities/pending-choice.ts';
 import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
 
+const NUMBER_NOT_IN_LIST_TEXT = 'Số không hợp lệ. Bạn nhắn "đổi nhóm" để xem lại danh sách.';
+
 type WorkspaceChoice = { id: string; name: string };
 
 export function isSwitchCommand(text: string): boolean {
@@ -32,10 +34,10 @@ export async function pickWorkspace(
   identity: ChannelIdentity,
   choice: PendingChoice,
   number: number,
-): Promise<Reply | null> {
-  const workspaceId = choice.workspaceIds[number - 1];
-  if (workspaceId === undefined) return null;
+): Promise<Reply> {
   await clearPendingChoice(transaction, identity);
+  const workspaceId = choice.workspaceIds[number - 1];
+  if (workspaceId === undefined) return { text: NUMBER_NOT_IN_LIST_TEXT };
   await setCurrentWorkspace(transaction, identity, workspaceId);
   const [workspace] = await transaction.query<{ name: string }>('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
   return { text: `Đã chuyển sang nhóm "${workspace?.name ?? ''}". Tin nhắn tiếp theo sẽ lưu vào nhóm này.` };

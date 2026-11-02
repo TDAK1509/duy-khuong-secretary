@@ -135,6 +135,19 @@ describe('switching between workspaces', () => {
     expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
   });
 
+  it('refuses a number outside the list', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await storeWorkspacePick([workspaceId, otherWorkspaceId]);
+
+    await receiveText('zu-duy', '5');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Số không hợp lệ. Bạn nhắn "đổi nhóm" để xem lại danh sách.']);
+    expect(await database.query('SELECT current_workspace_id FROM channel_identities')).toEqual([
+      { current_workspace_id: workspaceId },
+    ]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
