@@ -188,4 +188,17 @@ describe('the data tools of an admin', () => {
       expect(second.next_cursor).toBeNull();
     });
   });
+
+  it('never skips or repeats a row across pages when times are equal', async () => {
+    const sameTime = new Date('2026-10-31T10:00:00+07:00');
+    for (let number = 0; number < 60; number += 1) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', createdAt: sameTime });
+    }
+
+    const first = await runSearch();
+    const second = await runSearch({ cursor: first.next_cursor ?? '' });
+
+    const ids = [...first.items, ...second.items].map((item) => item.id);
+    expect(new Set(ids).size).toBe(60);
+  });
 });
