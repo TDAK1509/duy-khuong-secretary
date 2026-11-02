@@ -184,4 +184,15 @@ describe('the daily maintenance reminder run', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('matches a rule to a part ignoring accents and case', async () => {
+    await insertOilChange('2026-09-21');
+    await insertReminderTask({ maintenanceRules: [{ maintenance_item: 'dau may', age_days: 30 }] });
+    harness.chat.replyWith('Nhắc');
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-duy', 'Nhắc']]);
+  });
 });
