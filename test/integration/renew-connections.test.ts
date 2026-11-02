@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { decryptToken } from '../../src/app/channel-auth/token-cipher.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runTick } from '../../src/app/ticker/run-tick.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeChannelAuth, makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -15,11 +17,13 @@ describe('key renewal on the ticker', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let channelAuth: FakeChannelAuth;
+  let alertSink: FakeAlertSink;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     channelAuth = new FakeChannelAuth();
+    alertSink = new FakeAlertSink();
   });
 
   afterEach(async () => {
@@ -58,6 +62,17 @@ describe('key renewal on the ticker', () => {
     expect(channelAuth.refreshes).toHaveLength(1);
   });
 
+  it('alerts the operator when a renewal is rejected', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshResult = { ok: false, reason: 'rejected' };
+
+    await runOneTick();
+
+    expect(alertSink.texts).toEqual([
+      '[alert] Zalo key renewal failed for OA oa-1 (rejected). If it keeps failing, run connect-zalo again.',
+    ]);
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
@@ -74,7 +89,13 @@ describe('key renewal on the ticker', () => {
 
   function runOneTick(): Promise<void> {
     return runTick({
-      renewal: { database: pool, channelAuth, encryptionKey: ENCRYPTION_KEY, clock: new FakeClock(NOW) },
+      renewal: {
+        database: pool,
+        channelAuth,
+        encryptionKey: ENCRYPTION_KEY,
+        clock: new FakeClock(NOW),
+        alerts: new OperatorAlerts(alertSink),
+      },
     });
   }
 });
