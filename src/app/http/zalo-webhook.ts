@@ -17,6 +17,7 @@ export async function handleZaloWebhook(
   dependencies: ZaloWebhookDependencies,
   request: WebhookRequest,
 ): Promise<HttpResponse> {
+  if (!dependencies.channel.verifyWebhook(request.rawBody, request.headers)) return respondWithJson(401, { ok: false });
   const event = dependencies.channel.parseEvent(request.rawBody);
   if (event.kind === 'ignored') return respondWithJson(200, { ok: true });
   await storeInboundEvent(dependencies.database, event);
