@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
@@ -80,6 +81,20 @@ describe('joining a workspace with an invite code', () => {
     expect(identities).toEqual([{ current_workspace_id: workspaceId }]);
   });
 
+  it('tells a new admin the joined-admin text', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', CODE);
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      [
+        'zu-duy',
+        'Bạn đã vào nhóm "Xe tải Duy Khương" với tên Duy, vai trò quản lý.\nBạn có thể hỏi Trợ lý về dữ liệu của nhóm, mời hoặc xóa thành viên và đặt lịch tự động.',
+      ],
+    ]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
@@ -89,5 +104,9 @@ describe('joining a workspace with an invite code', () => {
       notices: new OffGroupNotices(clock, () => {}),
       handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY }),
     });
+  }
+
+  async function sendQueuedTexts(): Promise<void> {
+    await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
   }
 });

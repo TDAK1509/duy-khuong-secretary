@@ -4,17 +4,28 @@ import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
 
-type InviteRow = { id: string; workspace_id: string; display_name: string; role: 'admin' | 'member' };
+type InviteRow = {
+  id: string;
+  workspace_id: string;
+  workspace_name: string;
+  display_name: string;
+  role: 'admin' | 'member';
+};
 
 export type JoinRequest = { identity: ChannelIdentity; code: string; now: Date };
 
-export async function joinWithInviteCode(transaction: Transaction, request: JoinRequest): Promise<void> {
+export type JoinResult = { workspaceName: string; displayName: string; role: 'admin' | 'member' } | null;
+
+export async function joinWithInviteCode(transaction: Transaction, request: JoinRequest): Promise<JoinResult> {
   const { identity, code, now } = request;
   const [invite] = await transaction.query<InviteRow>(
-    'SELECT id, workspace_id, display_name, role FROM workspace_invites WHERE code_hash = $1',
+    `SELECT invite.id, invite.workspace_id, workspace.name AS workspace_name, invite.display_name, invite.role
+     FROM workspace_invites invite
+     JOIN workspaces workspace ON workspace.id = invite.workspace_id
+     WHERE invite.code_hash = $1`,
     [hashInviteCode(code)],
   );
-  if (!invite) return;
+  if (!invite) return null;
   const userId = await linkIdentityToNewUser(transaction, identity);
   await transaction.query(
     'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
@@ -26,4 +37,5 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     now,
     userId,
   ]);
+  return { workspaceName: invite.workspace_name, displayName: invite.display_name, role: invite.role };
 }
