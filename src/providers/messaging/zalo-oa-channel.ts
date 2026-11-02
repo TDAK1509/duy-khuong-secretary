@@ -51,7 +51,7 @@ export class ZaloOaChannel implements MessagingChannel {
       sentAt: new Date(event.timestamp),
     };
     if (event.event_name === 'user_send_image') {
-      return { kind: 'images', ...base, imageUrls: collectImageUrls(event), caption: event.message.text ?? null };
+      return { kind: 'images', ...base, imageUrls: collectImageUrls(event), caption: event.message.text || null };
     }
     return { kind: 'text', ...base, text: event.message.text ?? '' };
   }

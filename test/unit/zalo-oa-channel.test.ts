@@ -55,4 +55,14 @@ describe('ZaloOaChannel.parseEvent', () => {
       caption: 'Xe 29C-123.45',
     });
   });
+
+  it('keeps both photo URLs of a two-photo image event in order', () => {
+    const { body } = loadSignedFixture('two-images-event');
+
+    expect(channel.parseEvent(body)).toMatchObject({
+      kind: 'images',
+      imageUrls: ['https://f6.photo.talk.zdn.vn/p1.jpg', 'https://f6.photo.talk.zdn.vn/p2.jpg'],
+      caption: null,
+    });
+  });
 });
