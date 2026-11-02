@@ -191,4 +191,13 @@ describe('an admin asks the bot', () => {
     expect(turns.some((turn) => turn.role === 'user' && turn.image !== null)).toBe(false);
     expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]', image: null });
   });
+
+  it('turns a chat-model failure into a friendly reply', async () => {
+    harness.chat.failWith('unavailable');
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-duy', 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.']]);
+  });
 });

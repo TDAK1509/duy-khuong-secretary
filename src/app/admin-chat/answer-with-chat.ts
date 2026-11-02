@@ -1,6 +1,7 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
+import { CHAT_FAILURE_TEXT } from './chat-texts.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import { loadAdminProfile } from './load-admin-profile.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
@@ -17,7 +18,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
     turns: [...(await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id)), { role: 'user', text: message.text, image: message.photo }],
     tools: [],
   });
-  const answer = result.ok && result.reply.kind === 'text' ? result.reply.text : '';
+  const answer = result.ok && result.reply.kind === 'text' ? result.reply.text : CHAT_FAILURE_TEXT;
   await context.stages.runStage({
     isDone: (transaction) => hasAnswer(transaction, message.id),
     write: (transaction) => publishAnswer(transaction, context, message.id, answer),
