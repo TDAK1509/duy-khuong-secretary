@@ -34,7 +34,7 @@ export class OpenAiCompatibleReader implements ReaderService {
       return parseReply(completion);
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
-      throw error;
+      return { ok: false, reason: 'unavailable' };
     }
   }
 
