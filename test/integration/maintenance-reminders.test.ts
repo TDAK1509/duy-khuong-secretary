@@ -83,4 +83,18 @@ describe('an admin creates maintenance reminders by chat', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:');
   });
+
+  it('shows the rules in the summary of the task', async () => {
+    createWithRules([
+      { maintenance_item: 'dầu máy', age_days: 30 },
+      { maintenance_item: 'lốp', age_days: 180 },
+    ]);
+
+    await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu máy sau 30 ngày, lốp sau 6 tháng');
+    await harness.sendQueuedTexts();
+
+    const summary = harness.channel.texts[0]?.text.split('\n') ?? [];
+    expect(harness.channel.texts[0]?.to.externalUserId).toBe('zu-duy');
+    expect(summary).toContain('Nhắc bảo dưỡng: dầu máy sau 30 ngày; lốp sau 180 ngày');
+  });
 });
