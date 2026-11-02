@@ -43,6 +43,14 @@ describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
     expect(server.requests.map((request) => request.path)).toEqual([UPLOAD_PATH]);
   });
 
+  it('turns a rate-limited upload into rate limited', async () => {
+    const server = await startStubServer({ upload: replyWithJson({ error: -32 }), send: replyWithJson({ error: 0 }) });
+
+    const result = await sendFromChannel(server.baseUrl, makeJpeg(1000), 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'rate_limited' });
+  });
+
   async function startStubServer(answers: { upload: StubAnswer; send: StubAnswer }): Promise<StubHttpServer> {
     const server = await startStubHttpServer((request: StubRequest) => (request.path === UPLOAD_PATH ? answers.upload : answers.send));
     servers.push(server);
