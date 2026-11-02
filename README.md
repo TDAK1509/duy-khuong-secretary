@@ -191,7 +191,7 @@ npm run lint
 npm run typecheck
 npm test            # needs the Postgres from docker compose; reads DATABASE_URL
 npm run check:migrations -- origin/main
-npm run mutation    # Stryker on src/app, report only
+npm run mutation    # Stryker on all of src/app, report only; CI mutates only the changed files
 ```
 
 Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owner:app_owner@localhost:5432/secretary`. The migration tests create a throw-away database per test, so the role needs `CREATEDB` (`app_owner` has it) and `npm test` runs `npm run build` once for the built-entry test.
@@ -204,7 +204,7 @@ Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owne
 | `ci / typecheck` | `tsc --noEmit` |
 | `ci / test` | Builds the schema by running the migrations, then Vitest, against a Postgres 17 service container |
 | `ci / migrations` | Fails when a PR changes, renames or deletes a migration file that already exists on `main` |
-| `ci / mutation` | Stryker on `src/app/**`. Runs only on PRs with the label `ready-to-merge` |
+| `ci / mutation` | Stryker on the `src/app/**` files the PR changes (migrations excluded; skipped when none changed). Runs only on PRs with the label `ready-to-merge` |
 | `security / audit` | `npm audit` of production packages, fails on high severity |
 | `security / secrets` | gitleaks over the whole git history |
 
