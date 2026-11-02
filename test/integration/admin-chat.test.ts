@@ -296,6 +296,15 @@ describe('an admin asks the bot', () => {
           { text: 'Trả lời' },
         ]);
       });
+
+      it('does not read the photo again', async () => {
+        const readsBefore = harness.readers.cheap[0].requests.length;
+
+        await harness.runInbound();
+
+        expect(harness.readers.cheap[0].requests).toHaveLength(readsBefore);
+        expect(harness.readers.strong[0].requests).toHaveLength(0);
+      });
     });
   });
 });
