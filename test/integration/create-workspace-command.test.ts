@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   runCreateWorkspaceCommand,
@@ -57,6 +58,22 @@ describe('the create-workspace command', () => {
       { expires_at: new Date('2026-11-09T10:00:00+07:00') },
     ]);
     expect(lines[1]).toContain('(valid until 10:00 09/11/2026)');
+  });
+
+  it('stores the hash of the printed code and not the code', async () => {
+    const lines: string[] = [];
+
+    await runCommand(['Xe tải Duy Khương', 'Duy'], { log: (line) => lines.push(line) });
+
+    const printedCode = /MOI-[A-Z0-9]{6}/.exec(lines.join('\n'))?.[0] ?? '';
+    const [invite] = await database.query<Record<string, unknown>>(
+      'SELECT * FROM workspace_invites',
+    );
+    expect(printedCode).not.toBe('');
+    expect(invite?.['code_hash']).toBe(
+      createHash('sha256').update(printedCode.replace('-', '')).digest('hex'),
+    );
+    expect(JSON.stringify(invite)).not.toContain(printedCode.slice(4));
   });
 
   async function runCommand(
