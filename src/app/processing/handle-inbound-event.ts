@@ -7,7 +7,7 @@ import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
-import { formatJoinedText, WELCOME_TEXT } from './conversation-texts.ts';
+import { formatJoinResult, WELCOME_TEXT } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
@@ -57,7 +57,7 @@ async function decideReply(
 ): Promise<string | null> {
   if (inviteCode === null) return WELCOME_TEXT;
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
-  return joined && formatJoinedText(joined);
+  return formatJoinResult(joined);
 }
 
 function readInviteCode(event: ClaimedEvent): string | null {

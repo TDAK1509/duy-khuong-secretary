@@ -15,7 +15,9 @@ type InviteRow = {
 
 export type JoinRequest = { identity: ChannelIdentity; code: string; zaloName: string | null; now: Date };
 
-export type JoinResult = { workspaceName: string; displayName: string; role: 'admin' | 'member' } | null;
+export type JoinResult =
+  | { kind: 'joined'; workspaceName: string; displayName: string; role: 'admin' | 'member' }
+  | { kind: 'invalid_code' };
 
 export async function joinWithInviteCode(transaction: Transaction, request: JoinRequest): Promise<JoinResult> {
   const { identity, code, zaloName, now } = request;
@@ -23,10 +25,11 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     `SELECT invite.id, invite.workspace_id, workspace.name AS workspace_name, invite.display_name, invite.role
      FROM workspace_invites invite
      JOIN workspaces workspace ON workspace.id = invite.workspace_id
-     WHERE invite.code_hash = $1`,
+     WHERE invite.code_hash = $1 AND invite.used_at IS NULL
+     FOR UPDATE OF invite`,
     [hashInviteCode(code)],
   );
-  if (!invite) return null;
+  if (!invite) return { kind: 'invalid_code' };
   const userId = await linkIdentityToNewUser(transaction, identity);
   await transaction.query(
     'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
@@ -39,5 +42,5 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     now,
     userId,
   ]);
-  return { workspaceName: invite.workspace_name, displayName: invite.display_name, role: invite.role };
+  return { kind: 'joined', workspaceName: invite.workspace_name, displayName: invite.display_name, role: invite.role };
 }

@@ -18,6 +18,7 @@ import { insertInvite, insertWorkspace } from './workspace-rows.ts';
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const CODE = 'MOI-7K4P9X';
+const INVALID_CODE_TEXT = 'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.';
 
 describe('joining a workspace with an invite code', () => {
   let database: TemporaryDatabase;
@@ -150,6 +151,19 @@ describe('joining a workspace with an invite code', () => {
 
     const memberships = await database.query('SELECT display_name FROM memberships');
     expect(memberships).toEqual([{ display_name: 'Hùng' }]);
+  });
+
+  it('refuses a code that was already used', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+
+    await receiveText('zu-lan', CODE);
+    await sendQueuedTexts();
+
+    const lanTexts = channel.texts.filter((sent) => sent.to.externalUserId === 'zu-lan');
+    expect(lanTexts.map((sent) => sent.text)).toEqual([INVALID_CODE_TEXT]);
+    expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Hùng' }]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
