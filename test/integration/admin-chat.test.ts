@@ -329,5 +329,17 @@ describe('an admin asks the bot', () => {
 
       expect(harness.chat.requests).toEqual([]);
     });
+
+    it('never sends an admin\'s unresolved message to the chat model', async () => {
+      const other = makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })], { has_question: true });
+      for (const pair of [harness.readers.cheap, harness.readers.strong]) {
+        pair[1].answerWith(other);
+      }
+      harness.readers.strong[0].answerWith(makeReading([makeFuelItem()], { has_question: true }));
+
+      await harness.receivePhoto('zu-duy');
+
+      expect(harness.chat.requests).toEqual([]);
+    });
   });
 });
