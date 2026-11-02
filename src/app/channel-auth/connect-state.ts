@@ -16,8 +16,12 @@ export function sealConnectState(verifier: string, now: Date, encryptionKey: str
   return Buffer.from(encrypted, 'base64').toString('base64url');
 }
 
-export function openConnectState(state: string, encryptionKey: string): string {
-  const encrypted = Buffer.from(state, 'base64url').toString('base64');
-  const { verifier } = JSON.parse(decryptToken(encrypted, encryptionKey)) as { verifier: string };
-  return verifier;
+export function openConnectState(state: string, encryptionKey: string): string | null {
+  try {
+    const encrypted = Buffer.from(state, 'base64url').toString('base64');
+    const { verifier } = JSON.parse(decryptToken(encrypted, encryptionKey)) as { verifier: string };
+    return verifier;
+  } catch {
+    return null;
+  }
 }

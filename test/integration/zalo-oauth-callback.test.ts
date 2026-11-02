@@ -64,6 +64,14 @@ describe('GET /oauth/zalo/callback', () => {
     expect(decryptToken(rows[0]?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a2');
   });
 
+  it('refuses a tampered state without calling Zalo', async () => {
+    const response = await callCallback({ oa_id: 'oa-1', code: 'k1', state: 'bad' });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toBe('Zalo connection failed. Run connect-zalo again.');
+    expect(channelAuth.exchanges).toEqual([]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }

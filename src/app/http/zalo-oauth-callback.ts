@@ -19,11 +19,12 @@ export async function handleZaloOAuthCallback(
   query: OAuthCallbackQuery,
 ): Promise<HttpResponse> {
   const codeVerifier = openConnectState(query['state'] ?? '', dependencies.encryptionKey);
+  if (codeVerifier === null) return respondWithConnectionFailure();
   const exchange = await dependencies.channelAuth.exchangeAuthorization({
     code: query['code'] ?? '',
     codeVerifier,
   });
-  if (!exchange.ok) return respondWithText(400, 'Zalo connection failed. Run connect-zalo again.');
+  if (!exchange.ok) return respondWithConnectionFailure();
   const accountId = query['oa_id'] ?? '';
   await storeConnection(
     dependencies.database,
@@ -31,4 +32,8 @@ export async function handleZaloOAuthCallback(
     dependencies.encryptionKey,
   );
   return respondWithText(200, `Zalo OA ${accountId} connected.`);
+}
+
+function respondWithConnectionFailure(): HttpResponse {
+  return respondWithText(400, 'Zalo connection failed. Run connect-zalo again.');
 }
