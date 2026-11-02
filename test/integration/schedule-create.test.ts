@@ -8,6 +8,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const SAVED_TEXT = 'Đã đặt lịch.';
+const NO_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
 
 type TaskArguments = {
   title: string;
@@ -181,6 +182,18 @@ describe('an admin creates a scheduled task by chat', () => {
     expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
       { pending_choice: null },
     ]);
+  });
+
+  it('changes no task when the admin replies 1 to the summary', async () => {
+    createThenReply({});
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
+    expect(sentTexts().at(-1)).toEqual(['zu-duy', NO_CHOICE_TEXT]);
   });
 
   it('refuses a one-time task in the past', async () => {
