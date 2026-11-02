@@ -72,4 +72,24 @@ describe('the migration runner', () => {
       { lock_timeout: '1s', statement_timeout: '30s' },
     ]);
   });
+
+  it('skips every migration when the database is ahead of this build', async () => {
+    await database.query('CREATE TABLE fixture_rows (id integer)');
+    await database.query(
+      'CREATE TABLE pgmigrations (id serial PRIMARY KEY, name varchar(255) NOT NULL, run_on timestamp NOT NULL)',
+    );
+    await database.query("INSERT INTO pgmigrations (name, run_on) VALUES ('9999_future', now())");
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: new URL('insert-row/', fixtures), log: (line) => lines.push(line) },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(lines).toContain(
+      '[migrate] database is ahead of this build (rollback); skipping migrations',
+    );
+    expect(await database.query('SELECT id FROM fixture_rows')).toEqual([]);
+  });
 });

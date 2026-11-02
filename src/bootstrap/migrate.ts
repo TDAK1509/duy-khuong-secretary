@@ -1,5 +1,9 @@
 import { fileURLToPath } from 'node:url';
-import { migrateDatabase, type RetryPolicy } from '../providers/database/migration-tool.ts';
+import {
+  migrateDatabase,
+  type MigrationOutcome,
+  type RetryPolicy,
+} from '../providers/database/migration-tool.ts';
 
 export type MigrationCommandOptions = {
   directory: URL;
@@ -13,12 +17,12 @@ export async function runMigrationCommand(
 ): Promise<number> {
   const log = options.log ?? console.log;
   try {
-    const applied = await migrateDatabase({
+    const outcome = await migrateDatabase({
       databaseUrl: environment['MIGRATION_DATABASE_URL'] ?? '',
       directory: fileURLToPath(options.directory),
       retry: options.retry,
     });
-    log(describeApplied(applied));
+    log(describeOutcome(outcome));
     return 0;
   } catch (error) {
     log(`[migrate] failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -26,8 +30,11 @@ export async function runMigrationCommand(
   }
 }
 
-function describeApplied(applied: string[]): string {
-  return applied.length === 0
+function describeOutcome(outcome: MigrationOutcome): string {
+  if (outcome.kind === 'database-ahead') {
+    return '[migrate] database is ahead of this build (rollback); skipping migrations';
+  }
+  return outcome.names.length === 0
     ? '[migrate] nothing to apply'
-    : `[migrate] applied: ${applied.join(', ')}`;
+    : `[migrate] applied: ${outcome.names.join(', ')}`;
 }

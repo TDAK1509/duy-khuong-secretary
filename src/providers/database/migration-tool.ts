@@ -1,3 +1,5 @@
+import { readdir } from 'node:fs/promises';
+import path from 'node:path';
 import { setTimeout as sleepFor } from 'node:timers/promises';
 import { jiti, runner, type MigrationBuilder, type RunnerOption } from 'node-pg-migrate';
 import pg from 'pg';
@@ -28,7 +30,9 @@ export type MigrationRun = {
   retry?: Partial<RetryPolicy>;
 };
 
-export async function migrateDatabase(run: MigrationRun): Promise<string[]> {
+export type MigrationOutcome = { kind: 'applied'; names: string[] } | { kind: 'database-ahead' };
+
+export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutcome> {
   const retry = { ...DEFAULT_RETRY_POLICY, ...run.retry };
   const startedAt = performance.now();
   for (;;) {
@@ -56,7 +60,7 @@ function pickRetryDelayMs(): number {
   return RETRY_DELAY_MS * (1 + jitter);
 }
 
-async function migrateOnce(run: MigrationRun): Promise<string[]> {
+async function migrateOnce(run: MigrationRun): Promise<MigrationOutcome> {
   const client = new pg.Client({
     connectionString: run.databaseUrl,
     application_name: APPLICATION_NAME,
@@ -70,7 +74,8 @@ async function migrateOnce(run: MigrationRun): Promise<string[]> {
   }
 }
 
-async function applyMigrations(client: pg.Client, directory: string): Promise<string[]> {
+async function applyMigrations(client: pg.Client, directory: string): Promise<MigrationOutcome> {
+  if (await isDatabaseAhead(client, directory)) return { kind: 'database-ahead' };
   const applied = await runner({
     dbClient: client,
     dir: directory,
@@ -81,7 +86,27 @@ async function applyMigrations(client: pg.Client, directory: string): Promise<st
     migrationLoaderStrategies: [{ extensions: MIGRATION_EXTENSIONS, loader: loadGuardedMigrations }],
     logger: { info: () => {}, warn: () => {}, error: () => {} },
   });
-  return applied.map((migration) => migration.name);
+  return { kind: 'applied', names: applied.map((migration) => migration.name) };
+}
+
+async function isDatabaseAhead(client: pg.Client, directory: string): Promise<boolean> {
+  const known = new Set(await listMigrationNames(directory));
+  const recorded = await listRecordedMigrationNames(client);
+  return recorded.some((name) => !known.has(name));
+}
+
+async function listMigrationNames(directory: string): Promise<string[]> {
+  const files = await readdir(directory);
+  return files
+    .filter((file) => !file.startsWith('.') && MIGRATION_EXTENSIONS.includes(path.extname(file)))
+    .map((file) => path.basename(file, path.extname(file)));
+}
+
+async function listRecordedMigrationNames(client: pg.Client): Promise<string[]> {
+  const table = await client.query("SELECT to_regclass('pgmigrations') IS NOT NULL AS found");
+  if (!table.rows[0]?.found) return [];
+  const recorded = await client.query<{ name: string }>('SELECT name FROM pgmigrations');
+  return recorded.rows.map((row) => row.name);
 }
 
 async function endCleanly(client: pg.Client): Promise<void> {
