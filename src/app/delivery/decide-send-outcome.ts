@@ -3,10 +3,11 @@ import { describeNoConnection, describeOutboundMessageFailed, describeSendGotNoA
 import type { ClaimedMessage } from './claimed-message.ts';
 
 export type Settlement = {
-  status: 'sent' | 'queued' | 'failed' | 'unknown';
+  status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
   availableAt?: Date;
   sentAt?: Date;
   lastError?: string;
+  recheck?: { lastInboundAt: Date | null };
 };
 
 export type SendOutcome = { settlement: Settlement; alert?: string };
@@ -51,10 +52,15 @@ function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: 
       );
     case 'no_answer':
       return { settlement: { status: 'unknown', lastError: result.reason }, alert: describeSendGotNoAnswer(message.id) };
-    case 'rejected':
     case 'window_closed':
-      return { settlement: { status: 'failed', lastError: result.reason } };
+      return message.scheduledTaskId === null ? failSend(result) : { settlement: { status: 'held', lastError: result.reason } };
+    case 'rejected':
+      return failSend(result);
   }
+}
+
+function failSend(result: FailedSend): SendOutcome {
+  return { settlement: { status: 'failed', lastError: result.reason } };
 }
 
 function retryOrGiveUp(

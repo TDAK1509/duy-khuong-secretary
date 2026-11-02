@@ -1,4 +1,5 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
+import { isCurrentAdmin } from '../access/is-current-admin.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { clearPendingChoiceOfSender } from '../identities/clear-pending-choice.ts';
@@ -40,8 +41,8 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const dependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
-  const text = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
+  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  return { text: outcome.text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -57,7 +58,7 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
-  if (!(await isStillSameAdmin(transaction, sender.membershipId))) return;
+  if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
   const card = await loadCard(transaction, context, answer);
   if (card !== null) await clearPendingChoiceOfSender(transaction, context.event);
   const text = card === null ? answer.text : `${answer.text}\n\n${card.text}`;
@@ -72,9 +73,4 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
 async function loadCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<DraftCard | null> {
   if (answer.draft === null) return null;
   return loadDraftCard(transaction, answer.draft, context.sender, context.dependencies.clock.now());
-}
-
-async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {
-  const rows = await transaction.query(`SELECT 1 FROM memberships WHERE id = $1 AND role = 'admin' FOR SHARE`, [membershipId]);
-  return rows.length > 0;
 }

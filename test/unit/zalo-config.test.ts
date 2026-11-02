@@ -26,6 +26,7 @@ describe('loadZaloConfig', () => {
         appSecret: 'sec-1',
         oauthBaseUrl: 'https://oauth.zaloapp.com',
         apiBaseUrl: 'https://openapi.zalo.me',
+        businessApiBaseUrl: 'https://openapi.zalo.me',
         apiTimeoutMs: 15_000,
         mediaHosts: ['zdn.vn', 'zadn.vn'],
         outboundMaxPerMinute: 90,

@@ -1,6 +1,7 @@
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
+import { runTick } from '../../src/app/ticker/run-tick.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import type { Stages } from '../../src/app/processing/stages.ts';
@@ -44,6 +45,8 @@ export type IntakeHarness = {
   receivePhoto(externalUserId: string, caption?: string | null): Promise<void>;
   receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
+  runTick(overrides?: { chat?: FakeChatService | null }): Promise<void>;
+  setReportReadyTemplate(templateId: string | null): void;
   sendQueuedTexts(): Promise<void>;
   sendAllQueuedTexts(): Promise<void>;
   close(): Promise<void>;
@@ -112,8 +115,20 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     });
   }
 
+  let reportReadyTemplateId: string | null = null;
+
   function outboundDependencies() {
-    return { database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 };
+    return {
+      database: pool,
+      clock,
+      alerts,
+      notices: new OffGroupNotices(clock, () => {}),
+      channel,
+      photoStorage,
+      encryptionKey: ENCRYPTION_KEY,
+      maxPerMinute: 90,
+      reportReadyTemplateId,
+    };
   }
 
   return {
@@ -128,6 +143,10 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     workspaceId,
     hungUserId,
     runInbound,
+    runTick: (overrides = {}) => {
+      const chatService = overrides.chat === undefined ? chat : overrides.chat;
+      return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService } });
+    },
     receivePhoto: async (externalUserId, caption = null) => {
       await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
       await runInbound();
@@ -135,6 +154,9 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     receiveText: async (externalUserId, text, overrides) => {
       await insertInboundEvent(database, { externalUserId, text });
       await runInbound(overrides);
+    },
+    setReportReadyTemplate: (templateId) => {
+      reportReadyTemplateId = templateId;
     },
     sendQueuedTexts: async () => {
       await runOutboundStep(outboundDependencies());

@@ -1,0 +1,14 @@
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
+import type { ClaimedTask } from './claim-due-task.ts';
+
+export function turnOffTask(database: Database, task: ClaimedTask): Promise<void> {
+  return runInTransaction(database, (transaction) => turnOffTaskIn(transaction, task));
+}
+
+export async function turnOffTaskIn(transaction: Transaction, task: ClaimedTask): Promise<void> {
+  await transaction.query(
+    `UPDATE scheduled_tasks SET status = 'cancelled', next_run_at = NULL, locked_until = NULL
+     WHERE id = $1 AND status = 'active' AND next_run_at = $2::timestamptz`,
+    [task.id, task.claimedNextRunAt],
+  );
+}

@@ -324,10 +324,10 @@ describe('joining a workspace with an invite code', () => {
   }
 
   async function sendAllQueuedTexts(): Promise<void> {
-    while ((await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 })) === 'processed');
+    while ((await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90, reportReadyTemplateId: null })) === 'processed');
   }
 
   async function sendQueuedTexts(): Promise<void> {
-    await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
+    await runOutboundStep({ database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90, reportReadyTemplateId: null });
   }
 });

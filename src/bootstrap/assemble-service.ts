@@ -24,6 +24,7 @@ import {
 } from './from-env.ts';
 import { loadChatConfig } from './chat-config.ts';
 import { loadPhotoStorageConfig } from './photo-storage-config.ts';
+import { loadReportTemplateConfig } from './report-template-config.ts';
 import { loadReaderConfig } from './reader-config.ts';
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
@@ -52,6 +53,8 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
   const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
+  const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
+  const chat = chatConfig && buildChatService(chatConfig);
   const queueSteps = buildQueueSteps({
     pool,
     clock,
@@ -60,10 +63,19 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     zalo,
     photoStorage: photoStorage && buildPhotoStorage(photoStorage),
     readers: readerConfig && buildReaderSlots(readerConfig),
-    chat: chatConfig && buildChatService(chatConfig),
+    chat,
+    reportReadyTemplateId: reportTemplate && reportTemplate.templateId,
     log,
   });
-  return { config, server, pool, checkDatabaseRole: () => checkDatabaseRole(pool, log), runTick: () => runTick({ renewal }), ...queueSteps };
+  const scheduledRuns = channel && chat && { database: pool, clock, chat, channel };
+  return {
+    config,
+    server,
+    pool,
+    checkDatabaseRole: () => checkDatabaseRole(pool, log),
+    runTick: () => runTick({ renewal, scheduledRuns }),
+    ...queueSteps,
+  };
 }
 
 type HttpParts = {
@@ -92,12 +104,13 @@ type QueueParts = {
   photoStorage: PhotoStorage | null;
   readers: ReaderSlots | null;
   chat: ChatService | null;
+  reportReadyTemplateId: string | null;
   log: (line: string) => void;
 };
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, chat, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
   const inbound = {
     database: pool,
@@ -118,6 +131,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
       photoStorage,
       encryptionKey: zalo.encryptionKey,
       maxPerMinute: zalo.outboundMaxPerMinute,
+      reportReadyTemplateId,
     };
   return {
     runInboundStep: () => runInboundStep(inbound),

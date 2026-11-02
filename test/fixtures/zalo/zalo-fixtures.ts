@@ -25,6 +25,7 @@ export const TEST_CHANNEL_SETTINGS = {
   appId: TEST_APP_ID,
   oaSecret: TEST_OA_SECRET,
   apiBaseUrl: 'http://127.0.0.1:9',
+  businessApiBaseUrl: 'http://127.0.0.1:9',
   timeoutMs: 1000,
   mediaHosts: ['zdn.vn'],
 };

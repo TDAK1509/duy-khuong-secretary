@@ -201,7 +201,7 @@ describe('the outbound worker step', () => {
     clock.advanceBy(3 * 60_000);
     await runStep();
 
-    await recordSendResult({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock) }, claimed!, { ok: true });
+    await recordSendResult({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), reportReadyTemplateId: null }, claimed!, { ok: true });
 
     expect((await readMessage(id)).status).toBe('unknown');
   });
@@ -355,6 +355,6 @@ describe('the outbound worker step', () => {
 
   function runStep(maxPerMinute = 90, storage: PhotoStorage | null = photoStorage): Promise<'processed' | 'idle'> {
     const alerts = new OperatorAlerts(alertSink, clock);
-    return runOutboundStep({ database: pool, clock, alerts, notices, channel, photoStorage: storage, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
+    return runOutboundStep({ database: pool, clock, alerts, notices, channel, photoStorage: storage, encryptionKey: ENCRYPTION_KEY, maxPerMinute, reportReadyTemplateId: null });
   }
 });
