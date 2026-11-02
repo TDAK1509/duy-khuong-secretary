@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ReadAttempt } from '../../../src/app/reading/reading.ts';
 import { areAgreeing } from '../../../src/app/reading/agreement.ts';
 import { makeItem, makeReading, succeed } from './make-reading.ts';
 
@@ -94,5 +95,11 @@ describe('areAgreeing', () => {
     const second = succeed(makeReading([makeItem()], { has_question: false }));
 
     expect(areAgreeing(first, second)).toBe(false);
+  });
+
+  it('never agrees with a failed read', () => {
+    const failed: ReadAttempt = { ok: false, reason: 'timeout' };
+
+    expect(areAgreeing(succeed(makeReading()), failed)).toBe(false);
   });
 });
