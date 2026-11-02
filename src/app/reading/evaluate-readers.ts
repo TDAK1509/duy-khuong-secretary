@@ -4,6 +4,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { ReaderRequest } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { decideReading, type ReaderSlots } from './decide-reading.ts';
+import { formatPhotoReport } from './format-photo-report.ts';
 import { listPhotoFiles } from './list-photo-files.ts';
 import { buildReaderPrompt } from './reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from './reader-schema.ts';
@@ -22,7 +23,9 @@ export async function evaluateReaders(input: EvaluationInput): Promise<void> {
   const results: PhotoResult[] = [];
   for (const filePath of await listPhotoFiles(input.folderPath)) {
     const decision = await decideReading(input.slots, await buildRequest(system, filePath));
-    results.push({ fileName: basename(filePath), decision });
+    const result = { fileName: basename(filePath), decision };
+    formatPhotoReport(result, input.slots).forEach(input.print);
+    results.push(result);
   }
   const expected = await loadExpectedAnswers(input.folderPath);
   summarizeResults(results, expected).forEach(input.print);

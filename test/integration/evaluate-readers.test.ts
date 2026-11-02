@@ -123,4 +123,16 @@ describe('evaluateReaders', () => {
 
     expect(output).toContain('details agreement: 50%');
   });
+
+  it('prints each reading, whether the pair agrees and the outcome per photo', async () => {
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE });
+    const slots = makeAgreeingSlots({ [FIRST_PHOTO_BYTE]: AGREED_FUEL });
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('a.jpg');
+    expect(output).toContain(`cheap-1: ${JSON.stringify(AGREED_FUEL)}`);
+    expect(output).toContain('cheap pair agrees: yes');
+    expect(output).toContain('outcome: cheap_pair');
+  });
 });
