@@ -1,12 +1,15 @@
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
-import type { Database } from '../db/transaction.ts';
+import { describeWebhookStoreFailed } from '../alerts/alert-texts.ts';
+import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { hasConnection } from '../channel-auth/has-connection.ts';
-import { storeInboundEvent } from '../processing/store-inbound-event.ts';
+import type { Database } from '../db/transaction.ts';
+import { storeInboundEvent, type StorableEvent } from '../processing/store-inbound-event.ts';
 import { respondWithJson, type HttpResponse } from './http-response.ts';
 
 export type ZaloWebhookDependencies = {
   channel: MessagingChannel;
   database: Database;
+  alerts: OperatorAlerts;
 };
 
 export type WebhookRequest = {
@@ -18,10 +21,19 @@ export async function handleZaloWebhook(
   dependencies: ZaloWebhookDependencies,
   request: WebhookRequest,
 ): Promise<HttpResponse> {
-  if (!dependencies.channel.verifyWebhook(request.rawBody, request.headers)) return respondWithJson(401, { ok: false });
-  const event = dependencies.channel.parseEvent(request.rawBody);
+  const { channel } = dependencies;
+  if (!channel.verifyWebhook(request.rawBody, request.headers)) return respondWithJson(401, { ok: false });
+  const event = channel.parseEvent(request.rawBody);
   if (event.kind === 'ignored') return respondWithJson(200, { ok: true });
-  const { database } = dependencies;
+  try {
+    return await storeEventOfConnectedAccount(dependencies.database, event);
+  } catch (error) {
+    await dependencies.alerts.raise(describeWebhookStoreFailed(error instanceof Error ? error.name : 'unknown error'));
+    return respondWithJson(500, { ok: false });
+  }
+}
+
+async function storeEventOfConnectedAccount(database: Database, event: StorableEvent): Promise<HttpResponse> {
   if (!(await hasConnection(database, event.from.channel, event.from.accountId))) {
     console.error('[webhook] event for an OA that is not connected:', event.from.accountId);
     return respondWithJson(403, { ok: false });

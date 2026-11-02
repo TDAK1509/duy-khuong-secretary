@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
 import { loadSignedFixture, signBody, TEST_APP_ID, TEST_OA_SECRET, type SignedFixture } from '../fixtures/zalo/zalo-fixtures.ts';
+import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -11,10 +14,12 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 describe('POST /webhooks/zalo', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
+  let alertSink: FakeAlertSink;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
+    alertSink = new FakeAlertSink();
   });
 
   afterEach(async () => {
@@ -84,14 +89,27 @@ describe('POST /webhooks/zalo', () => {
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
+  it('answers 500 and alerts the operator when it cannot store an event', async () => {
+    const refusingPool = createPostgresPool('postgres://nobody:nothing@127.0.0.1:1/none');
+
+    const response = await postWebhook(loadSignedFixture('text-event'), refusingPool);
+
+    await refusingPool.end();
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ ok: false });
+    expect(alertSink.texts).toHaveLength(1);
+    expect(alertSink.texts[0]).toMatch(/^\[alert\] Zalo webhook could not store an event: \w+\.$/);
+  });
+
   async function connectOa(accountId: string): Promise<void> {
     const connection = { channel: 'zalo-oa' as const, accountId, tokens: makeTokenPair(), storedAt: new Date() };
     await storeConnection(pool, connection, 'a'.repeat(64));
   }
 
-  function postWebhook(fixture: SignedFixture) {
+  function postWebhook(fixture: SignedFixture, webhookPool: PostgresPool = pool) {
     const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
-    const server = buildServer(pool, null, { webhook: { channel, database: pool } });
+    const alerts = new OperatorAlerts(alertSink, new FakeClock(new Date('2026-11-02T10:00:00+07:00')));
+    const server = buildServer(pool, null, { webhook: { channel, database: webhookPool, alerts } });
     return server.inject({ method: 'POST', url: '/webhooks/zalo', headers: fixture.headers, body: fixture.body });
   }
 });
