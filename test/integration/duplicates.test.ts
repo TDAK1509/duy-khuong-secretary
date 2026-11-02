@@ -76,6 +76,18 @@ describe('rejecting duplicate papers', () => {
     ]);
   });
 
+  it('rejects the whole message when one of its items is a duplicate', async () => {
+    const toll = (documentNumber: string, amount: number) =>
+      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000)]));
+    await harness.receivePhoto('zu-hung');
+    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
