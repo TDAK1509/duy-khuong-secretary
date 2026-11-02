@@ -32,7 +32,7 @@ export async function insertInboundEvent(database: TemporaryDatabase, event: New
   const [row] = await database.query<{ id: string }>(
     `INSERT INTO inbound_events
        (channel, account_id, external_event_id, external_user_id, kind, payload, status, attempts, available_at, locked_until, received_at)
-     VALUES ('zalo-oa', ${literal(event.accountId ?? 'oa-1')}, 'm${eventCounter}', ${literal(event.externalUserId ?? 'zu-hung')}, 'text',
+     VALUES ('zalo-oa', ${literal(event.accountId ?? 'oa-1')}, ${literal(event.externalEventId ?? `m${eventCounter}`)}, ${literal(event.externalUserId ?? 'zu-hung')}, 'text',
        ${literal(payload)}::jsonb, ${literal(event.status ?? 'queued')}, ${event.attempts ?? 0},
        ${timestamp(event.availableAt ?? new Date(0))}, ${timestamp(event.lockedUntil ?? null)},
        ${timestamp(event.receivedAt ?? new Date(FIRST_RECEIVED_AT.getTime() + eventCounter * 1000))})
