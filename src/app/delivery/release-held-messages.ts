@@ -4,14 +4,6 @@ import { enqueueText } from './enqueue-text.ts';
 
 export type Release = { to: ChannelRecipient; maxTextLength: number; now: Date };
 
-export async function hasHeldMessages(transaction: Transaction, to: ChannelRecipient): Promise<boolean> {
-  const rows = await transaction.query(
-    `SELECT 1 FROM outbound_messages WHERE channel = $1 AND account_id = $2 AND external_user_id = $3 AND status = 'held' LIMIT 1`,
-    [to.channel, to.accountId, to.externalUserId],
-  );
-  return rows.length > 0;
-}
-
 export async function releaseHeldMessages(transaction: Transaction, { to, maxTextLength, now }: Release): Promise<void> {
   const held = await transaction.query<{ id: string }>(
     `SELECT id FROM outbound_messages

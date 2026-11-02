@@ -67,11 +67,11 @@ async function sendToRecipient(dependencies: OutboundDependencies, message: Clai
 }
 
 async function isOutsideWindow({ database, clock }: OutboundDependencies, message: ClaimedMessage): Promise<boolean> {
-  return message.scheduledTaskId !== null && !(await isRecipientInWindow(database, message, clock.now()));
+  return message.scheduledTaskId !== null && !(await isRecipientInWindow(database, message.to, clock.now()));
 }
 
 function holdMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  return applyOutcome(dependencies, message, { settlement: { status: 'held', lastError: 'outside_window' } });
+  return applyOutcome(dependencies, message, { settlement: { status: 'held', lastError: 'outside_window', recheckWindow: true } });
 }
 
 function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage, reason: string): Promise<void> {

@@ -3,6 +3,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
+import { lockRecipientInWindow } from './is-recipient-in-window.ts';
 import { enqueueReportReadyTemplate } from './enqueue-report-ready-template.ts';
 import { storeOfferedChoice } from './store-offered-choice.ts';
 import { decideSendOutcome, type SendOutcome, type Settlement } from './decide-send-outcome.ts';
@@ -40,9 +41,10 @@ async function settleMessage(
   settlement: Settlement,
 ): Promise<boolean> {
   const isSettled = await runInTransaction(database, async (transaction) => {
-    const settled = await updateMessage(transaction, message, settlement);
-    if (settled && settlement.status === 'sent') await storeOfferedChoice(transaction, message.id);
-    if (settled && settlement.status === 'held' && reportReadyTemplateId !== null) {
+    const decided = await confirmSettlement(transaction, message, settlement, clock.now());
+    const settled = await updateMessage(transaction, message, decided);
+    if (settled && decided.status === 'sent') await storeOfferedChoice(transaction, message.id);
+    if (settled && decided.status === 'held' && reportReadyTemplateId !== null) {
       await enqueueReportReadyTemplate(transaction, message, { templateId: reportReadyTemplateId, now: clock.now() });
     }
     return settled;
@@ -51,6 +53,17 @@ async function settleMessage(
     console.error(`[outbound] ignored a result for message ${message.id}: the claim was lost`);
   }
   return isSettled;
+}
+
+async function confirmSettlement(
+  transaction: Transaction,
+  message: ClaimedMessage,
+  settlement: Settlement,
+  now: Date,
+): Promise<Settlement> {
+  if (!settlement.recheckWindow) return settlement;
+  const isInWindow = await lockRecipientInWindow(transaction, message.to, now);
+  return isInWindow ? { status: 'queued', availableAt: now, lastError: 'window_reopened' } : settlement;
 }
 
 async function updateMessage(transaction: Transaction, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {

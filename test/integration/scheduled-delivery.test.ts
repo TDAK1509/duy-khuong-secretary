@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { insertOutboundMessage, type NewOutboundMessage } from './outbound-message-rows.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
@@ -38,6 +39,10 @@ describe('the delivery rule for scheduled results', () => {
     const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
     if (!membership) throw new Error('the admin has no membership');
     return membership.id;
+  }
+
+  function listSessionsWaitingFor(blockerPid: number): Promise<unknown[]> {
+    return database.query(`SELECT DISTINCT pid FROM pg_locks WHERE NOT granted AND ${blockerPid} = ANY(pg_blocking_pids(pid))`);
   }
 
   function readStatuses(): Promise<{ status: string }[]> {
@@ -140,6 +145,48 @@ describe('the delivery rule for scheduled results', () => {
     await harness.sendQueuedTexts();
 
     expect(await readStatuses()).toEqual([{ status: 'held' }, { status: 'failed' }]);
+  });
+
+  it('sends a result instead of holding it when the admin wrote while the hold was deciding', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+    const writer = await database.openSession();
+    await writer.query('BEGIN');
+    await writer.query("SELECT 1 FROM channel_identities WHERE external_user_id = 'zu-duy' FOR UPDATE");
+
+    const { rows: [writerSession] } = await writer.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+    const step = harness.sendQueuedTexts();
+    try {
+      await vi.waitFor(async () => expect(await listSessionsWaitingFor(writerSession?.pid ?? 0)).toHaveLength(1), { timeout: 3000 });
+      await writer.query(`UPDATE channel_identities SET last_inbound_at = '${NOW.toISOString()}' WHERE external_user_id = 'zu-duy'`);
+    } finally {
+      await writer.query('COMMIT');
+    }
+    await step;
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+  });
+
+  it('sends a result when the admin wrote while the chat still answers', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+    let openAnswerGate = (): void => {};
+    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
+    harness.chat.follow(async () => {
+      await answerGate;
+      return replyWithText('Chào anh');
+    });
+
+    const inbound = harness.receiveText('zu-duy', 'chào');
+    try {
+      await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1), { timeout: 5000 });
+      await harness.sendQueuedTexts();
+      expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+    } finally {
+      openAnswerGate();
+      await inbound;
+    }
   });
 
   describe('when the admin writes again', () => {
