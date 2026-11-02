@@ -52,7 +52,7 @@ async function isMemberOf(transaction: Transaction, identity: ChannelIdentity, w
 
 async function admit(transaction: Transaction, request: JoinRequest, invite: Invite): Promise<void> {
   const { identity, zaloName, now } = request;
-  const userId = await linkIdentityToNewUser(transaction, identity);
+  const userId = identity.userId ?? (await linkIdentityToNewUser(transaction, identity));
   await transaction.query(
     'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
     [invite.workspaceId, userId, invite.role, invite.displayName],

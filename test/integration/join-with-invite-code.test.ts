@@ -200,6 +200,22 @@ describe('joining a workspace with an invite code', () => {
     ]);
   });
 
+  it('makes a second workspace the current one', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Phụ');
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await insertInvite(database, { workspaceId: otherWorkspaceId, code: SECOND_CODE, displayName: 'Hùng', role: 'member' });
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+
+    await receiveText('zu-hung', SECOND_CODE);
+
+    const memberships = await database.query('SELECT workspace_id, user_id FROM memberships ORDER BY workspace_id');
+    const identities = await database.query('SELECT user_id, current_workspace_id FROM channel_identities');
+    expect(memberships.map((membership) => membership['workspace_id']).sort()).toEqual([workspaceId, otherWorkspaceId].sort());
+    expect(new Set(memberships.map((membership) => membership['user_id'])).size).toBe(1);
+    expect(identities).toEqual([{ user_id: memberships[0]?.['user_id'], current_workspace_id: otherWorkspaceId }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
