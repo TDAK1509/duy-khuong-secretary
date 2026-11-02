@@ -37,12 +37,11 @@ export class ZaloOaAuth implements ChannelAuth {
   }
 
   async exchangeAuthorization(input: { code: string; codeVerifier: string }): Promise<AuthResult> {
-    const response = await this.postForm({
+    return this.requestTokens({
       code: input.code,
       code_verifier: input.codeVerifier,
       grant_type: 'authorization_code',
     });
-    return this.readTokens(await response.json());
   }
 
   private readTokens(answer: unknown): AuthResult {
@@ -62,8 +61,16 @@ export class ZaloOaAuth implements ChannelAuth {
   }
 
   async refresh(refreshToken: string): Promise<AuthResult> {
-    const response = await this.postForm({ refresh_token: refreshToken, grant_type: 'refresh_token' });
-    return this.readTokens(await response.json());
+    return this.requestTokens({ refresh_token: refreshToken, grant_type: 'refresh_token' });
+  }
+
+  private async requestTokens(fields: Record<string, string>): Promise<AuthResult> {
+    try {
+      const response = await this.postForm(fields);
+      return this.readTokens(await response.json());
+    } catch {
+      return { ok: false, reason: 'unavailable' };
+    }
   }
 
   private postForm(fields: Record<string, string>): Promise<Response> {

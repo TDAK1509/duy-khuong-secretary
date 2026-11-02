@@ -67,14 +67,26 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     expect(result).toEqual({ ok: false, reason: 'rejected' });
   });
 
-  async function startAuth(answer: StubAnswer): Promise<{ auth: ZaloOaAuth; server: StubHttpServer }> {
+  it('turns a refused connection into unavailable', async () => {
+    const { auth, server } = await startAuth(VALID_TOKEN_ANSWER);
+    await server.close();
+
+    const result = await auth.refresh('r1');
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  });
+
+  async function startAuth(
+    answer: StubAnswer,
+    timeoutMs = 5000,
+  ): Promise<{ auth: ZaloOaAuth; server: StubHttpServer }> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
     const auth = new ZaloOaAuth({
       appId: 'app-1',
       appSecret: 'sec-1',
       oauthBaseUrl: server.baseUrl,
-      timeoutMs: 5000,
+      timeoutMs,
       clock: new FakeClock(new Date('2026-11-02T10:00:00+07:00')),
     });
     return { auth, server };
