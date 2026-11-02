@@ -59,4 +59,8 @@ describe('loadReaderConfig', () => {
 
     expect(result).toMatchObject({ ok: true, config: { reasoningEffort: undefined } });
   });
+
+  it('refuses a provider other than openai-compatible and names the value', () => {
+    expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: 'other' })).toThrow(/READER_PROVIDER/);
+  });
 });
