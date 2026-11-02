@@ -71,6 +71,15 @@ describe('joining a workspace with an invite code', () => {
     expect(invites).toEqual([{ used_at: NOW, used_by: membership?.user_id }]);
   });
 
+  it("sets the person's current workspace", async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', CODE);
+
+    const identities = await database.query('SELECT current_workspace_id FROM channel_identities');
+    expect(identities).toEqual([{ current_workspace_id: workspaceId }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

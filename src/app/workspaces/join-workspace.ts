@@ -1,5 +1,6 @@
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { linkIdentityToNewUser } from '../identities/link-identity-to-new-user.ts';
+import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
 
@@ -19,6 +20,7 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
     [invite.workspace_id, userId, invite.role, invite.display_name],
   );
+  await setCurrentWorkspace(transaction, identity, invite.workspace_id);
   await transaction.query('UPDATE workspace_invites SET used_at = $2, used_by = $3 WHERE id = $1', [
     invite.id,
     now,
