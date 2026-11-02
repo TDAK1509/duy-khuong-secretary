@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import type { InboundEvent, MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { ChannelRecipient, InboundEvent, MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 
 const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
@@ -25,6 +25,8 @@ const eventSchema = z.object({
 
 type ZaloEvent = z.infer<typeof eventSchema>;
 
+const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
+
 export type ZaloOaChannelSettings = { appId: string; oaSecret: string };
 
 export class ZaloOaChannel implements MessagingChannel {
@@ -44,16 +46,21 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   parseEvent(rawBody: string): InboundEvent {
-    const event = eventSchema.parse(JSON.parse(rawBody));
+    const event = readEvent(rawBody);
+    if (event === null) return IGNORED_EVENT;
     const base = {
       eventId: event.message.msg_id,
       from: { channel: this.channel, accountId: event.recipient.id, externalUserId: event.sender.id },
       sentAt: new Date(event.timestamp),
     };
-    if (event.event_name === 'user_send_image') {
-      return { kind: 'images', ...base, imageUrls: collectImageUrls(event), caption: event.message.text || null };
+    switch (event.event_name) {
+      case 'user_send_text':
+        return event.message.text === undefined ? IGNORED_EVENT : { kind: 'text', ...base, text: event.message.text };
+      case 'user_send_image':
+        return toImagesEvent(base, event);
+      default:
+        return IGNORED_EVENT;
     }
-    return { kind: 'text', ...base, text: event.message.text ?? '' };
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
@@ -66,6 +73,23 @@ function isSameText(first: string, second: string): boolean {
   const firstBytes = Buffer.from(first);
   const secondBytes = Buffer.from(second);
   return firstBytes.length === secondBytes.length && timingSafeEqual(firstBytes, secondBytes);
+}
+
+function readEvent(rawBody: string): ZaloEvent | null {
+  try {
+    const parsed = eventSchema.safeParse(JSON.parse(rawBody));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+type EventBase = { eventId: string; from: ChannelRecipient; sentAt: Date };
+
+function toImagesEvent(base: EventBase, event: ZaloEvent): InboundEvent {
+  const imageUrls = collectImageUrls(event);
+  if (imageUrls.length === 0) return IGNORED_EVENT;
+  return { kind: 'images', ...base, imageUrls, caption: event.message.text || null };
 }
 
 function collectImageUrls(event: ZaloEvent): string[] {

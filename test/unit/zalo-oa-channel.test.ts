@@ -65,4 +65,10 @@ describe('ZaloOaChannel.parseEvent', () => {
       caption: null,
     });
   });
+
+  it('ignores a follow event', () => {
+    const { body } = loadSignedFixture('follow-event');
+
+    expect(channel.parseEvent(body)).toEqual({ kind: 'ignored' });
+  });
 });
