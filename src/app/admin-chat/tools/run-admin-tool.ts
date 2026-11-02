@@ -42,7 +42,7 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
     case 'remove_member':
       return runRemoveMember(database, scope, parsedArguments);
     case 'maintenance_status':
-      return runMaintenanceStatus(database, scope, parsedArguments);
+      return runMaintenanceStatus(dependencies, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }

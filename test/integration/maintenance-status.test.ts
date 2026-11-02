@@ -122,4 +122,20 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items.map((row) => row.maintenance_item)).toEqual(['dầu máy']);
   });
+
+  it('counts the days since sending in Vietnam dates', async () => {
+    clock = new FakeClock(new Date('2026-10-31T08:00:00+07:00'));
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      createdAt: new Date('2026-10-01T23:30:00+07:00'),
+    });
+
+    const result = await runStatus();
+
+    expect(result.items.map((row) => [row.sent_on, row.days_since_sent])).toEqual([['2026-10-01', 30]]);
+  });
 });
