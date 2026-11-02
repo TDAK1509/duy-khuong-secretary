@@ -9,7 +9,11 @@ const LOCK_NOT_AVAILABLE = '55P03';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
 const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
-const INDEX_BUILD = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."]+)/gi;
+const IDENTIFIER = String.raw`(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)`;
+const INDEX_BUILD = new RegExp(
+  String.raw`CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+(?:IF\s+NOT\s+EXISTS\s+)?(${IDENTIFIER}(?:\.${IDENTIFIER})?)`,
+  'gi',
+);
 const BUILD_STATEMENT_TIMEOUT = "SET statement_timeout = '10min'";
 const RESET_STATEMENT_TIMEOUT = 'RESET statement_timeout';
 const TRANSACTION_TIMEOUTS = [

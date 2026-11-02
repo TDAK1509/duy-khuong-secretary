@@ -42,6 +42,22 @@ describe('the migration runner building indexes', () => {
       .toEqual([{ indisvalid: true }]);
   });
 
+  it('rebuilds an invalid index whose quoted name has a space and a hyphen', async () => {
+    await leaveInvalidIndex(database, '"t idx-1"');
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: new URL('./migration-fixtures/concurrent-index-quoted/', import.meta.url),
+        log: () => {},
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = '"t idx-1"'::regclass`))
+      .toEqual([{ indisvalid: true }]);
+  });
+
   it('never drops a valid index', async () => {
     await database.query('CREATE INDEX t_idx ON t (x)');
     const before = await database.query(`SELECT 't_idx'::regclass::oid AS oid`);
@@ -70,9 +86,11 @@ describe('the migration runner building indexes', () => {
   });
 });
 
-async function leaveInvalidIndex(database: TemporaryDatabase): Promise<void> {
+async function leaveInvalidIndex(database: TemporaryDatabase, indexName = 't_idx'): Promise<void> {
   await database.query('INSERT INTO t VALUES (1), (1)');
-  await expect(database.query('CREATE UNIQUE INDEX CONCURRENTLY t_idx ON t (x)')).rejects.toThrow();
-  expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = 't_idx'::regclass`))
+  await expect(
+    database.query(`CREATE UNIQUE INDEX CONCURRENTLY ${indexName} ON t (x)`),
+  ).rejects.toThrow();
+  expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = '${indexName}'::regclass`))
     .toEqual([{ indisvalid: false }]);
 }
