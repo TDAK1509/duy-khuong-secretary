@@ -185,4 +185,18 @@ describe('an admin drafts a scheduled task by chat', () => {
       { title: 'Báo cáo mới', status: 'draft' },
     ]);
   });
+
+  it('names the replaced draft on the first line of the card', async () => {
+    await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, title: 'Báo cáo cũ' });
+    proposeThenReply({ title: 'Báo cáo mới' });
+
+    await harness.receiveText('zu-duy', 'Đặt lịch báo cáo mới');
+    await harness.sendQueuedTexts();
+
+    const card = sentTexts()[0]?.[1]?.split('\n\n')[1];
+    expect(card?.split('\n').slice(0, 2)).toEqual([
+      'Lịch nháp trước "Báo cáo cũ" đã được thay bằng lịch này.',
+      'Lịch mới: Báo cáo mới',
+    ]);
+  });
 });

@@ -23,8 +23,8 @@ export async function runProposeScheduledTask(
 ): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const schedule = { repeat: 'daily' as const, timeOfDay: args.time_of_day ?? '' };
-  const taskId = await storeDraft(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, title: args.title, instruction: args.instruction, schedule });
-  drafts.record({ taskId });
+  const stored = await storeDraft(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, title: args.title, instruction: args.instruction, schedule });
+  drafts.record(stored);
   const firstRun = computeNextRun(schedule, clock.now());
   return JSON.stringify({ ok: true, draft: true, schedule: formatSchedule(schedule), first_run: formatVietnamDateTime(firstRun) });
 }

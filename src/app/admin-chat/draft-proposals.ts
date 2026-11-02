@@ -1,4 +1,4 @@
-export type DraftProposal = { taskId: string };
+export type DraftProposal = { taskId: string; replacedTitle: string | null };
 
 export class DraftProposals {
   private latestProposal: DraftProposal | null = null;

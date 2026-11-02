@@ -69,7 +69,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
 
 async function loadCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<DraftCard | null> {
   if (answer.draft === null) return null;
-  return loadDraftCard(transaction, answer.draft.taskId, context.sender, context.dependencies.clock.now());
+  return loadDraftCard(transaction, answer.draft, context.sender, context.dependencies.clock.now());
 }
 
 async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {

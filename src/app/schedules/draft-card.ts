@@ -13,23 +13,24 @@ type DraftRow = ScheduleRow & { title: string; instruction: string };
 
 export async function loadDraftCard(
   transaction: Transaction,
-  taskId: string,
+  proposal: { taskId: string; replacedTitle: string | null },
   owner: DraftOwner,
   now: Date,
 ): Promise<DraftCard | null> {
   const [draft] = await transaction.query<DraftRow>(
     `SELECT title, instruction, ${SCHEDULE_COLUMNS} FROM scheduled_tasks
      WHERE id = $1 AND created_by = $2 AND workspace_id = $3 AND status = 'draft'`,
-    [taskId, owner.userId, owner.workspaceId],
+    [proposal.taskId, owner.userId, owner.workspaceId],
   );
   if (!draft) return null;
-  const choice: PendingChoice = { kind: 'draft_confirm', taskId, workspaceId: owner.workspaceId };
-  return { text: formatDraftCard(draft, now), choice };
+  const choice: PendingChoice = { kind: 'draft_confirm', taskId: proposal.taskId, workspaceId: owner.workspaceId };
+  return { text: formatDraftCard(draft, proposal.replacedTitle, now), choice };
 }
 
-function formatDraftCard(draft: DraftRow, now: Date): string {
+function formatDraftCard(draft: DraftRow, replacedTitle: string | null, now: Date): string {
   const schedule = readSchedule(draft);
   return [
+    ...(replacedTitle === null ? [] : [`Lịch nháp trước "${replacedTitle}" đã được thay bằng lịch này.`]),
     `Lịch mới: ${draft.title}`,
     `Chạy: ${formatSchedule(schedule)}`,
     `Lần chạy đầu: ${formatVietnamDateTime(computeNextRun(schedule, now))}`,
