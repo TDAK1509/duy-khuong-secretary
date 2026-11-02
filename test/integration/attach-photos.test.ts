@@ -178,4 +178,10 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toContain('attach_photos');
   });
+
+  it('puts the photo line in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(harness.chat.requests[0]?.system).toContain('gọi attach_photos với id các mục liên quan');
+  });
 });
