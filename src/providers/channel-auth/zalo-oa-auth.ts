@@ -10,6 +10,8 @@ const tokenAnswerSchema = z.object({
   expires_in: z.coerce.number(),
 });
 
+const errorAnswerSchema = z.object({ error: z.coerce.number() });
+
 export type ZaloOaAuthSettings = {
   appId: string;
   appSecret: string;
@@ -44,7 +46,9 @@ export class ZaloOaAuth implements ChannelAuth {
   }
 
   private readTokens(answer: unknown): AuthResult {
-    const { access_token, refresh_token, expires_in } = tokenAnswerSchema.parse(answer);
+    const tokens = tokenAnswerSchema.safeParse(answer);
+    if (!tokens.success) return { ok: false, reason: carriesZaloError(answer) ? 'rejected' : 'no_answer' };
+    const { access_token, refresh_token, expires_in } = tokens.data;
     const now = this.settings.clock.now().getTime();
     return {
       ok: true,
@@ -70,4 +74,9 @@ export class ZaloOaAuth implements ChannelAuth {
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     });
   }
+}
+
+function carriesZaloError(answer: unknown): boolean {
+  const parsed = errorAnswerSchema.safeParse(answer);
+  return parsed.success && parsed.data.error !== 0;
 }

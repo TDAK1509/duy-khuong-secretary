@@ -59,6 +59,14 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     });
   });
 
+  it('turns a Zalo error answer into rejected', async () => {
+    const { auth } = await startAuth(replyWithJson({ error: -14014, message: 'Invalid refresh token' }));
+
+    const result = await auth.refresh('r1');
+
+    expect(result).toEqual({ ok: false, reason: 'rejected' });
+  });
+
   async function startAuth(answer: StubAnswer): Promise<{ auth: ZaloOaAuth; server: StubHttpServer }> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
