@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Reading } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { holdReaderUntilArrivals } from './reader-barrier.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -84,6 +86,17 @@ describe('rejecting duplicate papers', () => {
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
 
     await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
+  it('saves a new paper once when two drivers send it at the same moment', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    holdReaderUntilArrivals(harness.readers.cheap[0], 2);
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    await insertInboundEvent(database, { externalUserId: 'zu-lan', kind: 'images', imageUrls: [PHOTO_URL] });
+
+    await Promise.all([harness.runInbound(), harness.runInbound()]);
 
     expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
