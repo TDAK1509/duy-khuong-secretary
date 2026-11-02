@@ -287,5 +287,15 @@ describe('the data tools of an admin', () => {
 
       expect(result.members.map((row) => [row.member, row.total_count])).toEqual([['Duy', 0], ['Hùng', 2], ['Lan', 0]]);
     });
+
+    it('includes a former member who has records in the range', async () => {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+      await database.query(`DELETE FROM memberships WHERE display_name = 'Hùng'`);
+
+      const result = await runCount();
+
+      expect(result.members.find((row) => row.member === 'Hùng')?.total_count).toBe(2);
+    });
   });
 });
