@@ -294,6 +294,27 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: null }]);
   });
 
+  it('saves only the details both readers returned', async () => {
+    const [first, second] = harness.readers.cheap;
+    first.answerWith(
+      makeReading([
+        makeItem({
+          details: [
+            { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
+            { label: 'Số lít', value: '50' },
+          ],
+        }),
+      ]),
+    );
+    second.answerWith(makeReading([makeItem({ details: [{ label: 'tên trạm', value: 'PETROLIMEX LONG BIEN' }] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT details FROM records')).toEqual([
+      { details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }] },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
