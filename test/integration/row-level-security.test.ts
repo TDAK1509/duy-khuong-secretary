@@ -144,6 +144,14 @@ describe('row-level security for the runtime role', () => {
     expect(rows).toEqual([{ rolsuper: false, rolbypassrls: false }]);
   });
 
+  it('refuses the runtime role a schema change', async () => {
+    const session = await database.openRuntimeSession();
+
+    const create = session.query('CREATE TABLE sneaky (id integer)');
+
+    await expect(create).rejects.toThrow(/permission denied/);
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
