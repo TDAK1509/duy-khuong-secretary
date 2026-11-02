@@ -47,4 +47,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(true);
   });
+
+  it('disagrees when the plates differ', () => {
+    const first = succeed(makeReading([makeItem({ vehicle_plate: '29C12345' })]));
+    const second = succeed(makeReading([makeItem({ vehicle_plate: '29C12346' })]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
