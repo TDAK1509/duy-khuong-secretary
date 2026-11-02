@@ -169,4 +169,12 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(await database.query('SELECT count(*)::int AS count FROM messages')).toEqual([{ count: 1 }]);
   });
+
+  it('does not claim a task while its lock holds', async () => {
+    await insertDueTask({ lockedUntil: new Date(NOW.getTime() + MINUTE_MS) });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
