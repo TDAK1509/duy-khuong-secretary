@@ -58,6 +58,17 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('stores the sent list as the pending choice in its order', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+
+    await receiveText('zu-duy', 'đổi nhóm');
+    await sendQueuedTexts();
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([
+      { pending_choice: { kind: 'workspace_pick', workspace_ids: [workspaceId, otherWorkspaceId] } },
+    ]);
+  });
+
   async function insertDuyInBothWorkspaces(currentWorkspaceId: string): Promise<void> {
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertMembership(database, { workspaceId: otherWorkspaceId, userId, displayName: 'Duy', role: 'admin' });

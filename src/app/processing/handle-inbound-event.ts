@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
+import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
@@ -68,28 +69,29 @@ async function answerSender(
   if (reply === null) return;
   await enqueueText(transaction, {
     to: describeSender(message.event),
-    text: reply,
+    text: reply.text,
     maxTextLength: channel.maxTextLength,
     availableAt: now,
+    ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
 }
 
 type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date };
 
-async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<string | null> {
+async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
   if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
-  return formatJoinResult(joined);
+  return { text: formatJoinResult(joined) };
 }
 
 async function replyToOtherMessage(
   transaction: Transaction,
   identity: ChannelIdentity,
   text: string | null,
-): Promise<string | null> {
-  if (identity.userId === null) return WELCOME_TEXT;
+): Promise<Reply | null> {
+  if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
-  if (workspaceId === null) return NO_LONGER_IN_A_WORKSPACE_TEXT;
+  if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
   return replyToMember(transaction, { userId: identity.userId, workspaceId, text });
 }
