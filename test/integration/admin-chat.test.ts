@@ -248,5 +248,16 @@ describe('an admin asks the bot', () => {
 
       expect(sentTexts()[1]).toEqual(['zu-duy', 'Hôm nay tổng 1.250.000đ.']);
     });
+
+    it('lists the committed records in the system note', async () => {
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+
+      const turns = harness.chat.requests[0]?.turns ?? [];
+      const lastTurn = turns[turns.length - 1];
+      expect(lastTurn).toMatchObject({
+        role: 'user',
+        text: 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?\n\nHệ thống đã lưu:\n- Đổ xăng dầu, số 0001234 · 1.250.000đ · 30/10/2026',
+      });
+    });
   });
 });

@@ -1,5 +1,6 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { buildUserTurn } from './build-user-turn.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { CHAT_FAILURE_TEXT } from './chat-texts.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
@@ -15,7 +16,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   if (profile === null) return;
   const result = await requireChat(context).respond({
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
-    turns: [...(await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id)), { role: 'user', text: message.text, image: message.photo }],
+    turns: [...(await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id)), await buildUserTurn(database, message)],
     tools: [],
   });
   const answer = result.ok && result.reply.kind === 'text' ? result.reply.text : CHAT_FAILURE_TEXT;
