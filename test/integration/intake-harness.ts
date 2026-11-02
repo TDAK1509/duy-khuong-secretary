@@ -8,6 +8,7 @@ import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
+import { FakeChatService } from '../fakes/fake-chat-service.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
@@ -21,7 +22,11 @@ export const NOW = new Date('2026-11-02T10:00:00+07:00');
 export const ENCRYPTION_KEY = 'a'.repeat(64);
 export const PHOTO_URL = 'https://z.test/1.jpg';
 
-export type InboundOverrides = { photoStorage?: FakePhotoStorage | null; readers?: ReaderSlots | null };
+export type InboundOverrides = {
+  photoStorage?: FakePhotoStorage | null;
+  readers?: ReaderSlots | null;
+  chat?: FakeChatService | null;
+};
 
 export type IntakeHarness = {
   database: TemporaryDatabase;
@@ -31,12 +36,14 @@ export type IntakeHarness = {
   photoStorage: FakePhotoStorage;
   alerts: OperatorAlerts;
   readers: FakeReaderSlots;
+  chat: FakeChatService;
   workspaceId: string;
   hungUserId: string;
   receivePhoto(externalUserId: string, caption?: string | null): Promise<void>;
   receiveText(externalUserId: string, text: string): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
   sendQueuedTexts(): Promise<void>;
+  sendAllQueuedTexts(): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -60,6 +67,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
   const photoStorage = new FakePhotoStorage();
   const alerts = new OperatorAlerts(new FakeAlertSink(), clock);
   const readers = createFakeReaderSlots();
+  const chat = new FakeChatService();
   const tokens = makeTokenPair({ accessToken: 'a1' });
   await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW }, ENCRYPTION_KEY);
   const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
@@ -68,6 +76,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
   function runInbound(overrides: InboundOverrides = {}): Promise<unknown> {
     const storage = overrides.photoStorage === undefined ? photoStorage : overrides.photoStorage;
     const slots = overrides.readers === undefined ? readers : overrides.readers;
+    const chatService = overrides.chat === undefined ? chat : overrides.chat;
     return runInboundStep({
       database: pool,
       clock,
@@ -80,8 +89,13 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
         encryptionKey: ENCRYPTION_KEY,
         photoStorage: storage,
         readers: slots,
+        chat: chatService,
       }),
     });
+  }
+
+  function outboundDependencies() {
+    return { database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 };
   }
 
   return {
@@ -92,6 +106,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     photoStorage,
     alerts,
     readers,
+    chat,
     workspaceId,
     hungUserId,
     runInbound,
@@ -104,7 +119,10 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
       await runInbound();
     },
     sendQueuedTexts: async () => {
-      await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
+      await runOutboundStep(outboundDependencies());
+    },
+    sendAllQueuedTexts: async () => {
+      while ((await runOutboundStep(outboundDependencies())) === 'processed');
     },
     close: async () => {
       await pool.end();

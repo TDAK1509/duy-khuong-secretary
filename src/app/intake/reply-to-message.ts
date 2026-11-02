@@ -1,4 +1,5 @@
 import type { Photo } from '../../services/storage/photo-storage.ts';
+import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import { decideReading } from '../reading/decide-reading.ts';
 import { buildReaderPrompt } from '../reading/reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
@@ -17,6 +18,11 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
     schemaName: READER_SCHEMA_NAME,
     schema: READER_SCHEMA,
   });
-  await runReplyStage(context, message.id, planReply(decision));
+  const plan = planReply(decision);
+  if (context.sender.role === 'admin' && plan.situation === 'no_work_data') {
+    await answerWithChat(context, message);
+  } else {
+    await runReplyStage(context, message.id, plan);
+  }
   return { kind: 'replied' };
 }

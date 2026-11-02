@@ -13,19 +13,28 @@ export type ReplyPlan = {
   replyKind: 'saved' | 'answer';
   status: 'accepted' | 'unresolved';
   saved: SavedRecords | null;
+  situation: 'saved' | 'no_work_data' | 'refused';
+  asksQuestion: boolean;
 };
 
 export function planReply(decision: ReadingDecision): ReplyPlan {
   if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply();
   const reading = saveAgreedReading(...decision.agreed);
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
-  return planRecordsReply(buildNewRecords(reading.items), decision.outcome);
+  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
-function planRecordsReply(records: NewRecord[], readBy: ReadBy): ReplyPlan {
+function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: boolean): ReplyPlan {
   if (records.some(isMaintenanceWithoutName)) return planUnresolvedReply();
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
-  return { replyText: formatSavedReply(records), replyKind: 'saved', status: 'accepted', saved: { readBy, records } };
+  return {
+    replyText: formatSavedReply(records),
+    replyKind: 'saved',
+    status: 'accepted',
+    saved: { readBy, records },
+    situation: 'saved',
+    asksQuestion,
+  };
 }
 
 function isMaintenanceWithoutName(record: NewRecord): boolean {
@@ -37,13 +46,24 @@ function isMaintenanceWithoutPlate(record: NewRecord): boolean {
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {
-  return { replyText: MAINTENANCE_WITHOUT_PLATE_TEXT, replyKind: 'answer', status: 'unresolved', saved: null };
+  return planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT);
 }
 
 function planUnresolvedReply(): ReplyPlan {
-  return { replyText: UNRESOLVED_TEXT, replyKind: 'answer', status: 'unresolved', saved: null };
+  return planRefusal(UNRESOLVED_TEXT);
+}
+
+function planRefusal(replyText: string): ReplyPlan {
+  return { replyText, replyKind: 'answer', status: 'unresolved', saved: null, situation: 'refused', asksQuestion: false };
 }
 
 function planUploadOnlyReply(): ReplyPlan {
-  return { replyText: UPLOAD_ONLY_TEXT, replyKind: 'answer', status: 'accepted', saved: null };
+  return {
+    replyText: UPLOAD_ONLY_TEXT,
+    replyKind: 'answer',
+    status: 'accepted',
+    saved: null,
+    situation: 'no_work_data',
+    asksQuestion: false,
+  };
 }

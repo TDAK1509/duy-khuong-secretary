@@ -9,6 +9,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { createFakeReaderSlots } from '../fakes/fake-reader-slots.ts';
+import { FakeChatService } from '../fakes/fake-chat-service.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -247,7 +248,7 @@ describe('switching between workspaces', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, readers: createFakeReaderSlots() }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, readers: createFakeReaderSlots(), chat: new FakeChatService() }),
     });
   }
 

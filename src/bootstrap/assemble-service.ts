@@ -96,7 +96,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
     alerts,
     notices: new OffGroupNotices(clock, log),
     handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers },
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers, chat: null },
     ),
   };
   const outbound = channel &&

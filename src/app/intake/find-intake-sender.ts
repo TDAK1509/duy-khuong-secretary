@@ -1,11 +1,11 @@
-import { runInTransaction, type Database } from '../db/transaction.ts';
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import { findPersonWorkspace } from '../workspaces/find-person-workspace.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { isSwitchCommand } from '../workspaces/switch-workspace.ts';
 
-export type IntakeSender = { userId: string; workspaceId: string };
+export type IntakeSender = { userId: string; workspaceId: string; membershipId: string; role: 'admin' | 'member' };
 
 type IdentityRow = { user_id: string | null; current_workspace_id: string | null };
 
@@ -24,8 +24,17 @@ export async function findIntakeSender(
     if (!identity?.user_id) return null;
     const person = { userId: identity.user_id, currentWorkspaceId: identity.current_workspace_id };
     const workspaceId = await findPersonWorkspace(transaction, person);
-    return workspaceId === null ? null : { userId: identity.user_id, workspaceId };
+    return workspaceId === null ? null : findMembership(transaction, identity.user_id, workspaceId);
   });
+}
+
+async function findMembership(transaction: Transaction, userId: string, workspaceId: string): Promise<IntakeSender> {
+  const [membership] = await transaction.query<{ id: string; role: 'admin' | 'member' }>(
+    'SELECT id, role FROM memberships WHERE user_id = $1 AND workspace_id = $2',
+    [userId, workspaceId],
+  );
+  if (!membership) throw new Error('the sender has no membership in the workspace');
+  return { userId, workspaceId, membershipId: membership.id, role: membership.role };
 }
 
 function isIntakeText(text: string): boolean {
