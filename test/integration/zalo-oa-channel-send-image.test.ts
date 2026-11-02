@@ -34,6 +34,15 @@ describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('sends nothing after a rejected upload', async () => {
+    const server = await startStubServer({ upload: replyWithJson({ error: -210, message: 'File too large' }), send: replyWithJson({ error: 0 }) });
+
+    const result = await sendFromChannel(server.baseUrl, makeJpeg(2 * 1024 * 1024), 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'rejected' });
+    expect(server.requests.map((request) => request.path)).toEqual([UPLOAD_PATH]);
+  });
+
   async function startStubServer(answers: { upload: StubAnswer; send: StubAnswer }): Promise<StubHttpServer> {
     const server = await startStubHttpServer((request: StubRequest) => (request.path === UPLOAD_PATH ? answers.upload : answers.send));
     servers.push(server);
