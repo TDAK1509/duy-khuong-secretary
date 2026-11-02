@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -206,6 +207,17 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
 
     expect(harness.chat.requests).toEqual([]);
+  });
+
+  it('keeps an admin message waiting while chat is not configured', async () => {
+    await insertInboundEvent(database, { externalUserId: 'zu-duy', text: 'Chào bạn' });
+
+    await harness.runInbound({ chat: null });
+
+    expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([
+      { status: 'queued', attempts: 0 },
+    ]);
+    expect(harness.readers.cheap[0].requests).toEqual([]);
   });
 
   describe('with data and a question', () => {

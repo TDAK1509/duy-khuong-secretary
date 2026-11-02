@@ -20,7 +20,8 @@ export async function receiveIntake(
   event: ClaimedEvent,
   sender: IntakeSender,
 ): Promise<Finished | NotConfigured> {
-  const { photoStorage, readers } = dependencies;
+  const { photoStorage, readers, chat } = dependencies;
+  if (sender.role === 'admin' && chat === null) return { kind: 'not_configured', group: 'chat' };
   if (event.kind === 'images' && photoStorage === null) return { kind: 'not_configured', group: 'photos' };
   if (readers === null) return { kind: 'not_configured', group: 'readers' };
   const context = { dependencies, readers, stages, event, sender };
