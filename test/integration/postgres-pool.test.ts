@@ -22,4 +22,14 @@ describe('createPostgresPool', () => {
     expect(Date.now() - startedAt).toBeLessThan(2000);
     expect(pool.totalCount).toBe(0);
   });
+
+  it('makes Postgres cancel a statement that runs too long', async () => {
+    const pool = createPostgresPool(testDatabaseUrl, {
+      queryTimeoutMs: 10_000,
+      statementTimeoutMs: 200,
+    });
+    pools.push(pool);
+
+    await expect(pool.query('SELECT pg_sleep(3)')).rejects.toMatchObject({ code: '57014' });
+  });
 });
