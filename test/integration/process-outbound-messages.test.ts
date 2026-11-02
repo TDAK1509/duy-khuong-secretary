@@ -9,6 +9,9 @@ import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
+import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
+import type { PhotoStorage } from '../../src/services/storage/photo-storage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertOutboundMessage, type OutboundRow } from './outbound-message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -22,6 +25,9 @@ describe('the outbound worker step', () => {
   let clock: FakeClock;
   let alertSink: FakeAlertSink;
   let channel: FakeMessagingChannel;
+  let photoStorage: FakePhotoStorage;
+  let logLines: string[];
+  let notices: OffGroupNotices;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
@@ -29,6 +35,9 @@ describe('the outbound worker step', () => {
     clock = new FakeClock(NOW);
     alertSink = new FakeAlertSink();
     channel = new FakeMessagingChannel();
+    photoStorage = new FakePhotoStorage();
+    logLines = [];
+    notices = new OffGroupNotices(clock, (line) => logLines.push(line));
   });
 
   afterEach(async () => {
@@ -210,6 +219,61 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('keeps an image queued without using an attempt while the photo storage is not configured', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { photoKey: 'w/photo.jpg' });
+
+    await runStep(90, null);
+
+    expect(await readMessage(id)).toMatchObject({
+      status: 'queued',
+      attempts: 0,
+      available_at: new Date(NOW.getTime() + 60_000),
+      last_error: null,
+    });
+    expect(channel.sends).toEqual([]);
+  });
+
+  it('logs once per hour that the photo storage is off', async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { photoKey: 'w/photo.jpg' });
+
+    await runStep(90, null);
+    clock.advanceBy(61_000);
+    await runStep(90, null);
+    clock.advanceBy(60 * 60_000);
+    await runStep(90, null);
+
+    expect(logLines).toEqual(['[config] photos is off; events wait.', '[config] photos is off; events wait.']);
+  });
+
+  it('fails an image whose photo is missing from the storage', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { photoKey: 'w/gone.jpg' });
+
+    await runStep();
+
+    expect(channel.sends).toEqual([]);
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'photo_missing' });
+  });
+
+  it('fails an image for an admin removed while the photo is being read', async () => {
+    await connectOa('oa-1', 'a1');
+    const membershipId = await insertMembership();
+    const id = await insertOutboundMessage(database, { photoKey: 'w/photo.jpg', adminMembershipId: membershipId });
+    await photoStorage.put('w/photo.jpg', { bytes: new Uint8Array([0xff, 0xd8, 0xff]), contentType: 'image/jpeg' });
+    const readPhoto = photoStorage.get.bind(photoStorage);
+    photoStorage.get = async (key) => {
+      await database.query(`DELETE FROM memberships WHERE id = '${membershipId}'`);
+      return readPhoto(key);
+    };
+
+    await runStep();
+
+    expect(channel.sends).toEqual([]);
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'membership_changed' });
+  });
+
   it('fails admin-only content once the admin membership is gone', async () => {
     await connectOa('oa-1', 'a1');
     const membershipId = await insertMembership();
@@ -289,8 +353,8 @@ describe('the outbound worker step', () => {
     return row;
   }
 
-  function runStep(maxPerMinute = 90): Promise<'processed' | 'idle'> {
+  function runStep(maxPerMinute = 90, storage: PhotoStorage | null = photoStorage): Promise<'processed' | 'idle'> {
     const alerts = new OperatorAlerts(alertSink, clock);
-    return runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
+    return runOutboundStep({ database: pool, clock, alerts, notices, channel, photoStorage: storage, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
   }
 });

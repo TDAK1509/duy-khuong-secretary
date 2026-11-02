@@ -1,5 +1,6 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 import {
+  ATTACH_PHOTOS_SPEC,
   COUNT_RECORDS_SPEC,
   CREATE_INVITE_SPEC,
   LIST_MEMBERS_SPEC,
@@ -15,4 +16,5 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   CREATE_INVITE_SPEC,
   REMOVE_MEMBER_SPEC,
   MAINTENANCE_STATUS_SPEC,
+  ATTACH_PHOTOS_SPEC,
 ];

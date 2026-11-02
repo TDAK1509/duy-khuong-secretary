@@ -18,20 +18,23 @@ export type NewRecordRow = {
   createdAt?: Date;
   savedAt?: Date;
   hasPhoto?: boolean;
+  imageKey?: string;
+  messageId?: string;
+  itemIndex?: number;
 };
 
 const DEFAULT_CREATED_AT = new Date('2026-10-31T10:00:00+07:00');
 
 export async function insertRecordRow(database: TemporaryDatabase, row: NewRecordRow): Promise<string> {
   const createdAt = row.createdAt ?? DEFAULT_CREATED_AT;
-  const messageId = await insertChatMessage(database, {
+  const messageId = row.messageId ?? (await insertChatMessage(database, {
     workspaceId: row.workspaceId,
     userId: row.userId,
     author: 'user',
     text: 'tin nhắn',
-    imageKey: row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null,
+    imageKey: row.imageKey ?? (row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null),
     createdAt,
-  });
+  }));
   const category = row.category ?? 'fuel';
   const maintenanceItem = category === 'maintenance' ? (row.maintenanceItem ?? 'lốp') : null;
   const vehiclePlate = category === 'maintenance' ? (row.vehiclePlate ?? '29C12345') : (row.vehiclePlate ?? null);
@@ -39,7 +42,7 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
     `INSERT INTO records
        (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item, vehicle_plate,
         document_number, occurred_on, amount_vnd, identifiers, summary, details, read_by, created_at)
-     VALUES (${literal(row.workspaceId)}, ${literal(row.userId)}, ${literal(messageId)}, 0, ${literal(row.senderName)},
+     VALUES (${literal(row.workspaceId)}, ${literal(row.userId)}, ${literal(messageId)}, ${row.itemIndex ?? 0}, ${literal(row.senderName)},
        ${literal(category)}, ${nullable(maintenanceItem)}, ${nullable(vehiclePlate)}, ${nullable(row.documentNumber ?? null)},
        ${nullable(row.occurredOn ?? null)}, ${row.amountVnd ?? 'NULL'},
        ARRAY[${(row.identifiers ?? []).map(literal).join(',')}]::text[], ${literal(row.summary ?? 'Mục')},

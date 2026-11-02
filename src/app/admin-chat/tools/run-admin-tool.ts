@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ToolCall } from '../../../services/chat/chat-service.ts';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
+import { runAttachPhotos } from './attach-photos-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
@@ -43,6 +44,8 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
       return runRemoveMember(database, scope, parsedArguments);
     case 'maintenance_status':
       return runMaintenanceStatus(dependencies, scope, parsedArguments);
+    case 'attach_photos':
+      return runAttachPhotos(dependencies, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }

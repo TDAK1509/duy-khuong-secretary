@@ -15,6 +15,7 @@ export type NewOutboundMessage = {
   externalUserId?: string;
   accountId?: string;
   body?: string;
+  photoKey?: string;
   status?: string;
   attempts?: number;
   availableAt?: Date;
@@ -26,9 +27,9 @@ export type NewOutboundMessage = {
 export async function insertOutboundMessage(database: TemporaryDatabase, message: NewOutboundMessage): Promise<string> {
   const [row] = await database.query<{ id: string }>(
     `INSERT INTO outbound_messages
-       (channel, account_id, external_user_id, kind, body, admin_membership_id, status, attempts, available_at, locked_until, sent_at)
-     VALUES ('zalo-oa', ${literal(message.accountId ?? 'oa-1')}, ${literal(message.externalUserId ?? 'zu-hung')}, 'text',
-       ${literal(message.body ?? 'chào')}, ${message.adminMembershipId ? literal(message.adminMembershipId) : 'NULL'},
+       (channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, status, attempts, available_at, locked_until, sent_at)
+     VALUES ('zalo-oa', ${literal(message.accountId ?? 'oa-1')}, ${literal(message.externalUserId ?? 'zu-hung')},
+       ${message.photoKey ? "'image', NULL" : `'text', ${literal(message.body ?? 'chào')}`}, ${message.photoKey ? literal(message.photoKey) : 'NULL'}, ${message.adminMembershipId ? literal(message.adminMembershipId) : 'NULL'},
        ${literal(message.status ?? 'queued')}, ${message.attempts ?? 0}, ${timestamp(message.availableAt ?? new Date(0))},
        ${timestamp(message.lockedUntil ?? null)}, ${timestamp(message.sentAt ?? null)})
      RETURNING id`,
