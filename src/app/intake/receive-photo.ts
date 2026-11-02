@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
-import { detectImageType } from './detect-image-type.ts';
+import { detectImageType, type DetectedImage } from './detect-image-type.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import type { IntakePart } from './intake-parts.ts';
@@ -17,22 +17,31 @@ const MAX_PHOTO_BYTES = 5_000_000;
 export type PhotoPart = IntakePart & { imageUrl: string };
 
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
-  const { channel, database } = context.dependencies;
-  const existing = await findUserMessage(database, context.event, part.index);
+  const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
   if (existing?.hasReply) return { kind: 'already_replied' };
-  const download = await channel.downloadAttachment(part.imageUrl, MAX_PHOTO_BYTES);
-  if (!download.ok) return refuse(download.reason === 'too_large' ? PHOTO_TOO_LARGE_TEXT : PHOTO_NOT_DOWNLOADED_TEXT);
+  const downloaded = await downloadImage(context, part.imageUrl);
+  if (!downloaded.ok) return { kind: 'refused', replyText: downloaded.replyText };
+  const messageId = await storeMessageAndPhoto(context, part, downloaded.image);
+  return { kind: 'stored', messageId, replyText: PHOTO_RECEIVED_TEXT };
+}
+
+type Downloaded = { ok: true; image: DetectedImage } | { ok: false; replyText: string };
+
+async function downloadImage(context: IntakeContext, url: string): Promise<Downloaded> {
+  const download = await context.dependencies.channel.downloadAttachment(url, MAX_PHOTO_BYTES);
+  if (!download.ok) {
+    return { ok: false, replyText: download.reason === 'too_large' ? PHOTO_TOO_LARGE_TEXT : PHOTO_NOT_DOWNLOADED_TEXT };
+  }
   const image = detectImageType(download.bytes);
-  if (image === null) return refuse(PHOTO_NOT_JPEG_OR_PNG_TEXT);
+  return image === null ? { ok: false, replyText: PHOTO_NOT_JPEG_OR_PNG_TEXT } : { ok: true, image };
+}
+
+async function storeMessageAndPhoto(context: IntakeContext, part: PhotoPart, image: DetectedImage): Promise<string> {
   const id = randomUUID();
   const imageKey = `${context.sender.workspaceId}/${id}.${image.extension}`;
   const stored = await runStoreStage(context, { id, text: part.text, imageKey, partIndex: part.index });
   await requirePhotoStorage(context).put(stored.imageKey ?? imageKey, image.photo);
-  return { kind: 'stored', messageId: stored.id, replyText: PHOTO_RECEIVED_TEXT };
-}
-
-function refuse(replyText: string): IntakeOutcome {
-  return { kind: 'refused', replyText };
+  return stored.id;
 }
 
 function requirePhotoStorage(context: IntakeContext): PhotoStorage {

@@ -13,8 +13,6 @@ import { UPLOAD_ONLY_TEXT } from './intake-texts.ts';
 import { receivePhoto } from './receive-photo.ts';
 import { runStoreStage, storeBotReply } from './store-user-message.ts';
 
-export type { IntakeDependencies };
-
 export async function receiveIntake(
   dependencies: IntakeDependencies,
   stages: Stages,
@@ -26,8 +24,11 @@ export async function receiveIntake(
   const parts = readIntakeParts(event);
   const outcomes: IntakeOutcome[] = [];
   for (const part of parts) outcomes.push(await receivePart(context, part));
-  const answeredText = event.kind === 'text' ? (parts[0]?.text ?? null) : null;
-  return stages.finishEvent((transaction) => finishIntake(transaction, context, answeredText, outcomes));
+  return stages.finishEvent((transaction) => finishIntake(transaction, context, readAnsweredText(event, parts), outcomes));
+}
+
+function readAnsweredText(event: ClaimedEvent, parts: IntakePart[]): string | null {
+  return event.kind === 'text' ? (parts[0]?.text ?? null) : null;
 }
 
 function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
