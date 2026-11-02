@@ -25,6 +25,7 @@ export async function storeConnection(
        access_expires_at = EXCLUDED.access_expires_at,
        refresh_expires_at = EXCLUDED.refresh_expires_at,
        status = 'active',
+       renewal_started_at = NULL,
        refreshed_at = EXCLUDED.refreshed_at`,
     [
       connection.channel,

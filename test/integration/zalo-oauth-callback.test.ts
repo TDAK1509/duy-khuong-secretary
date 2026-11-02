@@ -137,6 +137,17 @@ describe('GET /oauth/zalo/callback', () => {
     expect(challenge).toBe(link.searchParams.get('code_challenge'));
   });
 
+  it('clears an unfinished renewal marker when the OA connects again', async () => {
+    await callCallback({ oa_id: 'oa-1', code: 'k1', state: makeState(NOW) });
+    await database.query(`UPDATE channel_connections SET renewal_started_at = now()`);
+
+    await callCallback({ oa_id: 'oa-1', code: 'k2', state: makeState(NOW) });
+
+    expect(await database.query('SELECT renewal_started_at FROM channel_connections')).toEqual([
+      { renewal_started_at: null },
+    ]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }
