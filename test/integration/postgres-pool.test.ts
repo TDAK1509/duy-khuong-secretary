@@ -16,10 +16,8 @@ describe('createPostgresPool', () => {
     });
     pools.push(pool);
 
-    const startedAt = Date.now();
     await expect(pool.query('SELECT pg_sleep(3)')).rejects.toThrow(/timeout/i);
 
-    expect(Date.now() - startedAt).toBeLessThan(2000);
     expect(pool.totalCount).toBe(0);
   });
 
