@@ -218,7 +218,7 @@ export const ATTACH_PHOTOS_SPEC: ToolSpec = {
 
 export const CREATE_SCHEDULED_TASK_SPEC: ToolSpec = {
   "name": "create_scheduled_task",
-  "description": "Đặt lịch để Trợ lý tự làm một việc vào giờ đã hẹn và gửi kết quả cho quản lý. Giờ là giờ Việt Nam. Lịch mới là bản nháp cho tới khi quản lý trả lời 1 để lưu.",
+  "description": "Đặt lịch để Trợ lý tự làm một việc vào giờ đã hẹn và gửi kết quả cho quản lý. Giờ là giờ Việt Nam. Lịch được lưu và bắt đầu chạy ngay.",
   "parameters": {
     "type": "object",
     "properties": {
