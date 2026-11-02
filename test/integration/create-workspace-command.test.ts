@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runCreateWorkspaceCommand } from '../../src/bootstrap/create-workspace.ts';
+import {
+  runCreateWorkspaceCommand,
+  type CreateWorkspaceOptions,
+} from '../../src/bootstrap/create-workspace.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
@@ -42,7 +45,24 @@ describe('the create-workspace command', () => {
     ]);
   });
 
-  async function runCommand(args: string[]): Promise<number> {
-    return runCreateWorkspaceCommand(args, { DATABASE_URL: database.url }, { log: () => {} });
+  it('makes the invite expire 7 days after creation', async () => {
+    const lines: string[] = [];
+
+    await runCommand(['Xe tải Duy Khương', 'Duy'], {
+      log: (line) => lines.push(line),
+      now: () => new Date('2026-11-02T10:00:00+07:00'),
+    });
+
+    expect(await database.query('SELECT expires_at FROM workspace_invites')).toEqual([
+      { expires_at: new Date('2026-11-09T10:00:00+07:00') },
+    ]);
+    expect(lines[1]).toContain('(valid until 10:00 09/11/2026)');
+  });
+
+  async function runCommand(
+    args: string[],
+    options: CreateWorkspaceOptions = { log: () => {} },
+  ): Promise<number> {
+    return runCreateWorkspaceCommand(args, { DATABASE_URL: database.url }, options);
   }
 });
