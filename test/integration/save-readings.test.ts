@@ -112,6 +112,26 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('replies to two saved items with one line for each', async () => {
+    const toll = (documentNumber: string, amount: number) =>
+      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        [
+          'Đã lưu 2 mục:',
+          '- Phí cầu đường, số 0012345 · 35.000đ · 30/10/2026',
+          '- Phí cầu đường, số 0012346 · 40.000đ · 30/10/2026',
+        ].join('\n'),
+      ],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
