@@ -4,7 +4,8 @@ import { claimInboundEvent } from '../../src/app/processing/claim-inbound-event.
 import type { ClaimedEvent } from '../../src/app/processing/claimed-event.ts';
 import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
 import type { Transaction } from '../../src/app/db/transaction.ts';
-import { ClaimLostError, createStages, type Finished, type Stages } from '../../src/app/processing/stages.ts';
+import { ClaimLostError } from '../../src/app/processing/claimed-transaction.ts';
+import { createStages, type Finished, type Stages } from '../../src/app/processing/stages.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
@@ -275,6 +276,19 @@ describe('the inbound worker step', () => {
     await runStep(finishWithoutWriting);
 
     expect((await readEvent(id)).status).toBe('done');
+  });
+
+  it('leaves the event to the new owner when a worker that lost its claim fails', async () => {
+    const id = await insertInboundEvent(database, {});
+    const loseClaimThenThrow: InboundHandler = async (event) => {
+      clock.advanceBy(6 * 60_000);
+      await createStages(pool, await claim(), clock).finishEvent(async () => {});
+      throw new BoomError(`worker of ${event.id} failed late`);
+    };
+
+    await runStep(loseClaimThenThrow);
+
+    expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2, last_error: null });
   });
 
   it('puts an event back without using an attempt when its feature is off', async () => {

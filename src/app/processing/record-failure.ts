@@ -1,6 +1,7 @@
 import { describeInboundEventFailed } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
-import { runInTransaction, type Database } from '../db/transaction.ts';
+import type { Database } from '../db/transaction.ts';
+import { runInClaimedTransaction } from './claimed-transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
 const MAX_ATTEMPTS = 5;
@@ -25,8 +26,8 @@ export async function recordFailure(
 
 async function requeueWithWait(database: Database, event: ClaimedEvent, now: Date, errorName: string): Promise<void> {
   const availableAt = new Date(now.getTime() + FIRST_RETRY_WAIT_MS * 2 ** (event.attempts - 1));
-  await runInTransaction(database, (transaction) =>
-    transaction.query(`UPDATE inbound_events SET status = 'queued', available_at = $2, last_error = $3 WHERE id = $1`, [
+  await runInClaimedTransaction(database, event, (transaction) =>
+    transaction.query(`UPDATE inbound_events SET status = 'queued', available_at = $2, last_error = $3, locked_until = NULL WHERE id = $1`, [
       event.id,
       availableAt,
       errorName,
@@ -35,7 +36,7 @@ async function requeueWithWait(database: Database, event: ClaimedEvent, now: Dat
 }
 
 async function markFailed(database: Database, event: ClaimedEvent, errorName: string): Promise<void> {
-  await runInTransaction(database, (transaction) =>
-    transaction.query(`UPDATE inbound_events SET status = 'failed', last_error = $2 WHERE id = $1`, [event.id, errorName]),
+  await runInClaimedTransaction(database, event, (transaction) =>
+    transaction.query(`UPDATE inbound_events SET status = 'failed', last_error = $2, locked_until = NULL WHERE id = $1`, [event.id, errorName]),
   );
 }

@@ -1,6 +1,7 @@
 import type { Clock } from '../../services/clock/clock.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import type { Database } from '../db/transaction.ts';
+import { ClaimLostError } from './claimed-transaction.ts';
 import { claimInboundEvent } from './claim-inbound-event.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import { postponeEvent } from './postpone-event.ts';
@@ -17,14 +18,24 @@ export type InboundDependencies = {
 };
 
 export async function runInboundStep(dependencies: InboundDependencies): Promise<'processed' | 'idle'> {
-  const { database, clock, handler } = dependencies;
+  const { database, clock } = dependencies;
   const event = await claimInboundEvent(database, clock.now());
   if (!event) return 'idle';
+  try {
+    await handleClaimedEvent(dependencies, event);
+  } catch (error) {
+    if (!(error instanceof ClaimLostError)) throw error;
+    console.error('[inbound] claim lost; the new owner finishes the event:', event.id);
+  }
+  return 'processed';
+}
+
+async function handleClaimedEvent(dependencies: InboundDependencies, event: ClaimedEvent): Promise<void> {
+  const { database, clock, handler } = dependencies;
   try {
     const result = await handler(event, createStages(database, event, clock));
     if (result.kind === 'not_configured') await postponeEvent(database, event, clock.now());
   } catch (error) {
     await recordFailure(dependencies, event, clock.now(), error);
   }
-  return 'processed';
 }
