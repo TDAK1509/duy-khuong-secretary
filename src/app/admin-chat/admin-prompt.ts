@@ -36,5 +36,6 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Nếu kết quả có "next_cursor" khác null và cần thêm dữ liệu, gọi lại công cụ với cursor đó. Nếu không đọc hết, nói rõ kết quả chưa đầy đủ.
 - Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."`;
 
-const ADMIN_SECTION =
-  'Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.';
+const ADMIN_SECTION = `Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.
+Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: mã mời, tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý, rồi dặn quản lý chuyển cho người được mời.
+Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member. Nếu có hai người trùng tên, hỏi lại trước khi xóa.`;

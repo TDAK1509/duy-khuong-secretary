@@ -111,6 +111,18 @@ describe('an admin asks the bot', () => {
     expect(toolNames).toEqual(expect.arrayContaining(['create_invite', 'remove_member']));
   });
 
+  it('puts the invite instructions in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Mời tài xế Hùng');
+
+    expect(harness.chat.requests[0]?.system).toContain('Để mời người mới vào nhóm, dùng create_invite.');
+  });
+
+  it('puts the removal instructions in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Xóa Hùng khỏi nhóm');
+
+    expect(harness.chat.requests[0]?.system).toContain('Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member.');
+  });
+
   it('keeps the person identifier out of the model input', async () => {
     await harness.receiveText('zu-duy', 'Chào bạn');
 
