@@ -1,3 +1,5 @@
+import { setTimeout } from 'node:timers/promises';
+import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { decryptToken } from '../../src/app/channel-auth/token-cipher.ts';
@@ -58,9 +60,20 @@ describe('key renewal on the ticker', () => {
 
   it('renews once when two ticks start at the same moment', async () => {
     await storeConnectionExpiringIn(30);
-    channelAuth.refreshDelayMs = 200;
+    let endCall: () => void = () => {};
+    const callMayEnd = new Promise<void>((resolve) => (endCall = resolve));
+    channelAuth.duringRefresh = async () => {
+      if (channelAuth.refreshes.length > 1) endCall();
+      await callMayEnd;
+    };
+    const rowLock = await lockConnectionRow();
 
-    await Promise.all([runOneTick(), runOneTick()]);
+    const ticks = [runOneTick(), runOneTick()];
+    await waitUntilTwoClaimsQueue();
+    await rowLock.query('COMMIT');
+    await Promise.race(ticks);
+    endCall();
+    await Promise.all(ticks);
 
     expect(channelAuth.refreshes).toHaveLength(1);
   });
@@ -201,6 +214,26 @@ describe('key renewal on the ticker', () => {
     expect(alertSink.texts).toEqual([]);
     logged.mockRestore();
   });
+
+  async function lockConnectionRow(): Promise<pg.Client> {
+    const session = await database.openSession();
+    await session.query('BEGIN');
+    await session.query('SELECT id FROM channel_connections FOR UPDATE');
+    return session;
+  }
+
+  async function waitUntilTwoClaimsQueue(): Promise<void> {
+    while ((await countWaitingLocks()) < 2) await setTimeout(10);
+  }
+
+  async function countWaitingLocks(): Promise<number> {
+    const [row] = await database.query<{ waiting: string }>(
+      `SELECT count(*) AS waiting
+         FROM pg_locks JOIN pg_stat_activity USING (pid)
+        WHERE NOT granted AND datname = current_database()`,
+    );
+    return Number(row?.waiting);
+  }
 
   async function reconnectWithNewKeys(): Promise<void> {
     await storeConnection(
