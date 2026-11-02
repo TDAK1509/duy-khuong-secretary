@@ -25,6 +25,12 @@ describe('print-mutation-shard-files', () => {
     expect(printShard(fixture, 3, 4)).toBe('');
   });
 
+  it('refuses a shard outside the shard count', () => {
+    const fixture = createFixtureWithGatedFiles(['a']);
+
+    expect(() => printShard(fixture, 5, 4)).toThrow();
+  });
+
   function createFixtureWithGatedFiles(accessNames: string[]): ProjectFixture {
     const fixture = createProjectFixture([
       ...accessNames.map((name) => `src/app/access/${name}.ts`),
