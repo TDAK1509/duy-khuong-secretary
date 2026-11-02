@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { ChannelRecipient, InboundEvent, MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 
+const ZALO_CHANNEL = 'zalo-oa';
 const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
@@ -35,7 +36,7 @@ const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
 export type ZaloOaChannelSettings = { appId: string; oaSecret: string };
 
 export class ZaloOaChannel implements MessagingChannel {
-  readonly channel = 'zalo-oa';
+  readonly channel = ZALO_CHANNEL;
   readonly maxTextLength = ZALO_MAX_TEXT_LENGTH;
   private readonly settings: ZaloOaChannelSettings;
 
@@ -53,20 +54,7 @@ export class ZaloOaChannel implements MessagingChannel {
 
   parseEvent(rawBody: string): InboundEvent {
     const event = readJson(rawBody, eventSchema);
-    if (event === null) return IGNORED_EVENT;
-    const base = {
-      eventId: event.message.msg_id,
-      from: { channel: this.channel, accountId: event.recipient.id, externalUserId: event.sender.id },
-      sentAt: new Date(event.timestamp),
-    };
-    switch (event.event_name) {
-      case 'user_send_text':
-        return event.message.text === undefined ? IGNORED_EVENT : { kind: 'text', ...base, text: event.message.text };
-      case 'user_send_image':
-        return toImagesEvent(base, event);
-      default:
-        return IGNORED_EVENT;
-    }
+    return event === null ? IGNORED_EVENT : toInboundEvent(event);
   }
 
   private computeMac(rawBody: string, timestamp: string): string {
@@ -91,6 +79,27 @@ function readJson<Shape>(rawBody: string, schema: z.ZodType<Shape>): Shape | nul
 }
 
 type EventBase = { eventId: string; from: ChannelRecipient; sentAt: Date };
+
+function toInboundEvent(event: ZaloEvent): InboundEvent {
+  const base: EventBase = {
+    eventId: event.message.msg_id,
+    from: { channel: ZALO_CHANNEL, accountId: event.recipient.id, externalUserId: event.sender.id },
+    sentAt: new Date(event.timestamp),
+  };
+  switch (event.event_name) {
+    case 'user_send_text':
+      return toTextEvent(base, event);
+    case 'user_send_image':
+      return toImagesEvent(base, event);
+    default:
+      return IGNORED_EVENT;
+  }
+}
+
+function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {
+  if (event.message.text === undefined) return IGNORED_EVENT;
+  return { kind: 'text', ...base, text: event.message.text };
+}
 
 function toImagesEvent(base: EventBase, event: ZaloEvent): InboundEvent {
   const imageUrls = collectImageUrls(event);
