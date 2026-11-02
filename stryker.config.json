@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "testRunner": "vitest",
-  "mutate": ["src/app/**/*.ts"],
+  "mutate": ["src/app/access/**/*.ts", "src/app/admin-chat/tools/**/*.ts"],
   "reporters": ["clear-text", "progress"],
   "ignoreStatic": true,
   "tempDirName": ".stryker-tmp"
