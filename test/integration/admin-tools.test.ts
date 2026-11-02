@@ -109,6 +109,19 @@ describe('the data tools of an admin', () => {
     expect(result.items).toHaveLength(1);
   });
 
+  it('finds text stored with repeated spaces', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: [{ label: 'Tên trạm', value: 'Long   Biên' }],
+    });
+
+    const result = await runSearch({ text: 'long bien' });
+
+    expect(result.items).toHaveLength(1);
+  });
+
   it('matches the letter đ typed as d', async () => {
     await insertRecordRow(database, {
       workspaceId,

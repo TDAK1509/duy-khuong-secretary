@@ -107,7 +107,8 @@ function buildAccentFreeCondition(where: WhereClause, text: string): string {
   const accentFree = toAccentFreeForm(text);
   if (accentFree === null) return 'false';
   const bound = where.bind(accentFree);
-  const contains = (column: string) => `strpos(lower(unaccent(${column})), ${bound}) > 0`;
+  const contains = (column: string) =>
+    `strpos(trim(regexp_replace(lower(unaccent(${column})), '\\s+', ' ', 'g')), ${bound}) > 0`;
   return `(${contains('record.summary')} OR EXISTS (
     SELECT 1 FROM jsonb_array_elements(record.details) detail
     WHERE ${contains(`detail ->> 'label'`)} OR ${contains(`detail ->> 'value'`)}))`;
