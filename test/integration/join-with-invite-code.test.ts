@@ -226,6 +226,20 @@ describe('joining a workspace with an invite code', () => {
     expect(await database.query('SELECT 1 FROM memberships')).toHaveLength(1);
   });
 
+  it('tells the loser of a same-moment join that the code is invalid', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', text: CODE });
+    await insertInboundEvent(database, { externalUserId: 'zu-lan', text: CODE });
+
+    await Promise.all([runInbound(), runInbound()]);
+    await sendQueuedTexts();
+    await sendQueuedTexts();
+
+    const refusals = channel.texts.filter((sent) => sent.text === INVALID_CODE_TEXT);
+    expect(channel.texts).toHaveLength(2);
+    expect(refusals).toHaveLength(1);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInbound();
