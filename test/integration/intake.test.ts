@@ -240,6 +240,25 @@ describe('storing what a member sends', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
+  it('keeps the uploaded photo when the event is processed again after its link expired', async () => {
+    const eventId = await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    const messageId = '11111111-1111-4111-8111-111111111111';
+    const imageKey = `${workspaceId}/${messageId}.jpg`;
+    await database.query(
+      `INSERT INTO messages (id, workspace_id, user_id, author, image_key, inbound_event_id, event_part)
+       VALUES ('${messageId}', '${workspaceId}', '${hungUserId}', 'user', '${imageKey}', '${eventId}', 0)`,
+    );
+    await photoStorage.put(imageKey, { bytes: makeJpeg(1000), contentType: 'image/jpeg' });
+    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
+
+    await runInbound();
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Đã nhận ảnh.']);
+    expect(channel.downloadedUrls).toEqual([]);
+    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();

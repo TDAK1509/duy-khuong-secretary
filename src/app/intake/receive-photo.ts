@@ -10,7 +10,7 @@ import {
   PHOTO_RECEIVED_TEXT,
   PHOTO_TOO_LARGE_TEXT,
 } from './intake-texts.ts';
-import { findUserMessage, runStoreStage } from './store-user-message.ts';
+import { findUserMessage, runStoreStage, type StoredUserMessage } from './store-user-message.ts';
 
 const MAX_PHOTO_BYTES = 5_000_000;
 
@@ -19,10 +19,20 @@ export type PhotoPart = IntakePart & { imageUrl: string };
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
   if (existing?.hasReply) return { kind: 'already_replied' };
+  if (existing && (await hasKeptPhoto(context, existing))) return keptPhotoOutcome(existing);
   const downloaded = await downloadImage(context, part.imageUrl);
   if (!downloaded.ok) return { kind: 'refused', replyText: downloaded.replyText };
   const messageId = await storeMessageAndPhoto(context, part, downloaded.image);
   return { kind: 'stored', messageId, replyText: PHOTO_RECEIVED_TEXT };
+}
+
+async function hasKeptPhoto(context: IntakeContext, message: StoredUserMessage): Promise<boolean> {
+  if (message.imageKey === null) return false;
+  return (await requirePhotoStorage(context).get(message.imageKey)) !== null;
+}
+
+function keptPhotoOutcome(message: StoredUserMessage): IntakeOutcome {
+  return { kind: 'stored', messageId: message.id, replyText: PHOTO_RECEIVED_TEXT };
 }
 
 type Downloaded = { ok: true; image: DetectedImage } | { ok: false; replyText: string };
