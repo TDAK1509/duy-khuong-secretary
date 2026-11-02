@@ -166,6 +166,17 @@ describe('joining a workspace with an invite code', () => {
     expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Hùng' }]);
   });
 
+  it('refuses a code that expired a minute ago', async () => {
+    const expiresAt = new Date(NOW.getTime() - 60_000);
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member', expiresAt });
+
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([INVALID_CODE_TEXT]);
+    expect(await database.query('SELECT 1 FROM memberships')).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

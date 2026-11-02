@@ -25,9 +25,9 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
     `SELECT invite.id, invite.workspace_id, workspace.name AS workspace_name, invite.display_name, invite.role
      FROM workspace_invites invite
      JOIN workspaces workspace ON workspace.id = invite.workspace_id
-     WHERE invite.code_hash = $1 AND invite.used_at IS NULL
+     WHERE invite.code_hash = $1 AND invite.used_at IS NULL AND invite.expires_at > $2
      FOR UPDATE OF invite`,
-    [hashInviteCode(code)],
+    [hashInviteCode(code), now],
   );
   if (!invite) return { kind: 'invalid_code' };
   const userId = await linkIdentityToNewUser(transaction, identity);
