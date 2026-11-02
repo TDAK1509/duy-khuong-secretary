@@ -106,4 +106,14 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('runs no task while chat is not configured and keeps its next run', async () => {
+    const dueAt = new Date(NOW.getTime() - MINUTE_MS);
+    await insertDueTask({ nextRunAt: dueAt });
+
+    await harness.runTick({ chat: null });
+
+    expect(harness.chat.requests).toEqual([]);
+    expect(await database.query('SELECT next_run_at FROM scheduled_tasks')).toEqual([{ next_run_at: dueAt }]);
+  });
 });
