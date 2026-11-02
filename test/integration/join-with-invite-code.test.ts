@@ -216,9 +216,23 @@ describe('joining a workspace with an invite code', () => {
     expect(identities).toEqual([{ user_id: memberships[0]?.['user_id'], current_workspace_id: otherWorkspaceId }]);
   });
 
+  it('makes one membership when two people send one code at the same moment', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', text: CODE });
+    await insertInboundEvent(database, { externalUserId: 'zu-lan', text: CODE });
+
+    await Promise.all([runInbound(), runInbound()]);
+
+    expect(await database.query('SELECT 1 FROM memberships')).toHaveLength(1);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
-    await runInboundStep({
+    await runInbound();
+  }
+
+  async function runInbound(): Promise<unknown> {
+    return runInboundStep({
       database: pool,
       clock,
       alerts,
