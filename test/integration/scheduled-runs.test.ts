@@ -52,4 +52,18 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(sentTexts()).toEqual([['zu-duy', 'Hôm nay Hùng gửi 3 mục.']]);
   });
+
+  it("stores the result in the creator's chat with the task on its outbound row", async () => {
+    const taskId = await insertDueTask();
+    harness.chat.replyWith('Hôm nay Hùng gửi 3 mục.');
+
+    await harness.runTick();
+
+    expect(await database.query(`SELECT author, text, reply_to, reply_kind FROM messages WHERE workspace_id = '${workspaceId}'`)).toEqual([
+      { author: 'bot', text: 'Hôm nay Hùng gửi 3 mục.', reply_to: null, reply_kind: null },
+    ]);
+    expect(await database.query('SELECT body, scheduled_task_id FROM outbound_messages')).toEqual([
+      { body: 'Hôm nay Hùng gửi 3 mục.', scheduled_task_id: taskId },
+    ]);
+  });
 });
