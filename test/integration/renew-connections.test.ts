@@ -73,6 +73,18 @@ describe('key renewal on the ticker', () => {
     ]);
   });
 
+  it('keeps the stored keys when a renewal is rejected', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshResult = { ok: false, reason: 'rejected' };
+
+    await runOneTick();
+
+    const [row] = await database.query<{ access_token_encrypted: string }>(
+      'SELECT access_token_encrypted FROM channel_connections',
+    );
+    expect(decryptToken(row?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a1');
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
