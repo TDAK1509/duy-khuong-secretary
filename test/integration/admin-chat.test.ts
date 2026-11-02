@@ -39,4 +39,17 @@ describe('an admin asks the bot', () => {
 
     expect(sentTexts()).toEqual([['zu-duy', 'Chào anh']]);
   });
+
+  it('stores the answer as a bot reply to the question', async () => {
+    harness.chat.replyWith('Chào anh');
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(
+      await database.query(`
+        SELECT reply.text, reply.reply_kind, reply.reply_to = original.id AS replies_to_question
+        FROM messages reply JOIN messages original ON original.author = 'user'
+        WHERE reply.author = 'bot'`),
+    ).toEqual([{ text: 'Chào anh', reply_kind: 'answer', replies_to_question: true }]);
+  });
 });
