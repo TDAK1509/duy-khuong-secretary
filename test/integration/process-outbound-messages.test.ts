@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { claimOutboundMessage } from '../../src/app/delivery/claim-outbound-message.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
+import { recordSendResult } from '../../src/app/delivery/record-send-result.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
@@ -182,6 +184,17 @@ describe('the outbound worker step', () => {
     expect(alertSink.texts).toEqual([
       `[alert] Zalo send got no answer for outbound message ${id}. It will not be resent. Check the chat in OA Manager.`,
     ]);
+  });
+
+  it('ignores a late result for a text that became unknown', async () => {
+    const id = await insertOutboundMessage(database, {});
+    const claimed = await claimOutboundMessage(pool, NOW, 90);
+    clock.advanceBy(3 * 60_000);
+    await runStep();
+
+    await recordSendResult({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock) }, claimed!, { ok: true });
+
+    expect((await readMessage(id)).status).toBe('unknown');
   });
 
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
