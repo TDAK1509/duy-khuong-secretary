@@ -238,4 +238,11 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
     expect(findToolResult()).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: title"}');
   });
+
+  it('offers the three scheduling tools', async () => {
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    const toolNames = harness.chat.requests[0]?.tools.map((tool) => tool.name);
+    expect(toolNames).toEqual(expect.arrayContaining(['propose_scheduled_task', 'list_scheduled_tasks', 'cancel_scheduled_task']));
+  });
 });

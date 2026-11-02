@@ -281,3 +281,32 @@ export const PROPOSE_SCHEDULED_TASK_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const LIST_SCHEDULED_TASKS_SPEC: ToolSpec = {
+  "name": "list_scheduled_tasks",
+  "description": "Liệt kê các lịch tự động đang chạy do quản lý đang trò chuyện đặt.",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  }
+};
+
+export const CANCEL_SCHEDULED_TASK_SPEC: ToolSpec = {
+  "name": "cancel_scheduled_task",
+  "description": "Hủy một lịch tự động do quản lý đang trò chuyện đặt. Lấy id từ list_scheduled_tasks.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "description": "id của lịch cần hủy."
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "additionalProperties": false
+  }
+};
