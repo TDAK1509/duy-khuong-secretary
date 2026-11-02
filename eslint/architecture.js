@@ -8,7 +8,10 @@ export function makeArchitectureConfig(rootDir) {
     makeParserConfig(),
     {
       files: ['src/services/**/*.ts'],
-      rules: restrictPaths(rootDir, [{ target: './src/services', from: './src/app' }]),
+      rules: restrictPaths(rootDir, [
+        { target: './src/services', from: './src/app' },
+        { target: './src/services', from: './src/providers' },
+      ]),
     },
   ];
 }
