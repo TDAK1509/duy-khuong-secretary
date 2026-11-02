@@ -140,4 +140,23 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":0}');
   });
+
+  it('attaches one photo for two records of the same photo', async () => {
+    const firstId = await insertPhotoRecord();
+    const [{ message_id: messageId } = { message_id: '' }] = await database.query<{ message_id: string }>(
+      `SELECT message_id FROM records WHERE id = '${firstId}'`,
+    );
+    const secondId = await insertRecordRow(database, {
+      workspaceId,
+      userId: harness.hungUserId,
+      senderName: 'Hùng',
+      messageId,
+      itemIndex: 1,
+    });
+    attachThenReply([firstId, secondId]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":1}');
+  });
 });
