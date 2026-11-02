@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
 import pg from 'pg';
 import { testDatabaseUrl } from './test-database-url.ts';
+
+const INSUFFICIENT_PRIVILEGE = '42501';
+const DROP_ATTEMPTS = 20;
+const DROP_RETRY_DELAY_MS = 50;
 
 export type TemporaryDatabase = {
   url: string;
@@ -26,9 +31,26 @@ export async function createTemporaryDatabase(): Promise<TemporaryDatabase> {
       (await runAs(url, (client) => client.query<Row>(statement))).rows,
     drop: async () => {
       await Promise.all(sessions.map((session) => session.end()));
-      await runAs(testDatabaseUrl, (client) => client.query(`DROP DATABASE ${name} WITH (FORCE)`));
+      await dropDatabase(name);
     },
   };
+}
+
+async function dropDatabase(name: string): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await runAs(testDatabaseUrl, (client) => client.query(`DROP DATABASE ${name} WITH (FORCE)`));
+      return;
+    } catch (error) {
+      if (!isBackgroundWorkerOfAnotherRole(error) || attempt === DROP_ATTEMPTS) throw error;
+      await setTimeout(DROP_RETRY_DELAY_MS);
+    }
+  }
+}
+
+// An autovacuum worker runs as the superuser, so this role cannot terminate it. It exits within milliseconds.
+function isBackgroundWorkerOfAnotherRole(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === INSUFFICIENT_PRIVILEGE;
 }
 
 function pointToDatabase(databaseUrl: string, name: string): string {
