@@ -267,5 +267,14 @@ describe('an admin asks the bot', () => {
 
       expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
     });
+
+    it('gives the failure text as the second reply when the chat model fails', async () => {
+      harness.chat.failWith('unavailable');
+
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(sentTexts()[1]).toEqual(['zu-duy', 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.']);
+    });
   });
 });
