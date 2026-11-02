@@ -46,7 +46,7 @@ function isMaintenanceWithoutPlate(record: NewRecord): boolean {
 }
 
 export function planDuplicateReply(): ReplyPlan {
-  return { replyText: DUPLICATE_TEXT, replyKind: 'answer', status: 'duplicate', saved: null };
+  return planRefusal(DUPLICATE_TEXT, 'duplicate');
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {
@@ -57,8 +57,8 @@ function planUnresolvedReply(): ReplyPlan {
   return planRefusal(UNRESOLVED_TEXT);
 }
 
-function planRefusal(replyText: string): ReplyPlan {
-  return { replyText, replyKind: 'answer', status: 'unresolved', saved: null, situation: 'refused', asksQuestion: false };
+function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {
+  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false };
 }
 
 function planUploadOnlyReply(): ReplyPlan {
