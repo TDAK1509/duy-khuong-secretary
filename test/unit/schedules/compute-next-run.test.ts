@@ -9,4 +9,12 @@ describe('computeNextRun', () => {
 
     expect(nextRun).toEqual(new Date('2026-10-31T18:00:00+07:00'));
   });
+
+  it('runs a daily task tomorrow when its time has passed', () => {
+    const now = new Date('2026-10-31T19:00:00+07:00');
+
+    const nextRun = computeNextRun({ repeat: 'daily', timeOfDay: '18:00' }, now);
+
+    expect(nextRun).toEqual(new Date('2026-11-01T18:00:00+07:00'));
+  });
 });
