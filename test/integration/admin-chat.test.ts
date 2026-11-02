@@ -7,7 +7,7 @@ import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './
 import { insertChatMessage } from './message-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertMembership } from './workspace-rows.ts';
+import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 describe('an admin asks the bot', () => {
   let harness: IntakeHarness;
@@ -415,6 +415,21 @@ describe('an admin asks the bot', () => {
 
         expect(harness.readers.cheap[0].requests).toHaveLength(readsBefore);
         expect(harness.readers.strong[0].requests).toHaveLength(0);
+      });
+
+      it('does not run the model for an admin who left the workspace of the message', async () => {
+        const [{ user_id: userId } = { user_id: '' }] = await database.query<{ user_id: string }>(
+          `DELETE FROM memberships WHERE display_name = 'Duy' RETURNING user_id`,
+        );
+        const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+        await insertMembership(database, { workspaceId: otherWorkspaceId, userId, displayName: 'Duy', role: 'admin' });
+        await database.query(`UPDATE channel_identities SET current_workspace_id = '${otherWorkspaceId}' WHERE user_id = '${userId}'`);
+        const callsBefore = harness.chat.requests.length;
+
+        await harness.runInbound();
+
+        expect(harness.chat.requests).toHaveLength(callsBefore);
+        expect(await database.query(`SELECT 1 FROM messages WHERE reply_kind = 'answer'`)).toEqual([]);
       });
     });
 
