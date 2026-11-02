@@ -331,14 +331,24 @@ describe('an admin asks the bot', () => {
     });
 
     it('never sends an admin\'s unresolved message to the chat model', async () => {
-      const other = makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })], { has_question: true });
-      for (const pair of [harness.readers.cheap, harness.readers.strong]) {
-        pair[1].answerWith(other);
+      const first = makeReading([makeFuelItem()], { has_question: true });
+      const second = makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })], { has_question: true });
+      for (const [firstReader, secondReader] of [harness.readers.cheap, harness.readers.strong]) {
+        firstReader.answerWith(first);
+        secondReader.answerWith(second);
       }
-      harness.readers.strong[0].answerWith(makeReading([makeFuelItem()], { has_question: true }));
 
       await harness.receivePhoto('zu-duy');
 
+      expect(harness.chat.requests).toEqual([]);
+    });
+
+    it('never sends an admin\'s duplicate with a question to the chat model', async () => {
+      await harness.receivePhoto('zu-hung');
+
+      await harness.receivePhoto('zu-duy', 'Tổng hôm nay bao nhiêu?');
+
+      expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
       expect(harness.chat.requests).toEqual([]);
     });
   });
