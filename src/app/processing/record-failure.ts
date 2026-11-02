@@ -4,7 +4,7 @@ import type { Database } from '../db/transaction.ts';
 import { runInClaimedTransaction } from './claimed-transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
-const MAX_ATTEMPTS = 5;
+export const MAX_ATTEMPTS = 5;
 const FIRST_RETRY_WAIT_MS = 30_000;
 
 export type FailureDependencies = { database: Database; alerts: OperatorAlerts };
@@ -22,6 +22,17 @@ export async function recordFailure(
   }
   await markFailed(dependencies.database, event, errorName);
   await dependencies.alerts.raise(describeInboundEventFailed(event.id, event.attempts, errorName));
+}
+
+export async function failExhaustedEvent(dependencies: FailureDependencies, event: ClaimedEvent): Promise<void> {
+  const errorName = 'LockExpired';
+  await runInClaimedTransaction(dependencies.database, event, (transaction) =>
+    transaction.query(
+      `UPDATE inbound_events SET status = 'failed', attempts = attempts - 1, last_error = $2, locked_until = NULL WHERE id = $1`,
+      [event.id, errorName],
+    ),
+  );
+  await dependencies.alerts.raise(describeInboundEventFailed(event.id, MAX_ATTEMPTS, errorName));
 }
 
 async function requeueWithWait(database: Database, event: ClaimedEvent, now: Date, errorName: string): Promise<void> {

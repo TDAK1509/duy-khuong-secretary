@@ -6,7 +6,7 @@ import { claimInboundEvent } from './claim-inbound-event.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { OffGroupNotices } from './off-group-notices.ts';
 import { postponeEvent } from './postpone-event.ts';
-import { recordFailure } from './record-failure.ts';
+import { failExhaustedEvent, MAX_ATTEMPTS, recordFailure } from './record-failure.ts';
 import { createStages, type Finished, type NotConfigured, type Stages } from './stages.ts';
 
 export type InboundHandler = (event: ClaimedEvent, stages: Stages) => Promise<Finished | NotConfigured>;
@@ -34,6 +34,7 @@ export async function runInboundStep(dependencies: InboundDependencies): Promise
 
 async function handleClaimedEvent(dependencies: InboundDependencies, event: ClaimedEvent): Promise<void> {
   const { database, clock, handler } = dependencies;
+  if (event.attempts > MAX_ATTEMPTS) return failExhaustedEvent(dependencies, event);
   try {
     const result = await handler(event, createStages(database, event, clock));
     if (result.kind === 'not_configured') await postponeEvent(dependencies, event, result.group);

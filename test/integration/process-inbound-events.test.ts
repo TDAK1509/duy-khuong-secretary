@@ -298,6 +298,23 @@ describe('the inbound worker step', () => {
     expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2, last_error: null });
   });
 
+  it('fails an event whose fifth attempt crashed without running it a sixth time', async () => {
+    const id = await insertInboundEvent(database, {
+      status: 'processing',
+      attempts: 5,
+      lockedUntil: new Date(NOW.getTime() - 60_000),
+    });
+    const later = await insertInboundEvent(database, {});
+    const handler = recordCalls();
+
+    await runStep(handler);
+    await runStep(handler);
+
+    expect(await readEvent(id)).toMatchObject({ status: 'failed', attempts: 5, last_error: 'LockExpired' });
+    expect(alertSink.texts).toEqual([`[alert] Inbound event ${id} failed after 5 attempts: LockExpired.`]);
+    expect(handler.calls).toEqual([later]);
+  });
+
   it('puts an event back without using an attempt when its feature is off', async () => {
     const id = await insertInboundEvent(database, {});
 
