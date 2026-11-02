@@ -77,6 +77,13 @@ describe('POST /webhooks/zalo', () => {
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
+  it('answers an ignored event and stores nothing', async () => {
+    const response = await postWebhook(loadSignedFixture('follow-event'));
+
+    expect(response.statusCode).toBe(200);
+    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
+  });
+
   async function connectOa(accountId: string): Promise<void> {
     const connection = { channel: 'zalo-oa' as const, accountId, tokens: makeTokenPair(), storedAt: new Date() };
     await storeConnection(pool, connection, 'a'.repeat(64));
