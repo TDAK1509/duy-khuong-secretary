@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { assembleService, type Service } from '../../src/bootstrap/assemble-service.ts';
+import { PHOTOS_OFF_LINE, READERS_OFF_LINE } from './off-group-lines.ts';
 import { testDatabaseUrl } from './test-database-url.ts';
-
-const PHOTOS_OFF_LINE =
-  '[config] photos is off; missing: PHOTO_STORAGE, S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.';
 
 const PHOTO_ENVIRONMENT: NodeJS.ProcessEnv = {
   PHOTO_STORAGE: 's3',
@@ -12,6 +10,17 @@ const PHOTO_ENVIRONMENT: NodeJS.ProcessEnv = {
   S3_BUCKET: 'photos',
   S3_ACCESS_KEY_ID: 'key-id',
   S3_SECRET_ACCESS_KEY: 'secret',
+};
+
+const READER_ENVIRONMENT: NodeJS.ProcessEnv = {
+  READER_PROVIDER: 'openai-compatible',
+  ...Object.fromEntries(
+    ['CHEAP_1', 'CHEAP_2', 'STRONG_1', 'STRONG_2'].flatMap((slot) => [
+      [`READER_${slot}_BASE_URL`, 'https://ai.test/v1'],
+      [`READER_${slot}_API_KEY`, 'key'],
+      [`READER_${slot}_MODEL`, 'model'],
+    ]),
+  ),
 };
 
 describe('assembling the service', () => {
@@ -33,6 +42,7 @@ describe('assembling the service', () => {
       '[config] zalo is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL.',
       '[config] zalo-webhook is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL, ZALO_OA_SECRET.',
       PHOTOS_OFF_LINE,
+      READERS_OFF_LINE,
     ]);
   });
 
@@ -49,6 +59,7 @@ describe('assembling the service', () => {
         PUBLIC_BASE_URL: 'https://x.test',
         ZALO_OA_SECRET: 'oa-sec-1',
         ...PHOTO_ENVIRONMENT,
+        ...READER_ENVIRONMENT,
       },
       (line) => lines.push(line),
     );

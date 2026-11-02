@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
+import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { detectImageType, type DetectedImage } from './detect-image-type.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
@@ -7,9 +7,9 @@ import type { IntakePart } from './intake-parts.ts';
 import {
   PHOTO_NOT_DOWNLOADED_TEXT,
   PHOTO_NOT_JPEG_OR_PNG_TEXT,
-  PHOTO_RECEIVED_TEXT,
   PHOTO_TOO_LARGE_TEXT,
 } from './intake-texts.ts';
+import { replyToMessage } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage, type StoredUserMessage } from './store-user-message.ts';
 
 const MAX_PHOTO_BYTES = 5_000_000;
@@ -18,21 +18,18 @@ export type PhotoPart = IntakePart & { imageUrl: string };
 
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
-  if (existing?.hasReply) return { kind: 'already_replied' };
-  if (existing && (await hasKeptPhoto(context, existing))) return keptPhotoOutcome(existing);
+  if (existing?.hasReply) return { kind: 'replied' };
+  const keptPhoto = existing && (await loadKeptPhoto(context, existing));
+  if (existing && keptPhoto) return replyToMessage(context, { id: existing.id, text: part.text, photo: keptPhoto });
   const downloaded = await downloadImage(context, part.imageUrl);
   if (!downloaded.ok) return { kind: 'refused', replyText: downloaded.replyText };
   const messageId = await storeMessageAndPhoto(context, part, downloaded.image);
-  return { kind: 'stored', messageId, replyText: PHOTO_RECEIVED_TEXT };
+  return replyToMessage(context, { id: messageId, text: part.text, photo: downloaded.image.photo });
 }
 
-async function hasKeptPhoto(context: IntakeContext, message: StoredUserMessage): Promise<boolean> {
-  if (message.imageKey === null) return false;
-  return (await requirePhotoStorage(context).get(message.imageKey)) !== null;
-}
-
-function keptPhotoOutcome(message: StoredUserMessage): IntakeOutcome {
-  return { kind: 'stored', messageId: message.id, replyText: PHOTO_RECEIVED_TEXT };
+async function loadKeptPhoto(context: IntakeContext, message: StoredUserMessage): Promise<Photo | null> {
+  if (message.imageKey === null) return null;
+  return requirePhotoStorage(context).get(message.imageKey);
 }
 
 type Downloaded = { ok: true; image: DetectedImage } | { ok: false; replyText: string };

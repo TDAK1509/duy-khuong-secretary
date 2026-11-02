@@ -99,7 +99,7 @@ The operator gets `[alert] Zalo send got no answer for outbound message <id>. It
 
 ## Store photos and texts
 
-Everything a person in a workspace sends is stored in the `messages` table, in their chat of the workspace they chose. A text gets the upload-only reply. A photo is downloaded from Zalo at once and kept in the private bucket under `<workspace id>/<message id>.jpg` (or `.png`). The reply to a photo is `Đã nhận ảnh.`. Every reply is also stored as a bot message. A photo over 5 MB, a file that is not JPEG or PNG (the first bytes are checked; the server never decodes the image), or a download that fails gets its own reply and stores no message.
+Everything a person in a workspace sends is stored in the `messages` table, in their chat of the workspace they chose. A photo is downloaded from Zalo at once and kept in the private bucket under `<workspace id>/<message id>.jpg` (or `.png`). Every reply is also stored as a bot message. A photo over 5 MB, a file that is not JPEG or PNG (the first bytes are checked; the server never decodes the image), or a download that fails gets its own reply and stores no message.
 
 The download uses `https` only, from a host in `ZALO_MEDIA_HOSTS`. It follows at most 3 redirects, checks each target the same way, and refuses a host whose addresses are loopback, private, link-local, unique-local or unspecified. A refused URL is logged without its query string.
 
@@ -115,6 +115,12 @@ The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except
 | `S3_FORCE_PATH_STYLE` | `false` | `true` for MinIO |
 
 To run with MinIO by hand (never in CI): `docker compose --profile minio up -d --wait minio`. It creates the bucket `photos`. Then set `PHOTO_STORAGE=s3`, `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=photos`, `S3_ACCESS_KEY_ID=minioadmin`, `S3_SECRET_ACCESS_KEY=minioadmin` and `S3_FORCE_PATH_STYLE=true`. Set `MINIO_PORT` if port 9000 is taken. The MinIO console is at `http://localhost:9001`. The image is `bitnamilegacy/minio`, because MinIO no longer publishes images on Docker Hub.
+
+## Save what two readers agree on
+
+Every text and photo from a person in a workspace goes to the readers (the cheap pair, then the strong pair when the cheap pair disagrees). When a pair agrees on work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. `read_by` is `cheap_pair` or `expensive_pair`. When no pair agrees, nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message with no work data gets the upload-only reply. A question in a message with work data is ignored.
+
+The `readers` group is on only when `READER_PROVIDER` and the 12 `READER_<SLOT>_BASE_URL/_API_KEY/_MODEL` values are set (see "Evaluate the readers"). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
 
 ## Migrations
 

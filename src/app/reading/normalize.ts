@@ -18,3 +18,8 @@ export function toAccentFreeForm(text: string | null): string | null {
     .trim();
   return normalized === '' ? null : normalized;
 }
+
+export function normalizeMaintenanceItem(text: string | null): string | null {
+  const normalized = (text ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return normalized === '' ? null : normalized;
+}

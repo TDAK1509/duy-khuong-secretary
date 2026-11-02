@@ -1,63 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
-import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
-import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
-import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
-import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
-import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
-import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
-import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
-import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
-import { FakeClock } from '../fakes/fake-clock.ts';
-import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
-import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
+import { createIntakeHarness, makeJpeg, makePng, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
-import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
-
-const NOW = new Date('2026-11-02T10:00:00+07:00');
-const ENCRYPTION_KEY = 'a'.repeat(64);
-const PHOTO_URL = 'https://z.test/1.jpg';
-
-function makePng(size: number): Uint8Array {
-  const bytes = new Uint8Array(size).fill(1);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  return bytes;
-}
-
-function makeJpeg(size: number): Uint8Array {
-  const bytes = new Uint8Array(size).fill(1);
-  bytes.set([0xff, 0xd8, 0xff]);
-  return bytes;
-}
+import { insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 describe('storing what a member sends', () => {
+  let harness: IntakeHarness;
   let database: TemporaryDatabase;
-  let pool: PostgresPool;
-  let clock: FakeClock;
-  let channel: FakeMessagingChannel;
-  let photoStorage: FakePhotoStorage;
-  let alerts: OperatorAlerts;
   let workspaceId: string;
   let hungUserId: string;
 
   beforeEach(async () => {
-    database = await createMigratedDatabase();
-    pool = createPostgresPool(database.url);
-    clock = new FakeClock(NOW);
-    channel = new FakeMessagingChannel();
-    photoStorage = new FakePhotoStorage();
-    alerts = new OperatorAlerts(new FakeAlertSink(), clock);
-    const tokens = makeTokenPair({ accessToken: 'a1' });
-    await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW }, ENCRYPTION_KEY);
-    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
-    hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    harness = await createIntakeHarness();
+    ({ database, workspaceId, hungUserId } = harness);
   });
 
   afterEach(async () => {
-    await pool.end();
-    await database.drop();
+    await harness.close();
   });
 
   it('stores a text from a member in their chat', async () => {
@@ -72,7 +31,7 @@ describe('storing what a member sends', () => {
     await receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
     await sendQueuedTexts();
 
-    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
       [
         'zu-hung',
         'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
@@ -102,16 +61,16 @@ describe('storing what a member sends', () => {
   });
 
   it('stores a photo under the key of its message', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(200_000) });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(200_000) });
 
     await receivePhoto('zu-hung');
 
     const messages = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
-    expect(photoStorage.listKeys()).toEqual([`${workspaceId}/${messages[0]?.id}.jpg`]);
+    expect(harness.photoStorage.listKeys()).toEqual([`${workspaceId}/${messages[0]?.id}.jpg`]);
   });
 
   it('keeps the key and the caption of a photo message', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
 
     await receivePhoto('zu-hung', 'Xe 29C-123.45');
 
@@ -123,28 +82,19 @@ describe('storing what a member sends', () => {
     ]);
   });
 
-  it('tells the sender that the photo was received', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-
-    await receivePhoto('zu-hung');
-    await sendQueuedTexts();
-
-    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-hung', 'Đã nhận ảnh.']]);
-  });
-
   it('stores a PNG with the PNG extension and content type', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makePng(1000) });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makePng(1000) });
 
     await receivePhoto('zu-hung');
 
-    const [key] = photoStorage.listKeys();
+    const [key] = harness.photoStorage.listKeys();
     expect(key).toMatch(/\.png$/);
-    expect((await photoStorage.get(key ?? ''))?.contentType).toBe('image/png');
+    expect((await harness.photoStorage.get(key ?? ''))?.contentType).toBe('image/png');
   });
 
   it('turns two photos of one event into two messages', async () => {
-    channel.attachments.set('https://z.test/1.jpg', { ok: true, bytes: makeJpeg(1000) });
-    channel.attachments.set('https://z.test/2.jpg', { ok: true, bytes: makeJpeg(2000) });
+    harness.channel.attachments.set('https://z.test/1.jpg', { ok: true, bytes: makeJpeg(1000) });
+    harness.channel.attachments.set('https://z.test/2.jpg', { ok: true, bytes: makeJpeg(2000) });
 
     await insertInboundEvent(database, {
       externalUserId: 'zu-hung',
@@ -157,45 +107,45 @@ describe('storing what a member sends', () => {
       { event_part: 0 },
       { event_part: 1 },
     ]);
-    expect(photoStorage.listKeys()).toHaveLength(2);
+    expect(harness.photoStorage.listKeys()).toHaveLength(2);
   });
 
   it('refuses a photo over 5 MB without storing a message', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
+    harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
 
     await receivePhoto('zu-hung');
     await sendQueuedTexts();
 
-    expect(channel.texts.map((sent) => sent.text)).toEqual([
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
       'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.',
     ]);
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
   it('refuses a file that is not a JPEG or a PNG without storing a message', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: new TextEncoder().encode('%PDF-1.7 not a photo') });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: new TextEncoder().encode('%PDF-1.7 not a photo') });
 
     await receivePhoto('zu-hung');
     await sendQueuedTexts();
 
-    expect(channel.texts.map((sent) => sent.text)).toEqual([
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
       'Trợ lý chỉ nhận ảnh dạng JPEG hoặc PNG. Bạn chụp lại rồi gửi nhé.',
     ]);
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
   it('asks for a photo again when it cannot be downloaded', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
+    harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
 
     await receivePhoto('zu-hung');
     await sendQueuedTexts();
 
-    expect(channel.texts.map((sent) => sent.text)).toEqual(['Trợ lý chưa tải được ảnh này. Bạn gửi lại ảnh nhé.']);
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Trợ lý chưa tải được ảnh này. Bạn gửi lại ảnh nhé.']);
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
   it('adds nothing when an event is processed again after a crash', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
     await receivePhoto('zu-hung');
     await database.query(
       `UPDATE inbound_events SET status = 'processing', locked_until = '${new Date(NOW.getTime() - 60_000).toISOString()}'`,
@@ -205,12 +155,12 @@ describe('storing what a member sends', () => {
 
     expect(await database.query(`SELECT author FROM messages ORDER BY author`)).toEqual([{ author: 'bot' }, { author: 'user' }]);
     expect(await database.query('SELECT 1 FROM outbound_messages')).toHaveLength(1);
-    expect(channel.downloadedUrls).toEqual([PHOTO_URL]);
+    expect(harness.channel.downloadedUrls).toEqual([PHOTO_URL]);
   });
 
   it('retries the event without replying when the photo storage fails', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-    photoStorage.isFailing = true;
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.photoStorage.isFailing = true;
 
     await receivePhoto('zu-hung');
 
@@ -231,16 +181,16 @@ describe('storing what a member sends', () => {
   });
 
   it('keeps a photo waiting while photo storage is not configured', async () => {
-    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
 
     await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
-    await runInboundWithoutPhotoStorage();
+    await harness.runInbound({ photoStorage: null });
 
     expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([{ status: 'queued', attempts: 0 }]);
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
-  it('keeps the uploaded photo when the event is processed again after its link expired', async () => {
+  it('reads the uploaded photo when the event is processed again after its link expired', async () => {
     const eventId = await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
     const messageId = '11111111-1111-4111-8111-111111111111';
     const imageKey = `${workspaceId}/${messageId}.jpg`;
@@ -248,46 +198,30 @@ describe('storing what a member sends', () => {
       `INSERT INTO messages (id, workspace_id, user_id, author, image_key, inbound_event_id, event_part)
        VALUES ('${messageId}', '${workspaceId}', '${hungUserId}', 'user', '${imageKey}', '${eventId}', 0)`,
     );
-    await photoStorage.put(imageKey, { bytes: makeJpeg(1000), contentType: 'image/jpeg' });
-    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
+    await harness.photoStorage.put(imageKey, { bytes: makeJpeg(1000), contentType: 'image/jpeg' });
+    harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
 
     await runInbound();
     await sendQueuedTexts();
 
-    expect(channel.texts.map((sent) => sent.text)).toEqual(['Đã nhận ảnh.']);
-    expect(channel.downloadedUrls).toEqual([]);
+    expect(harness.readers.cheap[0].requests.map((request) => request.image?.bytes.length)).toEqual([1000]);
+    expect(harness.channel.downloadedUrls).toEqual([]);
     expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
   });
 
-  async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
-    await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
-    await runInbound();
+  function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
+    return harness.receivePhoto(externalUserId, caption);
   }
 
-  async function receiveText(externalUserId: string, text: string): Promise<void> {
-    await insertInboundEvent(database, { externalUserId, text });
-    await runInbound();
+  function receiveText(externalUserId: string, text: string): Promise<void> {
+    return harness.receiveText(externalUserId, text);
   }
 
   function runInbound(): Promise<unknown> {
-    return runInboundWith(photoStorage);
+    return harness.runInbound();
   }
 
-  function runInboundWithoutPhotoStorage(): Promise<unknown> {
-    return runInboundWith(null);
-  }
-
-  function runInboundWith(storage: FakePhotoStorage | null): Promise<unknown> {
-    return runInboundStep({
-      database: pool,
-      clock,
-      alerts,
-      notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: storage }),
-    });
-  }
-
-  async function sendQueuedTexts(): Promise<void> {
-    await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
+  function sendQueuedTexts(): Promise<void> {
+    return harness.sendQueuedTexts();
   }
 });

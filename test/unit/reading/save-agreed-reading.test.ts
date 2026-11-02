@@ -20,4 +20,13 @@ describe('saveAgreedReading', () => {
 
     expect(saved.items[0]?.details).toEqual([]);
   });
+
+  it('keeps the item order of the first reader', () => {
+    const toll = makeItem({ category: 'toll', document_number: 'A1' });
+    const fuel = makeItem({ category: 'fuel', document_number: 'B2' });
+
+    const saved = saveAgreedReading(makeReading([toll, fuel]), makeReading([fuel, toll]));
+
+    expect(saved.items.map((item) => item.category)).toEqual(['toll', 'fuel']);
+  });
 });

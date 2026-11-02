@@ -10,6 +10,7 @@ import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
+import type { ReaderSlots } from '../reading/decide-reading.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -26,6 +27,7 @@ export type InboundHandlerDependencies = {
   database: Database;
   encryptionKey: string;
   photoStorage: PhotoStorage | null;
+  readers: ReaderSlots | null;
 };
 
 const textPayloadSchema = z.object({ text: z.string() });

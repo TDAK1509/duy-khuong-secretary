@@ -9,9 +9,14 @@ export type SavedReading = {
 };
 
 export function saveAgreedReading(first: Reading, second: Reading): SavedReading {
-  const secondItems = sortItemsForComparison(second);
-  const items = sortItemsForComparison(first).map((item, index) => keepSharedDetails(item, secondItems[index]));
+  const partnerOf = pairItemsForComparison(first, second);
+  const items = first.items.map((item) => keepSharedDetails(item, partnerOf.get(item)));
   return { has_work_data: first.has_work_data, has_question: first.has_question, items };
+}
+
+function pairItemsForComparison(first: Reading, second: Reading): Map<ReadingItem, ReadingItem | undefined> {
+  const secondItems = sortItemsForComparison(second);
+  return new Map(sortItemsForComparison(first).map((item, index) => [item, secondItems[index]]));
 }
 
 function keepSharedDetails(item: ReadingItem, other: ReadingItem | undefined): ReadingItem {

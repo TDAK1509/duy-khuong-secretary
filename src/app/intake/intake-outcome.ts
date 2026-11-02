@@ -1,4 +1,1 @@
-export type IntakeOutcome =
-  | { kind: 'stored'; messageId: string; replyText: string }
-  | { kind: 'refused'; replyText: string }
-  | { kind: 'already_replied' };
+export type IntakeOutcome = { kind: 'refused'; replyText: string } | { kind: 'replied' };
