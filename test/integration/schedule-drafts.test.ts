@@ -208,4 +208,13 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
     expect(findToolResult()).toBe('{"ok":false,"error":"Thời điểm chạy đã qua."}');
   });
+
+  it('refuses a daily task without a time', async () => {
+    proposeThenReply({ time_of_day: null });
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày gửi tôi báo cáo');
+
+    expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+    expect(findToolResult()).toBe('{"ok":false,"error":"Thiếu giờ chạy."}');
+  });
 });
