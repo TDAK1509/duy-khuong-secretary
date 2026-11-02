@@ -285,6 +285,17 @@ describe('joining a workspace with an invite code', () => {
       const duyTexts = channel.texts.filter((sent) => sent.to.externalUserId === 'zu-duy');
       expect(duyTexts.map((sent) => sent.text)).toEqual([joinedNotice]);
     });
+
+    it('shows a Zalo name that is not known as not known', async () => {
+      const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+      await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member', createdBy: duyUserId });
+
+      await receiveText('zu-hung', CODE);
+      await sendAllQueuedTexts();
+
+      const duyTexts = channel.texts.filter((sent) => sent.to.externalUserId === 'zu-duy');
+      expect(duyTexts[0]?.text).toMatch(/^Hùng \(tên Zalo: không rõ\)/);
+    });
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
