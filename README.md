@@ -18,8 +18,42 @@ curl -i http://localhost:3000/health
 |---|---|---|
 | `DATABASE_URL` | none, required | Postgres connection string |
 | `PORT` | `3000` | HTTP port |
+| `GIT_COMMIT` | `RENDER_GIT_COMMIT`, else none | The deployed commit, shown by `/health` |
+| `MIGRATION_DATABASE_URL` | none | Direct connection as the schema-owner role. Read only by `node dist/bootstrap/migrate.js` |
 
-`GET /health` answers `200 {"ok":true}` when the database answers, and `503 {"ok":false}` when it does not.
+`GET /health` answers `200 {"ok":true,"commit":"<sha>"}` when the database answers, and `503 {"ok":false,"commit":"<sha>"}` when it does not. `commit` is `GIT_COMMIT`, else `RENDER_GIT_COMMIT`, else `null`.
+
+## Migrations
+
+Run them by hand against the local database:
+
+```sh
+npm run build
+MIGRATION_DATABASE_URL=postgres://app_owner:app_owner@localhost:5432/secretary node dist/bootstrap/migrate.js
+```
+
+The runner logs `[migrate] applied: <names>` or `[migrate] nothing to apply`. It never logs the database URL. It exits 1 when `MIGRATION_DATABASE_URL` is empty, without connecting. When the database holds a migration this build does not have (after a rollback), it logs `database is ahead of this build (rollback); skipping migrations` and exits 0.
+
+Every schema change is a new file in `src/app/db/migrations/`, named `NNNN_what_it_does.ts` and exporting `up(pgm)`. The builder offers only `sql(statement)` and `noTransaction()` (`src/app/db/migration-builder.ts`).
+
+Rules:
+
+- **Expand only.** A deploy only adds: new tables (with their indexes and constraints in the same migration), nullable columns or columns with a constant default, concurrent indexes on existing tables, and constraints on existing tables added `NOT VALID` and validated in a later migration. Drops, renames and `NOT NULL` on an existing column come in a later PR, after no running code uses the old shape.
+- **Never edit a merged migration.** `ci / migrations` fails when a PR changes, renames or deletes a migration file that already exists on `main`.
+- **Locks on existing tables.** Call `lockTables(pgm, ['table', ...])` (`src/app/db/lock-tables.ts`) first. It takes `LOCK TABLE ... NOWAIT` in a fixed table order. When a lock is busy (`55P03`), the runner drops its connection, sleeps 2 s +/- 25 %, and retries. After 60 s in total it exits 1.
+- **Timeouts.** Every transactional migration runs with `SET LOCAL lock_timeout = '1s'` and `SET LOCAL statement_timeout = '30s'`.
+- **Concurrent indexes.** Call `pgm.noTransaction()` and write `CREATE INDEX CONCURRENTLY`. Such a migration runs with `statement_timeout = '10min'`. Before it builds an index, the runner drops a leftover index of the same name only when that index is invalid. It never drops a valid one. Keep one index build per migration, because a failure outside a transaction leaves the earlier statements applied.
+- **Backfills** are separate migrations, in small resumable batches, each with a test on existing rows.
+
+## Deploy to Render
+
+`render.yaml` describes one web service (Docker, Singapore) and one Postgres 17 database (Singapore). After the checks pass on a commit on `main` (`autoDeployTrigger: checksPass`), Render builds the `Dockerfile`, runs `node dist/bootstrap/migrate.js` as the pre-deploy command, and starts `node dist/bootstrap/main.js` only if that exits 0. A failed migration cancels the deploy and the previous release keeps serving. The web process never migrates at startup.
+
+Owner action: in a Render Hobby workspace, allow Render's GitHub app on this repository, then create a Blueprint from `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. Render fills `DATABASE_URL` and `MIGRATION_DATABASE_URL` from the database's internal connection string.
+
+Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log starts with a `[migrate]` line.
+
+Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, and set `GIT_COMMIT`.
 
 ## Check your change
 
@@ -31,7 +65,7 @@ npm run check:migrations -- origin/main
 npm run mutation    # Stryker on src/app, report only
 ```
 
-Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owner:app_owner@localhost:5432/secretary`.
+Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owner:app_owner@localhost:5432/secretary`. The migration tests create a throw-away database per test, so the role needs `CREATEDB` (`app_owner` has it) and `npm test` runs `npm run build` once for the built-entry test.
 
 ## Checks on every pull request
 
@@ -39,7 +73,7 @@ Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owne
 |---|---|
 | `ci / lint` | ESLint, including the import rules below |
 | `ci / typecheck` | `tsc --noEmit` |
-| `ci / test` | Vitest against a Postgres 17 service container |
+| `ci / test` | Builds the schema by running the migrations, then Vitest, against a Postgres 17 service container |
 | `ci / migrations` | Fails when a PR changes, renames or deletes a migration file that already exists on `main` |
 | `ci / mutation` | Stryker on `src/app/**`. Runs only on PRs with the label `ready-to-merge` |
 | `security / audit` | `npm audit` of production packages, fails on high severity |
