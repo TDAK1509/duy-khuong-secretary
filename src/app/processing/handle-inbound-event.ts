@@ -34,6 +34,12 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
   };
 }
 
+function readInviteCode(event: ClaimedEvent): string | null {
+  if (event.kind !== 'text') return null;
+  const { text } = textPayloadSchema.parse(event.payload);
+  return isInviteCodeMessage(text) ? text : null;
+}
+
 async function lookUpNameOfNewMember(
   dependencies: InboundHandlerDependencies,
   event: ClaimedEvent,
@@ -42,6 +48,10 @@ async function lookUpNameOfNewMember(
   if (inviteCode === null) return null;
   if (!(await hasUsableInvite(dependencies.database, inviteCode, dependencies.clock.now()))) return null;
   return lookUpZaloName(dependencies, describeSender(event));
+}
+
+function describeSender(event: ClaimedEvent) {
+  return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
 type Message = { event: ClaimedEvent; inviteCode: string | null; zaloName: string | null };
@@ -76,14 +86,4 @@ async function replyToOtherMessage(transaction: Transaction, identity: ChannelId
   if (identity.userId === null) return WELCOME_TEXT;
   const workspaceId = await findPersonWorkspace(transaction, identity);
   return workspaceId === null ? NO_LONGER_IN_A_WORKSPACE_TEXT : null;
-}
-
-function readInviteCode(event: ClaimedEvent): string | null {
-  if (event.kind !== 'text') return null;
-  const { text } = textPayloadSchema.parse(event.payload);
-  return isInviteCodeMessage(text) ? text : null;
-}
-
-function describeSender(event: ClaimedEvent) {
-  return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
