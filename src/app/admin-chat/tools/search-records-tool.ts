@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
+import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
+import { failTool, INVALID_DATE_ERROR } from './tool-result.ts';
 import { searchRecords } from '../../records/search-records.ts';
 
 const argumentsSchema = z.object({
@@ -15,6 +17,9 @@ const argumentsSchema = z.object({
 
 export async function runSearchRecords(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
+  if ([args.added_from, args.added_to].some((date) => date !== null && !isRealIsoDate(date))) {
+    return failTool(INVALID_DATE_ERROR);
+  }
   const page = await searchRecords(database, scope, {
     text: args.text,
     category: args.category,

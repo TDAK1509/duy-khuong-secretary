@@ -150,4 +150,14 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toEqual([]);
   });
+
+  it('refuses an invalid date', async () => {
+    const output = await runAdminTool(pool, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: '2026-02-30', added_to: null, cursor: null }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Ngày không hợp lệ."}');
+  });
 });
