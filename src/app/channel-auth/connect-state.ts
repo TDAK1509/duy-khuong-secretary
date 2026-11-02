@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { encryptToken } from './token-cipher.ts';
+import { decryptToken, encryptToken } from './token-cipher.ts';
 
 const STATE_VALID_FOR_MS = 30 * 60 * 1000;
 
@@ -14,4 +14,10 @@ export function sealConnectState(verifier: string, now: Date, encryptionKey: str
   const expiresAt = now.getTime() + STATE_VALID_FOR_MS;
   const encrypted = encryptToken(JSON.stringify({ verifier, expiresAt }), encryptionKey);
   return Buffer.from(encrypted, 'base64').toString('base64url');
+}
+
+export function openConnectState(state: string, encryptionKey: string): string {
+  const encrypted = Buffer.from(state, 'base64url').toString('base64');
+  const { verifier } = JSON.parse(decryptToken(encrypted, encryptionKey)) as { verifier: string };
+  return verifier;
 }

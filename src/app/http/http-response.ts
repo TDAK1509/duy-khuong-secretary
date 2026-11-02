@@ -11,3 +11,7 @@ export function respondWithJson(status: number, body: unknown): HttpResponse {
     body: JSON.stringify(body),
   };
 }
+
+export function respondWithText(status: number, body: string): HttpResponse {
+  return { status, headers: { 'content-type': 'text/plain; charset=utf-8' }, body };
+}
