@@ -56,4 +56,11 @@ describe('isDuplicateRecord', () => {
       ),
     ).toBe(true);
   });
+
+  it('finds an item whose details differ only in case and accents a duplicate', () => {
+    const existing = makeFields({ details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }] });
+    const candidate = makeFields({ details: [{ label: 'tên trạm', value: 'PETROLIMEX LONG BIEN' }] });
+
+    expect(isDuplicateRecord(existing, candidate)).toBe(true);
+  });
 });
