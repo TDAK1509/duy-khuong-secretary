@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { startInboundWorker } from '../../src/app/processing/inbound-worker.ts';
+import { startQueueWorker } from '../../src/app/processing/queue-worker.ts';
 
 type Gate = { promise: Promise<void>; open: () => void };
 
@@ -9,7 +9,7 @@ function createGate(): Gate {
   return { promise, open };
 }
 
-describe('the inbound worker', () => {
+describe('the queue worker', () => {
   it('runs four steps at once', async () => {
     const release = createGate();
     const fourRunning = createGate();
@@ -20,7 +20,7 @@ describe('the inbound worker', () => {
       await release.promise;
       return 'processed';
     };
-    const worker = startInboundWorker({ runStep, concurrency: 4, pause: pauseUntilStopped });
+    const worker = startQueueWorker({ name: 'test', runStep, concurrency: 4, pause: pauseUntilStopped });
 
     await fourRunning.promise;
 
@@ -39,7 +39,7 @@ describe('the inbound worker', () => {
       await release.promise;
       return 'processed';
     };
-    const worker = startInboundWorker({ runStep, concurrency: 1, pause: pauseUntilStopped });
+    const worker = startQueueWorker({ name: 'test', runStep, concurrency: 1, pause: pauseUntilStopped });
     await started.promise;
 
     let stopped = false;
@@ -67,7 +67,7 @@ describe('the inbound worker', () => {
       if (pauseCount === 2) secondPause.open();
       return pauseCount <= 2 ? Promise.resolve() : pauseUntilStopped(signal);
     };
-    const worker = startInboundWorker({ runStep, concurrency: 1, pause });
+    const worker = startQueueWorker({ name: 'test', runStep, concurrency: 1, pause });
 
     await secondPause.promise;
     await worker.stop();
