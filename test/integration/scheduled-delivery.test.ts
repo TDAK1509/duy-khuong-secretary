@@ -130,4 +130,15 @@ describe('the delivery rule for scheduled results', () => {
 
     expect(await readStatuses()).toEqual([{ status: 'held' }]);
   });
+
+  it('keeps a rejected template failed and its result held', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult({ status: 'held' });
+    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1' });
+    harness.channel.nextTemplateResult = { ok: false, reason: 'rejected' };
+
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'held' }, { status: 'failed' }]);
+  });
 });
