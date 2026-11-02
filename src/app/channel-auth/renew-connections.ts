@@ -1,6 +1,6 @@
 import type { ChannelAuth, TokenPair } from '../../services/channel-auth/channel-auth.ts';
 import type { Clock } from '../../services/clock/clock.ts';
-import { describeRenewalFailed } from '../alerts/alert-texts.ts';
+import { describeRenewalFailed, describeRenewalGotNoAnswer } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { decryptToken, encryptToken } from './token-cipher.ts';
@@ -41,6 +41,9 @@ async function renewConnection(dependencies: RenewalDependencies, id: string): P
   const outcome = await renewInTransaction(dependencies, id);
   if (outcome.kind === 'failed') {
     await dependencies.alerts.raise(describeRenewalFailed(outcome.accountId, outcome.reason));
+  }
+  if (outcome.kind === 'no_answer') {
+    await dependencies.alerts.raise(describeRenewalGotNoAnswer(outcome.accountId));
   }
 }
 

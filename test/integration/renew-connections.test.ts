@@ -98,6 +98,17 @@ describe('key renewal on the ticker', () => {
     expect(decryptToken(row?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a1');
   });
 
+  it('sends the reauthorization alert when a renewal gets no answer', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshResult = { ok: false, reason: 'no_answer' };
+
+    await runOneTick();
+
+    expect(alertSink.texts).toEqual([
+      '[alert] Zalo key renewal got no answer for OA oa-1. Automatic renewal is stopped. Run connect-zalo again.',
+    ]);
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
