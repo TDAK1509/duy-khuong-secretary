@@ -54,4 +54,17 @@ describe('the scheduling tools', () => {
       ],
     });
   });
+
+  it('cancels a task of the caller and clears its next run', async () => {
+    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const nextRunAt = new Date('2026-11-02T18:00:00+07:00');
+    const taskId = await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, status: 'active', nextRunAt });
+
+    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'cancel_scheduled_task', { task_id: taskId });
+
+    expect(output).toBe('{"ok":true}');
+    expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([
+      { status: 'cancelled', next_run_at: null },
+    ]);
+  });
 });

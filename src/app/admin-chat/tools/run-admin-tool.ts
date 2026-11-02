@@ -5,6 +5,7 @@ import { toDatabaseScope } from '../../access/to-database-scope.ts';
 import { scopeDatabase } from '../../db/scoped-database.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import { runAttachPhotos } from './attach-photos-tool.ts';
+import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
@@ -56,6 +57,8 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
       return runProposeScheduledTask(dependencies, scope, parsedArguments);
     case 'list_scheduled_tasks':
       return runListScheduledTasks(database, scope);
+    case 'cancel_scheduled_task':
+      return runCancelScheduledTask(database, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }
