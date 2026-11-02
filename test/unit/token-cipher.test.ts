@@ -14,4 +14,10 @@ describe('token cipher', () => {
     expect(stored).not.toContain('secret-token');
     expect(Buffer.from(stored, 'base64').toString('utf8')).not.toContain('secret-token');
   });
+
+  it('fails to decrypt with another key', () => {
+    const stored = encryptToken('secret-token', KEY_A);
+
+    expect(() => decryptToken(stored, 'b'.repeat(64))).toThrow();
+  });
 });
