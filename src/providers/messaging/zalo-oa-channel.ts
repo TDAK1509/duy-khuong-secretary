@@ -1,6 +1,16 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { lookup as lookUpWithDns } from 'node:dns/promises';
+import type { IncomingMessage } from 'node:http';
+import { request as requestOverHttps } from 'node:https';
+import { isIP, type LookupFunction } from 'node:net';
 import { z } from 'zod';
-import type { ChannelRecipient, InboundEvent, MessagingChannel, SendResult } from '../../services/messaging/messaging-channel.ts';
+import type {
+  ChannelRecipient,
+  DownloadResult,
+  InboundEvent,
+  MessagingChannel,
+  SendResult,
+} from '../../services/messaging/messaging-channel.ts';
 
 const ZALO_CHANNEL = 'zalo-oa';
 const SIGNATURE_HEADER = 'x-zevent-signature';
@@ -50,7 +60,16 @@ type ZaloEvent = z.infer<typeof eventSchema>;
 
 const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
 
-export type ZaloOaChannelSettings = { appId: string; oaSecret: string; apiBaseUrl: string; timeoutMs: number };
+export type ZaloOaChannelSettings = {
+  appId: string;
+  oaSecret: string;
+  apiBaseUrl: string;
+  timeoutMs: number;
+  mediaHosts: string[];
+  lookupAddresses?: (hostname: string) => Promise<string[]>;
+  isPublicAddress?: (address: string) => boolean;
+  trustedCertificates?: string;
+};
 
 export class ZaloOaChannel implements MessagingChannel {
   readonly channel = ZALO_CHANNEL;
@@ -102,10 +121,59 @@ export class ZaloOaChannel implements MessagingChannel {
     }
   }
 
+  async downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult> {
+    try {
+      return await readLimited(await this.openResponse(new URL(url)), maxBytes);
+    } catch {
+      return { ok: false, reason: 'unavailable' };
+    }
+  }
+
+  private openResponse(url: URL): Promise<IncomingMessage> {
+    const options = {
+      agent: false,
+      ca: this.settings.trustedCertificates,
+      lookup: this.lookUpCheckedAddress,
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    };
+    return new Promise((resolve, reject) => {
+      const request = requestOverHttps(url, options, resolve);
+      request.on('error', reject);
+      request.end();
+    });
+  }
+
+  private readonly lookUpCheckedAddress: LookupFunction = (hostname, options, callback) => {
+    const lookUpAddresses = this.settings.lookupAddresses ?? lookUpAllAddresses;
+    void lookUpAddresses(hostname).then(
+      (addresses) => callback(null, addresses.map((address) => ({ address, family: isIP(address) }))),
+      (error: Error) => callback(error, []),
+    );
+  };
+
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+async function readLimited(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
+  const chunks: Buffer[] = [];
+  let received = 0;
+  for await (const chunk of response as AsyncIterable<Buffer>) {
+    received += chunk.length;
+    if (received > maxBytes) {
+      response.destroy();
+      return { ok: false, reason: 'too_large' };
+    }
+    chunks.push(chunk);
+  }
+  return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+async function lookUpAllAddresses(hostname: string): Promise<string[]> {
+  const found = await lookUpWithDns(hostname, { all: true });
+  return found.map(({ address }) => address);
 }
 
 function buildUserDetailUrl(apiBaseUrl: string, user: ChannelRecipient): URL {

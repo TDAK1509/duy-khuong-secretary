@@ -27,11 +27,18 @@ describe('loadZaloConfig', () => {
         oauthBaseUrl: 'https://oauth.zaloapp.com',
         apiBaseUrl: 'https://openapi.zalo.me',
         apiTimeoutMs: 15_000,
+        mediaHosts: ['zdn.vn', 'zadn.vn'],
         outboundMaxPerMinute: 90,
         encryptionKey: 'a'.repeat(64),
         publicBaseUrl: 'https://x.test',
       },
     });
+  });
+
+  it('reads the media hosts from a comma-separated list', () => {
+    const environment = { ...COMPLETE_ENVIRONMENT, ZALO_MEDIA_HOSTS: 'zdn.vn, files.example.vn' };
+
+    expect(loadZaloConfig(environment)).toMatchObject({ ok: true, config: { mediaHosts: ['zdn.vn', 'files.example.vn'] } });
   });
 
   it('reads the Zalo API base URL, timeout and send rate from the environment', () => {
