@@ -66,4 +66,12 @@ describe('the ticker runs the due scheduled tasks', () => {
       { body: 'Hôm nay Hùng gửi 3 mục.', scheduled_task_id: taskId },
     ]);
   });
+
+  it('names the task and its creator in the run prompt', async () => {
+    await insertDueTask({ title: 'Báo cáo hằng ngày' });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.system).toContain('Bạn đang chạy lịch tự động "Báo cáo hằng ngày" do quản lý Duy đặt.');
+  });
 });
