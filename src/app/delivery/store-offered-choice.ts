@@ -8,7 +8,14 @@ export async function storeOfferedChoice(transaction: Transaction, messageId: st
      WHERE message.id = $1 AND message.offered_choice IS NOT NULL
        AND identity.channel = message.channel
        AND identity.account_id = message.account_id
-       AND identity.external_user_id = message.external_user_id`,
+       AND identity.external_user_id = message.external_user_id
+       AND NOT EXISTS (
+         SELECT 1 FROM inbound_events newer
+         WHERE newer.channel = message.channel
+           AND newer.account_id = message.account_id
+           AND newer.external_user_id = message.external_user_id
+           AND newer.received_at > (message.offered_choice ->> 'source_received_at')::timestamptz
+       )`,
     [messageId],
   );
 }
