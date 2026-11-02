@@ -3,7 +3,7 @@ import { storeConnection } from '../../src/app/channel-auth/store-connection.ts'
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
-import { loadSignedFixture, TEST_APP_ID, TEST_OA_SECRET, type SignedFixture } from '../fixtures/zalo/zalo-fixtures.ts';
+import { loadSignedFixture, signBody, TEST_APP_ID, TEST_OA_SECRET, type SignedFixture } from '../fixtures/zalo/zalo-fixtures.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -53,6 +53,16 @@ describe('POST /webhooks/zalo', () => {
 
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({ ok: false });
+    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
+  });
+
+  it('refuses an event for another Zalo app and stores nothing', async () => {
+    await connectOa('oa-1');
+    const { body } = loadSignedFixture('text-event');
+
+    const response = await postWebhook(signBody(body.replace('"app_id":"app-test"', '"app_id":"other-app"')));
+
+    expect(response.statusCode).toBe(401);
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 

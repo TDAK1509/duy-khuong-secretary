@@ -23,6 +23,11 @@ const eventSchema = z.object({
   }),
 });
 
+const envelopeSchema = z.object({
+  app_id: z.string(),
+  timestamp: z.union([z.string(), z.number()]).transform(String),
+});
+
 type ZaloEvent = z.infer<typeof eventSchema>;
 
 const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
@@ -40,13 +45,14 @@ export class ZaloOaChannel implements MessagingChannel {
 
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): boolean {
     const header = headers[SIGNATURE_HEADER];
-    if (!header?.startsWith(SIGNATURE_PREFIX)) return false;
-    const { timestamp } = JSON.parse(rawBody) as { timestamp: string };
-    return isSameText(header.slice(SIGNATURE_PREFIX.length), this.computeMac(rawBody, timestamp));
+    const envelope = readJson(rawBody, envelopeSchema);
+    if (!header?.startsWith(SIGNATURE_PREFIX) || envelope === null) return false;
+    if (envelope.app_id !== this.settings.appId) return false;
+    return isSameText(header.slice(SIGNATURE_PREFIX.length), this.computeMac(rawBody, envelope.timestamp));
   }
 
   parseEvent(rawBody: string): InboundEvent {
-    const event = readEvent(rawBody);
+    const event = readJson(rawBody, eventSchema);
     if (event === null) return IGNORED_EVENT;
     const base = {
       eventId: event.message.msg_id,
@@ -75,9 +81,9 @@ function isSameText(first: string, second: string): boolean {
   return firstBytes.length === secondBytes.length && timingSafeEqual(firstBytes, secondBytes);
 }
 
-function readEvent(rawBody: string): ZaloEvent | null {
+function readJson<Shape>(rawBody: string, schema: z.ZodType<Shape>): Shape | null {
   try {
-    const parsed = eventSchema.safeParse(JSON.parse(rawBody));
+    const parsed = schema.safeParse(JSON.parse(rawBody));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
