@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { replyWithText } from '../fakes/fake-chat-service.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
+import { insertRecordRow } from './record-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
 
 const MINUTE_MS = 60_000;
+const SEARCH_EVERYTHING = JSON.stringify({
+  text: null,
+  category: null,
+  member: null,
+  plate: null,
+  added_from: null,
+  added_to: null,
+  cursor: null,
+});
 
 describe('the ticker runs the due scheduled tasks', () => {
   let harness: IntakeHarness;
@@ -205,5 +215,38 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
+  async function searchEverythingDuringRun(): Promise<string[]> {
+    harness.chat.follow(async (_request, callNumber) =>
+      callNumber === 1 ? replyWithToolCalls({ id: 'call_1', name: 'search_records', argumentsJson: SEARCH_EVERYTHING }) : replyWithText('Xong'),
+    );
+    await harness.runTick();
+    return readFoundRecordIds();
+  }
+
+  function readFoundRecordIds(): string[] {
+    const toolResult = harness.chat.requests[1]?.turns.find((turn) => turn.role === 'tool_result');
+    if (toolResult?.role !== 'tool_result') throw new Error('the run never received a tool result');
+    return (JSON.parse(toolResult.output) as { items: { id: string }[] }).items.map((item) => item.id);
+  }
+
+  it('lets the run see the whole workspace', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const hungRecordId = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng' });
+    const lanRecordId = await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan' });
+    await insertDueTask();
+
+    expect((await searchEverythingDuringRun()).sort()).toEqual([hungRecordId, lanRecordId].sort());
+  });
+
+  it('never lets the run see another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Vy');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy' });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy' });
+    await insertDueTask();
+
+    expect(await searchEverythingDuringRun()).toEqual([]);
   });
 });
