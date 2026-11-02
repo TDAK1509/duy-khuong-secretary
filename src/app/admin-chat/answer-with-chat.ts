@@ -16,6 +16,7 @@ import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { CreatedTasks } from './created-tasks.ts';
+import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
@@ -27,7 +28,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[] };
+type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[] };
 
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
@@ -40,7 +41,7 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id) };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text: outcome.text, photos: dependencies.attachments.list() };
+  return { text: outcome.text, photos: dependencies.attachments.list(), createdTaskIds: dependencies.created.listTaskIds() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -57,10 +58,12 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
   if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
-  await storeBotReply(transaction, messageId, { text: answer.text, kind: 'answer' });
+  const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
+  const text = [answer.text, ...summaries].join('\n\n');
+  await storeBotReply(transaction, messageId, { text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, answer.text, sender.membershipId);
+  await enqueueReply(transaction, context, text, sender.membershipId);
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
 }

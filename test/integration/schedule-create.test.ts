@@ -116,7 +116,29 @@ describe('an admin creates a scheduled task by chat', () => {
     await harness.runInbound();
 
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
-    expect(await database.query(`SELECT text FROM messages WHERE reply_kind = 'answer'`)).toEqual([{ text: SAVED_TEXT }]);
+    expect(await database.query(`SELECT 1 FROM messages WHERE reply_kind = 'answer'`)).toHaveLength(1);
+  });
+
+  it('ends the answer with the summary of the new task', async () => {
+    createThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-duy',
+        [
+          SAVED_TEXT,
+          '',
+          'Đã đặt lịch "Báo cáo hằng ngày".',
+          'Chạy: 18:00 hằng ngày',
+          'Lần chạy đầu: 18:00 31/10/2026',
+          'Việc cần làm: Lập báo cáo.',
+          'Muốn hủy lịch này, nhắn: Hủy lịch "Báo cáo hằng ngày"',
+        ].join('\n'),
+      ],
+    ]);
   });
 
   it('refuses a one-time task in the past', async () => {
