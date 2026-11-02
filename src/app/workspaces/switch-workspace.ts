@@ -1,5 +1,8 @@
 import type { Reply } from '../delivery/reply.ts';
 import type { Transaction } from '../db/transaction.ts';
+import type { ChannelIdentity } from '../identities/channel-identity.ts';
+import type { PendingChoice } from '../identities/pending-choice.ts';
+import { setCurrentWorkspace } from '../identities/set-current-workspace.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
 
 type WorkspaceChoice = { id: string; name: string };
@@ -16,6 +19,18 @@ export async function listWorkspaces(transaction: Transaction, userId: string, c
     text: [`Bạn đang ở nhóm "${currentName}". Chọn nhóm bằng cách trả lời số:`, ...lines].join('\n'),
     offeredChoice: { kind: 'workspace_pick', workspaceIds: workspaces.map((workspace) => workspace.id) },
   };
+}
+
+export async function pickWorkspace(
+  transaction: Transaction,
+  identity: ChannelIdentity,
+  choice: PendingChoice,
+  number: number,
+): Promise<Reply | null> {
+  const workspaceId = choice.workspaceIds[number - 1];
+  if (workspaceId === undefined) return null;
+  await setCurrentWorkspace(transaction, identity, workspaceId);
+  return null;
 }
 
 function findWorkspacesOfUser(transaction: Transaction, userId: string): Promise<WorkspaceChoice[]> {

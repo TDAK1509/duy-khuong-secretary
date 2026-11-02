@@ -93,5 +93,5 @@ async function replyToOtherMessage(
   if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
-  return replyToMember(transaction, { userId: identity.userId, workspaceId, text });
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
 }

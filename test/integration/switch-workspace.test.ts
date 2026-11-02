@@ -82,6 +82,22 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('switches to the workspace the person answered with', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await storeWorkspacePick([workspaceId, otherWorkspaceId]);
+
+    await receiveText('zu-duy', '2');
+
+    expect(await database.query('SELECT current_workspace_id FROM channel_identities')).toEqual([
+      { current_workspace_id: otherWorkspaceId },
+    ]);
+  });
+
+  async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
+    const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
+    await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
+  }
+
   async function insertDuyInBothWorkspaces(currentWorkspaceId: string): Promise<void> {
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertMembership(database, { workspaceId: otherWorkspaceId, userId, displayName: 'Duy', role: 'admin' });

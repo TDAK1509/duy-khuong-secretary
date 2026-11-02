@@ -53,7 +53,7 @@ describe('finding the workspace of a person', () => {
   });
 
   function findWorkspaceWithCurrent(currentWorkspaceId: string): Promise<string | null> {
-    const identity: ChannelIdentity = { id: 'unused', userId, currentWorkspaceId };
+    const identity: ChannelIdentity = { id: 'unused', userId, currentWorkspaceId, pendingChoice: null };
     return runInTransaction(pool, (transaction) => findPersonWorkspace(transaction, identity));
   }
 });
