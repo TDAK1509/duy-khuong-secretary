@@ -17,4 +17,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(false);
   });
+
+  it('agrees when identifiers differ only in case and punctuation', () => {
+    const first = succeed(makeReading([makeItem({ identifiers: ['DT2024-889'] })]));
+    const second = succeed(makeReading([makeItem({ identifiers: ['dt2024 889'] })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
 });
