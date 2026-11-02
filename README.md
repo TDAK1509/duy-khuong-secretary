@@ -66,6 +66,42 @@ Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a
 
 Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, and set `GIT_COMMIT`.
 
+## Evaluate the readers
+
+A manual tool that reads a folder of receipt photos with the cheap reader pair, escalates to the strong pair when they disagree, and prints what each reader read. It never writes the database and needs an OpenAI API key.
+
+```sh
+export READER_PROVIDER=openai-compatible
+export READER_REASONING_EFFORT=low
+for slot in CHEAP_1 CHEAP_2 STRONG_1 STRONG_2; do
+  export READER_${slot}_BASE_URL=https://api.openai.com/v1
+  export READER_${slot}_API_KEY=<your OpenAI key>
+done
+export READER_CHEAP_1_MODEL=gpt-6-luna
+export READER_CHEAP_2_MODEL=gpt-6.1-terra
+export READER_STRONG_1_MODEL=gpt-6.1-sol
+export READER_STRONG_2_MODEL=gpt-6-astra
+npm run build
+node dist/bootstrap/evaluate-readers.js <photo folder>
+```
+
+The command reads every `.jpg`, `.jpeg` and `.png` file in the folder. Per photo it prints each reading, whether each pair agrees, and the outcome (`cheap_pair`, `expensive_pair` or `unresolved`). The last lines are `photos`, `cheap_pair`, `expensive_pair`, `unresolved`, `escalation rate` and `details agreement`.
+
+Put an `expected.json` next to the photos to also get `amounts correct` and `dates correct`:
+
+```json
+{ "receipt-1.jpg": { "amount_vnd": 1250000, "occurred_on": "2026-10-30" } }
+```
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `READER_PROVIDER` | none, required | `openai-compatible` |
+| `READER_<SLOT>_BASE_URL`, `_API_KEY`, `_MODEL` | none, required | One set per slot: `READER_CHEAP_1`, `READER_CHEAP_2`, `READER_STRONG_1`, `READER_STRONG_2` |
+| `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
+| `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
+
+When a required value is missing the command prints `readers is not configured: missing <NAMES>.` and exits with 1.
+
 ## Check your change
 
 ```sh
