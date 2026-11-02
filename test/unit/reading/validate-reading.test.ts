@@ -25,4 +25,10 @@ describe('validateReading', () => {
       reading: { items: [{ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30' }] },
     });
   });
+
+  it('fails the read when a date does not exist', () => {
+    const attempt = validateReading(makeFuelJson({ occurred_on: '2026-02-30' }));
+
+    expect(attempt).toEqual({ ok: false, reason: 'invalid_output' });
+  });
 });
