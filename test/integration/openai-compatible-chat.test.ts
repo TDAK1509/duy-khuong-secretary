@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { OpenAiCompatibleChat, type OpenAiCompatibleChatSettings } from '../../src/providers/chat/openai-compatible-chat.ts';
 import type { ChatRequest } from '../../src/services/chat/chat-service.ts';
-import { makeCompletionReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
+import { makeCompletionReply, makeToolCallReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
 
 const TEXT_REPLY = makeCompletionReply('Chào anh');
 
@@ -68,5 +68,16 @@ describe('OpenAiCompatibleChat', () => {
     expect(server.requests[0]?.body['tools']).toEqual([
       { type: 'function', function: { name: 'list_members', description: 'Liệt kê', parameters: { type: 'object' }, strict: true } },
     ]);
+  });
+
+  it('turns a tool-call answer into tool calls with ids', async () => {
+    const server = await startServer(makeToolCallReply([{ id: 'call_1', name: 'list_members', arguments: '{}' }]));
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toEqual({
+      ok: true,
+      reply: { kind: 'tool_calls', calls: [{ id: 'call_1', name: 'list_members', argumentsJson: '{}' }] },
+    });
   });
 });
