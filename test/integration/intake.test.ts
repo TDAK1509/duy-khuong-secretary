@@ -47,7 +47,7 @@ describe('storing what a member sends', () => {
   it('stores a text from a member in their chat', async () => {
     await receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
 
-    expect(await database.query('SELECT workspace_id, user_id, author, text FROM messages')).toEqual([
+    expect(await database.query(`SELECT workspace_id, user_id, author, text FROM messages WHERE author = 'user'`)).toEqual([
       { workspace_id: workspaceId, user_id: hungUserId, author: 'user', text: 'Hôm qua tôi gửi gì?' },
     ]);
   });
@@ -61,6 +61,27 @@ describe('storing what a member sends', () => {
         'zu-hung',
         'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
       ],
+    ]);
+  });
+
+  it('stores the reply as a bot message linked to the user message', async () => {
+    await receiveText('zu-hung', 'chào');
+
+    expect(
+      await database.query(`
+        SELECT reply.author, reply.workspace_id, reply.user_id, reply.reply_kind, reply.submission_status,
+          reply.reply_to = original.id AS replies_to_original
+        FROM messages reply JOIN messages original ON original.author = 'user'
+        WHERE reply.author = 'bot'`),
+    ).toEqual([
+      {
+        author: 'bot',
+        workspace_id: workspaceId,
+        user_id: hungUserId,
+        reply_kind: 'answer',
+        submission_status: 'accepted',
+        replies_to_original: true,
+      },
     ]);
   });
 

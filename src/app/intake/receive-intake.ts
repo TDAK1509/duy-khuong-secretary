@@ -9,7 +9,7 @@ import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import type { Finished, Stages } from '../processing/stages.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import { UPLOAD_ONLY_TEXT } from './intake-texts.ts';
-import { hasUserMessage, storeUserMessage, type IntakePart } from './store-user-message.ts';
+import { findUserMessageId, hasUserMessage, storeBotReply, storeUserMessage, type IntakePart } from './store-user-message.ts';
 
 const textPayloadSchema = z.object({ text: z.string() });
 
@@ -28,7 +28,10 @@ export async function receiveIntake(
   });
   return stages.finishEvent(async (transaction) => {
     await touchSender(transaction, event, part.text);
-    await replyToSender(transaction, dependencies, event, UPLOAD_ONLY_TEXT);
+    const userMessageId = await findUserMessageId(transaction, event, part.index);
+    if (await storeBotReply(transaction, userMessageId, UPLOAD_ONLY_TEXT)) {
+      await replyToSender(transaction, dependencies, event, UPLOAD_ONLY_TEXT);
+    }
   });
 }
 
