@@ -76,6 +76,19 @@ describe('the scheduling tools', () => {
     ]);
   });
 
+  it('keeps the first task active when a new message creates another', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, new CreatedTasks('message-1'));
+
+    await runTool(duy, 'create_scheduled_task', { ...DAILY_REPORT, title: 'Báo cáo tuần' }, new CreatedTasks('message-2'));
+
+    expect(await harness.database.query('SELECT title, status FROM scheduled_tasks ORDER BY title')).toEqual([
+      { title: 'Báo cáo hằng ngày', status: 'active' },
+      { title: 'Báo cáo tuần', status: 'active' },
+    ]);
+  });
+
   it('lists only the active tasks the caller created in this workspace', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
