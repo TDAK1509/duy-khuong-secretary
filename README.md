@@ -55,6 +55,7 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `ZALO_APP_ID`, `ZALO_APP_SECRET` | none | The Zalo app's id and secret key |
 | `ZALO_OAUTH_BASE_URL` | `https://oauth.zaloapp.com` | Zalo OAuth host |
 | `ZALO_API_BASE_URL` | `https://openapi.zalo.me` | Zalo API host (sending messages) |
+| `ZALO_BUSINESS_API_BASE_URL` | `https://openapi.zalo.me` | Host of the template message call `POST /v3.0/oa/message/template` (ZBS by user id; checked against the Zalo docs; the plan named `https://business.openapi.zalo.me`) |
 | `ZALO_TIMEOUT_MS` | `15000` | How long a Zalo API call may take before it counts as unanswered |
 | `OUTBOUND_MAX_PER_MINUTE` | `90` | How many messages go out per minute (the Tăng trưởng package allows 100) |
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
@@ -139,7 +140,15 @@ The search uses the Postgres `unaccent` extension. The migrations enable it.
 
 ### Scheduled tasks
 
-An admin asks for a task that runs once, daily, weekly or monthly (Vietnam time) through `propose_scheduled_task`. The tool stores a `draft` in `scheduled_tasks` (at most one open draft per admin per workspace, and at most 20 `draft` or `active` tasks per workspace). The server appends the draft card to the answer. The card carries the choice `draft_confirm`, which is stored only when the card is marked `sent` and the admin wrote nothing newer. Then `1` or `Lưu lịch` makes the task `active` and `2` or `Hủy lịch` cancels it. Any other message clears the choice. These replies never reach the readers or the chat model. `list_scheduled_tasks` and `cancel_scheduled_task` list and cancel the caller's own tasks. Nothing runs a saved task yet.
+An admin asks for a task that runs once, daily, weekly or monthly (Vietnam time) through `propose_scheduled_task`. The tool stores a `draft` in `scheduled_tasks` (at most one open draft per admin per workspace, and at most 20 `draft` or `active` tasks per workspace). The server appends the draft card to the answer. The card carries the choice `draft_confirm`, which is stored only when the card is marked `sent` and the admin wrote nothing newer. Then `1` or `Lưu lịch` makes the task `active` and `2` or `Hủy lịch` cancels it. Any other message clears the choice. These replies never reach the readers or the chat model. `list_scheduled_tasks` and `cancel_scheduled_task` list and cancel the caller's own tasks.
+
+#### Scheduled runs and delivery
+
+Every 60 seconds the ticker claims the `active` tasks whose `next_run_at` has passed (and whose `locked_until` is empty or past) with `FOR UPDATE SKIP LOCKED`, locks each for 10 minutes and runs its `instruction` with the creator's admin scope and exactly the tools `search_records`, `count_records`, `maintenance_status` and `list_members`. This runs only while the `chat` group is on. A creator who is no longer an admin (removed, or removed and invited again as a member) turns the task off (`cancelled`). The finish is one transaction that proceeds only when `next_run_at` still equals the claimed value and the creator's membership row is still the same admin row. It stores the result as a bot message in the creator's chat, queues it with `scheduled_task_id` and moves `next_run_at` to the next occurrence (empty for a one-time task). An answer that is exactly `KHONG_CO_THONG_BAO` sends nothing. A model error sends `Lịch "{title}" chạy lỗi. Lần chạy sau sẽ thử lại.` A crash leaves the lock to expire and the task runs again once; the conditional finish prevents a double send.
+
+The outbound worker applies the delivery rule to rows that carry `scheduled_task_id`. When the creator wrote within the last 7 days (less a 10-minute margin) the row is sent as usual. Otherwise, or when Zalo answers that the window is closed (error `-230`, unverified), the row becomes `held`. A held row is never claimed. With `ZALO_REPORT_READY_TEMPLATE_ID` set (the `report-template` group), the first held row after the creator's last message also queues one `template` row with `{"task_title": "…"}` (title cut to 30 characters). Template rows are sent whatever the window. When the person writes again, the inbound handler queues the line `Bạn có {n} tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.`, then a queued copy of each held row in order, and deletes the held rows.
+
+Owner action: submit the "report ready" template of the plan (section 4.7) to Zalo and, after approval, set `ZALO_REPORT_READY_TEMPLATE_ID` in Render. Without it the reports of quiet admins stay held until they write. While the group is off the service logs `[config] report-template is off; missing: ZALO_REPORT_READY_TEMPLATE_ID.`
 
 ## Row-level security
 
