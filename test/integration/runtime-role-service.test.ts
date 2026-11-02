@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { DraftProposals } from '../../src/app/admin-chat/draft-proposals.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -66,7 +67,7 @@ describe('the service connected as the runtime role', () => {
       const filters = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
 
       const output = await runAdminTool(
-        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments() },
+        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments(), drafts: new DraftProposals() },
         duy,
         { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(filters) },
       );

@@ -11,6 +11,10 @@ export class FakeClock implements Clock {
     return this.current;
   }
 
+  setTo(moment: Date): void {
+    this.current = moment;
+  }
+
   advanceBy(milliseconds: number): void {
     this.current = new Date(this.current.getTime() + milliseconds);
   }

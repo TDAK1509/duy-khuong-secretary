@@ -2,7 +2,8 @@ import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
-import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
+import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
+import type { Stages } from '../../src/app/processing/stages.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
 import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -26,6 +27,7 @@ export type InboundOverrides = {
   photoStorage?: FakePhotoStorage | null;
   readers?: ReaderSlots | null;
   chat?: FakeChatService | null;
+  beforeFinish?: () => Promise<void>;
 };
 
 export type IntakeHarness = {
@@ -40,12 +42,28 @@ export type IntakeHarness = {
   workspaceId: string;
   hungUserId: string;
   receivePhoto(externalUserId: string, caption?: string | null): Promise<void>;
-  receiveText(externalUserId: string, text: string): Promise<void>;
+  receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
   sendQueuedTexts(): Promise<void>;
   sendAllQueuedTexts(): Promise<void>;
   close(): Promise<void>;
 };
+
+function pauseBeforeFinish(beforeFinish: (() => Promise<void>) | undefined, handler: InboundHandler): InboundHandler {
+  if (beforeFinish === undefined) return handler;
+  return (event, stages) => handler(event, pauseStages(stages, beforeFinish));
+}
+
+function pauseStages(stages: Stages, beforeFinish: () => Promise<void>): Stages {
+  return {
+    ...stages,
+    finishEvent: async (write) => {
+      await beforeFinish();
+      return stages.finishEvent(write);
+    },
+    forScope: (scope) => pauseStages(stages.forScope(scope), beforeFinish),
+  };
+}
 
 export function makePng(size: number): Uint8Array {
   const bytes = new Uint8Array(size).fill(1);
@@ -82,7 +100,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({
+      handler: pauseBeforeFinish(overrides.beforeFinish, createInboundHandler({
         channel,
         clock,
         database: pool,
@@ -90,7 +108,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
         photoStorage: storage,
         readers: slots,
         chat: chatService,
-      }),
+      })),
     });
   }
 
@@ -114,9 +132,9 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
       await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
       await runInbound();
     },
-    receiveText: async (externalUserId, text) => {
+    receiveText: async (externalUserId, text, overrides) => {
       await insertInboundEvent(database, { externalUserId, text });
-      await runInbound();
+      await runInbound(overrides);
     },
     sendQueuedTexts: async () => {
       await runOutboundStep(outboundDependencies());

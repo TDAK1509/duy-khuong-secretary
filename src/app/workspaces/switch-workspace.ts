@@ -34,7 +34,7 @@ export type Chooser = { identity: ChannelIdentity; userId: string };
 export async function pickWorkspace(
   transaction: Transaction,
   chooser: Chooser,
-  choice: PendingChoice,
+  choice: Extract<PendingChoice, { kind: 'workspace_pick' }>,
   number: number,
 ): Promise<Reply> {
   await clearPendingChoice(transaction, chooser.identity);

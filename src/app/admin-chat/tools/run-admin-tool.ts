@@ -5,14 +5,17 @@ import { toDatabaseScope } from '../../access/to-database-scope.ts';
 import { scopeDatabase } from '../../db/scoped-database.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import { runAttachPhotos } from './attach-photos-tool.ts';
+import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
+import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
+import { runProposeScheduledTask } from './propose-scheduled-task-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-import { failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
+import { failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
@@ -26,30 +29,29 @@ async function runToolByName(dependencies: AdminToolDependencies, scope: AccessS
     return await dispatchTool(dependencies, scope, call);
   } catch (error) {
     if (error instanceof z.ZodError) return failInvalidArgument(String(error.issues[0]?.path[0] ?? 'arguments'));
+    if (error instanceof ToolRefusal) return failTool(error.message);
     if (error instanceof SyntaxError) return failInvalidArgument('arguments');
     throw error;
   }
 }
 
+type ToolRunner = (dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown) => Promise<string>;
+
+const TOOL_RUNNERS: Record<string, ToolRunner> = {
+  search_records: ({ database }, scope, args) => runSearchRecords(database, scope, args),
+  count_records: ({ database }, scope, args) => runCountRecords(database, scope, args),
+  list_members: ({ database }, scope) => runListMembers(database, scope),
+  create_invite: runCreateInvite,
+  remove_member: ({ database }, scope, args) => runRemoveMember(database, scope, args),
+  maintenance_status: runMaintenanceStatus,
+  attach_photos: runAttachPhotos,
+  propose_scheduled_task: runProposeScheduledTask,
+  list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
+  cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
+};
+
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
-  const { database } = dependencies;
   const parsedArguments: unknown = JSON.parse(call.argumentsJson);
-  switch (call.name) {
-    case 'search_records':
-      return runSearchRecords(database, scope, parsedArguments);
-    case 'count_records':
-      return runCountRecords(database, scope, parsedArguments);
-    case 'list_members':
-      return runListMembers(database, scope);
-    case 'create_invite':
-      return runCreateInvite(dependencies, scope, parsedArguments);
-    case 'remove_member':
-      return runRemoveMember(database, scope, parsedArguments);
-    case 'maintenance_status':
-      return runMaintenanceStatus(dependencies, scope, parsedArguments);
-    case 'attach_photos':
-      return runAttachPhotos(dependencies, scope, parsedArguments);
-    default:
-      return failInvalidArgument('name');
-  }
+  const runner = Object.hasOwn(TOOL_RUNNERS, call.name) ? TOOL_RUNNERS[call.name] : undefined;
+  return runner ? runner(dependencies, scope, parsedArguments) : failInvalidArgument('name');
 }

@@ -137,6 +137,10 @@ The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` 
 
 The search uses the Postgres `unaccent` extension. The migrations enable it.
 
+### Scheduled tasks
+
+An admin asks for a task that runs once, daily, weekly or monthly (Vietnam time) through `propose_scheduled_task`. The tool stores a `draft` in `scheduled_tasks` (at most one open draft per admin per workspace, and at most 20 `draft` or `active` tasks per workspace). The server appends the draft card to the answer. The card carries the choice `draft_confirm`, which is stored only when the card is marked `sent` and the admin wrote nothing newer. Then `1` or `Lưu lịch` makes the task `active` and `2` or `Hủy lịch` cancels it. Any other message clears the choice. These replies never reach the readers or the chat model. `list_scheduled_tasks` and `cancel_scheduled_task` list and cancel the caller's own tasks. Nothing runs a saved task yet.
+
 ## Row-level security
 
 The tables `records`, `messages` and `reply_photos` have row-level security (`ENABLE`, not `FORCE`). A row is visible and writable only when its `workspace_id` equals the setting `app.workspace_id`, set with `SET LOCAL` inside each transaction. For a member, `app.owner_user_id` must also equal the row's `user_id`. With no setting, no row is visible. The service connects as the role `app_runtime`: `LOGIN`, no superuser, no `BYPASSRLS`, owns no table, cannot change the schema. The table owner bypasses the policies, so the barrier is on only when `DATABASE_URL` uses `app_runtime`.

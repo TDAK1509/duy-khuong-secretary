@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { DraftProposals } from '../../src/app/admin-chat/draft-proposals.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -26,7 +27,7 @@ describe('what a removed person can still do', () => {
       `SELECT id FROM memberships WHERE user_id = '${hungUserId}' AND workspace_id = '${workspaceId}'`,
     );
     const call = { id: 'call_1', name: 'remove_member', argumentsJson: JSON.stringify({ member_id: hung?.id }) };
-    await runAdminTool({ database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments() }, { workspaceId, userId: duyUserId, role: 'admin' }, call);
+    await runAdminTool({ database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() }, { workspaceId, userId: duyUserId, role: 'admin' }, call);
   }
 
   it('continues in their other workspace', async () => {
