@@ -65,4 +65,12 @@ describe('an admin asks the bot', () => {
         WHERE outbound.body = 'Chào anh' AND membership.display_name = 'Duy'`),
     ).toEqual([{ carries_membership: true }]);
   });
+
+  it('names the workspace and the admin in the system prompt', async () => {
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    const system = harness.chat.requests[0]?.system;
+    expect(system).toContain('nhóm "Xe tải Duy Khương"');
+    expect(system).toContain('Bạn đang trò chuyện với Duy, vai trò: quản lý');
+  });
 });

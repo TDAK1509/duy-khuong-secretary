@@ -1,13 +1,18 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { buildAdminPrompt } from './admin-prompt.ts';
+import { loadAdminProfile } from './load-admin-profile.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
+  const { database, clock } = context.dependencies;
+  const profile = await loadAdminProfile(database, context.sender.membershipId);
+  if (profile === null) return;
   const result = await requireChat(context).respond({
-    system: '',
+    system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [{ role: 'user', text: message.text, image: message.photo }],
     tools: [],
   });
