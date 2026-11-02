@@ -14,6 +14,7 @@ export async function finishScheduledRun(
 ): Promise<void> {
   const database = scopeDatabase(dependencies.database, { workspaceId: task.workspaceId });
   await runInTransaction(database, async (transaction) => {
+    if (!(await ownsClaim(transaction, task))) return;
     await storeResultMessage(transaction, task, text);
     await enqueueResult(transaction, dependencies, task, text);
     await moveToNextRun(transaction, task, dependencies.clock.now());
@@ -26,6 +27,14 @@ async function moveToNextRun(transaction: Transaction, task: ClaimedTask, now: D
     computeNextRun(task.schedule, now),
     now,
   ]);
+}
+
+async function ownsClaim(transaction: Transaction, task: ClaimedTask): Promise<boolean> {
+  const rows = await transaction.query(
+    `SELECT 1 FROM scheduled_tasks WHERE id = $1 AND status = 'active' AND next_run_at = $2::timestamptz FOR UPDATE`,
+    [task.id, task.claimedNextRunAt],
+  );
+  return rows.length > 0;
 }
 
 async function storeResultMessage(transaction: Transaction, task: ClaimedTask, text: string): Promise<void> {

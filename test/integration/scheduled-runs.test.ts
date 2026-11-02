@@ -177,4 +177,23 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it("sends nothing when a stale runner's lock expired and another runner finished the task", async () => {
+    await insertDueTask({ runOnceAt: undefined });
+    let openAnswerGate = (): void => {};
+    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
+    harness.chat.follow(async (_request, callNumber) => {
+      if (callNumber === 1) await answerGate;
+      return replyWithText(callNumber === 1 ? 'Báo cáo của runner A' : 'Báo cáo của runner B');
+    });
+
+    const staleTick = harness.runTick();
+    await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1));
+    harness.clock.advanceBy(11 * MINUTE_MS);
+    await harness.runTick();
+    openAnswerGate();
+    await staleTick;
+
+    expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Báo cáo của runner B' }]);
+  });
 });
