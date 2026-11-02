@@ -276,6 +276,16 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('marks a maintenance message without a plate as unresolved', async () => {
+    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
+      { submission_status: 'unresolved' },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
