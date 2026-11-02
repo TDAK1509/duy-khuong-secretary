@@ -167,4 +167,21 @@ describe('the daily maintenance reminder run', () => {
 
     expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
   });
+
+  it('never treats a part without a rule as due', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'maintenance',
+      maintenanceItem: 'lốp',
+      vehiclePlate: '29C12345',
+      createdAt: new Date('2026-04-14T10:00:00+07:00'),
+    });
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
