@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -162,5 +162,15 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-duy', 'Chào bạn');
 
     expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn', image: null }]);
+  });
+
+  it('sends the new photo to the model as an image', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+
+    await harness.receivePhoto('zu-duy');
+
+    const turns = harness.chat.requests[0]?.turns ?? [];
+    const lastTurn = turns[turns.length - 1];
+    expect(lastTurn).toMatchObject({ role: 'user', image: { contentType: 'image/jpeg' } });
   });
 });
