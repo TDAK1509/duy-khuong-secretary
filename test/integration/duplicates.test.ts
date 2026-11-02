@@ -31,6 +31,23 @@ describe('rejecting duplicate papers', () => {
     expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
 
+  it('tells the driver of a copy that the group already has the paper', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+    harness.channel.texts.splice(0);
+
+    await harness.receivePhoto('zu-lan');
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      [
+        'zu-lan',
+        'Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.',
+      ],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }

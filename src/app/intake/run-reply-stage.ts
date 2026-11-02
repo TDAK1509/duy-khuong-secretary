@@ -4,7 +4,7 @@ import { insertRecords } from '../records/insert-records.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { enqueueReply } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
-import type { ReplyPlan } from './plan-reply.ts';
+import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
 import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
 export async function runReplyStage(context: IntakeContext, messageId: string, plan: ReplyPlan): Promise<void> {
@@ -38,5 +38,5 @@ async function rejectDuplicates(transaction: Transaction, workspaceId: string, p
   if (!plan.saved) return plan;
   await lockWorkspaceRecords(transaction, workspaceId);
   if (!(await hasDuplicateRecord(transaction, workspaceId, plan.saved.records))) return plan;
-  return { ...plan, saved: null };
+  return planDuplicateReply();
 }
