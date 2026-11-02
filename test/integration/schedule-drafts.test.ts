@@ -229,4 +229,13 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query(`SELECT 1 FROM scheduled_tasks WHERE status = 'draft'`)).toEqual([]);
     expect(findToolResult()).toBe('{"ok":false,"error":"Nhóm đã có 20 lịch. Xóa bớt lịch cũ trước."}');
   });
+
+  it('refuses a title over 80 characters', async () => {
+    proposeThenReply({ title: 'a'.repeat(81) });
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
+    expect(findToolResult()).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: title"}');
+  });
 });
