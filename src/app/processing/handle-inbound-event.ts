@@ -7,6 +7,8 @@ import type { Database, Transaction } from '../db/transaction.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
+import { findIntakeSender } from '../intake/find-intake-sender.ts';
+import { receiveIntake } from '../intake/receive-intake.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -30,6 +32,8 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
     const text = readText(event);
+    const sender = await findIntakeSender(dependencies.database, event, text);
+    if (sender !== null) return receiveIntake(stages, event, sender);
     const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
     const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
     return stages.finishEvent((transaction) =>
