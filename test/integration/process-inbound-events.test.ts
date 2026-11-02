@@ -236,6 +236,16 @@ describe('the inbound worker step', () => {
     expect((await readEvent(id)).status).toBe('done');
   });
 
+  it('holds back a second message until the first one of the same person is done', async () => {
+    await insertInboundEvent(database, { availableAt: new Date(NOW.getTime() + 10_000) });
+    await insertInboundEvent(database, {});
+    const handler = recordCalls();
+
+    await runStep(handler);
+
+    expect(handler.calls).toEqual([]);
+  });
+
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
     if (!event) throw new Error('no event to claim');

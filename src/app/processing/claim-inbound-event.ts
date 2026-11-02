@@ -16,7 +16,15 @@ export async function claimInboundEvent(database: Database, now: Date): Promise<
     transaction.query<ClaimedRow>(
       `WITH candidate AS (
          SELECT id FROM inbound_events
-         WHERE (status = 'queued' AND available_at <= $1) OR (status = 'processing' AND locked_until < $1)
+         WHERE ((status = 'queued' AND available_at <= $1) OR (status = 'processing' AND locked_until < $1))
+           AND NOT EXISTS (
+             SELECT 1 FROM inbound_events earlier
+             WHERE earlier.channel = inbound_events.channel
+               AND earlier.account_id = inbound_events.account_id
+               AND earlier.external_user_id = inbound_events.external_user_id
+               AND earlier.status IN ('queued', 'processing')
+               AND (earlier.received_at, earlier.id) < (inbound_events.received_at, inbound_events.id)
+           )
          ORDER BY received_at, id
          LIMIT 1
          FOR UPDATE SKIP LOCKED
