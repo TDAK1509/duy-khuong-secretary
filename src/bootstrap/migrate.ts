@@ -51,3 +51,8 @@ function describeOutcome(outcome: MigrationOutcome): string {
     ? '[migrate] nothing to apply'
     : `[migrate] applied: ${outcome.names.join(', ')}`;
 }
+
+if (import.meta.main) {
+  const migrationsDirectory = new URL('../app/db/migrations/', import.meta.url);
+  process.exitCode = await runMigrationCommand(process.env, { directory: migrationsDirectory });
+}
