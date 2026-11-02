@@ -17,4 +17,12 @@ describe('splitText', () => {
 
     expect(parts).toEqual(['a'.repeat(1800), 'b'.repeat(699)]);
   });
+
+  it('cuts a long text without line breaks at the last space', () => {
+    const text = `${'a'.repeat(1950)} ${'b'.repeat(549)}`;
+
+    const parts = splitText(text, LIMIT);
+
+    expect(parts).toEqual(['a'.repeat(1950), 'b'.repeat(549)]);
+  });
 });

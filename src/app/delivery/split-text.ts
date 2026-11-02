@@ -13,7 +13,9 @@ export function splitText(text: string, maxLength: number): string[] {
 }
 
 function findCut(text: string, maxLength: number): Cut {
-  const lineBreak = text.lastIndexOf('\n', maxLength);
-  if (lineBreak > 0) return { endOfPart: lineBreak, startOfRest: lineBreak + 1 };
+  for (const separator of ['\n', ' ']) {
+    const index = text.lastIndexOf(separator, maxLength);
+    if (index > 0) return { endOfPart: index, startOfRest: index + 1 };
+  }
   return { endOfPart: maxLength, startOfRest: maxLength };
 }
