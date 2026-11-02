@@ -172,4 +172,32 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items).toEqual([]);
   });
+
+  describe('with 60 truck-part rows', () => {
+    beforeEach(async () => {
+      for (let number = 0; number < 60; number += 1) {
+        const vehiclePlate = `29C${String(10000 + number)}`;
+        await insertRecordRow(database, {
+          workspaceId,
+          userId: hungUserId,
+          senderName: 'Hùng',
+          category: 'maintenance',
+          maintenanceItem: 'dầu máy',
+          vehiclePlate,
+        });
+      }
+    });
+
+    it('pages 50 rows, then the other 10 from the cursor', async () => {
+      const first = await runStatus();
+      expect(first.items).toHaveLength(50);
+
+      const second = await runStatus({ cursor: first.next_cursor ?? '' });
+
+      expect(second.items.map((row) => row.plate)).toEqual(
+        Array.from({ length: 10 }, (_, number) => `29C${String(10050 + number)}`),
+      );
+      expect(second.next_cursor).toBeNull();
+    });
+  });
 });

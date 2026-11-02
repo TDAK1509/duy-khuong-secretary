@@ -1,11 +1,20 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
+import { encodeMaintenanceCursor, type MaintenanceCursor } from './maintenance-cursor.ts';
 import { WhereClause } from './where-clause.ts';
 
-export type MaintenanceFilters = { plate: string | null; maintenanceItem: string | null };
+export type MaintenanceFilters = {
+  plate: string | null;
+  maintenanceItem: string | null;
+  cursor: MaintenanceCursor | null;
+};
 
 export type LatestMaintenance = { plate: string; maintenance_item: string; sent_by: string; sent_on: string; days_since_sent: number };
+
+export type MaintenancePage = { items: LatestMaintenance[]; nextCursor: string | null };
+
+const PAGE_SIZE = 50;
 
 const VIETNAM_SENT_DATE = `(message.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
 
@@ -24,14 +33,14 @@ export async function findLatestMaintenance(
   scope: AccessScope,
   filters: MaintenanceFilters,
   now: Date,
-): Promise<LatestMaintenance[]> {
+): Promise<MaintenancePage> {
   const where = buildWhere(scope, filters);
   const select = selectLatestPerTruckPart(where.bind(now.toISOString()));
   const { rows } = await database.query<LatestMaintenance>(
-    `${select} WHERE ${where.toSql()} ${NEWEST_FIRST_PER_TRUCK_PART}`,
+    `${select} WHERE ${where.toSql()} ${NEWEST_FIRST_PER_TRUCK_PART} LIMIT ${PAGE_SIZE + 1}`,
     where.values,
   );
-  return rows;
+  return toPage(rows);
 }
 
 function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClause {
@@ -40,10 +49,20 @@ function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClaus
   where.require(`record.category = 'maintenance'`);
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.maintenanceItem !== null) where.require(buildItemCondition(where, filters.maintenanceItem));
+  if (filters.cursor !== null) {
+    where.require(`(record.vehicle_plate, record.maintenance_item) > (${where.bind(filters.cursor.plate)}, ${where.bind(filters.cursor.maintenanceItem)})`);
+  }
   return where;
 }
 
 function buildItemCondition(where: WhereClause, maintenanceItem: string): string {
   const bound = where.bind(toAccentFreeForm(maintenanceItem) ?? '');
   return `regexp_replace(trim(lower(unaccent(record.maintenance_item))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function toPage(rows: LatestMaintenance[]): MaintenancePage {
+  const items = rows.slice(0, PAGE_SIZE);
+  const last = items[items.length - 1];
+  const hasMore = rows.length > PAGE_SIZE && last !== undefined;
+  return { items, nextCursor: hasMore ? encodeMaintenanceCursor({ plate: last.plate, maintenanceItem: last.maintenance_item }) : null };
 }
