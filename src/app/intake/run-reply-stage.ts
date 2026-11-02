@@ -25,7 +25,7 @@ async function saveReply(
 ): Promise<void> {
   const { event, sender, dependencies } = context;
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
-  await insertRecords(transaction, message, plan.readBy, plan.records);
+  if (plan.saved) await insertRecords(transaction, message, plan.saved.readBy, plan.saved.records);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueText(transaction, {
