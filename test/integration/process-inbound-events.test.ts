@@ -246,6 +246,15 @@ describe('the inbound worker step', () => {
     expect(handler.calls).toEqual([]);
   });
 
+  it('does not hold back the message of another person', async () => {
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', availableAt: new Date(NOW.getTime() + 10_000) });
+    const id = await insertInboundEvent(database, { externalUserId: 'zu-lan' });
+
+    await runStep(finishWithoutWriting);
+
+    expect((await readEvent(id)).status).toBe('done');
+  });
+
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
     if (!event) throw new Error('no event to claim');
