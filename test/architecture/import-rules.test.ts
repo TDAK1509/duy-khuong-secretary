@@ -64,4 +64,10 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("../providers/database/migration-tool.ts");
   });
+
+  it('allows app/db to import the Postgres provider file', async () => {
+    const messages = await lintFixture('db-import-postgres', 'src/app/db/open-pool.ts');
+
+    expect(messages).toEqual([]);
+  });
 });
