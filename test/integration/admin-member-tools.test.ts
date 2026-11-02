@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -18,6 +20,8 @@ describe('the member tools of an admin', () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(new Date('2026-11-02T14:05:00+07:00'));
+    const tokens = makeTokenPair({ accessToken: 'a1' });
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: clock.now() }, 'a'.repeat(64));
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     duy = { workspaceId, userId: duyUserId, role: 'admin' };
@@ -54,6 +58,12 @@ describe('the member tools of an admin', () => {
         role: 'thành viên',
         expires: '14:05 09/11/2026',
       });
+    });
+
+    it('answers with the link to the chat of the connected OA', async () => {
+      const output = await runTool('create_invite', { display_name: 'Hùng', role: 'member' });
+
+      expect(JSON.parse(output)).toMatchObject({ oa_link: 'https://zalo.me/oa-1' });
     });
   });
 });
