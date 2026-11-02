@@ -99,6 +99,18 @@ describe('the inbound worker step', () => {
     });
   });
 
+  it('waits 60 seconds after a second failure', async () => {
+    const id = await insertInboundEvent(database, { attempts: 1 });
+
+    await runStep(throwBoom);
+
+    expect(await readEvent(id)).toMatchObject({
+      status: 'queued',
+      attempts: 2,
+      available_at: new Date(NOW.getTime() + 60_000),
+    });
+  });
+
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
     return runInboundStep({ database: pool, clock, handler });
   }
