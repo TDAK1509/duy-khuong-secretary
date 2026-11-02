@@ -31,4 +31,13 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(true);
   });
+
+  it('agrees on the same items in a different order', () => {
+    const toll = makeItem({ category: 'toll', amount_vnd: 90000 });
+    const fuel = makeItem({ category: 'fuel', amount_vnd: 1250000 });
+
+    const agree = areAgreeing(succeed(makeReading([toll, fuel])), succeed(makeReading([fuel, toll])));
+
+    expect(agree).toBe(true);
+  });
 });
