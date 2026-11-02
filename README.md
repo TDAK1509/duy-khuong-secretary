@@ -57,8 +57,25 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
 | `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
+| `ZALO_OA_SECRET` | none | The OA secret key shown in the Zalo app's webhook settings; turns the webhook on |
 | `ALERT_PROVIDER` | `log` | `log` writes alerts to the error log; `webhook` posts `{"text":"..."}` to `ALERT_WEBHOOK_URL` |
 | `ALERT_WEBHOOK_URL` | none | Required when `ALERT_PROVIDER=webhook`; the start fails without it |
+
+## Receive Zalo messages
+
+`POST /webhooks/zalo` takes every event Zalo sends to the OA. In the Zalo app's webhook settings, set the URL to `<PUBLIC_BASE_URL>/webhooks/zalo` and turn on `user_send_text` and `user_send_image`. Set `ZALO_OA_SECRET` to the OA secret key shown there.
+
+The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of app id, exact raw body, `timestamp` and OA secret key) and that the body's `app_id` is `ZALO_APP_ID`. Answers:
+
+| Status | When | Stored |
+|---|---|---|
+| `200 {"ok":true}` | A text or image message from a connected OA, a resent message, or any other event | One `queued` row in `inbound_events` for a new text or image message |
+| `401 {"ok":false}` | The signature or the `app_id` is wrong | Nothing |
+| `403 {"ok":false}` | The OA is not in `channel_connections` | Nothing |
+| `500 {"ok":false}` | The connection check or the insert failed | Nothing; the operator gets `[alert] Zalo webhook could not store an event: <error name>.` |
+| `503 {"ok":false}` | The `zalo-webhook` group is off: the `zalo` group plus `ZALO_OA_SECRET` | Nothing |
+
+The service logs `[config] zalo-webhook is off; missing: <NAMES>.` while the group is off. The body limit is 1 MB. Events stay `queued`; the background worker is a later step.
 
 ## Migrations
 

@@ -51,6 +51,20 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
   };
 }
 
+export type ZaloWebhookConfig = { provider: 'zalo-oa'; appId: string; oaSecret: string };
+
+export type ZaloWebhookConfigResult = { ok: true; config: ZaloWebhookConfig } | { ok: false; missing: string[] };
+
+export function loadZaloWebhookConfig(environment: NodeJS.ProcessEnv): ZaloWebhookConfigResult {
+  const zalo = loadZaloConfig(environment);
+  const oaSecret = environment['ZALO_OA_SECRET'] ?? '';
+  if (zalo.ok && oaSecret) {
+    return { ok: true, config: { provider: zalo.config.provider, appId: zalo.config.appId, oaSecret } };
+  }
+  const missing = [...(zalo.ok ? [] : zalo.missing), ...(oaSecret ? [] : ['ZALO_OA_SECRET'])];
+  return { ok: false, missing };
+}
+
 function dropEmptyValues(environment: NodeJS.ProcessEnv): Record<string, string> {
   const entries = Object.entries(environment).filter((entry): entry is [string, string] => !!entry[1]);
   return Object.fromEntries(entries);

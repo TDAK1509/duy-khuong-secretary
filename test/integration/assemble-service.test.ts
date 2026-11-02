@@ -19,6 +19,7 @@ describe('assembling the service', () => {
     expect(response.statusCode).toBe(200);
     expect(lines).toEqual([
       '[config] zalo is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL.',
+      '[config] zalo-webhook is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL, ZALO_OA_SECRET.',
     ]);
   });
 
@@ -33,6 +34,7 @@ describe('assembling the service', () => {
         ZALO_APP_SECRET: 'sec-1',
         CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
         PUBLIC_BASE_URL: 'https://x.test',
+        ZALO_OA_SECRET: 'oa-sec-1',
       },
       (line) => lines.push(line),
     );

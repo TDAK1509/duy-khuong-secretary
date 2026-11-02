@@ -1,0 +1,1 @@
+{"app_id":"app-test","user_id_by_app":"uba-hung","event_name":"user_send_image","timestamp":"1793588400000","sender":{"id":"zu-hung"},"recipient":{"id":"oa-1"},"message":{"text":"Xe 29C-123.45","msg_id":"m2","attachments":[{"type":"image","payload":{"thumbnail":"https://f6.photo.talk.zdn.vn/p1-thumb.jpg","url":"https://f6.photo.talk.zdn.vn/p1.jpg"}}]}}

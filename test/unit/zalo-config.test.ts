@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadZaloConfig } from '../../src/bootstrap/zalo-config.ts';
+import { loadZaloConfig, loadZaloWebhookConfig } from '../../src/bootstrap/zalo-config.ts';
 
 const COMPLETE_ENVIRONMENT: NodeJS.ProcessEnv = {
   MESSAGING_PROVIDER: 'zalo-oa',
@@ -45,5 +45,29 @@ describe('loadZaloConfig', () => {
     const environment = { MESSAGING_PROVIDER: 'other', PUBLIC_BASE_URL: 'not a url' };
 
     expect(() => loadZaloConfig(environment)).toThrow(/MESSAGING_PROVIDER.*PUBLIC_BASE_URL/);
+  });
+});
+
+describe('loadZaloWebhookConfig', () => {
+  it('reads the app id and the OA secret when the zalo group is on', () => {
+    const result = loadZaloWebhookConfig({ ...COMPLETE_ENVIRONMENT, ZALO_OA_SECRET: 'oa-sec-1' });
+
+    expect(result).toEqual({ ok: true, config: { provider: 'zalo-oa', appId: 'app-1', oaSecret: 'oa-sec-1' } });
+  });
+
+  it('names the OA secret when only it is missing', () => {
+    expect(loadZaloWebhookConfig(COMPLETE_ENVIRONMENT)).toEqual({ ok: false, missing: ['ZALO_OA_SECRET'] });
+  });
+
+  it('lists the missing zalo values before the OA secret', () => {
+    const result = loadZaloWebhookConfig({ ...COMPLETE_ENVIRONMENT, ZALO_APP_ID: '', ZALO_OA_SECRET: '' });
+
+    expect(result).toEqual({ ok: false, missing: ['ZALO_APP_ID', 'ZALO_OA_SECRET'] });
+  });
+
+  it('names only the zalo values when just the OA secret is set', () => {
+    const result = loadZaloWebhookConfig({ ...COMPLETE_ENVIRONMENT, PUBLIC_BASE_URL: '', ZALO_OA_SECRET: 'oa-sec-1' });
+
+    expect(result).toEqual({ ok: false, missing: ['PUBLIC_BASE_URL'] });
   });
 });
