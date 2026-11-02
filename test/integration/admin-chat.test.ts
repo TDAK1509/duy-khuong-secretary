@@ -146,4 +146,21 @@ describe('an admin asks the bot', () => {
 
     expect(JSON.stringify(harness.chat.requests)).not.toContain('bí mật của Khương');
   });
+
+  it('hides the old chat from an admin who was removed and invited again', async () => {
+    const duyUserId = await findUserId('Duy');
+    for (let number = 1; number <= 3; number += 1) {
+      await insertChatMessage(database, {
+        workspaceId,
+        userId: duyUserId,
+        author: 'user',
+        text: `tin cũ ${number}`,
+        createdAt: new Date(`2026-09-1${number}T10:00:00+07:00`),
+      });
+    }
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn', image: null }]);
+  });
 });
