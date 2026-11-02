@@ -30,7 +30,8 @@ export async function pickWorkspace(
   const workspaceId = choice.workspaceIds[number - 1];
   if (workspaceId === undefined) return null;
   await setCurrentWorkspace(transaction, identity, workspaceId);
-  return null;
+  const [workspace] = await transaction.query<{ name: string }>('SELECT name FROM workspaces WHERE id = $1', [workspaceId]);
+  return { text: `Đã chuyển sang nhóm "${workspace?.name ?? ''}". Tin nhắn tiếp theo sẽ lưu vào nhóm này.` };
 }
 
 function findWorkspacesOfUser(transaction: Transaction, userId: string): Promise<WorkspaceChoice[]> {

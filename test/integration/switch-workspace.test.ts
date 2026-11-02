@@ -93,6 +93,18 @@ describe('switching between workspaces', () => {
     ]);
   });
 
+  it('confirms the new workspace', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await storeWorkspacePick([workspaceId, otherWorkspaceId]);
+
+    await receiveText('zu-duy', '2');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([
+      'Đã chuyển sang nhóm "Xe tải Thử". Tin nhắn tiếp theo sẽ lưu vào nhóm này.',
+    ]);
+  });
+
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb`);
