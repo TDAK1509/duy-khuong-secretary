@@ -17,7 +17,7 @@ export type InboundDependencies = {
 
 export async function runInboundStep(dependencies: InboundDependencies): Promise<'processed' | 'idle'> {
   const { database, clock, handler } = dependencies;
-  const event = await claimInboundEvent(database);
+  const event = await claimInboundEvent(database, clock.now());
   if (!event) return 'idle';
   try {
     await handler(event, createStages(database, event, clock.now()));

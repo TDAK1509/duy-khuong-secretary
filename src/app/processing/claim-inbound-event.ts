@@ -11,12 +11,12 @@ type ClaimedRow = {
   attempts: number;
 };
 
-export async function claimInboundEvent(database: Database): Promise<ClaimedEvent | null> {
+export async function claimInboundEvent(database: Database, now: Date): Promise<ClaimedEvent | null> {
   const [row] = await runInTransaction(database, (transaction) =>
     transaction.query<ClaimedRow>(
       `WITH candidate AS (
          SELECT id FROM inbound_events
-         WHERE status = 'queued'
+         WHERE status = 'queued' AND available_at <= $1
          ORDER BY received_at, id
          LIMIT 1
          FOR UPDATE SKIP LOCKED
@@ -26,6 +26,7 @@ export async function claimInboundEvent(database: Database): Promise<ClaimedEven
        FROM candidate
        WHERE inbound_events.id = candidate.id
        RETURNING inbound_events.id, channel, account_id, external_user_id, kind, payload, attempts`,
+      [now],
     ),
   );
   return row ? describeClaim(row) : null;

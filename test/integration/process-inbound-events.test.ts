@@ -25,6 +25,17 @@ const throwBoomError: InboundHandler = async () => {
   throw new BoomError('boom');
 };
 
+type RecordingHandler = InboundHandler & { calls: string[] };
+
+function recordCalls(): RecordingHandler {
+  const calls: string[] = [];
+  const handler: InboundHandler = (event, stages) => {
+    calls.push(event.id);
+    return stages.finishEvent(async () => {});
+  };
+  return Object.assign(handler, { calls });
+}
+
 describe('the inbound worker step', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
@@ -130,6 +141,15 @@ describe('the inbound worker step', () => {
 
     expect((await readEvent(id)).status).toBe('failed');
     expect(alertSink.texts).toEqual([`[alert] Inbound event ${id} failed after 5 attempts: BoomError.`]);
+  });
+
+  it('does not claim an event that waits for a retry', async () => {
+    await insertInboundEvent(database, { availableAt: new Date(NOW.getTime() + 10_000) });
+    const handler = recordCalls();
+
+    await runStep(handler);
+
+    expect(handler.calls).toEqual([]);
   });
 
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
