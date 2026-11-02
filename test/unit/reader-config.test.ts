@@ -30,6 +30,7 @@ describe('loadReaderConfig', () => {
     expect(result).toEqual({
       ok: true,
       config: {
+        provider: 'openai-compatible',
         timeoutMs: 60000,
         reasoningEffort: undefined,
         cheap: [

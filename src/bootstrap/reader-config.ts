@@ -17,6 +17,7 @@ export type ReaderSlotConfig = { baseUrl: string; apiKey: string; model: string 
 export type ReaderSlotPair = readonly [ReaderSlotConfig, ReaderSlotConfig];
 
 export type ReaderConfig = {
+  provider: 'openai-compatible';
   timeoutMs: number;
   reasoningEffort: string | undefined;
   cheap: ReaderSlotPair;
@@ -32,6 +33,7 @@ export function loadReaderConfig(environment: NodeJS.ProcessEnv): ReaderConfigRe
   return {
     ok: true,
     config: {
+      provider: settings.READER_PROVIDER,
       timeoutMs: settings.READER_TIMEOUT_MS,
       reasoningEffort: environment['READER_REASONING_EFFORT'] || undefined,
       cheap: [readSlot(environment, 'READER_CHEAP_1'), readSlot(environment, 'READER_CHEAP_2')],
