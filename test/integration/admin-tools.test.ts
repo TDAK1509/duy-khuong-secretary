@@ -9,7 +9,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'cursor', string>>;
 
-type SearchResult = { items: { id: string; member: string; has_photo: boolean }[]; next_cursor: string | null };
+type SearchResult = { items: { id: string; member: string; plate: string | null; category: string; has_photo: boolean }[]; next_cursor: string | null };
 
 describe('the data tools of an admin', () => {
   let database: TemporaryDatabase;
@@ -74,5 +74,15 @@ describe('the data tools of an admin', () => {
     const result = await runSearch({ member: 'hung' });
 
     expect(result.items.map((item) => item.member)).toEqual(['Hùng', 'Hùng']);
+  });
+
+  it('narrows to one truck by plate', async () => {
+    for (const vehiclePlate of ['29C12345', '29C12345', '51D67890', '51D67890', '51D67890']) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', vehiclePlate });
+    }
+
+    const result = await runSearch({ plate: '29c-123.45' });
+
+    expect(result.items.map((item) => item.plate)).toEqual(['29C12345', '29C12345']);
   });
 });
