@@ -12,5 +12,9 @@ export function describePhotoStorageContract(name: string, makeStorage: () => Ph
 
       expect(await storage.get('a/b.jpg')).toEqual({ bytes: JPEG_BYTES, contentType: 'image/jpeg' });
     });
+
+    it('returns null for an unknown key', async () => {
+      expect(await makeStorage().get('a/missing.jpg')).toBeNull();
+    });
   });
 }
