@@ -116,4 +116,15 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
     expect(sentTexts()).toEqual([['zu-duy', NO_CHOICE_TEXT]]);
   });
+
+  it('confirms nothing for a draft cancelled meanwhile', async () => {
+    const taskId = await showDraft();
+    await database.query(`UPDATE scheduled_tasks SET status = 'cancelled' WHERE id = '${taskId}'`);
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
+    expect(sentTexts()).toEqual([['zu-duy', NO_CHOICE_TEXT]]);
+  });
 });
