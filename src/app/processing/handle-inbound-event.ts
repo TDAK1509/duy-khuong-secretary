@@ -90,6 +90,7 @@ async function answerSender(
     text: reply.text,
     maxTextLength: channel.maxTextLength,
     availableAt: now,
+    ...(reply.adminMembershipId !== undefined && { adminMembershipId: reply.adminMembershipId }),
     ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
 }
@@ -98,7 +99,7 @@ type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxText
 
 async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
-  if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
+  if (inviteCode === null) return replyToOtherMessage(transaction, identity, { text: message.text, now });
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   if (joined.kind === 'joined') await tellInviter(transaction, joined, message);
   return { text: formatJoinResult(joined) };
@@ -118,10 +119,10 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
 async function replyToOtherMessage(
   transaction: Transaction,
   identity: ChannelIdentity,
-  text: string | null,
+  { text, now }: { text: string | null; now: Date },
 ): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
-  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text, now });
 }

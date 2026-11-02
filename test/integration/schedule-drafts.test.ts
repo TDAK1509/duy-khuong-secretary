@@ -135,4 +135,15 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
     expect(sentTexts().at(-1)).toEqual(['zu-duy', NO_CHOICE_TEXT]);
   });
+
+  it('saves the draft and names it when the admin replies 1 after the card was sent', async () => {
+    proposeThenReply({});
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts().at(-1)).toEqual(['zu-duy', 'Đã lưu lịch "Báo cáo hằng ngày". Lần chạy đầu: 18:00 31/10/2026.']);
+  });
 });
