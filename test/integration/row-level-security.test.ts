@@ -103,6 +103,21 @@ describe('row-level security for the runtime role', () => {
     expect(rows.sort()).toEqual(wRecordIds.sort());
   });
 
+  it('refuses a write into another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-v', displayName: 'V' });
+    const scoped = scopeDatabase(runtimePool, { workspaceId });
+
+    const insert = runInTransaction(scoped, (transaction) =>
+      transaction.query(
+        `INSERT INTO messages (workspace_id, user_id, author, text) VALUES ($1, $2, 'bot', 'tin')`,
+        [otherWorkspaceId, vUserId],
+      ),
+    );
+
+    await expect(insert).rejects.toThrow(/row-level security/);
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
