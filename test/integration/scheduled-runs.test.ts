@@ -98,4 +98,12 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('never runs a cancelled task', async () => {
+    await insertDueTask({ status: 'cancelled', nextRunAt: null });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
