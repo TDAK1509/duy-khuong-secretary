@@ -62,4 +62,14 @@ describe('an admin replies to the draft the bot showed', () => {
 
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
   });
+
+  it('cancels the shown draft and names it when the admin replies 2', async () => {
+    await showDraft();
+
+    await harness.receiveText('zu-duy', '2');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
+    expect(sentTexts()).toEqual([['zu-duy', 'Đã hủy lịch nháp "Báo cáo hằng ngày".']]);
+  });
 });

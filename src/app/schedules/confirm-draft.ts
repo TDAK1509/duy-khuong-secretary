@@ -7,7 +7,7 @@ import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 import { computeNextRun } from './compute-next-run.ts';
 import type { ConfirmAction } from './confirm-reply.ts';
 import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './schedule-columns.ts';
-import { formatSavedText, RUN_TIME_PASSED_TEXT } from './schedule-texts.ts';
+import { formatCancelledText, formatSavedText, RUN_TIME_PASSED_TEXT } from './schedule-texts.ts';
 
 export type Confirmer = { identity: ChannelIdentity; userId: string; now: Date };
 
@@ -24,7 +24,8 @@ export async function confirmDraft(
   await clearPendingChoice(transaction, confirmer.identity);
   if (action === null) return null;
   const draft = await lockOwnDraft(transaction, confirmer.userId, choice);
-  return draft === null ? null : saveDraft(transaction, draft, confirmer.now);
+  if (draft === null) return null;
+  return action === 'save' ? saveDraft(transaction, draft, confirmer.now) : cancelDraft(transaction, draft);
 }
 
 function lockOwnDraft(transaction: Transaction, userId: string, choice: DraftChoice): Promise<OwnDraft | null> {
@@ -46,4 +47,9 @@ async function saveDraft(transaction: Transaction, draft: OwnDraft, now: Date): 
   if (firstRun === null) return { text: RUN_TIME_PASSED_TEXT, adminMembershipId: draft.membership_id };
   await transaction.query(`UPDATE scheduled_tasks SET status = 'active', next_run_at = $2 WHERE id = $1`, [draft.id, firstRun]);
   return { text: formatSavedText(draft.title, formatVietnamDateTime(firstRun)), adminMembershipId: draft.membership_id };
+}
+
+async function cancelDraft(transaction: Transaction, draft: OwnDraft): Promise<Reply> {
+  await transaction.query(`UPDATE scheduled_tasks SET status = 'cancelled' WHERE id = $1`, [draft.id]);
+  return { text: formatCancelledText(draft.title), adminMembershipId: draft.membership_id };
 }
