@@ -223,6 +223,21 @@ describe('the outbound worker step', () => {
     expect(alertSink.texts).toEqual([]);
   });
 
+  it('counts texts still sending toward the per-minute limit', async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, {
+      externalUserId: 'zu-lan',
+      status: 'sending',
+      attempts: 1,
+      lockedUntil: new Date(NOW.getTime() + 60_000),
+    });
+    await insertOutboundMessage(database, { externalUserId: 'zu-hung' });
+
+    await runStep(1);
+
+    expect(channel.texts).toEqual([]);
+  });
+
   it('fails a text and alerts after the tenth rate-limited attempt', async () => {
     await connectOa('oa-1', 'a1');
     const id = await insertOutboundMessage(database, { attempts: 9 });

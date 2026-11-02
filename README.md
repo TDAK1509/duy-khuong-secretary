@@ -54,6 +54,9 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `MESSAGING_PROVIDER` | none | `zalo-oa` |
 | `ZALO_APP_ID`, `ZALO_APP_SECRET` | none | The Zalo app's id and secret key |
 | `ZALO_OAUTH_BASE_URL` | `https://oauth.zaloapp.com` | Zalo OAuth host |
+| `ZALO_API_BASE_URL` | `https://openapi.zalo.me` | Zalo API host (sending messages) |
+| `ZALO_TIMEOUT_MS` | `15000` | How long a Zalo API call may take before it counts as unanswered |
+| `OUTBOUND_MAX_PER_MINUTE` | `90` | How many messages go out per minute (the Tăng trưởng package allows 100) |
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
 | `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
@@ -76,6 +79,22 @@ The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of 
 | `503 {"ok":false}` | The `zalo-webhook` group is off: the `zalo` group plus `ZALO_OA_SECRET` | Nothing |
 
 The service logs `[config] zalo-webhook is off; missing: <NAMES>.` while the group is off. The body limit is 1 MB. The background worker then marks each stored event `done`, in order per sender, and records the sender in `channel_identities`.
+
+## Send Zalo replies
+
+Replies wait in the `outbound_messages` table (one row per message, at most 2,000 characters each) and a background worker sends them to Zalo one at a time, in order per person. The worker does nothing while the `zalo` group is off. Everyone who writes to the OA gets the welcome text until joining with an invite code exists.
+
+| Status | Meaning |
+|---|---|
+| `queued` | Waits for its turn or for a retry (`available_at`) |
+| `sending` | Claimed by the worker (`locked_until` is 2 minutes ahead) |
+| `sent` | Zalo accepted it |
+| `failed` | Zalo refused it, or the retries ran out |
+| `unknown` | The request may have reached Zalo but no answer came back. It is never sent again |
+
+The worker sends at most `OUTBOUND_MAX_PER_MINUTE` messages in any 60 seconds (sent plus still sending). Zalo's rate-limit error waits 60 seconds and retries up to 10 attempts. A request that never left the server (connection refused, DNS failure) waits 30 s, 60 s, 120 s, ... and fails after 5 attempts. A missing OA connection waits 60 s and fails after 5 attempts. A `sending` row whose lock passed becomes `unknown`.
+
+The operator gets `[alert] Zalo send got no answer for outbound message <id>. It will not be resent. Check the chat in OA Manager.` for each `unknown` message, `[alert] Outbound message <id> failed after <n> attempts.` when retries run out, and `[alert] No Zalo connection for OA <oa id>. Run connect-zalo.` while the OA has no stored keys. A row with `admin_membership_id` is sent only while that membership exists; otherwise it becomes `failed` (`membership_changed`).
 
 ## Migrations
 
