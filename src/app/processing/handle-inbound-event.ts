@@ -5,6 +5,7 @@ import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
+import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
 import { findPersonWorkspace } from '../workspaces/find-person-workspace.ts';
@@ -26,11 +27,21 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
     const inviteCode = readInviteCode(event);
-    const zaloName = inviteCode === null ? null : await lookUpZaloName(dependencies, describeSender(event));
+    const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
     return stages.finishEvent((transaction) =>
       answerSender(transaction, dependencies, { event, inviteCode, zaloName }),
     );
   };
+}
+
+async function lookUpNameOfNewMember(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  inviteCode: string | null,
+): Promise<string | null> {
+  if (inviteCode === null) return null;
+  if (!(await hasUsableInvite(dependencies.database, inviteCode, dependencies.clock.now()))) return null;
+  return lookUpZaloName(dependencies, describeSender(event));
 }
 
 type Message = { event: ClaimedEvent; inviteCode: string | null; zaloName: string | null };

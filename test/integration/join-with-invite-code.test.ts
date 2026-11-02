@@ -265,6 +265,22 @@ describe('joining a workspace with an invite code', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
+  it('asks Zalo for no name when the code is unknown', async () => {
+    await receiveText('zu-hung', 'MOI-AAAAAA');
+
+    expect(channel.nameLookupCredentials).toEqual([]);
+  });
+
+  it('asks Zalo for no name when the code was already used', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+    await receiveText('zu-hung', CODE);
+    channel.nameLookupCredentials.length = 0;
+
+    await receiveText('zu-lan', CODE);
+
+    expect(channel.nameLookupCredentials).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInbound();
