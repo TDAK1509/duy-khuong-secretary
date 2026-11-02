@@ -2,20 +2,19 @@ import importX from 'eslint-plugin-import-x';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import tseslint from 'typescript-eslint';
 
+const SOURCE_FOLDERS = ['app', 'services', 'providers', 'bootstrap'];
+const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
+
 /** @returns {import('eslint').Linter.Config[]} */
 export function makeArchitectureConfig(rootDir) {
   return [
     makeParserConfig(),
-    {
-      files: ['src/services/**/*.ts'],
-      rules: {
-        ...restrictPaths(rootDir, [
-          { target: './src/services', from: './src/app' },
-          { target: './src/services', from: './src/providers' },
-        ]),
-        ...restrictVendorPackages(),
-      },
-    },
+    makeFolderConfig(rootDir, 'services', { folders: ['services'] }),
+    makeFolderConfig(rootDir, 'app', { folders: ['app', 'services'] }),
+    makeFolderConfig(rootDir, 'app/db', {
+      folders: ['app', 'services'],
+      files: ['providers/database/postgres.ts'],
+    }),
   ];
 }
 
@@ -29,12 +28,35 @@ function makeParserConfig() {
   };
 }
 
+/** @returns {import('eslint').Linter.Config} */
+function makeFolderConfig(rootDir, folder, importable) {
+  return {
+    files: [`src/${folder}/**/*.ts`],
+    rules: {
+      ...restrictPaths(rootDir, forbidFolders(folder, importable)),
+      ...restrictVendorPackages(),
+    },
+  };
+}
+
+function forbidFolders(folder, { folders, files = [] }) {
+  return SOURCE_FOLDERS.filter((other) => !folders.includes(other)).map((other) => ({
+    target: `./src/${folder}`,
+    from: `./src/${other}`,
+    except: listExceptions(other, files),
+  }));
+}
+
+function listExceptions(forbiddenFolder, allowedFiles) {
+  return allowedFiles
+    .filter((file) => file.startsWith(`${forbiddenFolder}/`))
+    .map((file) => `./${file.slice(forbiddenFolder.length + 1)}`);
+}
+
 /** @returns {import('eslint').Linter.RulesRecord} */
 function restrictPaths(rootDir, zones) {
   return { 'import-x/no-restricted-paths': ['error', { basePath: rootDir, zones }] };
 }
-
-const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
 
 /** @returns {import('eslint').Linter.RulesRecord} */
 function restrictVendorPackages() {

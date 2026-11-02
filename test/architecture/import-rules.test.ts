@@ -22,4 +22,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("'pg'");
   });
+
+  it('rejects an import from app to providers', async () => {
+    const messages = await lintFixture('app-import-provider', 'src/app/admin-chat/run-chat.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain('../../providers/chat/openai-compatible-chat.ts');
+  });
 });
