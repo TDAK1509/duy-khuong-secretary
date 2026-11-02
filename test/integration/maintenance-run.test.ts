@@ -3,7 +3,7 @@ import { insertRecordRow } from './record-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const MINUTE_MS = 60_000;
 const OIL_AFTER_30_DAYS = [{ maintenance_item: 'dầu máy', age_days: 30 }];
@@ -194,5 +194,24 @@ describe('the daily maintenance reminder run', () => {
     await harness.sendQueuedTexts();
 
     expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-duy', 'Nhắc']]);
+  });
+
+  it('never treats a record of another workspace as due', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Vy');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertRecordRow(database, {
+      workspaceId: otherWorkspaceId,
+      userId: vyUserId,
+      senderName: 'Vy',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '30A99999',
+      createdAt: new Date('2026-09-21T10:00:00+07:00'),
+    });
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
   });
 });
