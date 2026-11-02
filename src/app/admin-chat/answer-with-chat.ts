@@ -4,6 +4,7 @@ import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply } from '../intake/store-user-message.ts';
+import { ADMIN_TOOLS } from './tools/admin-tools.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import { CHAT_FAILURE_TEXT } from './chat-texts.ts';
@@ -26,7 +27,7 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   const result = await requireChat(context).respond({
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history, await buildUserTurn(database, message)],
-    tools: [],
+    tools: ADMIN_TOOLS,
   });
   return result.ok && result.reply.kind === 'text' ? result.reply.text : CHAT_FAILURE_TEXT;
 }

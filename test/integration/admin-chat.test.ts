@@ -246,6 +246,12 @@ describe('an admin asks the bot', () => {
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
   });
 
+  it('offers the three data tools', async () => {
+    await harness.receiveText('zu-duy', 'Nhóm có ai?');
+
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual(['search_records', 'count_records', 'list_members']);
+  });
+
   describe('with data and a question', () => {
     beforeEach(() => {
       harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
