@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises';
 import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
@@ -5,6 +6,7 @@ import { repeatUntilSettled } from './repeat-until-settled.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
 
 const alterThroughLock = new URL('./migration-fixtures/alter-through-lock/', import.meta.url);
+const shortRetry = { budgetMs: 300, sleep: () => setTimeout(100) };
 
 describe('the migration runner on a busy table', () => {
   let database: TemporaryDatabase;
@@ -28,7 +30,7 @@ describe('the migration runner on a busy table', () => {
     const lines: string[] = [];
     const running = runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
-      { directory: alterThroughLock, log: (line) => lines.push(line) },
+      { directory: alterThroughLock, log: (line) => lines.push(line), retry: shortRetry },
     );
 
     const counts = repeatUntilSettled(running, () => sessionC.query('SELECT count(*) FROM t'));
@@ -42,7 +44,7 @@ describe('the migration runner on a busy table', () => {
     const observer = await database.openSession();
     const running = runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
-      { directory: alterThroughLock, log: () => {} },
+      { directory: alterThroughLock, log: () => {}, retry: shortRetry },
     );
 
     const waitingCounts = await repeatUntilSettled(running, () => countWaitingLocks(observer));
@@ -50,7 +52,49 @@ describe('the migration runner on a busy table', () => {
     expect(waitingCounts.every((count) => count === 0)).toBe(true);
     expect(await running).toBe(1);
   });
+
+  it('releases its transaction and locks before it sleeps between attempts', async () => {
+    const observer = await database.openSession();
+    const observedWhileSleeping: RunnerState[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: () => {},
+        retry: {
+          sleep: async () => {
+            observedWhileSleeping.push(await observeRunner(observer));
+            await sessionA.query('COMMIT');
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(observedWhileSleeping).toEqual([{ openTransactions: 0, locksOnT: 0 }]);
+  });
 });
+
+type RunnerState = { openTransactions: number; locksOnT: number };
+
+async function observeRunner(observer: pg.Client): Promise<RunnerState> {
+  const result = await observer.query<{ open_transactions: string; locks_on_t: string }>(
+    `SELECT count(*) FILTER (WHERE state LIKE 'idle in transaction%') AS open_transactions,
+            (SELECT count(*) FROM pg_locks WHERE pid = a.pid AND relation = 't'::regclass) AS locks_on_t
+       FROM pg_stat_activity a
+      WHERE application_name = 'migrate' AND datname = current_database()
+      GROUP BY pid`,
+  );
+  return {
+    openTransactions: sum(result.rows.map((row) => Number(row.open_transactions))),
+    locksOnT: sum(result.rows.map((row) => Number(row.locks_on_t))),
+  };
+}
+
+function sum(numbers: number[]): number {
+  return numbers.reduce((total, number) => total + number, 0);
+}
 
 async function countWaitingLocks(observer: pg.Client): Promise<number> {
   const result = await observer.query<{ waiting: string }>(

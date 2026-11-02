@@ -1,9 +1,10 @@
 import { fileURLToPath } from 'node:url';
-import { migrateDatabase } from '../providers/database/migration-tool.ts';
+import { migrateDatabase, type RetryPolicy } from '../providers/database/migration-tool.ts';
 
 export type MigrationCommandOptions = {
   directory: URL;
   log?: (line: string) => void;
+  retry?: Partial<RetryPolicy>;
 };
 
 export async function runMigrationCommand(
@@ -15,6 +16,7 @@ export async function runMigrationCommand(
     const applied = await migrateDatabase({
       databaseUrl: environment['MIGRATION_DATABASE_URL'] ?? '',
       directory: fileURLToPath(options.directory),
+      retry: options.retry,
     });
     log(describeApplied(applied));
     return 0;
