@@ -196,4 +196,14 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Báo cáo của runner B' }]);
   });
+
+  it('sends nothing when the run has nothing to report', async () => {
+    await insertDueTask();
+    harness.chat.replyWith(' KHONG_CO_THONG_BAO ');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
 });

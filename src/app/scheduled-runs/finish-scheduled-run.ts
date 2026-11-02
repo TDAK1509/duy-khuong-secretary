@@ -5,6 +5,8 @@ import { computeNextRun } from '../schedules/compute-next-run.ts';
 import type { ClaimedTask } from './claim-due-task.ts';
 import type { ScheduledRunDependencies } from './run-due-tasks.ts';
 
+const NOTHING_TO_REPORT = 'KHONG_CO_THONG_BAO';
+
 type IdentityRow = { channel: string; account_id: string; external_user_id: string };
 
 export async function finishScheduledRun(
@@ -15,8 +17,7 @@ export async function finishScheduledRun(
   const database = scopeDatabase(dependencies.database, { workspaceId: task.workspaceId });
   await runInTransaction(database, async (transaction) => {
     if (!(await ownsClaim(transaction, task))) return;
-    await storeResultMessage(transaction, task, text);
-    await enqueueResult(transaction, dependencies, task, text);
+    if (text.trim() !== NOTHING_TO_REPORT) await deliverResult(transaction, dependencies, task, text);
     await moveToNextRun(transaction, task, dependencies.clock.now());
   });
 }
@@ -27,6 +28,16 @@ async function moveToNextRun(transaction: Transaction, task: ClaimedTask, now: D
     computeNextRun(task.schedule, now),
     now,
   ]);
+}
+
+async function deliverResult(
+  transaction: Transaction,
+  dependencies: ScheduledRunDependencies,
+  task: ClaimedTask,
+  text: string,
+): Promise<void> {
+  await storeResultMessage(transaction, task, text);
+  await enqueueResult(transaction, dependencies, task, text);
 }
 
 async function ownsClaim(transaction: Transaction, task: ClaimedTask): Promise<boolean> {
