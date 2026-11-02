@@ -53,4 +53,10 @@ describe('loadReaderConfig', () => {
 
     expect(result).toMatchObject({ ok: true, config: { timeoutMs: 30000, reasoningEffort: 'low' } });
   });
+
+  it('sends no reasoning effort when the value is empty', () => {
+    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_REASONING_EFFORT: '' });
+
+    expect(result).toMatchObject({ ok: true, config: { reasoningEffort: undefined } });
+  });
 });
