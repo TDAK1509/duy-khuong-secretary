@@ -72,5 +72,14 @@ describe('the member tools of an admin', () => {
       expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: display_name"}');
       expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
     });
+
+    it('refuses a member', async () => {
+      const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+
+      const output = await runTool('create_invite', { display_name: 'Lan', role: 'member' }, { workspaceId, userId: hungUserId, role: 'member' });
+
+      expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+      expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+    });
   });
 });
