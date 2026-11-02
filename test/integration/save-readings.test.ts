@@ -156,6 +156,14 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('sends a photo to the readers with its caption', async () => {
+    await harness.receivePhoto('zu-hung', 'Xe 29C-123.45');
+
+    expect(
+      harness.readers.cheap.map((reader) => reader.requests.map(({ text, image }) => [text, image?.contentType])),
+    ).toEqual([[['Xe 29C-123.45', 'image/jpeg']], [['Xe 29C-123.45', 'image/jpeg']]]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
