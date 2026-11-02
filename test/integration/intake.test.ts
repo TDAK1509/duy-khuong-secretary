@@ -160,6 +160,18 @@ describe('storing what a member sends', () => {
     expect(photoStorage.listKeys()).toHaveLength(2);
   });
 
+  it('refuses a photo over 5 MB without storing a message', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
+
+    await receivePhoto('zu-hung');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([
+      'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.',
+    ]);
+    expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
