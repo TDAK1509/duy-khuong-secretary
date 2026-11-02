@@ -97,6 +97,19 @@ describe('the migration runner on a busy table', () => {
     expect(sleeps).toBe(2);
     expect(await listAppliedMigrations(database)).toEqual(['0001_alter_t']);
   });
+
+  it('stops once the retry budget is used up', async () => {
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: alterThroughLock, log: () => {}, retry: { budgetMs: 3000 } },
+    );
+
+    expect(exitCode).not.toBe(0);
+    expect(await database.query("SELECT to_regclass('pgmigrations') AS found")).toEqual([
+      { found: 'pgmigrations' },
+    ]);
+    expect(await listAppliedMigrations(database)).toEqual([]);
+  }, 15_000);
 });
 
 type RunnerState = { openTransactions: number; locksOnT: number };
