@@ -2,6 +2,7 @@ import type { Database } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
 const LOCK_MS = 2 * 60 * 1000;
+const THROTTLE_WINDOW_MS = 60 * 1000;
 
 type ClaimedRow = {
   id: string;
@@ -13,7 +14,11 @@ type ClaimedRow = {
   attempts: number;
 };
 
-export async function claimOutboundMessage(database: Database, now: Date): Promise<ClaimedMessage | null> {
+export async function claimOutboundMessage(
+  database: Database,
+  now: Date,
+  maxPerMinute: number,
+): Promise<ClaimedMessage | null> {
   const { rows } = await database.query<ClaimedRow>(
     `WITH candidate AS (
        SELECT id FROM outbound_messages
@@ -26,6 +31,7 @@ export async function claimOutboundMessage(database: Database, now: Date): Promi
              AND earlier.status IN ('queued', 'sending')
              AND earlier.seq < outbound_messages.seq
          )
+         AND (SELECT count(*) FROM outbound_messages WHERE sent_at > $3 OR status = 'sending') < $4
        ORDER BY seq
        LIMIT 1
        FOR UPDATE SKIP LOCKED
@@ -35,7 +41,7 @@ export async function claimOutboundMessage(database: Database, now: Date): Promi
      FROM candidate
      WHERE outbound_messages.id = candidate.id
      RETURNING outbound_messages.id, channel, account_id, external_user_id, body, admin_membership_id, attempts`,
-    [now, new Date(now.getTime() + LOCK_MS)],
+    [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
   const [row] = rows;
   return row ? describeClaim(row) : null;

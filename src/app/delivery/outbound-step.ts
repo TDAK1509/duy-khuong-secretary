@@ -17,7 +17,7 @@ export type OutboundDependencies = {
 };
 
 export async function runOutboundStep(dependencies: OutboundDependencies): Promise<'processed' | 'idle'> {
-  const message = await claimOutboundMessage(dependencies.database, dependencies.clock.now());
+  const message = await claimOutboundMessage(dependencies.database, dependencies.clock.now(), dependencies.maxPerMinute);
   if (!message) return 'idle';
   await deliverMessage(dependencies, message);
   return 'processed';

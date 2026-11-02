@@ -89,6 +89,18 @@ describe('the outbound worker step', () => {
     expect(channel.texts.map((sent) => sent.to.externalUserId)).toEqual(['zu-lan']);
   });
 
+  it('sends nothing once the per-minute limit is reached', async () => {
+    await connectOa('oa-1', 'a1');
+    const tenSecondsAgo = new Date(NOW.getTime() - 10_000);
+    await insertOutboundMessage(database, { status: 'sent', sentAt: tenSecondsAgo });
+    await insertOutboundMessage(database, { status: 'sent', sentAt: tenSecondsAgo });
+    await insertOutboundMessage(database, { body: 'chờ' });
+
+    await runStep(2);
+
+    expect(channel.texts).toEqual([]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
