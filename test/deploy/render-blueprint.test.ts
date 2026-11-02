@@ -27,7 +27,7 @@ describe('render.yaml web service', () => {
 });
 
 describe('render.yaml database', () => {
-  it('runs Postgres 17 in Singapore and feeds both database URLs from it', () => {
+  it('runs Postgres 17 in Singapore and feeds the migration URL from it', () => {
     const [database] = blueprint.databases;
     const [service] = blueprint.services;
 
@@ -36,15 +36,17 @@ describe('render.yaml database', () => {
     expect(listEnvVars(service)).toEqual(
       expect.arrayContaining([
         {
-          key: 'DATABASE_URL',
-          fromDatabase: { name: database?.['name'], property: 'connectionString' },
-        },
-        {
           key: 'MIGRATION_DATABASE_URL',
           fromDatabase: { name: database?.['name'], property: 'connectionString' },
         },
       ]),
     );
+  });
+});
+
+describe('render.yaml runtime database URL', () => {
+  it('is entered by hand, because the owner sets the password of the runtime role', () => {
+    expect(listEnvVars(blueprint.services[0])).toContainEqual({ key: 'DATABASE_URL', sync: false });
   });
 });
 
@@ -55,7 +57,7 @@ describe('render.yaml database access', () => {
 });
 
 describe('render.yaml other env vars', () => {
-  it('leaves every value that is not a database URL to be entered by hand', () => {
+  it('leaves every value that is not the migration URL to be entered by hand', () => {
     const others = listEnvVars(blueprint.services[0]).filter(
       (envVar) => !(envVar as Record<string, unknown>)['fromDatabase'],
     );

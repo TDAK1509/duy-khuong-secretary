@@ -10,9 +10,7 @@ services:
     preDeployCommand: node dist/bootstrap/migrate.js
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: secretary-db
-          property: connectionString
+        sync: false
       - key: MIGRATION_DATABASE_URL
         fromDatabase:
           name: secretary-db

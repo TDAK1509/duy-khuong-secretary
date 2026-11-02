@@ -8,15 +8,15 @@ A Vietnamese Zalo chat assistant for truck companies. One TypeScript package (No
 docker compose up -d --wait
 npm ci
 npm run build
-DATABASE_URL=postgres://app_owner:app_owner@localhost:5432/secretary npm start
+DATABASE_URL=postgres://app_runtime:app_runtime@localhost:5432/secretary npm start
 curl -i http://localhost:3000/health
 ```
 
-`docker compose up` starts Postgres 17 with the database `secretary`, owned by the role `app_owner`. That role is not a superuser. If port 5432 is taken, set `POSTGRES_PORT` before `docker compose up` and use that port in `DATABASE_URL`.
+`docker compose up` starts Postgres 17 with the database `secretary`, owned by the role `app_owner`. That role is not a superuser. It also creates the role `app_runtime`, which the service uses. Run the migrations as `app_owner` (see Migrations) before you start the service. If port 5432 is taken, set `POSTGRES_PORT` before `docker compose up` and use that port in `DATABASE_URL`.
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | none, required | Postgres connection string |
+| `DATABASE_URL` | none, required | Postgres connection string of the runtime role `app_runtime` (see Row-level security) |
 | `PORT` | `3000` | HTTP port |
 | `GIT_COMMIT` | `RENDER_GIT_COMMIT`, else none | The deployed commit, shown by `/health` |
 | `MIGRATION_DATABASE_URL` | none | Direct connection as the schema-owner role. Read only by `node dist/bootstrap/migrate.js` |
@@ -137,6 +137,22 @@ The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` 
 
 The search uses the Postgres `unaccent` extension. The migrations enable it.
 
+## Row-level security
+
+The tables `records`, `messages` and `reply_photos` have row-level security (`ENABLE`, not `FORCE`). A row is visible and writable only when its `workspace_id` equals the setting `app.workspace_id`, set with `SET LOCAL` inside each transaction. For a member, `app.owner_user_id` must also equal the row's `user_id`. With no setting, no row is visible. The service connects as the role `app_runtime`: `LOGIN`, no superuser, no `BYPASSRLS`, owns no table, cannot change the schema. The table owner bypasses the policies, so the barrier is on only when `DATABASE_URL` uses `app_runtime`.
+
+At start the service refuses to run as a superuser or a role with `BYPASSRLS`. When its role owns the tables, it logs `[config] database role owns the tables; row-level security is not enforced until DATABASE_URL uses app_runtime.`
+
+Owner action, once per database. A migration creates `app_runtime` without a password when the role does not exist, and always reapplies its grants. Set the password as the database owner, then set `DATABASE_URL` in Render to the same host and database with the user `app_runtime`:
+
+```sql
+ALTER ROLE app_runtime WITH LOGIN PASSWORD '<a long random password>';
+```
+
+The password lives only in this step and in `DATABASE_URL`, never in a migration. `MIGRATION_DATABASE_URL` keeps the database owner's connection string. Check the result with `select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user;`, which returns `app_runtime`, `f`, `f`.
+
+CI and local tests: the service under test connects as `app_runtime`. The Postgres service container's superuser migrates in CI. `test/integration/` reads `SUPERUSER_DATABASE_URL` (default `postgres:postgres` on the host of `DATABASE_URL`) for the test that refuses a superuser.
+
 ## Migrations
 
 Run them by hand against the local database:
@@ -163,7 +179,7 @@ Rules:
 
 `render.yaml` describes one web service (Docker, Singapore) and one Postgres 17 database (Singapore). After the checks pass on a commit on `main` (`autoDeployTrigger: checksPass`), Render builds the `Dockerfile`, runs `node dist/bootstrap/migrate.js` as the pre-deploy command, and starts `node dist/bootstrap/main.js` only if that exits 0. A failed migration cancels the deploy and the previous release keeps serving. The web process never migrates at startup.
 
-Owner action: in a Render Hobby workspace, allow Render's GitHub app on this repository, then create a Blueprint from `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. Render fills `DATABASE_URL` and `MIGRATION_DATABASE_URL` from the database's internal connection string. The database has `ipAllowList: []`, so only Render services in the same account and region reach it. An operator who needs external SQL adds their IP in the Render dashboard.
+Owner action: in a Render Hobby workspace, allow Render's GitHub app on this repository, then create a Blueprint from `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. Render fills `MIGRATION_DATABASE_URL` from the database's internal connection string. `DATABASE_URL` is entered by hand (see Row-level security). The database has `ipAllowList: []`, so only Render services in the same account and region reach it. An operator who needs external SQL adds their IP in the Render dashboard.
 
 Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log starts with a `[migrate]` line.
 
