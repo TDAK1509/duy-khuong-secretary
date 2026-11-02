@@ -63,6 +63,19 @@ async function saveStageRow(transaction: Transaction, eventId: string, stage: st
   await transaction.query('INSERT INTO stage_rows VALUES ($1, $2)', [eventId, stage]);
 }
 
+function holdUntilTwoHandlersRun(): RecordingHandler {
+  const calls: string[] = [];
+  let release: () => void = () => {};
+  const twoHandlersRunning = new Promise<void>((resolve) => (release = resolve));
+  const handler: InboundHandler = async (event, stages) => {
+    calls.push(event.id);
+    if (calls.length === 2) release();
+    await twoHandlersRunning;
+    return stages.finishEvent(async () => {});
+  };
+  return Object.assign(handler, { calls });
+}
+
 describe('the inbound worker step', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
@@ -276,6 +289,23 @@ describe('the inbound worker step', () => {
     });
     expect(alertSink.texts).toEqual([]);
   });
+
+  it('handles each event once when two workers run at the same moment', async () => {
+    const ids = [
+      await insertInboundEvent(database, { externalUserId: 'zu-hung' }),
+      await insertInboundEvent(database, { externalUserId: 'zu-lan' }),
+      await insertInboundEvent(database, { externalUserId: 'zu-mai' }),
+    ];
+    const handler = holdUntilTwoHandlersRun();
+
+    await Promise.all([runUntilIdle(handler), runUntilIdle(handler)]);
+
+    expect(handler.calls.toSorted()).toEqual(ids.toSorted());
+  });
+
+  async function runUntilIdle(handler: InboundHandler): Promise<void> {
+    while ((await runStep(handler)) === 'processed');
+  }
 
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
