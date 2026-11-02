@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as removeScheduleDrafts } from '../../src/app/db/migrations/0024_remove_schedule_drafts.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { insertOutboundMessage } from './outbound-message-rows.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -48,6 +49,18 @@ describe('the migration that removes the schedule drafts', () => {
     expect(await database.query('SELECT external_user_id, pending_choice FROM channel_identities ORDER BY external_user_id')).toEqual([
       { external_user_id: 'zu-duy', pending_choice: null },
       { external_user_id: 'zu-hung', pending_choice: { kind: 'workspace_pick', workspace_ids: [workspaceId] } },
+    ]);
+  });
+
+  it('clears the draft offer of a queued message', async () => {
+    const messageId = await insertOutboundMessage(database, { externalUserId: 'zu-duy' });
+    const offer = JSON.stringify({ kind: 'draft_confirm', task_id: 't', workspace_id: workspaceId });
+    await database.query(`UPDATE outbound_messages SET offered_choice = '${offer}'::jsonb WHERE id = '${messageId}'`);
+
+    await runMigration();
+
+    expect(await database.query('SELECT status, offered_choice FROM outbound_messages')).toEqual([
+      { status: 'queued', offered_choice: null },
     ]);
   });
 });
