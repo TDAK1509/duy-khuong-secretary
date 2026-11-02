@@ -30,3 +30,19 @@ describe('ZaloOaChannel.verifyWebhook', () => {
     expect(channel.verifyWebhook(body.replace('chào', 'chao'), headers)).toBe(false);
   });
 });
+
+describe('ZaloOaChannel.parseEvent', () => {
+  const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+
+  it('parses a text event', () => {
+    const { body } = loadSignedFixture('text-event');
+
+    expect(channel.parseEvent(body)).toEqual({
+      kind: 'text',
+      eventId: 'm1',
+      from: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-hung' },
+      text: 'chào',
+      sentAt: new Date('2026-11-02T10:00:00+07:00'),
+    });
+  });
+});
