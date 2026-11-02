@@ -118,6 +118,24 @@ describe('row-level security for the runtime role', () => {
     await expect(insert).rejects.toThrow(/row-level security/);
   });
 
+  it('keeps no scope on a reused pooled connection', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    const onePool = createPostgresPool(database.runtimeUrl);
+    onePool.options.max = 1;
+    try {
+      const scoped = await runInTransaction(scopeDatabase(onePool, { workspaceId }), (transaction) =>
+        transaction.query('SELECT id FROM records'),
+      );
+
+      const { rows } = await onePool.query('SELECT id FROM records');
+
+      expect(scoped).toHaveLength(1);
+      expect(rows).toHaveLength(0);
+    } finally {
+      await onePool.end();
+    }
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
