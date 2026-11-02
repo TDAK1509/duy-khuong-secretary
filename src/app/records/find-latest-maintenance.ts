@@ -10,7 +10,16 @@ export type MaintenanceFilters = {
   cursor: MaintenanceCursor | null;
 };
 
-export type LatestMaintenance = { plate: string; maintenance_item: string; sent_by: string; sent_on: string; days_since_sent: number };
+export type LatestMaintenance = {
+  record_id: string;
+  plate: string;
+  maintenance_item: string;
+  sent_by: string;
+  sent_on: string;
+  occurred_on: string | null;
+  days_since_sent: number;
+  summary: string;
+};
 
 export type MaintenancePage = { items: LatestMaintenance[]; nextCursor: string | null };
 
@@ -20,8 +29,9 @@ const VIETNAM_SENT_DATE = `(message.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh'):
 
 function selectLatestPerTruckPart(nowParameter: string): string {
   return `SELECT DISTINCT ON (record.vehicle_plate, record.maintenance_item)
-    record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,
+    record.id AS record_id, record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,
     to_char(${VIETNAM_SENT_DATE}, 'YYYY-MM-DD') AS sent_on,
+    to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.summary,
     ((${nowParameter}::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ${VIETNAM_SENT_DATE})::int AS days_since_sent
   FROM records record JOIN messages message ON message.id = record.message_id`;
 }

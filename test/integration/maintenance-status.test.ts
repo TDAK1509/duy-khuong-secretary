@@ -206,4 +206,33 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
   });
+
+  it('describes the newest record with its id, paper date and summary', async () => {
+    const recordId = await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'maintenance',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      occurredOn: '2026-09-30',
+      summary: 'Bảo dưỡng: dầu máy, xe 29C12345',
+      createdAt: new Date('2026-10-01T10:00:00+07:00'),
+    });
+
+    const result = await runStatus();
+
+    expect(result.items).toEqual([
+      {
+        record_id: recordId,
+        plate: '29C12345',
+        maintenance_item: 'dầu máy',
+        sent_by: 'Lan',
+        sent_on: '2026-10-01',
+        occurred_on: '2026-09-30',
+        days_since_sent: 32,
+        summary: 'Bảo dưỡng: dầu máy, xe 29C12345',
+      },
+    ]);
+  });
 });
