@@ -32,6 +32,10 @@ describe('an admin replies to the draft the bot showed', () => {
     await database.query(`UPDATE channel_identities SET pending_choice = '${choice}'::jsonb WHERE external_user_id = 'zu-duy'`);
   }
 
+  function sentTexts(): string[][] {
+    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
+  }
+
   it('activates the shown draft with its next run', async () => {
     await showDraft();
 
@@ -40,5 +44,14 @@ describe('an admin replies to the draft the bot showed', () => {
     expect(await database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([
       { status: 'active', next_run_at: new Date('2026-10-31T18:00:00+07:00') },
     ]);
+  });
+
+  it('sends the saved text with the first run', async () => {
+    await showDraft();
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu lịch "Báo cáo hằng ngày". Lần chạy đầu: 18:00 31/10/2026.']]);
   });
 });
