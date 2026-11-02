@@ -255,6 +255,15 @@ describe('the inbound worker step', () => {
     expect((await readEvent(id)).status).toBe('done');
   });
 
+  it('processes the next message of a person whose earlier event failed', async () => {
+    await insertInboundEvent(database, { status: 'failed', attempts: 5 });
+    const id = await insertInboundEvent(database, {});
+
+    await runStep(finishWithoutWriting);
+
+    expect((await readEvent(id)).status).toBe('done');
+  });
+
   async function claim(): Promise<ClaimedEvent> {
     const event = await claimInboundEvent(pool, clock.now());
     if (!event) throw new Error('no event to claim');
