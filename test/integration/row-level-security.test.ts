@@ -41,4 +41,19 @@ describe('row-level security for the runtime role', () => {
 
     expect(rows).toHaveLength(0);
   });
+
+  it('hides reply photos when no scope is set', async () => {
+    const photoId = await insertChatMessage(database, { workspaceId, userId: hungUserId, author: 'user', text: null, imageKey: 'a.jpg', createdAt: new Date() });
+    for (let index = 0; index < 2; index += 1) {
+      const replyId = await insertChatMessage(database, { workspaceId, userId: hungUserId, author: 'bot', text: 'ảnh', createdAt: new Date() });
+      await database.query(
+        `INSERT INTO reply_photos (reply_message_id, source_message_id, workspace_id) VALUES ('${replyId}', '${photoId}', '${workspaceId}')`,
+      );
+    }
+    const session = await database.openRuntimeSession();
+
+    const { rows } = await session.query('SELECT reply_message_id FROM reply_photos');
+
+    expect(rows).toHaveLength(0);
+  });
 });
