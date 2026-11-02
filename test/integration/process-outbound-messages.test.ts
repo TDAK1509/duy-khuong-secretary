@@ -291,6 +291,6 @@ describe('the outbound worker step', () => {
 
   function runStep(maxPerMinute = 90): Promise<'processed' | 'idle'> {
     const alerts = new OperatorAlerts(alertSink, clock);
-    return runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
+    return runOutboundStep({ database: pool, clock, alerts, channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
   }
 });

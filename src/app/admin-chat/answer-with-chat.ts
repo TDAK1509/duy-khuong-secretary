@@ -1,7 +1,7 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
-import { enqueueReply } from '../intake/enqueue-reply.ts';
+import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
@@ -60,6 +60,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueReply(transaction, context, answer.text, sender.membershipId);
+  await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
 }
 
 async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {

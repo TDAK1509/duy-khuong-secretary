@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -66,5 +66,19 @@ describe('an admin attaches the photos of records to the answer', () => {
         JOIN messages reply ON reply.id = reply_photos.reply_message_id
         JOIN messages source ON source.id = reply_photos.source_message_id`),
     ).toEqual([{ reply_author: 'bot', reply_text: 'Đây là ảnh.', from_hung: true }]);
+  });
+
+  it('sends the photo as an image after the text answer', async () => {
+    const photo = { bytes: makeJpeg(500), contentType: 'image/jpeg' } as const;
+    await harness.photoStorage.put(`${workspaceId}/photo.jpg`, photo);
+    attachThenReply([await insertPhotoRecord()]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-duy', text: 'Đây là ảnh.' },
+      { kind: 'image', to: 'zu-duy', photo },
+    ]);
   });
 });

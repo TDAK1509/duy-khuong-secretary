@@ -111,6 +111,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
       clock,
       alerts,
       channel,
+      photoStorage,
       encryptionKey: zalo.encryptionKey,
       maxPerMinute: zalo.outboundMaxPerMinute,
     };

@@ -1,11 +1,12 @@
-import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { ChannelRecipient, MessagingChannel, SendResult } from '../../services/messaging/messaging-channel.ts';
+import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import { describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { readAccessKey } from '../channel-auth/read-access-key.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
-import type { ClaimedMessage } from './claimed-message.ts';
+import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
 import { decideNoConnectionOutcome } from './decide-send-outcome.ts';
 import { applyOutcome, recordSendResult } from './record-send-result.ts';
 
@@ -14,6 +15,7 @@ export type OutboundDependencies = {
   clock: Clock;
   alerts: OperatorAlerts;
   channel: MessagingChannel;
+  photoStorage: PhotoStorage | null;
   encryptionKey: string;
   maxPerMinute: number;
 };
@@ -43,11 +45,23 @@ async function deliverMessage(dependencies: OutboundDependencies, message: Claim
   if (!(await isAdminStillMember(dependencies.database, message))) {
     return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: 'membership_changed' } });
   }
-  const { database, clock, channel, encryptionKey } = dependencies;
+  const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
-  const result = await channel.sendText(message.to, message.body, accessKey);
+  const result = await sendContent(dependencies, message.to, message.content, accessKey);
   await recordSendResult(dependencies, message, result);
+}
+
+async function sendContent(
+  { channel, photoStorage }: OutboundDependencies,
+  to: ChannelRecipient,
+  content: MessageContent,
+  accessKey: string,
+): Promise<SendResult> {
+  if (content.kind === 'text') return channel.sendText(to, content.body, accessKey);
+  const photo = await photoStorage?.get(content.photoKey);
+  if (!photo) throw new Error(`the photo ${content.photoKey} is missing`);
+  return channel.sendImage(to, photo, accessKey);
 }
 
 async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {

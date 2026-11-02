@@ -1,0 +1,24 @@
+import type { ChannelRecipient } from '../../services/messaging/messaging-channel.ts';
+import type { Transaction } from '../db/transaction.ts';
+
+export type ImageToEnqueue = {
+  to: ChannelRecipient;
+  photoKey: string;
+  availableAt: Date;
+  adminMembershipId?: string;
+};
+
+export async function enqueueImage(transaction: Transaction, message: ImageToEnqueue): Promise<void> {
+  await transaction.query(
+    `INSERT INTO outbound_messages (channel, account_id, external_user_id, kind, photo_key, admin_membership_id, available_at)
+     VALUES ($1, $2, $3, 'image', $4, $5, $6)`,
+    [
+      message.to.channel,
+      message.to.accountId,
+      message.to.externalUserId,
+      message.photoKey,
+      message.adminMembershipId ?? null,
+      message.availableAt,
+    ],
+  );
+}

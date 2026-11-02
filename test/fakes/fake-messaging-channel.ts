@@ -1,3 +1,4 @@
+import type { Photo } from '../../src/services/storage/photo-storage.ts';
 import type {
   ChannelRecipient,
   DownloadResult,
@@ -8,10 +9,15 @@ import type {
 
 export type RecordedText = { to: ChannelRecipient; text: string; credential: string };
 
+export type RecordedSend =
+  | { kind: 'text'; to: string; text: string }
+  | { kind: 'image'; to: string; photo: Photo };
+
 export class FakeMessagingChannel implements MessagingChannel {
   readonly channel = 'zalo-oa';
   readonly maxTextLength = 2000;
   readonly texts: RecordedText[] = [];
+  readonly sends: RecordedSend[] = [];
   readonly displayNames = new Map<string, string>();
   readonly nameLookupCredentials: string[] = [];
   readonly downloadedUrls: string[] = [];
@@ -28,7 +34,13 @@ export class FakeMessagingChannel implements MessagingChannel {
 
   async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
     this.texts.push({ to, text, credential });
+    this.sends.push({ kind: 'text', to: to.externalUserId, text });
     return this.nextTextResult;
+  }
+
+  async sendImage(to: ChannelRecipient, photo: Photo): Promise<SendResult> {
+    this.sends.push({ kind: 'image', to: to.externalUserId, photo });
+    return { ok: true };
   }
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {

@@ -253,6 +253,6 @@ describe('switching between workspaces', () => {
   }
 
   async function sendQueuedTexts(): Promise<void> {
-    await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
+    await runOutboundStep({ database: pool, clock, alerts, channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
   }
 });

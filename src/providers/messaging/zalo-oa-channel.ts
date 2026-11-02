@@ -131,6 +131,10 @@ export class ZaloOaChannel implements MessagingChannel {
     }
   }
 
+  async sendImage(): Promise<SendResult> {
+    throw new Error('sending an image is not implemented');
+  }
+
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
     try {
       const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {

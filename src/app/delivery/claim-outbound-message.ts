@@ -1,5 +1,5 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
-import type { ClaimedMessage } from './claimed-message.ts';
+import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
 
 const LOCK_MS = 2 * 60 * 1000;
 const THROTTLE_WINDOW_MS = 60 * 1000;
@@ -10,7 +10,9 @@ type ClaimedRow = {
   channel: string;
   account_id: string;
   external_user_id: string;
-  body: string;
+  kind: 'text' | 'image';
+  body: string | null;
+  photo_key: string | null;
   admin_membership_id: string | null;
   attempts: number;
 };
@@ -32,7 +34,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
   return transaction.query<ClaimedRow>(
     `WITH candidate AS (
        SELECT id FROM outbound_messages
-       WHERE status = 'queued' AND kind = 'text' AND available_at <= $1
+       WHERE status = 'queued' AND kind IN ('text', 'image') AND available_at <= $1
          AND NOT EXISTS (
            SELECT 1 FROM outbound_messages earlier
            WHERE earlier.channel = outbound_messages.channel
@@ -50,7 +52,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      SET status = 'sending', locked_until = $2, attempts = attempts + 1
      FROM candidate
      WHERE outbound_messages.id = candidate.id
-     RETURNING outbound_messages.id, channel, account_id, external_user_id, body, admin_membership_id, attempts`,
+     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
 }
@@ -59,8 +61,14 @@ function describeClaim(row: ClaimedRow): ClaimedMessage {
   return {
     id: row.id,
     to: { channel: row.channel, accountId: row.account_id, externalUserId: row.external_user_id },
-    body: row.body,
+    content: describeContent(row),
     adminMembershipId: row.admin_membership_id,
     attempts: row.attempts,
   };
+}
+
+function describeContent(row: ClaimedRow): MessageContent {
+  if (row.kind === 'image' && row.photo_key !== null) return { kind: 'image', photoKey: row.photo_key };
+  if (row.kind === 'text' && row.body !== null) return { kind: 'text', body: row.body };
+  throw new Error(`outbound message ${row.id} has no content for its kind`);
 }
