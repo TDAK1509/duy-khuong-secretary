@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { OperatorAlerts } from '../app/alerts/operator-alerts.ts';
+import { runInboundStep } from '../app/processing/inbound-step.ts';
+import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
+import { recordSenderIdentity } from '../app/processing/record-sender-identity.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
@@ -13,6 +16,7 @@ export type Service = {
   server: FastifyInstance;
   pool: PostgresPool;
   runTick: () => Promise<void>;
+  runInboundStep: () => Promise<'processed' | 'idle'>;
 };
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
@@ -30,7 +34,8 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     verifierFile: config.verifierFile,
   });
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
-  return { config, server, pool, runTick: () => runTick({ renewal }) };
+  const inbound = { database: pool, clock, alerts, notices: new OffGroupNotices(clock, log), handler: recordSenderIdentity };
+  return { config, server, pool, runTick: () => runTick({ renewal }), runInboundStep: () => runInboundStep(inbound) };
 }
 
 function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
