@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { insertRecordRow } from './record-rows.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -248,5 +248,18 @@ describe('the ticker runs the due scheduled tasks', () => {
     await insertDueTask();
 
     expect(await searchEverythingDuringRun()).toEqual([]);
+  });
+
+  it('turns off a task whose creator was removed and invited again as a member', async () => {
+    await insertDueTask();
+    await database.query(`DELETE FROM memberships WHERE user_id = '${duyUserId}'`);
+    await insertMembership(database, { workspaceId, userId: duyUserId, displayName: 'Duy', role: 'member' });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+    expect(await database.query('SELECT status, next_run_at, locked_until FROM scheduled_tasks')).toEqual([
+      { status: 'cancelled', next_run_at: null, locked_until: null },
+    ]);
   });
 });

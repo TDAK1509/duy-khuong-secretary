@@ -10,6 +10,7 @@ import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
+import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 
 export type ScheduledRunDependencies = {
@@ -28,7 +29,7 @@ export async function runDueTasks(dependencies: ScheduledRunDependencies): Promi
 
 async function runClaimedTask(dependencies: ScheduledRunDependencies, task: ClaimedTask): Promise<void> {
   const creator = await findTaskCreator(dependencies.database, task);
-  if (creator === null) return;
+  if (creator === null) return turnOffTask(dependencies.database, task);
   const text = await produceResultText(dependencies, task, creator);
   await finishScheduledRun(dependencies, task, text);
 }
