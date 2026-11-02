@@ -63,6 +63,14 @@ describe('the scheduled tasks table', () => {
     ).rejects.toMatchObject({ code: CHECK_VIOLATION });
   });
 
+  it('refuses a second task with the same creation key', async () => {
+    await insertRaw('repeat, time_of_day, creation_key', `'daily', '18:00', 'M:1'`);
+
+    await expect(insertRaw('repeat, time_of_day, creation_key', `'daily', '18:00', 'M:1'`)).rejects.toMatchObject({
+      code: UNIQUE_VIOLATION,
+    });
+  });
+
   it('refuses an empty title', async () => {
     await expect(
       database.query(
