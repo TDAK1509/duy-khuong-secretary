@@ -62,6 +62,15 @@ describe('the inbound worker step', () => {
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });
 
+  it('keeps the latest message time when an older message is processed late', async () => {
+    await insertIdentity('2026-11-02T11:00:00+07:00');
+    await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
+
+    await runInboundStep({ database: pool, clock, handler: recordSenderIdentity });
+
+    expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
+  });
+
   async function insertIdentity(lastInboundAt: string): Promise<void> {
     await database.query(
       `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at)
