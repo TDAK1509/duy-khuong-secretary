@@ -70,4 +70,10 @@ describe('isDuplicateRecord', () => {
 
     expect(isDuplicateRecord(makeFields({ details: [station] }), makeFields({ details: [station, liters] }))).toBe(false);
   });
+
+  it('finds two tolls without a document number and otherwise equal a duplicate', () => {
+    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+
+    expect(isDuplicateRecord(toll, { ...toll })).toBe(true);
+  });
 });
