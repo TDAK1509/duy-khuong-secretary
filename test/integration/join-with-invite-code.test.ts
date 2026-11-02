@@ -95,6 +95,20 @@ describe('joining a workspace with an invite code', () => {
     ]);
   });
 
+  it('tells a new member the joined-member text', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', CODE);
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      [
+        'zu-hung',
+        'Bạn đã vào nhóm "Xe tải Duy Khương" với tên Hùng, vai trò thành viên.\nTừ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé.',
+      ],
+    ]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
