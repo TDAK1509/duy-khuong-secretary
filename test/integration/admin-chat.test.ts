@@ -126,4 +126,24 @@ describe('an admin asks the bot', () => {
     expect(turns[0]).toEqual({ role: 'user', text: 'tin 11', image: null });
     expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?', image: null });
   });
+
+  it('never shows the model another person\'s messages', async () => {
+    const khuongUserId = await insertMember(database, {
+      workspaceId,
+      externalUserId: 'zu-khuong',
+      displayName: 'Khương',
+      role: 'admin',
+    });
+    await insertChatMessage(database, {
+      workspaceId,
+      userId: khuongUserId,
+      author: 'user',
+      text: 'bí mật của Khương',
+      createdAt: new Date('2026-11-01T10:00:00+07:00'),
+    });
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(JSON.stringify(harness.chat.requests)).not.toContain('bí mật của Khương');
+  });
 });
