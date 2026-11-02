@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { OperatorAlerts } from '../app/alerts/operator-alerts.ts';
 import { runOutboundStep } from '../app/delivery/outbound-step.ts';
+import { createInboundHandler } from '../app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
-import { recordSenderIdentity } from '../app/processing/record-sender-identity.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
@@ -37,7 +37,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     verifierFile: config.verifierFile,
   });
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
-  const inbound = { database: pool, clock, alerts, notices: new OffGroupNotices(clock, log), handler: recordSenderIdentity };
+  const inbound = { database: pool, clock, alerts, notices: new OffGroupNotices(clock, log), handler: createInboundHandler(channel, clock) };
   const outbound = channel && zalo && {
     database: pool,
     clock,

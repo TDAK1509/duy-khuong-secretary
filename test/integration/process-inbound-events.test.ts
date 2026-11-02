@@ -3,7 +3,7 @@ import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { claimInboundEvent } from '../../src/app/processing/claim-inbound-event.ts';
 import type { ClaimedEvent } from '../../src/app/processing/claimed-event.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
-import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
+import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import type { Transaction } from '../../src/app/db/transaction.ts';
 import { ClaimLostError } from '../../src/app/processing/claimed-transaction.ts';
 import { createStages, type Finished, type Stages } from '../../src/app/processing/stages.ts';
@@ -11,6 +11,7 @@ import { runInboundStep, type InboundHandler } from '../../src/app/processing/in
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { insertInboundEvent, type EventRow } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -68,7 +69,7 @@ describe('the inbound worker step', () => {
   it('records the sender Zalo account with the time of the message', async () => {
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runStep(recordSenderIdentity);
+    await runStep(createInboundHandler(new FakeMessagingChannel(), clock));
 
     expect(await database.query('SELECT channel, account_id, external_user_id, last_inbound_at, user_id FROM channel_identities')).toEqual([
       {
@@ -85,7 +86,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T10:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T11:00:00+07:00' });
 
-    await runStep(recordSenderIdentity);
+    await runStep(createInboundHandler(new FakeMessagingChannel(), clock));
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });
@@ -94,7 +95,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T11:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runStep(recordSenderIdentity);
+    await runStep(createInboundHandler(new FakeMessagingChannel(), clock));
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });

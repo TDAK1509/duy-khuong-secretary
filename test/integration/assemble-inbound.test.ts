@@ -4,13 +4,20 @@ import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
+const ZALO_ENVIRONMENT: NodeJS.ProcessEnv = {
+  MESSAGING_PROVIDER: 'zalo-oa',
+  ZALO_APP_ID: 'app-1',
+  ZALO_APP_SECRET: 'sec-1',
+  CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
+  PUBLIC_BASE_URL: 'https://x.test',
+};
+
 describe('the assembled service processes inbound events', () => {
   let database: TemporaryDatabase;
   let service: Service;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
-    service = assembleService({ DATABASE_URL: database.url }, () => {});
   });
 
   afterEach(async () => {
@@ -20,6 +27,7 @@ describe('the assembled service processes inbound events', () => {
   });
 
   it('records the sender of a stored event', async () => {
+    service = assembleService({ ...ZALO_ENVIRONMENT, DATABASE_URL: database.url }, () => {});
     const id = await insertInboundEvent(database, {});
 
     const outcome = await service.runInboundStep();
@@ -29,5 +37,14 @@ describe('the assembled service processes inbound events', () => {
     expect(await database.query('SELECT external_user_id FROM channel_identities')).toEqual([
       { external_user_id: 'zu-hung' },
     ]);
+  });
+
+  it('leaves a stored event queued while the zalo group is off', async () => {
+    service = assembleService({ DATABASE_URL: database.url }, () => {});
+    const id = await insertInboundEvent(database, {});
+
+    await service.runInboundStep();
+
+    expect(await database.query(`SELECT status FROM inbound_events WHERE id = '${id}'`)).toEqual([{ status: 'queued' }]);
   });
 });
