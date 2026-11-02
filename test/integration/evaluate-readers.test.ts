@@ -105,4 +105,22 @@ describe('evaluateReaders', () => {
     expect(output).toContain('unresolved: 1');
     expect(output).toContain('amounts correct: 0/1');
   });
+
+  it('prints the share of detail pairs both readers returned', async () => {
+    const folder = await makePhotoFolder({ 'a.jpg': FIRST_PHOTO_BYTE });
+    const details = [{ label: 'Số lít', value: '50' }, { label: 'Trạm', value: 'Long Biên' }];
+    const withTwoDetails = makeReading([makeItem({ details })]);
+    const withOneDetail = makeReading([makeItem({ details: details.slice(0, 1) })]);
+    const slots = {
+      cheap: [
+        makeReaderPerPhoto('cheap-1', { [FIRST_PHOTO_BYTE]: withTwoDetails }),
+        makeReaderPerPhoto('cheap-2', { [FIRST_PHOTO_BYTE]: withOneDetail }),
+      ],
+      strong: [makeReaderPerPhoto('strong-1', {}), makeReaderPerPhoto('strong-2', {})],
+    } as const;
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('details agreement: 50%');
+  });
 });
