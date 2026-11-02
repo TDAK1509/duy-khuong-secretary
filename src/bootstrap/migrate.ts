@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { z } from 'zod';
 import {
   migrateDatabase,
   type MigrationOutcome,
@@ -16,18 +17,30 @@ export async function runMigrationCommand(
   options: MigrationCommandOptions,
 ): Promise<number> {
   const log = options.log ?? console.log;
+  const databaseUrl = z.url().safeParse(environment['MIGRATION_DATABASE_URL']);
+  if (!databaseUrl.success) {
+    return fail(log, 'MIGRATION_DATABASE_URL must be set to a database URL');
+  }
+  return migrateAndLog(databaseUrl.data, options, log);
+}
+
+async function migrateAndLog(
+  databaseUrl: string,
+  options: MigrationCommandOptions,
+  log: (line: string) => void,
+): Promise<number> {
   try {
-    const outcome = await migrateDatabase({
-      databaseUrl: environment['MIGRATION_DATABASE_URL'] ?? '',
-      directory: fileURLToPath(options.directory),
-      retry: options.retry,
-    });
-    log(describeOutcome(outcome));
+    const directory = fileURLToPath(options.directory);
+    log(describeOutcome(await migrateDatabase({ databaseUrl, directory, retry: options.retry })));
     return 0;
   } catch (error) {
-    log(`[migrate] failed: ${error instanceof Error ? error.message : String(error)}`);
-    return 1;
+    return fail(log, error instanceof Error ? error.message : String(error));
   }
+}
+
+function fail(log: (line: string) => void, reason: string): number {
+  log(`[migrate] failed: ${reason}`);
+  return 1;
 }
 
 function describeOutcome(outcome: MigrationOutcome): string {
