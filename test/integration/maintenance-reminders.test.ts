@@ -18,7 +18,7 @@ const DAILY_AT_SEVEN = {
   day_of_month: null,
 };
 
-describe('an admin proposes maintenance reminders by chat', () => {
+describe('an admin creates maintenance reminders by chat', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
 
@@ -40,17 +40,17 @@ describe('an admin proposes maintenance reminders by chat', () => {
     pair.forEach((reader) => reader.answerWith(reading));
   }
 
-  function proposeWithRules(rules: MaintenanceRule[]): void {
+  function createWithRules(rules: MaintenanceRule[]): void {
     const call = {
       id: 'call_1',
-      name: 'propose_scheduled_task',
+      name: 'create_scheduled_task',
       argumentsJson: JSON.stringify({ ...DAILY_AT_SEVEN, maintenance_rules: rules }),
     };
-    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText('Bạn kiểm tra lại rồi trả lời 1 để lưu lịch nhé.')));
+    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText('Đã đặt lịch.')));
   }
 
-  it('stores the rules of a proposal', async () => {
-    proposeWithRules([{ maintenance_item: 'Dầu máy', age_days: 30 }]);
+  it('stores the rules of a new task', async () => {
+    createWithRules([{ maintenance_item: 'Dầu máy', age_days: 30 }]);
 
     await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu máy sau 30 ngày');
 
@@ -70,7 +70,7 @@ describe('an admin proposes maintenance reminders by chat', () => {
     ['a part of spaces', { maintenance_item: '   ', age_days: 30 }],
     ['a fraction of a day', { maintenance_item: 'dầu máy', age_days: 1.5 }],
   ])('refuses a rule with %s', async (_description, rule) => {
-    proposeWithRules([rule]);
+    createWithRules([rule]);
 
     await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu máy');
 
@@ -82,19 +82,5 @@ describe('an admin proposes maintenance reminders by chat', () => {
     await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu');
 
     expect(harness.chat.requests[0]?.system).toContain('Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:');
-  });
-
-  it('shows the rules on the card of the draft', async () => {
-    proposeWithRules([
-      { maintenance_item: 'dầu máy', age_days: 30 },
-      { maintenance_item: 'lốp', age_days: 180 },
-    ]);
-
-    await harness.receiveText('zu-duy', 'Nhắc tôi thay dầu máy sau 30 ngày, lốp sau 6 tháng');
-    await harness.sendQueuedTexts();
-
-    const card = harness.channel.texts[0]?.text.split('\n') ?? [];
-    expect(harness.channel.texts[0]?.to.externalUserId).toBe('zu-duy');
-    expect(card).toContain('Nhắc bảo dưỡng: dầu máy sau 30 ngày; lốp sau 180 ngày');
   });
 });

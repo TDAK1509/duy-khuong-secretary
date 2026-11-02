@@ -2,7 +2,6 @@ import type { ChatService } from '../../services/chat/chat-service.ts';
 import { isCurrentAdmin } from '../access/is-current-admin.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
-import { clearPendingChoiceOfSender } from '../identities/clear-pending-choice.ts';
 import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
@@ -16,8 +15,7 @@ import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
-import { DraftProposals, type DraftProposal } from './draft-proposals.ts';
-import { loadDraftCard, type DraftCard } from '../schedules/draft-card.ts';
+import { CreatedTasks } from './created-tasks.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
@@ -29,7 +27,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[]; draft: DraftProposal | null };
+type Answer = { text: string; photos: AttachablePhoto[] };
 
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
@@ -40,9 +38,9 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
     tools: ADMIN_TOOLS,
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id) };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text: outcome.text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
+  return { text: outcome.text, photos: dependencies.attachments.list() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -59,18 +57,10 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
   if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
-  const card = await loadCard(transaction, context, answer);
-  if (card !== null) await clearPendingChoiceOfSender(transaction, context.event);
-  const text = card === null ? answer.text : `${answer.text}\n\n${card.text}`;
-  await storeBotReply(transaction, messageId, { text, kind: 'answer' });
+  await storeBotReply(transaction, messageId, { text: answer.text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, text, sender.membershipId, card?.choice);
+  await enqueueReply(transaction, context, answer.text, sender.membershipId);
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
-}
-
-async function loadCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<DraftCard | null> {
-  if (answer.draft === null) return null;
-  return loadDraftCard(transaction, answer.draft, context.sender, context.dependencies.clock.now());
 }

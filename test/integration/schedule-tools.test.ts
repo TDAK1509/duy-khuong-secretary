@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
-import { DraftProposals } from '../../src/app/admin-chat/draft-proposals.ts';
+import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
@@ -21,15 +21,15 @@ describe('the scheduling tools', () => {
   });
 
   function runTool(scope: AccessScope, name: string, args: unknown): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
-  it('refuses a member who proposes a task', async () => {
+  it('refuses a member who creates a task', async () => {
     const hung: AccessScope = { workspaceId, userId: harness.hungUserId, role: 'member' };
-    const proposal = { title: 'Báo cáo', instruction: 'Lập báo cáo.', repeat: 'daily', run_once_at: null, time_of_day: '18:00', weekday: null, day_of_month: null };
+    const request = { title: 'Báo cáo', instruction: 'Lập báo cáo.', repeat: 'daily', run_once_at: null, time_of_day: '18:00', weekday: null, day_of_month: null };
 
-    const output = await runTool(hung, 'propose_scheduled_task', proposal);
+    const output = await runTool(hung, 'create_scheduled_task', request);
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
     expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
@@ -42,7 +42,7 @@ describe('the scheduling tools', () => {
     const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
     const nextRunAt = new Date('2026-11-02T18:00:00+07:00');
     await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Của Duy', status: 'active', nextRunAt });
-    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Nháp của Duy', status: 'draft' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Nháp cũ của Duy', status: 'draft' });
     await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, title: 'Của Khương', status: 'active', nextRunAt });
     await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active', nextRunAt });
 

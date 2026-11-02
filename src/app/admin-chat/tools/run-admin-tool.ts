@@ -7,11 +7,11 @@ import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import { runAttachPhotos } from './attach-photos-tool.ts';
 import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
+import { runCreateScheduledTask } from './create-scheduled-task-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
-import { runProposeScheduledTask } from './propose-scheduled-task-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -45,7 +45,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   remove_member: ({ database }, scope, args) => runRemoveMember(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,
-  propose_scheduled_task: runProposeScheduledTask,
+  create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
 };
