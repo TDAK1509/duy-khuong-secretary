@@ -158,6 +158,10 @@ export class ZaloOaChannel implements MessagingChannel {
 }
 
 async function readLimited(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
+  if (!isSuccessStatus(response.statusCode)) {
+    response.destroy();
+    return { ok: false, reason: 'unavailable' };
+  }
   const chunks: Buffer[] = [];
   let received = 0;
   for await (const chunk of response as AsyncIterable<Buffer>) {
@@ -169,6 +173,10 @@ async function readLimited(response: IncomingMessage, maxBytes: number): Promise
     chunks.push(chunk);
   }
   return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+function isSuccessStatus(status: number | undefined): boolean {
+  return status !== undefined && status >= 200 && status < 300;
 }
 
 async function lookUpAllAddresses(hostname: string): Promise<string[]> {

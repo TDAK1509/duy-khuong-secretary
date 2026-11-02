@@ -19,6 +19,13 @@ export function serveBytes(bytes: Uint8Array): MediaHandler {
   };
 }
 
+export function answerWithStatus(status: number): MediaHandler {
+  return (_request, response) => {
+    response.writeHead(status);
+    response.end();
+  };
+}
+
 export async function startStubMediaServer(handler: MediaHandler): Promise<StubMediaServer> {
   const { key, certificate } = generateSelfSignedCertificate();
   const requestedPaths: string[] = [];

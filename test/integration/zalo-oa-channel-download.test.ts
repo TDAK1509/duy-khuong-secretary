@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
 import type { DownloadResult } from '../../src/services/messaging/messaging-channel.ts';
 import { TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
-import { serveBytes, startStubMediaServer, type MediaHandler, type StubMediaServer } from './stub-media-server.ts';
+import { answerWithStatus, serveBytes, startStubMediaServer, type MediaHandler, type StubMediaServer } from './stub-media-server.ts';
 
 const FIVE_MEGABYTES = 5_000_000;
 
@@ -28,6 +28,14 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES);
 
     expect(result).toEqual({ ok: false, reason: 'too_large' });
+  });
+
+  it('reports a missing attachment as unavailable', async () => {
+    const server = await startStubServer(answerWithStatus(404));
+
+    const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
   });
 
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
