@@ -117,6 +117,12 @@ describe('an admin asks the bot', () => {
     expect(harness.chat.requests[0]?.system).toContain('Để mời người mới vào nhóm, dùng create_invite.');
   });
 
+  it('offers the maintenance tool', async () => {
+    await harness.receiveText('zu-duy', 'Xe nào sắp phải thay dầu?');
+
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toContain('maintenance_status');
+  });
+
   it('puts the removal instructions in the system prompt', async () => {
     await harness.receiveText('zu-duy', 'Xóa Hùng khỏi nhóm');
 
