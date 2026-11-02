@@ -171,6 +171,18 @@ describe('an admin creates a scheduled task by chat', () => {
     ]);
   });
 
+  it('offers no choice with the summary', async () => {
+    createThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT offered_choice FROM outbound_messages')).toEqual([{ offered_choice: null }]);
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      { pending_choice: null },
+    ]);
+  });
+
   it('refuses a one-time task in the past', async () => {
     createThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
 
