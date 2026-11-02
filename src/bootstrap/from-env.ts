@@ -61,6 +61,7 @@ export function buildMessagingChannel(config: ZaloConfig, oaSecret: string): Mes
         appId: config.appId,
         oaSecret,
         apiBaseUrl: config.apiBaseUrl,
+        businessApiBaseUrl: config.businessApiBaseUrl,
         timeoutMs: config.apiTimeoutMs,
         mediaHosts: config.mediaHosts,
       });

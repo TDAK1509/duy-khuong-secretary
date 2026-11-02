@@ -21,6 +21,7 @@ const environmentSchema = z.object({
   PUBLIC_BASE_URL: z.url(),
   ZALO_OAUTH_BASE_URL: z.url().default('https://oauth.zaloapp.com'),
   ZALO_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
+  ZALO_BUSINESS_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
   ZALO_TIMEOUT_MS: z.coerce.number().int().positive().default(DEFAULT_ZALO_API_TIMEOUT_MS),
   ZALO_MEDIA_HOSTS: z.string().default(DEFAULT_MEDIA_HOSTS),
   OUTBOUND_MAX_PER_MINUTE: z.coerce.number().int().positive().default(DEFAULT_OUTBOUND_MAX_PER_MINUTE),
@@ -33,6 +34,7 @@ export type ZaloConfig = {
   appSecret: string;
   oauthBaseUrl: string;
   apiBaseUrl: string;
+  businessApiBaseUrl: string;
   apiTimeoutMs: number;
   mediaHosts: string[];
   outboundMaxPerMinute: number;
@@ -57,6 +59,7 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
       appSecret: settings.ZALO_APP_SECRET,
       oauthBaseUrl: settings.ZALO_OAUTH_BASE_URL,
       apiBaseUrl: settings.ZALO_API_BASE_URL,
+      businessApiBaseUrl: settings.ZALO_BUSINESS_API_BASE_URL,
       apiTimeoutMs: settings.ZALO_TIMEOUT_MS,
       mediaHosts: settings.ZALO_MEDIA_HOSTS.split(',').map((host) => host.trim().toLowerCase()).filter(Boolean),
       outboundMaxPerMinute: settings.OUTBOUND_MAX_PER_MINUTE,

@@ -10,6 +10,7 @@ import type {
   InboundEvent,
   MessagingChannel,
   SendResult,
+  TemplateMessage,
 } from '../../services/messaging/messaging-channel.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 
@@ -18,6 +19,7 @@ const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_MESSAGE_PATH = '/v3.0/oa/message/cs';
+const SEND_TEMPLATE_PATH = '/v3.0/oa/message/template';
 const UPLOAD_IMAGE_PATH = '/v2.0/oa/upload/image';
 const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
@@ -95,6 +97,7 @@ export type ZaloOaChannelSettings = {
   appId: string;
   oaSecret: string;
   apiBaseUrl: string;
+  businessApiBaseUrl: string;
   timeoutMs: number;
   mediaHosts: string[];
   lookupAddresses?: (hostname: string) => Promise<string[]>;
@@ -135,15 +138,22 @@ export class ZaloOaChannel implements MessagingChannel {
     });
   }
 
-  async sendTemplate(): Promise<SendResult> {
-    throw new Error('sending a template is not implemented yet');
+  async sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult> {
+    const url = new URL(SEND_TEMPLATE_PATH, this.settings.businessApiBaseUrl);
+    const body = { user_id: to.externalUserId, template_id: template.templateId, template_data: template.params };
+    return guardSend(() => this.postJson(url, body, credential));
   }
 
-  private async postMessage(to: ChannelRecipient, message: object, credential: string): Promise<SendResult> {
-    const response = await fetch(new URL(SEND_MESSAGE_PATH, this.settings.apiBaseUrl), {
+  private postMessage(to: ChannelRecipient, message: object, credential: string): Promise<SendResult> {
+    const url = new URL(SEND_MESSAGE_PATH, this.settings.apiBaseUrl);
+    return this.postJson(url, { recipient: { user_id: to.externalUserId }, message }, credential);
+  }
+
+  private async postJson(url: URL, body: object, credential: string): Promise<SendResult> {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', access_token: credential },
-      body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     });
     return readSendResult(response);
