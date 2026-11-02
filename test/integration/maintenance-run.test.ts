@@ -118,4 +118,20 @@ describe('the daily maintenance reminder run', () => {
 
     expect(harness.chat.requests).toEqual([]);
   });
+
+  it('records a notification for every record the reminder covered', async () => {
+    const firstRecordId = await insertOilChange('2026-10-01', '29C12345');
+    const secondRecordId = await insertOilChange('2026-10-01', '51D67890');
+    const taskId = await insertReminderTask();
+    harness.chat.replyWith('Có 2 xe cần thay dầu.');
+
+    await harness.runTick();
+
+    const rows = await database.query<{ task_id: string; record_id: string; workspace_id: string }>(
+      'SELECT task_id, record_id, workspace_id FROM maintenance_notifications ORDER BY record_id',
+    );
+    expect(rows).toEqual(
+      [firstRecordId, secondRecordId].sort().map((recordId) => ({ task_id: taskId, record_id: recordId, workspace_id: workspaceId })),
+    );
+  });
 });

@@ -6,6 +6,8 @@ import { computeNextRun } from '../schedules/compute-next-run.ts';
 import type { ClaimedTask } from './claim-due-task.ts';
 import type { TaskCreator } from './find-task-creator.ts';
 import type { ScheduledRunDependencies } from './run-due-tasks.ts';
+import { recordNotifications } from './record-notifications.ts';
+import type { ScheduledRunResult } from './scheduled-run-result.ts';
 import { NOTHING_TO_REPORT } from './scheduled-run-texts.ts';
 import { turnOffTaskIn } from './turn-off-task.ts';
 
@@ -15,13 +17,13 @@ export async function finishScheduledRun(
   dependencies: ScheduledRunDependencies,
   task: ClaimedTask,
   creator: TaskCreator,
-  text: string,
+  result: ScheduledRunResult,
 ): Promise<void> {
   const database = scopeDatabase(dependencies.database, { workspaceId: task.workspaceId });
   await runInTransaction(database, async (transaction) => {
     if (!(await ownsClaim(transaction, task))) return;
     if (!(await isCurrentAdmin(transaction, creator.membershipId))) return turnOffTaskIn(transaction, task);
-    if (text.trim() !== NOTHING_TO_REPORT) await deliverResult(transaction, dependencies, task, creator, text);
+    if (result.text.trim() !== NOTHING_TO_REPORT) await deliverResult(transaction, dependencies, { task, creator, result });
     await moveToNextRun(transaction, task, dependencies.clock.now());
   });
 }
@@ -37,16 +39,16 @@ async function ownsClaim(transaction: Transaction, task: ClaimedTask): Promise<b
 async function deliverResult(
   transaction: Transaction,
   dependencies: ScheduledRunDependencies,
-  task: ClaimedTask,
-  creator: TaskCreator,
-  text: string,
+  delivery: { task: ClaimedTask; creator: TaskCreator; result: ScheduledRunResult },
 ): Promise<void> {
+  const { task, creator, result } = delivery;
   await transaction.query(`INSERT INTO messages (workspace_id, user_id, author, text) VALUES ($1, $2, 'bot', $3)`, [
     task.workspaceId,
     task.createdBy,
-    text,
+    result.text,
   ]);
-  await enqueueResult(transaction, dependencies, { task, creator, text });
+  await enqueueResult(transaction, dependencies, { task, creator, text: result.text });
+  await recordNotifications(transaction, task, result.remindedRecordIds);
 }
 
 async function enqueueResult(
