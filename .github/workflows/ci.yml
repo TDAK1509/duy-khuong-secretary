@@ -63,6 +63,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run build
+      - name: Build the schema by running the migrations
+        run: node dist/bootstrap/migrate.js
+        env:
+          MIGRATION_DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
       - run: npm test
 
   migrations:

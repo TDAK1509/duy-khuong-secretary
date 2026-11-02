@@ -2,10 +2,13 @@ import { z } from 'zod';
 
 const environmentSchema = z.object({
   DATABASE_URL: z.url(),
+  GIT_COMMIT: z.string().optional(),
+  RENDER_GIT_COMMIT: z.string().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 });
 
 export type Config = {
+  commit: string | null;
   databaseUrl: string;
   port: number;
 };
@@ -15,7 +18,11 @@ export function loadConfig(environment: NodeJS.ProcessEnv): Config {
   if (!parsed.success) {
     throw new Error(`Invalid configuration: ${describeIssues(parsed.error)}`);
   }
-  return { databaseUrl: parsed.data.DATABASE_URL, port: parsed.data.PORT };
+  return {
+    commit: parsed.data.GIT_COMMIT || parsed.data.RENDER_GIT_COMMIT || null,
+    databaseUrl: parsed.data.DATABASE_URL,
+    port: parsed.data.PORT,
+  };
 }
 
 function describeIssues(error: z.ZodError): string {

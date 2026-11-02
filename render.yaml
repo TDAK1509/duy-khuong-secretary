@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: duy-khuong-secretary
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    branch: main
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    preDeployCommand: node dist/bootstrap/migrate.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: secretary-db
+          property: connectionString
+      - key: MIGRATION_DATABASE_URL
+        fromDatabase:
+          name: secretary-db
+          property: connectionString
+
+databases:
+  - name: secretary-db
+    databaseName: secretary
+    user: secretary
+    plan: 0.1c-256mb
+    region: singapore
+    postgresMajorVersion: "17"
+    ipAllowList: []
