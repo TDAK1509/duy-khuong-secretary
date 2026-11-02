@@ -225,6 +225,14 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: '29C12345' }]);
   });
 
+  it('stores the document number normalized', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeItem({ document_number: 'aa/26e-0001234' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT document_number FROM records')).toEqual([{ document_number: 'AA26E0001234' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
