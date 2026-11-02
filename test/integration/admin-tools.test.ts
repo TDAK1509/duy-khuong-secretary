@@ -296,6 +296,16 @@ describe('the data tools of an admin', () => {
       return JSON.parse(output) as CountResult;
     }
 
+    it('refuses a range whose end is not a real date', async () => {
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+        id: 'call_1',
+        name: 'count_records',
+        argumentsJson: JSON.stringify({ added_from: '2026-10-31', added_to: '2026-02-30' }),
+      });
+
+      expect(output).toBe('{"ok":false,"error":"Ngày không hợp lệ."}');
+    });
+
     it('lists every current person, including those with nothing', async () => {
       await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
       await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
