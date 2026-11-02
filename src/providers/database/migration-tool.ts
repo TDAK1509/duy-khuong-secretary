@@ -46,20 +46,6 @@ export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutco
   }
 }
 
-function isLockBusy(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === LOCK_NOT_AVAILABLE;
-}
-
-function giveUp(error: unknown, budgetMs: number): Error {
-  const reason = error instanceof Error ? error.message : String(error);
-  return new Error(`gave up on busy table locks after ${budgetMs} ms: ${reason}`, { cause: error });
-}
-
-function pickRetryDelayMs(): number {
-  const jitter = (Math.random() * 2 - 1) * RETRY_JITTER_RATIO;
-  return RETRY_DELAY_MS * (1 + jitter);
-}
-
 async function migrateOnce(run: MigrationRun): Promise<MigrationOutcome> {
   const client = new pg.Client({
     connectionString: run.databaseUrl,
@@ -195,4 +181,18 @@ async function isInvalidIndex(db: MigrationBuilder['db'], indexName: string): Pr
     [indexName],
   );
   return rows[0]?.is_invalid === true;
+}
+
+function isLockBusy(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === LOCK_NOT_AVAILABLE;
+}
+
+function giveUp(error: unknown, budgetMs: number): Error {
+  const reason = error instanceof Error ? error.message : String(error);
+  return new Error(`gave up on busy table locks after ${budgetMs} ms: ${reason}`, { cause: error });
+}
+
+function pickRetryDelayMs(): number {
+  const jitter = (Math.random() * 2 - 1) * RETRY_JITTER_RATIO;
+  return RETRY_DELAY_MS * (1 + jitter);
 }
