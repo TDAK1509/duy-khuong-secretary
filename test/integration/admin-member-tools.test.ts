@@ -65,5 +65,12 @@ describe('the member tools of an admin', () => {
 
       expect(JSON.parse(output)).toMatchObject({ oa_link: 'https://zalo.me/oa-1' });
     });
+
+    it('refuses a blank name and stores nothing', async () => {
+      const output = await runTool('create_invite', { display_name: '   ', role: 'member' });
+
+      expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: display_name"}');
+      expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+    });
   });
 });
