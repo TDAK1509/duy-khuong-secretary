@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
-import { computeNextRun } from '../../schedules/compute-next-run.ts';
 import { formatSchedule } from '../../schedules/format-schedule.ts';
 import type { MaintenanceRule, NewScheduledTask } from '../../schedules/schedule.ts';
 import { MAX_ACTIVE_TASKS_PER_WORKSPACE, storeScheduledTask } from '../../schedules/store-scheduled-task.ts';
@@ -36,13 +35,12 @@ export async function runCreateScheduledTask(
   const creationKey = created.takeNextCreationKey();
   if (creationKey === null) return failTool(REFUSAL_ERROR);
   const task = readTask(argumentsSchema.parse(parsedArguments), scope, creationKey);
-  const firstRun = computeNextRun(task.schedule, clock.now());
-  if (firstRun === null) return failTool(RUN_TIME_PASSED_ERROR);
-  const stored = await storeScheduledTask(database, task, firstRun);
-  if (stored === null) return failTool(WORKSPACE_FULL_ERROR);
-  created.record(stored.taskId);
-  const schedule = formatSchedule(stored.schedule);
-  return JSON.stringify({ ok: true, saved: true, schedule, first_run: formatVietnamDateTime(stored.firstRun) });
+  const outcome = await storeScheduledTask(database, task, clock.now());
+  if (outcome.kind === 'run_time_passed') return failTool(RUN_TIME_PASSED_ERROR);
+  if (outcome.kind === 'workspace_full') return failTool(WORKSPACE_FULL_ERROR);
+  created.record(outcome.task.taskId);
+  const schedule = formatSchedule(outcome.task.schedule);
+  return JSON.stringify({ ok: true, saved: true, schedule, first_run: formatVietnamDateTime(outcome.task.firstRun) });
 }
 
 function readTask(args: TaskArguments, scope: AccessScope, creationKey: string): NewScheduledTask {

@@ -62,6 +62,21 @@ describe('the scheduling tools', () => {
     expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'message-1:1' }]);
   });
 
+  it('returns the stored one-time task when the creation is repeated after its time passed', async () => {
+    const duy = await addAdmin();
+    const oneTime = { ...DAILY_REPORT, repeat: 'once', run_once_at: '2026-10-31 15:30', time_of_day: null };
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const first = await runTool(duy, 'create_scheduled_task', oneTime, new CreatedTasks('message-1'));
+    harness.clock.setTo(new Date('2026-10-31T16:00:00+07:00'));
+    const created = new CreatedTasks('message-1');
+
+    const again = await runTool(duy, 'create_scheduled_task', oneTime, created);
+
+    expect(again).toBe(first);
+    expect(created.listTaskIds()).toHaveLength(1);
+    expect(await harness.database.query('SELECT 1 FROM scheduled_tasks')).toHaveLength(1);
+  });
+
   it('stores two tasks when one turn creates two', async () => {
     const duy = await addAdmin();
     harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
