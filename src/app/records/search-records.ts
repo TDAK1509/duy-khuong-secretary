@@ -57,34 +57,6 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   return toPage(rows);
 }
 
-function toPage(rows: FoundRow[]): SearchPage {
-  const pageRows = rows.slice(0, PAGE_SIZE);
-  const last = pageRows[pageRows.length - 1];
-  const hasMore = rows.length > PAGE_SIZE && last !== undefined;
-  return {
-    items: pageRows.map(toFoundRecord),
-    nextCursor: hasMore ? encodeSearchCursor({ createdAt: last.created_at_utc, id: last.id }) : null,
-  };
-}
-
-function toFoundRecord(row: FoundRow): FoundRecord {
-  return {
-    id: row.id,
-    member: row.member,
-    category: row.category,
-    maintenance_item: row.maintenance_item,
-    plate: row.plate,
-    document_number: row.document_number,
-    occurred_on: row.occurred_on,
-    amount_vnd: row.amount_vnd,
-    summary: row.summary,
-    identifiers: row.identifiers,
-    details: row.details,
-    added_at: row.added_at,
-    has_photo: row.has_photo,
-  };
-}
-
 function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
@@ -125,4 +97,32 @@ function buildCodeCondition(where: WhereClause, text: string): string {
 function buildMemberCondition(where: WhereClause, member: string): string {
   const bound = where.bind(toAccentFreeForm(member) ?? '');
   return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function toPage(rows: FoundRow[]): SearchPage {
+  const pageRows = rows.slice(0, PAGE_SIZE);
+  const last = pageRows[pageRows.length - 1];
+  const hasMore = rows.length > PAGE_SIZE && last !== undefined;
+  return {
+    items: pageRows.map(toFoundRecord),
+    nextCursor: hasMore ? encodeSearchCursor({ createdAt: last.created_at_utc, id: last.id }) : null,
+  };
+}
+
+function toFoundRecord(row: FoundRow): FoundRecord {
+  return {
+    id: row.id,
+    member: row.member,
+    category: row.category,
+    maintenance_item: row.maintenance_item,
+    plate: row.plate,
+    document_number: row.document_number,
+    occurred_on: row.occurred_on,
+    amount_vnd: row.amount_vnd,
+    summary: row.summary,
+    identifiers: row.identifiers,
+    details: row.details,
+    added_at: row.added_at,
+    has_photo: row.has_photo,
+  };
 }
