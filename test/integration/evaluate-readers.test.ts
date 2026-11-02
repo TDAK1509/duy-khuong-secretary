@@ -149,4 +149,15 @@ describe('evaluateReaders', () => {
     expect(output).toContain('cheap-2: failed (timeout)');
     expect(output).toContain('cheap pair agrees: no');
   });
+
+  it('refuses a photo over 5 MB without reading it', async () => {
+    const folder = await makePhotoFolder({});
+    await writeFile(join(folder, 'huge.jpg'), Buffer.alloc(5_000_001, FIRST_PHOTO_BYTE));
+    const slots = makeAgreeingSlots({ [FIRST_PHOTO_BYTE]: AGREED_FUEL });
+
+    const output = await runCommand(folder, slots);
+
+    expect(output).toContain('huge.jpg: not read, larger than 5 MB (5000001 bytes)');
+    expect(slots.cheap.flatMap((reader) => (reader as FakeReader).requests)).toEqual([]);
+  });
 });
