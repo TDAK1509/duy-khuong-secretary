@@ -45,6 +45,10 @@ export async function findDueRecords(database: Database, task: ClaimedTask, now:
 }
 
 function unzipRules(task: ClaimedTask): [string[], number[]] {
-  const rules = task.maintenanceRules.filter((rule) => toAccentFreeForm(rule.maintenanceItem) !== null);
-  return [rules.map((rule) => toAccentFreeForm(rule.maintenanceItem) ?? ''), rules.map((rule) => rule.ageDays)];
+  const youngestAgeByItem = new Map<string, number>();
+  for (const rule of task.maintenanceRules) {
+    const item = toAccentFreeForm(rule.maintenanceItem);
+    if (item !== null) youngestAgeByItem.set(item, Math.min(rule.ageDays, youngestAgeByItem.get(item) ?? rule.ageDays));
+  }
+  return [[...youngestAgeByItem.keys()], [...youngestAgeByItem.values()]];
 }

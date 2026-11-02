@@ -249,4 +249,21 @@ describe('the daily maintenance reminder run', () => {
 
     expect(harness.chat.requests[0]?.turns[0]).toMatchObject({ text: expect.stringContaining('"sent_on":"01/10/2026"') });
   });
+
+  it('lists a record once when two rules name the same part', async () => {
+    const recordId = await insertOilChange('2026-10-01');
+    const taskId = await insertReminderTask({
+      maintenanceRules: [
+        { maintenance_item: 'dầu máy', age_days: 30 },
+        { maintenance_item: 'Dau may', age_days: 20 },
+      ],
+    });
+    harness.chat.replyWith('Nhắc');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT task_id, record_id FROM maintenance_notifications')).toEqual([
+      { task_id: taskId, record_id: recordId },
+    ]);
+  });
 });
