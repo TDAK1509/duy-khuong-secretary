@@ -4,7 +4,13 @@ import type { ClaimedEvent } from './claimed-event.ts';
 
 export type Finished = { kind: 'finished' };
 
+export type Stage = {
+  isDone(transaction: Transaction): Promise<boolean>;
+  write(transaction: Transaction): Promise<void>;
+};
+
 export type Stages = {
+  runStage(stage: Stage): Promise<void>;
   finishEvent(write: (transaction: Transaction) => Promise<void>): Promise<Finished>;
 };
 
@@ -14,9 +20,12 @@ export class ClaimLostError extends Error {
 
 export function createStages(database: Database, event: ClaimedEvent, clock: Clock): Stages {
   return {
+    runStage: (stage) =>
+      runInClaimedTransaction(database, event, async (transaction) => {
+        if (!(await stage.isDone(transaction))) await stage.write(transaction);
+      }),
     finishEvent: (write) =>
-      runInTransaction(database, async (transaction) => {
-        await holdClaim(transaction, event);
+      runInClaimedTransaction(database, event, async (transaction) => {
         await write(transaction);
         await transaction.query(
           `UPDATE inbound_events SET status = 'done', processed_at = $2, locked_until = NULL WHERE id = $1`,
@@ -25,6 +34,17 @@ export function createStages(database: Database, event: ClaimedEvent, clock: Clo
         return { kind: 'finished' };
       }),
   };
+}
+
+function runInClaimedTransaction<Result>(
+  database: Database,
+  event: ClaimedEvent,
+  work: (transaction: Transaction) => Promise<Result>,
+): Promise<Result> {
+  return runInTransaction(database, async (transaction) => {
+    await holdClaim(transaction, event);
+    return work(transaction);
+  });
 }
 
 async function holdClaim(transaction: Transaction, event: ClaimedEvent): Promise<void> {

@@ -3,7 +3,8 @@ import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { claimInboundEvent } from '../../src/app/processing/claim-inbound-event.ts';
 import type { ClaimedEvent } from '../../src/app/processing/claimed-event.ts';
 import { recordSenderIdentity } from '../../src/app/processing/record-sender-identity.ts';
-import { ClaimLostError, createStages } from '../../src/app/processing/stages.ts';
+import type { Transaction } from '../../src/app/db/transaction.ts';
+import { ClaimLostError, createStages, type Finished, type Stages } from '../../src/app/processing/stages.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
@@ -37,6 +38,29 @@ function recordCalls(): RecordingHandler {
     return stages.finishEvent(async () => {});
   };
   return Object.assign(handler, { calls });
+}
+
+async function runTwoStages(event: ClaimedEvent, stages: Stages, onStageRun: (stage: string) => void): Promise<Finished> {
+  await stages.runStage({
+    isDone: (transaction) => hasStageRow(transaction, event.id, 'first'),
+    write: async (transaction) => {
+      onStageRun('first');
+      await saveStageRow(transaction, event.id, 'first');
+    },
+  });
+  return stages.finishEvent(async (transaction) => {
+    onStageRun('second');
+    await saveStageRow(transaction, event.id, 'second');
+  });
+}
+
+async function hasStageRow(transaction: Transaction, eventId: string, stage: string): Promise<boolean> {
+  const rows = await transaction.query('SELECT 1 FROM stage_rows WHERE event_id = $1 AND stage = $2', [eventId, stage]);
+  return rows.length !== 0;
+}
+
+async function saveStageRow(transaction: Transaction, eventId: string, stage: string): Promise<void> {
+  await transaction.query('INSERT INTO stage_rows VALUES ($1, $2)', [eventId, stage]);
 }
 
 describe('the inbound worker step', () => {
@@ -192,6 +216,24 @@ describe('the inbound worker step', () => {
     await expect(lateFinish).rejects.toThrow(ClaimLostError);
     expect(await database.query('SELECT 1 FROM channel_identities')).toEqual([]);
     expect(await readEvent(id)).toMatchObject({ status: 'done', attempts: 2, processed_at: clock.now() });
+  });
+
+  it('skips a stage whose rows were saved before the crash', async () => {
+    const id = await insertInboundEvent(database, {
+      status: 'processing',
+      attempts: 1,
+      lockedUntil: new Date(NOW.getTime() - 60_000),
+    });
+    await database.query('CREATE TABLE stage_rows (event_id uuid NOT NULL, stage text NOT NULL)');
+    await database.query(`INSERT INTO stage_rows VALUES ('${id}', 'first')`);
+    const stageRuns: string[] = [];
+
+    await runStep((event, stages) =>
+      runTwoStages(event, stages, (stage) => stageRuns.push(stage)),
+    );
+
+    expect(stageRuns).toEqual(['second']);
+    expect((await readEvent(id)).status).toBe('done');
   });
 
   async function claim(): Promise<ClaimedEvent> {
