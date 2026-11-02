@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
 import type { ChannelRecipient, SendResult } from '../../src/services/messaging/messaging-channel.ts';
 import { TEST_CHANNEL_SETTINGS } from '../fixtures/zalo/zalo-fixtures.ts';
@@ -10,6 +10,7 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
   const servers: StubHttpServer[] = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(servers.splice(0).map((server) => server.close()));
   });
 
@@ -51,10 +52,10 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
   });
 
   it('turns a refused connection into unavailable', async () => {
-    const server = await startStubServer(replyWithJson({ error: 0 }));
-    await server.close();
+    const refusal = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed', { cause: refusal }));
 
-    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+    const result = await sendFromChannel('http://127.0.0.1:9', 'chào', 'a1');
 
     expect(result).toEqual({ ok: false, reason: 'unavailable' });
   });
