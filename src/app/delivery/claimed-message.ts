@@ -7,5 +7,6 @@ export type ClaimedMessage = {
   to: ChannelRecipient;
   content: MessageContent;
   adminMembershipId: string | null;
+  scheduledTaskId: string | null;
   attempts: number;
 };

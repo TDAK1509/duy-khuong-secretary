@@ -46,4 +46,15 @@ describe('the delivery rule for scheduled results', () => {
 
     expect(await readStatuses()).toEqual([{ status: 'sent' }]);
   });
+
+  it('holds a result for an admin quiet for 8 days and sends no template without a template id', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'held' }]);
+    expect(harness.channel.sends).toEqual([]);
+    expect(await database.query("SELECT 1 FROM outbound_messages WHERE kind = 'template'")).toEqual([]);
+  });
 });

@@ -3,7 +3,7 @@ import { describeNoConnection, describeOutboundMessageFailed, describeSendGotNoA
 import type { ClaimedMessage } from './claimed-message.ts';
 
 export type Settlement = {
-  status: 'sent' | 'queued' | 'failed' | 'unknown';
+  status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
   availableAt?: Date;
   sentAt?: Date;
   lastError?: string;

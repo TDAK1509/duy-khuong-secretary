@@ -9,6 +9,7 @@ import type { OffGroupNotices } from '../processing/off-group-notices.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
 import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
 import { decideNoConnectionOutcome } from './decide-send-outcome.ts';
+import { isRecipientInWindow } from './is-recipient-in-window.ts';
 import { postponeOutboundMessage } from './postpone-outbound-message.ts';
 import { applyOutcome, recordSendResult } from './record-send-result.ts';
 
@@ -46,6 +47,7 @@ async function markLostSendsUnknown({ database, clock, alerts }: OutboundDepende
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
   if (!(await isAdminStillMember(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
+  if (await isOutsideWindow(dependencies, message)) return holdMessage(dependencies, message);
   if (message.content.kind === 'image' && dependencies.photoStorage === null) {
     return postponeOutboundMessage(dependencies, message, 'photos');
   }
@@ -61,6 +63,14 @@ async function sendToRecipient(dependencies: OutboundDependencies, message: Clai
   if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result);
+}
+
+async function isOutsideWindow({ database, clock }: OutboundDependencies, message: ClaimedMessage): Promise<boolean> {
+  return message.scheduledTaskId !== null && !(await isRecipientInWindow(database, message, clock.now()));
+}
+
+function holdMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
+  return applyOutcome(dependencies, message, { settlement: { status: 'held', lastError: 'outside_window' } });
 }
 
 function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage, reason: string): Promise<void> {
