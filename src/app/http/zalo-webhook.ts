@@ -18,9 +18,10 @@ export type WebhookRequest = {
 };
 
 export async function handleZaloWebhook(
-  dependencies: ZaloWebhookDependencies,
+  dependencies: ZaloWebhookDependencies | null,
   request: WebhookRequest,
 ): Promise<HttpResponse> {
+  if (dependencies === null) return respondWithJson(503, { ok: false });
   const { channel } = dependencies;
   if (!channel.verifyWebhook(request.rawBody, request.headers)) return respondWithJson(401, { ok: false });
   const event = channel.parseEvent(request.rawBody);

@@ -33,7 +33,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   server.get('/oauth/zalo/callback', async (request, reply) =>
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
-  if (options.webhook) registerZaloWebhookRoute(server, options.webhook);
+  registerZaloWebhookRoute(server, options.webhook ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
@@ -42,7 +42,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   }
 }
 
-function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies): void {
+function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { assembleService } from '../../src/bootstrap/assemble-service.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
@@ -10,6 +11,14 @@ import { FakeClock } from '../fakes/fake-clock.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
+
+const ZALO_ENVIRONMENT: NodeJS.ProcessEnv = {
+  MESSAGING_PROVIDER: 'zalo-oa',
+  ZALO_APP_ID: TEST_APP_ID,
+  ZALO_APP_SECRET: 'sec-1',
+  CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
+  PUBLIC_BASE_URL: 'https://x.test',
+};
 
 describe('POST /webhooks/zalo', () => {
   let database: TemporaryDatabase;
@@ -99,6 +108,21 @@ describe('POST /webhooks/zalo', () => {
     expect(response.json()).toEqual({ ok: false });
     expect(alertSink.texts).toHaveLength(1);
     expect(alertSink.texts[0]).toMatch(/^\[alert\] Zalo webhook could not store an event: \w+\.$/);
+  });
+
+  it('answers 503 while the webhook is not configured', async () => {
+    const lines: string[] = [];
+    const service = assembleService({ ...ZALO_ENVIRONMENT, DATABASE_URL: database.url }, (line) => lines.push(line));
+    const { body, headers } = loadSignedFixture('text-event');
+
+    const response = await service.server.inject({ method: 'POST', url: '/webhooks/zalo', headers, body });
+
+    await service.server.close();
+    await service.pool.end();
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ ok: false });
+    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
+    expect(lines).toEqual(['[config] zalo-webhook is off; missing: ZALO_OA_SECRET.']);
   });
 
   async function connectOa(accountId: string): Promise<void> {
