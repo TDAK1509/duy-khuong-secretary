@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
@@ -51,6 +52,18 @@ describe('storing what a member sends', () => {
     ]);
   });
 
+  it('replies to a text that only photos and work data are accepted', async () => {
+    await receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      [
+        'zu-hung',
+        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+      ],
+    ]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInbound();
@@ -64,5 +77,9 @@ describe('storing what a member sends', () => {
       notices: new OffGroupNotices(clock, () => {}),
       handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY }),
     });
+  }
+
+  async function sendQueuedTexts(): Promise<void> {
+    await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
   }
 });

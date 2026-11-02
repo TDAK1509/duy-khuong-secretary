@@ -33,7 +33,7 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
     const text = readText(event);
     const sender = await findIntakeSender(dependencies.database, event, text);
-    if (sender !== null) return receiveIntake(stages, event, sender);
+    if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
     const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
     const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
     return stages.finishEvent((transaction) =>

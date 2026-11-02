@@ -13,7 +13,7 @@ import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertInvite, insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertInvite, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -252,17 +252,6 @@ describe('joining a workspace with an invite code', () => {
     await sendQueuedTexts();
 
     expect(channel.texts.map((sent) => sent.text).slice(1)).toEqual([NO_LONGER_IN_A_WORKSPACE_TEXT]);
-  });
-
-  it('gives no reply yet to another message from someone in a workspace', async () => {
-    await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
-    const eventId = await insertInboundEvent(database, { externalUserId: 'zu-hung', text: 'chào' });
-
-    await runInbound();
-
-    const events = await database.query(`SELECT status FROM inbound_events WHERE id = '${eventId}'`);
-    expect(events).toEqual([{ status: 'done' }]);
-    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
   it('asks Zalo for no name when the code is unknown', async () => {
