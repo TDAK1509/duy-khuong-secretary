@@ -23,6 +23,25 @@ describe('the create-workspace command', () => {
     ]);
   });
 
+  it('creates one admin invite for that workspace', async () => {
+    await runCommand(['Xe tải Duy Khương', 'Duy']);
+
+    expect(
+      await database.query(`
+        SELECT w.name AS workspace_name, i.display_name, i.role, i.created_by, i.used_at
+        FROM workspace_invites i JOIN workspaces w ON w.id = i.workspace_id
+      `),
+    ).toEqual([
+      {
+        workspace_name: 'Xe tải Duy Khương',
+        display_name: 'Duy',
+        role: 'admin',
+        created_by: null,
+        used_at: null,
+      },
+    ]);
+  });
+
   async function runCommand(args: string[]): Promise<number> {
     return runCreateWorkspaceCommand(args, { DATABASE_URL: database.url }, { log: () => {} });
   }
