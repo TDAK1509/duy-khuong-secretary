@@ -74,4 +74,12 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Bạn đang chạy lịch tự động "Báo cáo hằng ngày" do quản lý Duy đặt.');
   });
+
+  it("uses the task's instruction as the user turn", async () => {
+    await insertDueTask({ instruction: 'Lập báo cáo.' });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Lập báo cáo.', image: null }]);
+  });
 });
