@@ -82,4 +82,10 @@ describe('import rules', () => {
 
     expect(messages).toEqual([]);
   });
+
+  it('allows app to import a Node built-in', async () => {
+    const messages = await lintFixture('app-import-node-builtin', 'src/app/make-id.ts');
+
+    expect(messages).toEqual([]);
+  });
 });
