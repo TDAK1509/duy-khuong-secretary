@@ -21,4 +21,28 @@ describe('assembling the service', () => {
       '[config] zalo is off; missing: MESSAGING_PROVIDER, ZALO_APP_ID, ZALO_APP_SECRET, CHANNEL_TOKEN_ENCRYPTION_KEY, PUBLIC_BASE_URL.',
     ]);
   });
+
+  it('serves the Zalo callback and logs nothing when Zalo is configured', async () => {
+    const lines: string[] = [];
+
+    service = assembleService(
+      {
+        DATABASE_URL: testDatabaseUrl,
+        MESSAGING_PROVIDER: 'zalo-oa',
+        ZALO_APP_ID: 'app-1',
+        ZALO_APP_SECRET: 'sec-1',
+        CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
+        PUBLIC_BASE_URL: 'https://x.test',
+      },
+      (line) => lines.push(line),
+    );
+
+    const response = await service.server.inject({
+      method: 'GET',
+      url: '/oauth/zalo/callback?oa_id=oa-1&code=x&state=bad',
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toBe('Zalo connection failed. Run connect-zalo again.');
+    expect(lines).toEqual([]);
+  });
 });
