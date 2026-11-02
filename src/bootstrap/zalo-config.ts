@@ -44,7 +44,8 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
 }
 
 function parseSettings(environment: NodeJS.ProcessEnv): z.infer<typeof environmentSchema> {
-  const parsed = environmentSchema.safeParse({ ...environment, ZALO_OAUTH_BASE_URL: environment['ZALO_OAUTH_BASE_URL'] || undefined });
+  const oauthBaseUrl = environment['ZALO_OAUTH_BASE_URL'] || undefined;
+  const parsed = environmentSchema.safeParse({ ...environment, ZALO_OAUTH_BASE_URL: oauthBaseUrl });
   if (!parsed.success) throw new Error(`Invalid configuration: ${describeIssues(parsed.error)}`);
   return parsed.data;
 }
