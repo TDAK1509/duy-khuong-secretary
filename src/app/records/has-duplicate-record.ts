@@ -18,10 +18,12 @@ export async function hasDuplicateRecord(
   workspaceId: string,
   records: NewRecord[],
 ): Promise<boolean> {
-  for (const record of records) {
-    if (await hasSavedCopy(transaction, workspaceId, record)) return true;
-  }
-  return false;
+  return transaction.withScope({ workspaceId }, async () => {
+    for (const record of records) {
+      if (await hasSavedCopy(transaction, workspaceId, record)) return true;
+    }
+    return false;
+  });
 }
 
 async function hasSavedCopy(transaction: Transaction, workspaceId: string, record: NewRecord): Promise<boolean> {
