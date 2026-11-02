@@ -52,4 +52,17 @@ describe('an admin asks the bot', () => {
         WHERE reply.author = 'bot'`),
     ).toEqual([{ text: 'Chào anh', reply_kind: 'answer', replies_to_question: true }]);
   });
+
+  it('carries the membership of the admin on the answer for the send-time check', async () => {
+    harness.chat.replyWith('Chào anh');
+
+    await harness.receiveText('zu-duy', 'Chào bạn');
+
+    expect(
+      await database.query(`
+        SELECT outbound.admin_membership_id = membership.id AS carries_membership
+        FROM outbound_messages outbound, memberships membership
+        WHERE outbound.body = 'Chào anh' AND membership.display_name = 'Duy'`),
+    ).toEqual([{ carries_membership: true }]);
+  });
 });
