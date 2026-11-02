@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { computeNextRun } from '../../schedules/compute-next-run.ts';
 import { formatSchedule } from '../../schedules/format-schedule.ts';
-import type { NewDraft } from '../../schedules/schedule.ts';
+import type { MaintenanceRule, NewDraft } from '../../schedules/schedule.ts';
 import { MAX_OPEN_TASKS_PER_WORKSPACE, storeDraft } from '../../schedules/store-draft.ts';
 import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 import { hasLengthBetween } from '../../workspaces/invite-rules.ts';
@@ -23,6 +23,7 @@ const argumentsSchema = z.object({
   time_of_day: z.string().nullable(),
   weekday: z.number().int().nullable(),
   day_of_month: z.number().int().nullable(),
+  maintenance_rules: z.array(z.object({ maintenance_item: z.string().trim().min(1), age_days: z.number().int().min(1) })),
 });
 
 type ProposalArguments = z.infer<typeof argumentsSchema>;
@@ -49,7 +50,12 @@ function readDraft(args: ProposalArguments, scope: AccessScope): NewDraft {
     title: readText(args.title, 'title', MAX_TITLE_LENGTH),
     instruction: readText(args.instruction, 'instruction', MAX_INSTRUCTION_LENGTH),
     schedule: readProposedSchedule(args),
+    maintenanceRules: args.maintenance_rules.map(readRule),
   };
+}
+
+function readRule(rule: ProposalArguments['maintenance_rules'][number]): MaintenanceRule {
+  return { maintenanceItem: rule.maintenance_item.toLowerCase(), ageDays: rule.age_days };
 }
 
 function readText(text: string, field: string, maxLength: number): string {

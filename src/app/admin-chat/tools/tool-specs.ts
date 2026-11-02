@@ -267,6 +267,29 @@ export const PROPOSE_SCHEDULED_TASK_SPEC: ToolSpec = {
           "null"
         ],
         "description": "Chỉ dùng khi repeat là monthly. Ngày trong tháng, từ 1 đến 28. null với các loại khác."
+      },
+      "maintenance_rules": {
+        "type": "array",
+        "description": "Chỉ dùng cho lịch nhắc bảo dưỡng theo xe. Mỗi phần tử là một bộ phận và số ngày kể từ lần gửi gần nhất của xe đó. Tính bằng ngày: 1 tháng là 30 ngày. Mảng rỗng với các lịch khác.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "maintenance_item": {
+              "type": "string",
+              "description": "Tên bộ phận, ví dụ \"dầu máy\"."
+            },
+            "age_days": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Số ngày, từ 1 trở lên."
+            }
+          },
+          "required": [
+            "maintenance_item",
+            "age_days"
+          ],
+          "additionalProperties": false
+        }
       }
     },
     "required": [
@@ -276,7 +299,8 @@ export const PROPOSE_SCHEDULED_TASK_SPEC: ToolSpec = {
       "run_once_at",
       "time_of_day",
       "weekday",
-      "day_of_month"
+      "day_of_month",
+      "maintenance_rules"
     ],
     "additionalProperties": false
   }

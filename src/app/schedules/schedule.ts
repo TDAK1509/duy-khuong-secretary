@@ -5,4 +5,13 @@ export type RepeatingSchedule =
 
 export type Schedule = { repeat: 'once'; runOnceAt: Date } | RepeatingSchedule;
 
-export type NewDraft = { workspaceId: string; createdBy: string; title: string; instruction: string; schedule: Schedule };
+export type MaintenanceRule = { maintenanceItem: string; ageDays: number };
+
+export type NewDraft = {
+  workspaceId: string;
+  createdBy: string;
+  title: string;
+  instruction: string;
+  schedule: Schedule;
+  maintenanceRules: MaintenanceRule[];
+};
