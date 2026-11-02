@@ -85,6 +85,19 @@ describe('key renewal on the ticker', () => {
     expect(decryptToken(row?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a1');
   });
 
+  it('requires reauthorization and keeps the keys when a renewal gets no answer', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.refreshResult = { ok: false, reason: 'no_answer' };
+
+    await runOneTick();
+
+    const [row] = await database.query<{ status: string; access_token_encrypted: string }>(
+      'SELECT status, access_token_encrypted FROM channel_connections',
+    );
+    expect(row?.status).toBe('reauthorization_required');
+    expect(decryptToken(row?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('a1');
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(

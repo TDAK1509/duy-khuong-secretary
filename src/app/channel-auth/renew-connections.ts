@@ -17,7 +17,11 @@ export type RenewalDependencies = {
 
 type DueConnection = { id: string; account_id: string; refresh_token_encrypted: string };
 
-type RenewalOutcome = { kind: 'skipped' } | { kind: 'renewed' } | { kind: 'failed'; accountId: string; reason: string };
+type RenewalOutcome =
+  | { kind: 'skipped' }
+  | { kind: 'renewed' }
+  | { kind: 'failed'; accountId: string; reason: string }
+  | { kind: 'no_answer'; accountId: string };
 
 export async function renewDueConnections(dependencies: RenewalDependencies): Promise<void> {
   const due = await dependencies.database.query<{ id: string }>(
@@ -52,10 +56,18 @@ async function renewInTransaction(dependencies: RenewalDependencies, id: string)
     if (!connection) return { kind: 'skipped' };
     const refreshToken = decryptToken(connection.refresh_token_encrypted, dependencies.encryptionKey);
     const result = await dependencies.channelAuth.refresh(refreshToken);
+    if (!result.ok && result.reason === 'no_answer') {
+      await requireReauthorization(transaction, connection.id);
+      return { kind: 'no_answer', accountId: connection.account_id };
+    }
     if (!result.ok) return { kind: 'failed', accountId: connection.account_id, reason: result.reason };
     await storeRenewedTokens(transaction, connection.id, result.tokens, now, dependencies.encryptionKey);
     return { kind: 'renewed' };
   });
+}
+
+async function requireReauthorization(transaction: Transaction, id: string): Promise<void> {
+  await transaction.query(`UPDATE channel_connections SET status = 'reauthorization_required' WHERE id = $1`, [id]);
 }
 
 async function storeRenewedTokens(
