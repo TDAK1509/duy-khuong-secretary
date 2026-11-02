@@ -97,10 +97,15 @@ jobs:
           esac
           npm run check:migrations -- "$base"
 
-  mutation:
+  mutation-shard:
+    name: mutation (${{ matrix.shard }})
     if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:17
@@ -126,13 +131,30 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Mutate the app files the pull request changes
+      - name: Mutate this shard's share of the app files the pull request changes
         env:
           BASE_REF: ${{ github.base_ref }}
+          SHARD: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ strategy.job-total }}
         run: |
-          changed_files="$(npm run --silent changed:app-files -- "origin/$BASE_REF")"
+          changed_files="$(npm run --silent changed:app-files -- "origin/$BASE_REF" "$SHARD" "$SHARD_COUNT")"
           if [ -z "$changed_files" ]; then
             echo "no app files changed; mutation skipped"
             exit 0
           fi
           npm run mutation -- --mutate "$changed_files"
+
+  mutation:
+    needs: mutation-shard
+    if: always() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail when a mutation shard did not succeed
+        env:
+          SHARDS_RESULT: ${{ needs.mutation-shard.result }}
+        run: |
+          if [ "$SHARDS_RESULT" != "success" ]; then
+            echo "mutation shards finished with: $SHARDS_RESULT"
+            exit 1
+          fi
