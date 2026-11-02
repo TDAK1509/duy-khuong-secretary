@@ -1,6 +1,8 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
+const MAX_TITLE_LENGTH = 30;
+
 export async function enqueueReportReadyTemplate(
   transaction: Transaction,
   message: ClaimedMessage,
@@ -18,9 +20,14 @@ export async function enqueueReportReadyTemplate(
       message.to.accountId,
       message.to.externalUserId,
       templateId,
-      JSON.stringify({ task_title: task?.title ?? '' }),
+      JSON.stringify({ task_title: cutTitle(task?.title ?? '') }),
       message.adminMembershipId,
       now,
     ],
   );
+}
+
+function cutTitle(title: string): string {
+  const characters = Array.from(title);
+  return characters.length <= MAX_TITLE_LENGTH ? title : `${characters.slice(0, MAX_TITLE_LENGTH).join('')}…`;
 }

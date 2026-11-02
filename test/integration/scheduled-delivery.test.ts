@@ -70,4 +70,19 @@ describe('the delivery rule for scheduled results', () => {
       { external_user_id: 'zu-duy', template_id: 'tpl-1', template_params: { task_title: 'Báo cáo hằng ngày' } },
     ]);
   });
+
+  it('cuts a long task title to 30 characters in the template', async () => {
+    harness.setReportReadyTemplate('tpl-1');
+    const longTitle = 'Báo cáo hằng ngày về doanh thu của các xe';
+    expect(longTitle).toHaveLength(41);
+    taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', title: longTitle });
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+
+    await harness.sendQueuedTexts();
+
+    expect(await database.query("SELECT template_params FROM outbound_messages WHERE kind = 'template'")).toEqual([
+      { template_params: { task_title: 'Báo cáo hằng ngày về doanh thu…' } },
+    ]);
+  });
 });
