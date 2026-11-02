@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
@@ -179,6 +179,31 @@ describe('switching between workspaces', () => {
       { current_workspace_id: workspaceId },
     ]);
   });
+
+  it('stores no choice when a message arrives while the list is being marked sent', async () => {
+    await insertDuyInBothWorkspaces(workspaceId);
+    await receiveText('zu-duy', 'đổi nhóm');
+    const session = await database.openSession();
+    await session.query('BEGIN');
+    await session.query(`SELECT 1 FROM channel_identities WHERE external_user_id = 'zu-duy' FOR UPDATE`);
+
+    const sending = sendQueuedTexts();
+    await waitUntilSomeStatementWaitsForALock();
+    await insertInboundEvent(database, { externalUserId: 'zu-duy', text: 'chào' });
+    await session.query('COMMIT');
+    await sending;
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities')).toEqual([{ pending_choice: null }]);
+  });
+
+  async function waitUntilSomeStatementWaitsForALock(): Promise<void> {
+    await vi.waitFor(async () => {
+      const waiting = await database.query(
+        `SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      );
+      expect(waiting).toHaveLength(1);
+    });
+  }
 
   async function storeWorkspacePick(workspaceIds: string[]): Promise<void> {
     const choice = JSON.stringify({ kind: 'workspace_pick', workspace_ids: workspaceIds });
