@@ -6,6 +6,7 @@ import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
+const NO_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
 const CHECK_THE_DRAFT_TEXT = 'Bạn kiểm tra lại rồi trả lời 1 để lưu lịch nhé.';
 
 type ProposalArguments = {
@@ -122,5 +123,16 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
       { pending_choice: { kind: 'draft_confirm', task_id: task?.id, workspace_id: workspaceId } },
     ]);
+  });
+
+  it('confirms nothing with a 1 sent while the card is still queued', async () => {
+    proposeThenReply({});
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    expect(sentTexts().at(-1)).toEqual(['zu-duy', NO_CHOICE_TEXT]);
   });
 });
