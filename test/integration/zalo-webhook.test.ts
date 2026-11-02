@@ -125,6 +125,38 @@ describe('POST /webhooks/zalo', () => {
     expect(lines).toEqual(['[config] zalo-webhook is off; missing: ZALO_OA_SECRET.']);
   });
 
+  it('stores the sender, the text and the send time of a text event', async () => {
+    await connectOa('oa-1');
+
+    await postWebhook(loadSignedFixture('text-event'));
+
+    expect(await database.query('SELECT channel, account_id, external_user_id, payload FROM inbound_events')).toEqual([
+      {
+        channel: 'zalo-oa',
+        account_id: 'oa-1',
+        external_user_id: 'zu-hung',
+        payload: { text: 'chào', sent_at: '2026-11-02T03:00:00.000Z' },
+      },
+    ]);
+  });
+
+  it('stores the photo URLs and the caption of an image event', async () => {
+    await connectOa('oa-1');
+
+    await postWebhook(loadSignedFixture('two-images-event'));
+
+    expect(await database.query('SELECT kind, payload FROM inbound_events')).toEqual([
+      {
+        kind: 'images',
+        payload: {
+          image_urls: ['https://f6.photo.talk.zdn.vn/p1.jpg', 'https://f6.photo.talk.zdn.vn/p2.jpg'],
+          caption: null,
+          sent_at: '2026-11-02T03:00:00.000Z',
+        },
+      },
+    ]);
+  });
+
   async function connectOa(accountId: string): Promise<void> {
     const connection = { channel: 'zalo-oa' as const, accountId, tokens: makeTokenPair(), storedAt: new Date() };
     await storeConnection(pool, connection, 'a'.repeat(64));
