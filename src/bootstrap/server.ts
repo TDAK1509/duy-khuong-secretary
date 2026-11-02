@@ -12,7 +12,7 @@ import type { PostgresPool } from '../providers/database/postgres.ts';
 export type VerifierFile = { fileName: string; content: string };
 
 export type ServerOptions = {
-  oauthCallback?: OAuthCallbackDependencies;
+  oauthCallback?: OAuthCallbackDependencies | null;
   verifierFile?: VerifierFile;
 };
 
@@ -22,12 +22,10 @@ export function buildServer(pool: PostgresPool, commit: string | null, options: 
     const response = await handleHealth(() => pingDatabase(pool), commit);
     return sendResponse(reply, response);
   });
-  const { oauthCallback } = options;
-  if (oauthCallback) {
-    server.get('/oauth/zalo/callback', async (request, reply) =>
-      sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
-    );
-  }
+  const oauthCallback = options.oauthCallback ?? null;
+  server.get('/oauth/zalo/callback', async (request, reply) =>
+    sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
+  );
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>

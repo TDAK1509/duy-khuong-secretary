@@ -100,6 +100,19 @@ describe('GET /oauth/zalo/callback', () => {
     expect(await database.query('SELECT status FROM channel_connections')).toEqual([{ status: 'active' }]);
   });
 
+  it('answers 503 while Zalo is off', async () => {
+    const server = buildServer(pool, null);
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/oauth/zalo/callback',
+      query: { oa_id: 'oa-1', code: 'k1', state: makeState(NOW) },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('Zalo is not configured.');
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }

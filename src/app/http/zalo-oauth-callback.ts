@@ -15,9 +15,10 @@ export type OAuthCallbackDependencies = {
 export type OAuthCallbackQuery = Record<string, string | undefined>;
 
 export async function handleZaloOAuthCallback(
-  dependencies: OAuthCallbackDependencies,
+  dependencies: OAuthCallbackDependencies | null,
   query: OAuthCallbackQuery,
 ): Promise<HttpResponse> {
+  if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
   const codeVerifier = openConnectState(query['state'] ?? '', dependencies.clock.now(), dependencies.encryptionKey);
   if (codeVerifier === null) return respondWithConnectionFailure();
   const exchange = await dependencies.channelAuth.exchangeAuthorization({
