@@ -1,6 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
-import { normalizeCode } from '../reading/normalize.ts';
+import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
 import { WhereClause } from './where-clause.ts';
 
 export type SearchFilters = {
@@ -35,6 +35,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
+  if (filters.member !== null) where.require(buildMemberCondition(where, filters.member));
   const { rows } = await database.query<FoundRecord>(
     `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
        record.vehicle_plate AS plate, record.document_number,
@@ -56,4 +57,9 @@ function buildTextCondition(where: WhereClause, text: string): string {
   const bound = where.bind(code);
   return `(strpos(record.vehicle_plate, ${bound}) > 0 OR strpos(record.document_number, ${bound}) > 0
     OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
+}
+
+function buildMemberCondition(where: WhereClause, member: string): string {
+  const bound = where.bind(toAccentFreeForm(member) ?? '');
+  return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
 }

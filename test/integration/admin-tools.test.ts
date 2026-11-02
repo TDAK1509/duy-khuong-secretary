@@ -64,4 +64,15 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toEqual([]);
   });
+
+  it('narrows to one person by name, ignoring accents', async () => {
+    for (const [userId, senderName] of [[hungUserId, 'Hùng'], [lanUserId, 'Lan']] as const) {
+      await insertRecordRow(database, { workspaceId, userId, senderName });
+      await insertRecordRow(database, { workspaceId, userId, senderName });
+    }
+
+    const result = await runSearch({ member: 'hung' });
+
+    expect(result.items.map((item) => item.member)).toEqual(['Hùng', 'Hùng']);
+  });
 });
