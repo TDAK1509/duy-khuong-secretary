@@ -1,0 +1,73 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { listChangedAppFiles } from '../../src/bootstrap/list-changed-app-files.ts';
+import { createGitFixture, type GitFixture } from '../migrations/git-fixture.ts';
+
+describe('listChangedAppFiles', () => {
+  const fixtures: GitFixture[] = [];
+
+  afterEach(() => {
+    fixtures.splice(0).forEach((fixture) => fixture.remove());
+  });
+
+  it('lists the app files the branch changes', () => {
+    const fixture = createFixtureWithMergedFiles({
+      'src/app/a.ts': 'export const a = 1;\n',
+      'src/app/b.ts': 'export const b = 1;\n',
+      'src/app/c.ts': 'export const c = 1;\n',
+    });
+    fixture.writeFile('src/app/a.ts', 'export const a = 2;\n');
+    fixture.writeFile('src/app/nested/d.ts', 'export const d = 1;\n');
+    fixture.commitAll('change a and add d');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual(['src/app/a.ts', 'src/app/nested/d.ts']);
+  });
+
+  it('leaves out migrations and files outside the app', () => {
+    const fixture = createFixtureWithMergedFiles({ 'src/app/a.ts': 'export const a = 1;\n' });
+    fixture.writeFile('src/app/db/migrations/0009_new.ts', 'export const up = 1;\n');
+    fixture.writeFile('src/app/schema.sql', 'SELECT 1;\n');
+    fixture.writeFile('src/services/s.ts', 'export const s = 1;\n');
+    fixture.writeFile('test/unit/t.test.ts', 'export const t = 1;\n');
+    fixture.writeFile('src/app/b.ts', 'export const b = 1;\n');
+    fixture.commitAll('change several kinds of files');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual(['src/app/b.ts']);
+  });
+
+  it('leaves out the app files the branch deletes', () => {
+    const fixture = createFixtureWithMergedFiles({
+      'src/app/a.ts': 'export const a = 1;\n',
+      'src/app/b.ts': 'export const b = 1;\n',
+    });
+    fixture.removeFile('src/app/a.ts');
+    fixture.writeFile('src/app/b.ts', 'export const b = 2;\n');
+    fixture.commitAll('delete a and change b');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual(['src/app/b.ts']);
+  });
+
+  it('lists nothing when the branch changes no app file', () => {
+    const fixture = createFixtureWithMergedFiles({ 'src/app/a.ts': 'export const a = 1;\n' });
+    fixture.writeFile('README.md', 'notes\n');
+    fixture.commitAll('change the readme');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual([]);
+  });
+
+  function createFixtureWithMergedFiles(files: Record<string, string>): GitFixture {
+    const fixture = createGitFixture();
+    fixtures.push(fixture);
+    Object.entries(files).forEach(([path, content]) => fixture.writeFile(path, content));
+    fixture.commitAll('merged files');
+    fixture.startBranch('feature');
+    return fixture;
+  }
+});
