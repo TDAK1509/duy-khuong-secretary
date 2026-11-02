@@ -157,3 +157,40 @@ export const REMOVE_MEMBER_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const MAINTENANCE_STATUS_SPEC: ToolSpec = {
+  "name": "maintenance_status",
+  "description": "Liệt kê lần bảo dưỡng gần nhất của từng xe (theo biển số) cho từng bộ phận, ví dụ dầu máy, lốp, má phanh. Chỉ đọc dữ liệu loại bảo dưỡng. Trả về tối đa 50 dòng mỗi trang; nếu next_cursor khác null, gọi lại với cursor đó.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "plate": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Biển số xe cần xem. null để xem mọi xe."
+      },
+      "maintenance_item": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Chỉ lấy một bộ phận, ví dụ \"dầu máy\". null để lấy mọi bộ phận."
+      },
+      "cursor": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Giá trị next_cursor của trang trước. null cho trang đầu."
+      }
+    },
+    "required": [
+      "plate",
+      "maintenance_item",
+      "cursor"
+    ],
+    "additionalProperties": false
+  }
+};
