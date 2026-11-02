@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -141,5 +142,23 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(await database.query('SELECT count(*)::int AS count FROM messages')).toEqual([{ count: 1 }]);
     expect(await database.query('SELECT next_run_at FROM scheduled_tasks')).toEqual([{ next_run_at: null }]);
+  });
+
+  it('sends once when two ticks start at the same moment', async () => {
+    await insertDueTask();
+    let openAnswerGate = (): void => {};
+    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
+    harness.chat.follow(async () => {
+      await answerGate;
+      return replyWithText('Báo cáo');
+    });
+
+    const firstTick = harness.runTick();
+    await vi.waitFor(() => expect(harness.chat.requests).toHaveLength(1));
+    await harness.runTick();
+    openAnswerGate();
+    await firstTick;
+
+    expect(await database.query('SELECT count(*)::int AS count FROM messages')).toEqual([{ count: 1 }]);
   });
 });
