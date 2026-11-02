@@ -12,9 +12,20 @@ export class OncePerHour {
 
   allow(text: string): boolean {
     const now = this.clock.now().getTime();
+    this.forgetExpired(now);
     const lastAt = this.lastAllowedAt.get(text);
     if (lastAt !== undefined && now - lastAt < INTERVAL_MS) return false;
     this.lastAllowedAt.set(text, now);
     return true;
+  }
+
+  countRemembered(): number {
+    return this.lastAllowedAt.size;
+  }
+
+  private forgetExpired(now: number): void {
+    for (const [text, allowedAt] of this.lastAllowedAt) {
+      if (now - allowedAt >= INTERVAL_MS) this.lastAllowedAt.delete(text);
+    }
   }
 }
