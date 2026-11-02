@@ -76,6 +76,23 @@ describe('the create-workspace command', () => {
     expect(JSON.stringify(invite)).not.toContain(printedCode.slice(4));
   });
 
+  it('creates nothing when the workspace name is only spaces', async () => {
+    const lines: string[] = [];
+
+    await runCommand(['   ', 'Duy'], { log: (line) => lines.push(line) });
+
+    expect(lines).toEqual(['Invalid workspace name.']);
+    expect(await countAllRows()).toBe(0);
+  });
+
+  async function countAllRows(): Promise<number> {
+    const tables = ['users', 'workspaces', 'memberships', 'workspace_invites'];
+    const counts = await Promise.all(
+      tables.map((table) => database.query<{ n: string }>(`SELECT count(*) AS n FROM ${table}`)),
+    );
+    return counts.reduce((total, [row]) => total + Number(row?.n), 0);
+  }
+
   async function runCommand(
     args: string[],
     options: CreateWorkspaceOptions = { log: () => {} },
