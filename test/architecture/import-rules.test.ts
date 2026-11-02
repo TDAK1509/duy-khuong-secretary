@@ -50,4 +50,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("../storage/y.ts");
   });
+
+  it('allows app/db to import only the Postgres provider file', async () => {
+    const messages = await lintFixture('db-import-other-provider', 'src/app/db/open-connection.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("../../providers/storage/s3-photo-storage.ts");
+  });
 });
