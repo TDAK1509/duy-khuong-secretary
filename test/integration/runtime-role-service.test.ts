@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { insertMember } from './workspace-rows.ts';
+import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import { insertRecordRow } from './record-rows.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('the service connected as the runtime role', () => {
   describe('when two drivers send the same paper', () => {
@@ -29,6 +37,41 @@ describe('the service connected as the runtime role', () => {
 
       expect(harness.channel.texts.map((sent) => sent.to.externalUserId)).toEqual(['zu-lan']);
       expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    });
+  });
+
+  describe('when an admin searches', () => {
+    let database: TemporaryDatabase;
+    let pool: PostgresPool;
+
+    beforeEach(async () => {
+      database = await createMigratedDatabase();
+      pool = createPostgresPool(database.runtimeUrl);
+    });
+
+    afterEach(async () => {
+      await pool.end();
+      await database.drop();
+    });
+
+    it('still sees every sender\'s records', async () => {
+      const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+      const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+      for (const [externalUserId, displayName] of [['zu-hung', 'Hùng'], ['zu-lan', 'Lan']] as const) {
+        const userId = await insertMember(database, { workspaceId, externalUserId, displayName });
+        await insertRecordRow(database, { workspaceId, userId, senderName: displayName });
+        await insertRecordRow(database, { workspaceId, userId, senderName: displayName });
+      }
+      const duy: AccessScope = { workspaceId, userId: duyUserId, role: 'admin' };
+      const filters = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
+
+      const output = await runAdminTool(
+        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments() },
+        duy,
+        { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(filters) },
+      );
+
+      expect((JSON.parse(output) as { items: unknown[] }).items).toHaveLength(4);
     });
   });
 });
