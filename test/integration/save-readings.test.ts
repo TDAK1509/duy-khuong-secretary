@@ -435,6 +435,18 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: null }]);
   });
 
+  it('gives the upload-only reply when work data has no item', async () => {
+    answerPair(harness.readers.cheap, makeReading([], { has_work_data: true }));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu');
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
+      'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+    ]);
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
