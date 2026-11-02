@@ -7,6 +7,7 @@ export type GitFixture = {
   directory: string;
   writeFile(relativePath: string, content: string): void;
   renameFile(fromPath: string, toPath: string): void;
+  removeFile(relativePath: string): void;
   commitAll(message: string): void;
   startBranch(name: string): void;
   remove(): void;
@@ -20,6 +21,7 @@ export function createGitFixture(): GitFixture {
     directory,
     writeFile: (relativePath, content) => writeFileIn(directory, relativePath, content),
     renameFile: (fromPath, toPath) => renameSync(join(directory, fromPath), join(directory, toPath)),
+    removeFile: (relativePath) => rmSync(join(directory, relativePath)),
     commitAll: (message) => {
       git('add', '--all');
       git('commit', '--message', message);

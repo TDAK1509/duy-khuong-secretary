@@ -38,6 +38,20 @@ describe('listChangedAppFiles', () => {
     expect(files).toEqual(['src/app/b.ts']);
   });
 
+  it('leaves out the app files the branch deletes', () => {
+    const fixture = createFixtureWithMergedFiles({
+      'src/app/a.ts': 'export const a = 1;\n',
+      'src/app/b.ts': 'export const b = 1;\n',
+    });
+    fixture.removeFile('src/app/a.ts');
+    fixture.writeFile('src/app/b.ts', 'export const b = 2;\n');
+    fixture.commitAll('delete a and change b');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual(['src/app/b.ts']);
+  });
+
   function createFixtureWithMergedFiles(files: Record<string, string>): GitFixture {
     const fixture = createGitFixture();
     fixtures.push(fixture);
