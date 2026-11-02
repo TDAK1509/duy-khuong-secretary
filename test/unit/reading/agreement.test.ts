@@ -54,4 +54,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(first, second)).toBe(false);
   });
+
+  it('disagrees when only one reader returned a plate', () => {
+    const first = succeed(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+    const second = succeed(makeReading([makeItem({ vehicle_plate: null })]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
