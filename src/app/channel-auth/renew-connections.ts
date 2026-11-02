@@ -16,7 +16,7 @@ export type RenewalDependencies = {
   callTimeoutMs: number;
 };
 
-type ClaimedConnection = { id: string; account_id: string; refresh_token_encrypted: string };
+type ClaimedConnection = { id: string; account_id: string; refresh_token_encrypted: string; claimedAt: Date };
 
 export async function renewDueConnections(dependencies: RenewalDependencies): Promise<void> {
   await stopInterruptedRenewals(dependencies);
@@ -52,14 +52,15 @@ async function renewConnection(dependencies: RenewalDependencies, id: string): P
 }
 
 async function claimConnection(dependencies: RenewalDependencies, id: string): Promise<ClaimedConnection | undefined> {
-  const now = dependencies.clock.now();
-  const claimed = await dependencies.database.query<ClaimedConnection>(
+  const claimedAt = dependencies.clock.now();
+  const claimed = await dependencies.database.query<Omit<ClaimedConnection, 'claimedAt'>>(
     `UPDATE channel_connections SET renewal_started_at = $2
      WHERE id = $1 AND status = 'active' AND renewal_started_at IS NULL AND access_expires_at < $3
      RETURNING id, account_id, refresh_token_encrypted`,
-    [id, now, renewalDeadline(now)],
+    [id, claimedAt, renewalDeadline(claimedAt)],
   );
-  return claimed.rows[0];
+  const [row] = claimed.rows;
+  return row && { ...row, claimedAt };
 }
 
 async function settleRenewal(
@@ -67,32 +68,33 @@ async function settleRenewal(
   connection: ClaimedConnection,
   result: AuthResult,
 ): Promise<void> {
-  if (result.ok) return storeRenewedTokens(dependencies, connection.id, result.tokens);
+  if (result.ok) return storeRenewedTokens(dependencies, connection, result.tokens);
   if (result.reason === 'no_answer') {
-    await dependencies.database.query(
-      `UPDATE channel_connections SET status = 'reauthorization_required', renewal_started_at = NULL WHERE id = $1`,
-      [connection.id],
-    );
-    return dependencies.alerts.raise(describeRenewalGotNoAnswer(connection.account_id));
+    const isSettled = await settleClaim(dependencies, connection, [`status = 'reauthorization_required'`]);
+    if (isSettled) await dependencies.alerts.raise(describeRenewalGotNoAnswer(connection.account_id));
+    return;
   }
-  await dependencies.database.query('UPDATE channel_connections SET renewal_started_at = NULL WHERE id = $1', [
-    connection.id,
-  ]);
-  return dependencies.alerts.raise(describeRenewalFailed(connection.account_id, result.reason));
+  const isSettled = await settleClaim(dependencies, connection, []);
+  if (isSettled) await dependencies.alerts.raise(describeRenewalFailed(connection.account_id, result.reason));
 }
 
 async function storeRenewedTokens(
-  { database, clock, encryptionKey }: RenewalDependencies,
-  id: string,
+  dependencies: RenewalDependencies,
+  connection: ClaimedConnection,
   tokens: TokenPair,
 ): Promise<void> {
-  await database.query(
-    `UPDATE channel_connections SET
-       access_token_encrypted = $2, refresh_token_encrypted = $3,
-       access_expires_at = $4, refresh_expires_at = $5, refreshed_at = $6, renewal_started_at = NULL
-     WHERE id = $1`,
+  const { clock, encryptionKey } = dependencies;
+  await settleClaim(
+    dependencies,
+    connection,
     [
-      id,
+      'access_token_encrypted = $3',
+      'refresh_token_encrypted = $4',
+      'access_expires_at = $5',
+      'refresh_expires_at = $6',
+      'refreshed_at = $7',
+    ],
+    [
       encryptToken(tokens.accessToken, encryptionKey),
       encryptToken(tokens.refreshToken, encryptionKey),
       tokens.accessExpiresAt,
@@ -100,6 +102,23 @@ async function storeRenewedTokens(
       clock.now(),
     ],
   );
+}
+
+async function settleClaim(
+  { database }: RenewalDependencies,
+  connection: ClaimedConnection,
+  assignments: string[],
+  values: unknown[] = [],
+): Promise<boolean> {
+  const settled = await database.query(
+    `UPDATE channel_connections SET ${[...assignments, 'renewal_started_at = NULL'].join(', ')}
+     WHERE id = $1 AND renewal_started_at = $2`,
+    [connection.id, connection.claimedAt, ...values],
+  );
+  if (settled.rowCount === 0) {
+    console.error(`[renewal] ignored a result for OA ${connection.account_id}: the connection changed during the call`);
+  }
+  return settled.rowCount !== 0;
 }
 
 function renewalDeadline(now: Date): Date {

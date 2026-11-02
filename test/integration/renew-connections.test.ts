@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { decryptToken } from '../../src/app/channel-auth/token-cipher.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
@@ -170,6 +170,50 @@ describe('key renewal on the ticker', () => {
     expect(channelAuth.refreshes).toHaveLength(1);
     expect(alertSink.texts).toEqual([]);
   });
+
+  it('ignores a renewed key that arrives after the OA connected again', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.duringRefresh = reconnectWithNewKeys;
+    channelAuth.refreshResult = { ok: true, tokens: makeTokenPair({ accessToken: 'late-renewal' }) };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await runOneTick();
+
+    const [row] = await database.query<{ status: string; access_token_encrypted: string }>(
+      'SELECT status, access_token_encrypted FROM channel_connections',
+    );
+    expect(decryptToken(row?.access_token_encrypted ?? '', ENCRYPTION_KEY)).toBe('reconnected');
+    expect(row?.status).toBe('active');
+    expect(logged).toHaveBeenCalledWith('[renewal] ignored a result for OA oa-1: the connection changed during the call');
+    logged.mockRestore();
+  });
+
+  it('does not stop a reconnected OA when a late renewal got no answer', async () => {
+    await storeConnectionExpiringIn(30);
+    channelAuth.duringRefresh = reconnectWithNewKeys;
+    channelAuth.refreshResult = { ok: false, reason: 'no_answer' };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await runOneTick();
+
+    const [row] = await database.query<{ status: string }>('SELECT status FROM channel_connections');
+    expect(row?.status).toBe('active');
+    expect(alertSink.texts).toEqual([]);
+    logged.mockRestore();
+  });
+
+  async function reconnectWithNewKeys(): Promise<void> {
+    await storeConnection(
+      pool,
+      {
+        channel: 'zalo-oa',
+        accountId: 'oa-1',
+        tokens: makeTokenPair({ accessToken: 'reconnected' }),
+        storedAt: NOW,
+      },
+      ENCRYPTION_KEY,
+    );
+  }
 
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
