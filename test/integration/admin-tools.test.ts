@@ -178,5 +178,14 @@ describe('the data tools of an admin', () => {
       expect(result.items.map((item) => item.id)).toEqual(recordIds.slice(10).reverse());
       expect(result.next_cursor).not.toBeNull();
     });
+
+    it('returns the rest from the cursor', async () => {
+      const first = await runSearch();
+
+      const second = await runSearch({ cursor: first.next_cursor ?? '' });
+
+      expect(second.items.map((item) => item.id)).toEqual(recordIds.slice(0, 10).reverse());
+      expect(second.next_cursor).toBeNull();
+    });
   });
 });

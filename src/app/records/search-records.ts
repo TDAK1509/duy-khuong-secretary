@@ -1,7 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
-import { encodeSearchCursor } from './search-cursor.ts';
+import { encodeSearchCursor, type SearchCursor } from './search-cursor.ts';
 import { WhereClause } from './where-clause.ts';
 
 const PAGE_SIZE = 50;
@@ -13,7 +13,7 @@ export type SearchFilters = {
   plate: string | null;
   addedFrom: string | null;
   addedTo: string | null;
-  cursor: string | null;
+  cursor: SearchCursor | null;
 };
 
 export type FoundRecord = {
@@ -91,6 +91,9 @@ function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
   addDateConditions(where, filters);
+  if (filters.cursor !== null) {
+    where.require(`(record.created_at, record.id) < (${where.bind(filters.cursor.createdAt)}::timestamptz, ${where.bind(filters.cursor.id)}::uuid)`);
+  }
   return where;
 }
 

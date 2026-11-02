@@ -3,6 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { failTool, INVALID_DATE_ERROR } from './tool-result.ts';
+import { decodeSearchCursor } from '../../records/search-cursor.ts';
 import { searchRecords } from '../../records/search-records.ts';
 
 const argumentsSchema = z.object({
@@ -20,6 +21,7 @@ export async function runSearchRecords(database: Database, scope: AccessScope, p
   if ([args.added_from, args.added_to].some((date) => date !== null && !isRealIsoDate(date))) {
     return failTool(INVALID_DATE_ERROR);
   }
+  const decodedCursor = args.cursor === null ? null : decodeSearchCursor(args.cursor);
   const page = await searchRecords(database, scope, {
     text: args.text,
     category: args.category,
@@ -27,7 +29,7 @@ export async function runSearchRecords(database: Database, scope: AccessScope, p
     plate: args.plate,
     addedFrom: args.added_from,
     addedTo: args.added_to,
-    cursor: args.cursor,
+    cursor: decodedCursor,
   });
   return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
 }
