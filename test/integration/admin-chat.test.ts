@@ -259,5 +259,13 @@ describe('an admin asks the bot', () => {
         text: 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?\n\nHệ thống đã lưu:\n- Đổ xăng dầu, số 0001234 · 1.250.000đ · 30/10/2026',
       });
     });
+
+    it('keeps the saved records when the chat model fails', async () => {
+      harness.chat.failWith('unavailable');
+
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+
+      expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+    });
   });
 });
