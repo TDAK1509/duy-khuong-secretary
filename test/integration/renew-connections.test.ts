@@ -109,6 +109,15 @@ describe('key renewal on the ticker', () => {
     ]);
   });
 
+  it('never renews a connection that requires reauthorization', async () => {
+    await storeConnectionExpiringIn(30);
+    await database.query(`UPDATE channel_connections SET status = 'reauthorization_required'`);
+
+    await runOneTick();
+
+    expect(channelAuth.refreshes).toEqual([]);
+  });
+
   function storeConnectionExpiringIn(minutes: number, accountId = 'oa-1'): Promise<void> {
     const accessExpiresAt = new Date(NOW.getTime() + minutes * 60_000);
     return storeConnection(
