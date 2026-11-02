@@ -208,6 +208,16 @@ describe('storing what a member sends', () => {
     expect(channel.downloadedUrls).toEqual([PHOTO_URL]);
   });
 
+  it('retries the event without replying when the photo storage fails', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    photoStorage.isFailing = true;
+
+    await receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([{ status: 'queued', attempts: 1 }]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();

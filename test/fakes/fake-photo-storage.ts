@@ -2,8 +2,10 @@ import type { Photo, PhotoStorage } from '../../src/services/storage/photo-stora
 
 export class FakePhotoStorage implements PhotoStorage {
   private readonly photos = new Map<string, Photo>();
+  isFailing = false;
 
   async put(key: string, photo: Photo): Promise<void> {
+    if (this.isFailing) throw new Error('the fake photo storage is set to fail');
     this.photos.set(key, photo);
   }
 
