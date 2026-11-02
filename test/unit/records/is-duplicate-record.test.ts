@@ -92,4 +92,16 @@ describe('isDuplicateRecord', () => {
       false,
     );
   });
+
+  it('finds an item whose maintenance item differs only in accents a duplicate', () => {
+    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+
+    expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'dau may' })).toBe(true);
+  });
+
+  it('finds an item with another maintenance item not a duplicate', () => {
+    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+
+    expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'lốp' })).toBe(false);
+  });
 });

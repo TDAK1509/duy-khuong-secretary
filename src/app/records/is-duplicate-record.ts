@@ -1,4 +1,5 @@
 import { buildDetailKey } from '../reading/build-detail-key.ts';
+import { toAccentFreeForm } from '../reading/normalize.ts';
 import type { NewRecord } from './new-record.ts';
 
 export type DuplicateFields = Pick<
@@ -9,6 +10,7 @@ export type DuplicateFields = Pick<
 export function isDuplicateRecord(existing: DuplicateFields, candidate: DuplicateFields): boolean {
   return (
     existing.category === candidate.category &&
+    toAccentFreeForm(existing.maintenanceItem) === toAccentFreeForm(candidate.maintenanceItem) &&
     existing.documentNumber === candidate.documentNumber &&
     existing.amountVnd === candidate.amountVnd &&
     existing.occurredOn === candidate.occurredOn &&
