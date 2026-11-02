@@ -1,10 +1,10 @@
 import type { InboundEvent } from '../../services/messaging/messaging-channel.ts';
-import type { Database } from '../db/transaction.ts';
+import type { Transaction } from '../db/transaction.ts';
 
 export type StorableEvent = Exclude<InboundEvent, { kind: 'ignored' }>;
 
-export async function storeInboundEvent(database: Database, event: StorableEvent): Promise<void> {
-  await database.query(
+export async function storeInboundEvent(transaction: Transaction, event: StorableEvent): Promise<void> {
+  await transaction.query(
     `INSERT INTO inbound_events (channel, account_id, external_event_id, external_user_id, kind, payload)
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (channel, account_id, external_event_id) DO NOTHING`,

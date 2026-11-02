@@ -2,9 +2,12 @@ import type { MessagingChannel } from '../../services/messaging/messaging-channe
 import { describeWebhookStoreFailed } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { hasConnection } from '../channel-auth/has-connection.ts';
-import type { Database } from '../db/transaction.ts';
+import { runWithDeadline } from '../db/run-with-deadline.ts';
+import type { Database, Transaction } from '../db/transaction.ts';
 import { storeInboundEvent, type StorableEvent } from '../processing/store-inbound-event.ts';
 import { respondWithJson, type HttpResponse } from './http-response.ts';
+
+const STORE_DEADLINE_MS = 700;
 
 export type ZaloWebhookDependencies = {
   channel: MessagingChannel;
@@ -27,18 +30,20 @@ export async function handleZaloWebhook(
   const event = channel.parseEvent(request.rawBody);
   if (event.kind === 'ignored') return respondWithJson(200, { ok: true });
   try {
-    return await storeEventOfConnectedAccount(dependencies.database, event);
+    return await runWithDeadline(dependencies.database, STORE_DEADLINE_MS, (transaction) =>
+      storeEventOfConnectedAccount(transaction, event),
+    );
   } catch (error) {
     await dependencies.alerts.raise(describeWebhookStoreFailed(error instanceof Error ? error.name : 'unknown error'));
     return respondWithJson(500, { ok: false });
   }
 }
 
-async function storeEventOfConnectedAccount(database: Database, event: StorableEvent): Promise<HttpResponse> {
-  if (!(await hasConnection(database, event.from.channel, event.from.accountId))) {
+async function storeEventOfConnectedAccount(transaction: Transaction, event: StorableEvent): Promise<HttpResponse> {
+  if (!(await hasConnection(transaction, event.from.channel, event.from.accountId))) {
     console.error('[webhook] event for an OA that is not connected:', event.from.accountId);
     return respondWithJson(403, { ok: false });
   }
-  await storeInboundEvent(database, event);
+  await storeInboundEvent(transaction, event);
   return respondWithJson(200, { ok: true });
 }

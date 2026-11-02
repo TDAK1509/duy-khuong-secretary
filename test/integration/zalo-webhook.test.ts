@@ -126,6 +126,23 @@ describe('POST /webhooks/zalo', () => {
     ]);
   });
 
+  it('answers 500 within 2 seconds and stores nothing while the table is locked', async () => {
+    await connectOa('oa-1');
+    const locker = await database.openSession();
+    await locker.query('BEGIN');
+    await locker.query('LOCK TABLE inbound_events IN EXCLUSIVE MODE');
+    const startedAt = Date.now();
+
+    const response = await postWebhook(loadSignedFixture('text-event'));
+
+    const elapsedMs = Date.now() - startedAt;
+    await locker.query('ROLLBACK');
+    expect(response.statusCode).toBe(500);
+    expect(elapsedMs).toBeLessThan(2000);
+    expect(alertSink.texts).toHaveLength(1);
+    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
+  });
+
   it('answers 503 while the webhook is not configured', async () => {
     const lines: string[] = [];
     const service = assembleService({ ...ZALO_ENVIRONMENT, DATABASE_URL: database.url }, (line) => lines.push(line));
