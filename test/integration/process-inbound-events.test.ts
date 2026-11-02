@@ -152,6 +152,15 @@ describe('the inbound worker step', () => {
     expect(handler.calls).toEqual([]);
   });
 
+  it('does not claim an event whose lock is still live', async () => {
+    await insertInboundEvent(database, { status: 'processing', attempts: 1, lockedUntil: new Date(NOW.getTime() + 60_000) });
+    const handler = recordCalls();
+
+    await runStep(handler);
+
+    expect(handler.calls).toEqual([]);
+  });
+
   function runStep(handler: InboundHandler): Promise<'processed' | 'idle'> {
     return runInboundStep({ database: pool, clock, alerts: new OperatorAlerts(alertSink, clock), handler });
   }
