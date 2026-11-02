@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { decryptToken } from '../../src/app/channel-auth/token-cipher.ts';
 import { createPkcePair, sealConnectState } from '../../src/app/channel-auth/connect-state.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
-import { FakeChannelAuth } from '../fakes/fake-channel-auth.ts';
+import { FakeChannelAuth, makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -34,6 +35,20 @@ describe('GET /oauth/zalo/callback', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toBe('Zalo OA oa-1 connected.');
     expect(await database.query('SELECT account_id FROM channel_connections')).toEqual([{ account_id: 'oa-1' }]);
+  });
+
+  it('stores the keys encrypted', async () => {
+    channelAuth.exchangeResult = {
+      ok: true,
+      tokens: makeTokenPair({ accessToken: 'a1-plain', refreshToken: 'r1-plain' }),
+    };
+
+    await callCallback({ oa_id: 'oa-1', code: 'k1', state: makeState(NOW) });
+
+    const [row] = await database.query<Record<string, unknown>>('SELECT * FROM channel_connections');
+    const storedValues = Object.values(row ?? {}).map(String);
+    expect(storedValues.some((value) => value.includes('a1-plain') || value.includes('r1-plain'))).toBe(false);
+    expect(decryptToken(String(row?.['access_token_encrypted']), ENCRYPTION_KEY)).toBe('a1-plain');
   });
 
   function makeState(madeAt: Date): string {
