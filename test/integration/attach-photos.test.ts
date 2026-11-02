@@ -159,4 +159,17 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":1}');
   });
+
+  it('carries the membership of the admin on the image for the send-time check', async () => {
+    attachThenReply([await insertPhotoRecord()]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(
+      await database.query(`
+        SELECT outbound.admin_membership_id = membership.id AS carries_membership
+        FROM outbound_messages outbound, memberships membership
+        WHERE outbound.kind = 'image' AND membership.display_name = 'Duy'`),
+    ).toEqual([{ carries_membership: true }]);
+  });
 });
