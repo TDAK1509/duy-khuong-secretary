@@ -96,6 +96,14 @@ describe('an admin creates a scheduled task by chat', () => {
     ]);
   });
 
+  it('tells the model the task is saved with its schedule and first run', async () => {
+    createThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    expect(findToolResult()).toBe('{"ok":true,"saved":true,"schedule":"18:00 hằng ngày","first_run":"18:00 31/10/2026"}');
+  });
+
   it('refuses a one-time task in the past', async () => {
     createThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
 
@@ -156,7 +164,7 @@ describe('an admin creates a scheduled task by chat', () => {
     expect(await database.query('SELECT repeat, weekday, day_of_month FROM scheduled_tasks')).toEqual([
       { repeat: 'weekly', weekday: 1, day_of_month: null },
     ]);
-    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"07:00 Thứ Hai hằng tuần","first_run":"07:00 02/11/2026"}');
+    expect(findToolResult()).toBe('{"ok":true,"saved":true,"schedule":"07:00 Thứ Hai hằng tuần","first_run":"07:00 02/11/2026"}');
   });
 
   it('stores a monthly task and tells the model its day and first run', async () => {
@@ -167,7 +175,7 @@ describe('an admin creates a scheduled task by chat', () => {
     expect(await database.query('SELECT repeat, weekday, day_of_month FROM scheduled_tasks')).toEqual([
       { repeat: 'monthly', weekday: null, day_of_month: 5 },
     ]);
-    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"08:00 ngày 5 hằng tháng","first_run":"08:00 05/11/2026"}');
+    expect(findToolResult()).toBe('{"ok":true,"saved":true,"schedule":"08:00 ngày 5 hằng tháng","first_run":"08:00 05/11/2026"}');
   });
 
   it('stores a one-time task that is still ahead', async () => {
@@ -175,7 +183,7 @@ describe('an admin creates a scheduled task by chat', () => {
 
     await harness.receiveText('zu-duy', 'Nhắc tôi lúc 15 giờ 30');
 
-    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"15:30 31/10/2026 (một lần)","first_run":"15:30 31/10/2026"}');
+    expect(findToolResult()).toBe('{"ok":true,"saved":true,"schedule":"15:30 31/10/2026 (một lần)","first_run":"15:30 31/10/2026"}');
   });
 
   it.each([

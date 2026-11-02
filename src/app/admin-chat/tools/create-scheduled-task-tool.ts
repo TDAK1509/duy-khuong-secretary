@@ -42,7 +42,7 @@ export async function runCreateScheduledTask(
   if (stored === null) return failTool(WORKSPACE_FULL_ERROR);
   created.record(stored.taskId);
   const schedule = formatSchedule(stored.schedule);
-  return JSON.stringify({ ok: true, draft: true, schedule, first_run: formatVietnamDateTime(stored.firstRun) });
+  return JSON.stringify({ ok: true, saved: true, schedule, first_run: formatVietnamDateTime(stored.firstRun) });
 }
 
 function readTask(args: TaskArguments, scope: AccessScope, creationKey: string): NewScheduledTask {
