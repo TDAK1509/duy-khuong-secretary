@@ -298,9 +298,9 @@ describe('an admin creates a scheduled task by chat', () => {
   });
 
   it('adds nothing to the answer when the task was cancelled in the same turn', async () => {
-    const propose = { id: 'call_1', name: 'create_scheduled_task', argumentsJson: JSON.stringify(DAILY_REPORT) };
+    const create = { id: 'call_1', name: 'create_scheduled_task', argumentsJson: JSON.stringify(DAILY_REPORT) };
     harness.chat.follow(async (_request, callNumber) => {
-      if (callNumber === 1) return replyWithToolCalls(propose);
+      if (callNumber === 1) return replyWithToolCalls(create);
       const [task] = await database.query<{ id: string }>('SELECT id FROM scheduled_tasks');
       const cancel = { id: 'call_2', name: 'cancel_scheduled_task', argumentsJson: JSON.stringify({ task_id: task?.id }) };
       return callNumber === 2 ? replyWithToolCalls(cancel) : replyWithText('Đã hủy.');

@@ -113,7 +113,7 @@ type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxText
 
 async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
-  if (inviteCode === null) return replyToOtherMessage(transaction, identity, { text: message.text, now });
+  if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   if (joined.kind === 'joined') await tellInviter(transaction, joined, message);
   return { text: formatJoinResult(joined) };
@@ -133,10 +133,10 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
 async function replyToOtherMessage(
   transaction: Transaction,
   identity: ChannelIdentity,
-  { text, now }: { text: string | null; now: Date },
+  text: string | null,
 ): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
-  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text, now });
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
 }
