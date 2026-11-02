@@ -129,4 +129,12 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toHaveLength(1);
   });
+
+  it('matches document numbers', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', documentNumber: '0001234' });
+
+    const result = await runSearch({ text: '0001234' });
+
+    expect(result.items).toHaveLength(1);
+  });
 });
