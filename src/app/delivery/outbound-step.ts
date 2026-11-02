@@ -6,7 +6,8 @@ import { readAccessKey } from '../channel-auth/read-access-key.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
-import { recordSendResult } from './record-send-result.ts';
+import { decideNoConnectionOutcome } from './decide-send-outcome.ts';
+import { applyOutcome, recordSendResult } from './record-send-result.ts';
 
 export type OutboundDependencies = {
   database: Database;
@@ -26,9 +27,9 @@ export async function runOutboundStep(dependencies: OutboundDependencies): Promi
 }
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  const { database, channel, encryptionKey } = dependencies;
+  const { database, clock, channel, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
-  if (accessKey === null) return;
+  if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
   const result = await channel.sendText(message.to, message.body, accessKey);
   await recordSendResult(dependencies, message, result);
 }

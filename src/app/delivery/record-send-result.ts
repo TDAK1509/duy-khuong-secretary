@@ -3,7 +3,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import type { Database } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
-import { decideSendOutcome, type Settlement } from './decide-send-outcome.ts';
+import { decideSendOutcome, type SendOutcome, type Settlement } from './decide-send-outcome.ts';
 
 export type ResultDependencies = { database: Database; clock: Clock; alerts: OperatorAlerts };
 
@@ -12,8 +12,14 @@ export async function recordSendResult(
   message: ClaimedMessage,
   result: SendResult,
 ): Promise<void> {
-  const { database, clock, alerts } = dependencies;
-  const outcome = decideSendOutcome(message, result, clock.now());
+  await applyOutcome(dependencies, message, decideSendOutcome(message, result, dependencies.clock.now()));
+}
+
+export async function applyOutcome(
+  { database, alerts }: ResultDependencies,
+  message: ClaimedMessage,
+  outcome: SendOutcome,
+): Promise<void> {
   const isSettled = await settleMessage(database, message, outcome.settlement);
   if (!isSettled) return;
   if (outcome.settlement.status === 'failed') console.error(`[outbound] message ${message.id} failed: ${outcome.settlement.lastError}`);

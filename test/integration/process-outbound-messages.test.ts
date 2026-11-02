@@ -197,6 +197,19 @@ describe('the outbound worker step', () => {
     expect((await readMessage(id)).status).toBe('unknown');
   });
 
+  it('keeps a text queued and alerts when the OA has no Zalo connection', async () => {
+    const id = await insertOutboundMessage(database, { accountId: 'oa-1' });
+
+    await runStep();
+
+    expect(await readMessage(id)).toMatchObject({
+      status: 'queued',
+      available_at: new Date(NOW.getTime() + 60_000),
+    });
+    expect(alertSink.texts).toEqual(['[alert] No Zalo connection for OA oa-1. Run connect-zalo.']);
+    expect(channel.texts).toEqual([]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
