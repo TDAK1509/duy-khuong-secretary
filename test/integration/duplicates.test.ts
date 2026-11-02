@@ -4,7 +4,7 @@ import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('rejecting duplicate papers', () => {
   let harness: IntakeHarness;
@@ -60,6 +60,20 @@ describe('rejecting duplicate papers', () => {
          WHERE author = 'user' AND user_id <> '${harness.hungUserId}'`,
       ),
     ).toEqual([{ submission_status: 'duplicate' }]);
+  });
+
+  it('saves the same paper in another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+    await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy' });
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    await harness.receivePhoto('zu-vy');
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT workspace_id FROM records ORDER BY created_at')).toEqual([
+      { workspace_id: otherWorkspaceId },
+      { workspace_id: workspaceId },
+    ]);
   });
 
   function makeFuelItem() {
