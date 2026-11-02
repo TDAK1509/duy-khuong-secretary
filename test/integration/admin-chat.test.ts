@@ -200,4 +200,10 @@ describe('an admin asks the bot', () => {
 
     expect(sentTexts()).toEqual([['zu-duy', 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.']]);
   });
+
+  it('never sends a member\'s question to the chat model', async () => {
+    await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
