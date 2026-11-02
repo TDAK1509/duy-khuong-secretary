@@ -31,53 +31,6 @@ const throwBoomError: InboundHandler = async () => {
   throw new BoomError('boom');
 };
 
-type RecordingHandler = InboundHandler & { calls: string[] };
-
-function recordCalls(): RecordingHandler {
-  const calls: string[] = [];
-  const handler: InboundHandler = (event, stages) => {
-    calls.push(event.id);
-    return stages.finishEvent(async () => {});
-  };
-  return Object.assign(handler, { calls });
-}
-
-async function runTwoStages(event: ClaimedEvent, stages: Stages, onStageRun: (stage: string) => void): Promise<Finished> {
-  await stages.runStage({
-    isDone: (transaction) => hasStageRow(transaction, event.id, 'first'),
-    write: async (transaction) => {
-      onStageRun('first');
-      await saveStageRow(transaction, event.id, 'first');
-    },
-  });
-  return stages.finishEvent(async (transaction) => {
-    onStageRun('second');
-    await saveStageRow(transaction, event.id, 'second');
-  });
-}
-
-async function hasStageRow(transaction: Transaction, eventId: string, stage: string): Promise<boolean> {
-  const rows = await transaction.query('SELECT 1 FROM stage_rows WHERE event_id = $1 AND stage = $2', [eventId, stage]);
-  return rows.length !== 0;
-}
-
-async function saveStageRow(transaction: Transaction, eventId: string, stage: string): Promise<void> {
-  await transaction.query('INSERT INTO stage_rows VALUES ($1, $2)', [eventId, stage]);
-}
-
-function holdUntilTwoHandlersRun(): RecordingHandler {
-  const calls: string[] = [];
-  let release: () => void = () => {};
-  const twoHandlersRunning = new Promise<void>((resolve) => (release = resolve));
-  const handler: InboundHandler = async (event, stages) => {
-    calls.push(event.id);
-    if (calls.length === 2) release();
-    await twoHandlersRunning;
-    return stages.finishEvent(async () => {});
-  };
-  return Object.assign(handler, { calls });
-}
-
 describe('the inbound worker step', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
@@ -388,3 +341,50 @@ describe('the inbound worker step', () => {
     return event;
   }
 });
+
+type RecordingHandler = InboundHandler & { calls: string[] };
+
+function recordCalls(): RecordingHandler {
+  const calls: string[] = [];
+  const handler: InboundHandler = (event, stages) => {
+    calls.push(event.id);
+    return stages.finishEvent(async () => {});
+  };
+  return Object.assign(handler, { calls });
+}
+
+async function runTwoStages(event: ClaimedEvent, stages: Stages, onStageRun: (stage: string) => void): Promise<Finished> {
+  await stages.runStage({
+    isDone: (transaction) => hasStageRow(transaction, event.id, 'first'),
+    write: async (transaction) => {
+      onStageRun('first');
+      await saveStageRow(transaction, event.id, 'first');
+    },
+  });
+  return stages.finishEvent(async (transaction) => {
+    onStageRun('second');
+    await saveStageRow(transaction, event.id, 'second');
+  });
+}
+
+async function hasStageRow(transaction: Transaction, eventId: string, stage: string): Promise<boolean> {
+  const rows = await transaction.query('SELECT 1 FROM stage_rows WHERE event_id = $1 AND stage = $2', [eventId, stage]);
+  return rows.length !== 0;
+}
+
+async function saveStageRow(transaction: Transaction, eventId: string, stage: string): Promise<void> {
+  await transaction.query('INSERT INTO stage_rows VALUES ($1, $2)', [eventId, stage]);
+}
+
+function holdUntilTwoHandlersRun(): RecordingHandler {
+  const calls: string[] = [];
+  let release: () => void = () => {};
+  const twoHandlersRunning = new Promise<void>((resolve) => (release = resolve));
+  const handler: InboundHandler = async (event, stages) => {
+    calls.push(event.id);
+    if (calls.length === 2) release();
+    await twoHandlersRunning;
+    return stages.finishEvent(async () => {});
+  };
+  return Object.assign(handler, { calls });
+}
