@@ -425,6 +425,14 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('drops a maintenance item that an agreed non-maintenance item carries', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', maintenance_item: 'dầu máy' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: null }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
