@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { insertChatMessage } from './message-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -26,6 +27,17 @@ describe('row-level security for the runtime role', () => {
     const session = await database.openRuntimeSession();
 
     const { rows } = await session.query('SELECT id FROM records');
+
+    expect(rows).toHaveLength(0);
+  });
+
+  it('hides messages when no scope is set', async () => {
+    for (let index = 0; index < 4; index += 1) {
+      await insertChatMessage(database, { workspaceId, userId: hungUserId, author: 'user', text: 'tin', createdAt: new Date() });
+    }
+    const session = await database.openRuntimeSession();
+
+    const { rows } = await session.query('SELECT id FROM messages');
 
     expect(rows).toHaveLength(0);
   });

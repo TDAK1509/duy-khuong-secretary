@@ -6,8 +6,10 @@ const OWNER_IS_SET = `nullif(current_setting('app.owner_user_id', true), '') IS 
 const USER_IS_OWNER = `user_id = nullif(current_setting('app.owner_user_id', true), '')::uuid`;
 
 export function up(pgm: MigrationBuilder): void {
-  lockTables(pgm, ['records']);
-  protectTable(pgm, 'records', `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${USER_IS_OWNER})`);
+  lockTables(pgm, ['messages', 'records']);
+  const ownedByScope = `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${USER_IS_OWNER})`;
+  protectTable(pgm, 'messages', ownedByScope);
+  protectTable(pgm, 'records', ownedByScope);
 }
 
 function protectTable(pgm: MigrationBuilder, table: string, condition: string): void {
