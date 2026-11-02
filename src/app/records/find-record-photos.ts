@@ -8,8 +8,11 @@ type PhotoRow = { source_message_id: string; image_key: string };
 export async function findRecordPhotos(database: Database, scope: AccessScope, recordIds: string[]): Promise<AttachablePhoto[]> {
   const { rows } = await database.query<PhotoRow>(
     `SELECT message.id AS source_message_id, message.image_key
-     FROM records record JOIN messages message ON message.id = record.message_id
-     WHERE record.workspace_id = $1 AND record.id = ANY($2::uuid[])`,
+     FROM unnest($2::uuid[]) WITH ORDINALITY AS wanted (id, position)
+     JOIN records record ON record.id = wanted.id
+     JOIN messages message ON message.id = record.message_id
+     WHERE record.workspace_id = $1
+     ORDER BY wanted.position`,
     [scope.workspaceId, recordIds],
   );
   return rows.map((row) => ({ sourceMessageId: row.source_message_id, imageKey: row.image_key }));

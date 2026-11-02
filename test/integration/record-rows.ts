@@ -18,6 +18,7 @@ export type NewRecordRow = {
   createdAt?: Date;
   savedAt?: Date;
   hasPhoto?: boolean;
+  imageKey?: string;
 };
 
 const DEFAULT_CREATED_AT = new Date('2026-10-31T10:00:00+07:00');
@@ -29,7 +30,7 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
     userId: row.userId,
     author: 'user',
     text: 'tin nhắn',
-    imageKey: row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null,
+    imageKey: row.imageKey ?? (row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null),
     createdAt,
   });
   const category = row.category ?? 'fuel';

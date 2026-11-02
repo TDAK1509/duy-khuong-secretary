@@ -107,4 +107,20 @@ describe('an admin attaches the photos of records to the answer', () => {
 
     expect(readToolOutput()).toBe('{"attached":4}');
   });
+
+  it('sends the photos in the order of the given ids', async () => {
+    const insertKeyedRecord = (imageKey: string) =>
+      insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', imageKey });
+    const first = await insertKeyedRecord('w/first.jpg');
+    await insertKeyedRecord('w/second.jpg');
+    const third = await insertKeyedRecord('w/third.jpg');
+    attachThenReply([third, first]);
+
+    await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
+
+    expect(await database.query(`SELECT photo_key FROM outbound_messages WHERE kind = 'image' ORDER BY seq`)).toEqual([
+      { photo_key: 'w/third.jpg' },
+      { photo_key: 'w/first.jpg' },
+    ]);
+  });
 });
