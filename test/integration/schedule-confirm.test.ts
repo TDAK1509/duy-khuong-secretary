@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 import { insertScheduledTask, type NewScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertMembership } from './workspace-rows.ts';
+import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 const NO_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
 
@@ -126,5 +126,30 @@ describe('an admin replies to the draft the bot showed', () => {
 
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
     expect(sentTexts()).toEqual([['zu-duy', NO_CHOICE_TEXT]]);
+  });
+
+  it('answers a number that is not 1 or 2 with the no-choice text and clears the choice', async () => {
+    await showDraft();
+
+    await harness.receiveText('zu-duy', '3');
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
+    expect(sentTexts()).toEqual([['zu-duy', NO_CHOICE_TEXT], ['zu-duy', NO_CHOICE_TEXT]]);
+  });
+
+  it('clears a stored workspace choice when the admin writes the word for save', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+    await insertMembership(database, { workspaceId: otherWorkspaceId, userId: duyUserId, displayName: 'Duy', role: 'admin' });
+    await database.query(
+      `UPDATE channel_identities SET pending_choice = '{"kind":"workspace_pick","workspace_ids":["${workspaceId}"]}'::jsonb WHERE external_user_id = 'zu-duy'`,
+    );
+
+    await harness.receiveText('zu-duy', 'luu');
+
+    expect(await database.query('SELECT pending_choice FROM channel_identities WHERE external_user_id = \'zu-duy\'')).toEqual([
+      { pending_choice: null },
+    ]);
   });
 });
