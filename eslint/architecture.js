@@ -15,6 +15,7 @@ export function makeArchitectureConfig(rootDir) {
       folders: ['app', 'services'],
       files: ['providers/database/postgres.ts'],
     }),
+    makeFolderConfig(rootDir, 'providers', { folders: ['services', 'providers'], mayImportVendors: true }),
   ];
 }
 
@@ -34,7 +35,7 @@ function makeFolderConfig(rootDir, folder, importable) {
     files: [`src/${folder}/**/*.ts`],
     rules: {
       ...restrictPaths(rootDir, forbidFolders(folder, importable)),
-      ...restrictVendorPackages(),
+      ...(importable.mayImportVendors ? {} : restrictVendorPackages()),
     },
   };
 }

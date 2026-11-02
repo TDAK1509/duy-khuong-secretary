@@ -36,4 +36,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("'openai'");
   });
+
+  it('rejects an import from providers to app', async () => {
+    const messages = await lintFixture('providers-import-app', 'src/providers/storage/s3-photo-storage.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("../../app/save-record.ts");
+  });
 });
