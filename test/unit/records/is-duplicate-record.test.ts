@@ -76,4 +76,10 @@ describe('isDuplicateRecord', () => {
 
     expect(isDuplicateRecord(toll, { ...toll })).toBe(true);
   });
+
+  it('finds an item with a document number on one side only not a duplicate', () => {
+    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+
+    expect(isDuplicateRecord(toll, { ...toll, documentNumber: '0012345' })).toBe(false);
+  });
 });
