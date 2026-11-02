@@ -260,4 +260,12 @@ describe('the data tools of an admin', () => {
 
     expect(result.items.map((item) => item.member)).toEqual(['Hùng', 'Hùng']);
   });
+
+  it('carries the record id and the photo flag in a result', async () => {
+    const recordId = await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', hasPhoto: true });
+
+    const result = await runSearch();
+
+    expect(result.items).toMatchObject([{ id: recordId, has_photo: true }]);
+  });
 });
