@@ -3,6 +3,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
+import { lockLastInboundAt } from './recipient-window.ts';
 import { enqueueReportReadyTemplate } from './enqueue-report-ready-template.ts';
 import { storeOfferedChoice } from './store-offered-choice.ts';
 import { decideSendOutcome, type SendOutcome, type Settlement } from './decide-send-outcome.ts';
@@ -18,8 +19,15 @@ export async function recordSendResult(
   dependencies: ResultDependencies,
   message: ClaimedMessage,
   result: SendResult,
+  lastInboundAtBeforeSend: Date | null = null,
 ): Promise<void> {
-  await applyOutcome(dependencies, message, decideSendOutcome(message, result, dependencies.clock.now()));
+  const outcome = decideSendOutcome(message, result, dependencies.clock.now());
+  await applyOutcome(dependencies, message, recheckIfHeld(outcome, lastInboundAtBeforeSend));
+}
+
+function recheckIfHeld(outcome: SendOutcome, lastInboundAt: Date | null): SendOutcome {
+  if (outcome.settlement.status !== 'held') return outcome;
+  return { ...outcome, settlement: { ...outcome.settlement, recheck: { lastInboundAt } } };
 }
 
 export async function applyOutcome(
@@ -40,9 +48,10 @@ async function settleMessage(
   settlement: Settlement,
 ): Promise<boolean> {
   const isSettled = await runInTransaction(database, async (transaction) => {
-    const settled = await updateMessage(transaction, message, settlement);
-    if (settled && settlement.status === 'sent') await storeOfferedChoice(transaction, message.id);
-    if (settled && settlement.status === 'held' && reportReadyTemplateId !== null) {
+    const decided = await confirmSettlement(transaction, message, settlement, clock.now());
+    const settled = await updateMessage(transaction, message, decided);
+    if (settled && decided.status === 'sent') await storeOfferedChoice(transaction, message.id);
+    if (settled && decided.status === 'held' && reportReadyTemplateId !== null) {
       await enqueueReportReadyTemplate(transaction, message, { templateId: reportReadyTemplateId, now: clock.now() });
     }
     return settled;
@@ -51,6 +60,22 @@ async function settleMessage(
     console.error(`[outbound] ignored a result for message ${message.id}: the claim was lost`);
   }
   return isSettled;
+}
+
+async function confirmSettlement(
+  transaction: Transaction,
+  message: ClaimedMessage,
+  settlement: Settlement,
+  now: Date,
+): Promise<Settlement> {
+  if (!settlement.recheck) return settlement;
+  const lockedLastInboundAt = await lockLastInboundAt(transaction, message.to);
+  const hasWrittenSince = lockedLastInboundAt !== null && isNewer(lockedLastInboundAt, settlement.recheck.lastInboundAt);
+  return hasWrittenSince ? { status: 'queued', availableAt: now, lastError: 'window_reopened' } : settlement;
+}
+
+function isNewer(lastInboundAt: Date, seenLastInboundAt: Date | null): boolean {
+  return seenLastInboundAt === null || lastInboundAt.getTime() > seenLastInboundAt.getTime();
 }
 
 async function updateMessage(transaction: Transaction, message: ClaimedMessage, settlement: Settlement): Promise<boolean> {

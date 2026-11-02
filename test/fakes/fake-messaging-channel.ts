@@ -28,6 +28,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly downloadedUrls: string[] = [];
   readonly attachments = new Map<string, DownloadResult>();
   nextTextResult: SendResult = { ok: true };
+  whileSendingText: () => Promise<void> = async () => {};
   nextTemplateResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
@@ -40,6 +41,7 @@ export class FakeMessagingChannel implements MessagingChannel {
 
   async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
     this.texts.push({ to, text, credential });
+    await this.whileSendingText();
     this.sends.push({ kind: 'text', to: to.externalUserId, text });
     return this.nextTextResult;
   }

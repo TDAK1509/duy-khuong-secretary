@@ -4,7 +4,7 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
-import { hasHeldMessages, releaseHeldMessages } from '../delivery/release-held-messages.ts';
+import { releaseHeldMessages } from '../delivery/release-held-messages.ts';
 import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
@@ -60,7 +60,7 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
 function releaseHeldStage({ channel, clock }: InboundHandlerDependencies, event: ClaimedEvent): Stage {
   const to = describeSender(event);
   return {
-    isDone: async (transaction) => !(await hasHeldMessages(transaction, to)),
+    isDone: async () => false,
     write: async (transaction) => {
       await recordSenderIdentity(transaction, event);
       await releaseHeldMessages(transaction, { to, maxTextLength: channel.maxTextLength, now: clock.now() });

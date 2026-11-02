@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { insertOutboundMessage, type NewOutboundMessage } from './outbound-message-rows.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
@@ -38,6 +39,10 @@ describe('the delivery rule for scheduled results', () => {
     const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
     if (!membership) throw new Error('the admin has no membership');
     return membership.id;
+  }
+
+  function listSessionsWaitingFor(blockerPid: number): Promise<unknown[]> {
+    return database.query(`SELECT DISTINCT pid FROM pg_locks WHERE NOT granted AND ${blockerPid} = ANY(pg_blocking_pids(pid))`);
   }
 
   function readStatuses(): Promise<{ status: string }[]> {
@@ -102,7 +107,7 @@ describe('the delivery rule for scheduled results', () => {
   it('sends no second template for another held result in the same quiet period', async () => {
     harness.setReportReadyTemplate('tpl-1');
     await wroteDaysAgo(8);
-    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1', status: 'sent' });
+    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1', status: 'sent', createdAt: NOW });
     await insertScheduledResult();
 
     await harness.sendQueuedTexts();
@@ -140,6 +145,67 @@ describe('the delivery rule for scheduled results', () => {
     await harness.sendQueuedTexts();
 
     expect(await readStatuses()).toEqual([{ status: 'held' }, { status: 'failed' }]);
+  });
+
+  it('sends a result instead of holding it when the admin wrote while the hold was deciding', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+    const writer = await database.openSession();
+    await writer.query('BEGIN');
+    await writer.query("SELECT 1 FROM channel_identities WHERE external_user_id = 'zu-duy' FOR UPDATE");
+
+    const { rows: [writerSession] } = await writer.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+    const step = harness.sendQueuedTexts();
+    try {
+      await vi.waitFor(async () => expect(await listSessionsWaitingFor(writerSession?.pid ?? 0)).toHaveLength(1), { timeout: 3000 });
+      await writer.query(`UPDATE channel_identities SET last_inbound_at = '${NOW.toISOString()}' WHERE external_user_id = 'zu-duy'`);
+    } finally {
+      await writer.query('COMMIT');
+    }
+    await step;
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+  });
+
+  it('sends a result instead of holding it when the admin wrote while Zalo was answering that the window is closed', async () => {
+    await wroteDaysAgo(2);
+    await insertScheduledResult();
+    harness.channel.nextTextResult = { ok: false, reason: 'window_closed' };
+    harness.channel.whileSendingText = async () => {
+      await database.query(`UPDATE channel_identities SET last_inbound_at = '${NOW.toISOString()}' WHERE external_user_id = 'zu-duy'`);
+    };
+
+    await harness.sendQueuedTexts();
+    harness.channel.nextTextResult = { ok: true };
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+    expect(harness.channel.texts).toHaveLength(2);
+  });
+
+  it('sends a result when the admin wrote while the chat still answers', async () => {
+    await wroteDaysAgo(8);
+    await insertScheduledResult();
+    let openAnswerGate = (): void => {};
+    let markAnswerStarted = (): void => {};
+    const answerGate = new Promise<void>((resolve) => (openAnswerGate = resolve));
+    const answerStarted = new Promise<void>((resolve) => (markAnswerStarted = resolve));
+    harness.chat.follow(async () => {
+      markAnswerStarted();
+      await answerGate;
+      return replyWithText('Chào anh');
+    });
+
+    const inbound = harness.receiveText('zu-duy', 'chào');
+    try {
+      await answerStarted;
+      await harness.sendQueuedTexts();
+      expect(await readStatuses()).toEqual([{ status: 'sent' }]);
+    } finally {
+      openAnswerGate();
+      await inbound;
+    }
   });
 
   describe('when the admin writes again', () => {
