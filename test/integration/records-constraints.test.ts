@@ -35,6 +35,12 @@ describe('the records table', () => {
     });
   });
 
+  it('refuses a maintenance record without a plate', async () => {
+    await expect(insertRecord({ category: 'maintenance', maintenanceItem: 'lốp', vehiclePlate: null })).rejects.toMatchObject({
+      code: CHECK_VIOLATION,
+    });
+  });
+
   async function insertUserMessage(): Promise<string> {
     const eventId = await insertInboundEvent(database, { externalUserId: 'zu-hung' });
     const [row] = await database.query<{ id: string }>(
