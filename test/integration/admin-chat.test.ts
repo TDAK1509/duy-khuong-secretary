@@ -276,5 +276,26 @@ describe('an admin asks the bot', () => {
 
       expect(sentTexts()[1]).toEqual(['zu-duy', 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.']);
     });
+
+    describe('when the worker stopped before the answer', () => {
+      beforeEach(async () => {
+        harness.chat.follow(() => {
+          throw new Error('the worker stopped');
+        });
+        await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+        await database.query(
+          `UPDATE inbound_events SET status = 'processing', locked_until = '2026-11-01T00:00:00Z', attempts = 1`,
+        );
+        harness.chat.replyWith('Trả lời');
+      });
+
+      it('runs the chat model once for the owed answer', async () => {
+        await harness.runInbound();
+
+        expect(await database.query(`SELECT text FROM messages WHERE reply_kind = 'answer'`)).toEqual([
+          { text: 'Trả lời' },
+        ]);
+      });
+    });
   });
 });
