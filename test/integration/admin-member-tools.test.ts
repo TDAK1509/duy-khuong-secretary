@@ -6,6 +6,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -97,6 +98,19 @@ describe('the member tools of an admin', () => {
 
       expect(output).toBe('{"ok":true,"removed":"Hùng"}');
       expect(await database.query('SELECT display_name FROM memberships')).toEqual([{ display_name: 'Duy' }]);
+    });
+
+    it('keeps the records of the removed person visible to admins', async () => {
+      const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+      await runTool('remove_member', { member_id: await findMembershipId('Hùng') });
+
+      const output = await runTool('search_records', {
+        text: null, category: null, member: 'Hùng', plate: null, added_from: null, added_to: null, cursor: null,
+      });
+
+      expect((JSON.parse(output) as { items: unknown[] }).items).toHaveLength(2);
     });
   });
 });
