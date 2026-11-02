@@ -328,4 +328,14 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
+
+  it('sends a failure note when the model fails', async () => {
+    await insertDueTask({ title: 'Báo cáo hằng ngày' });
+    harness.chat.failWith('unavailable');
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-duy', 'Lịch "Báo cáo hằng ngày" chạy lỗi. Lần chạy sau sẽ thử lại.']]);
+  });
 });

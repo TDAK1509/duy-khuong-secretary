@@ -41,8 +41,8 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const dependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
-  const text = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
+  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  return { text: outcome.text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
