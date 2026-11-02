@@ -82,4 +82,12 @@ describe('the ticker runs the due scheduled tasks', () => {
 
     expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Lập báo cáo.', image: null }]);
   });
+
+  it('does not run a task that is not yet due', async () => {
+    await insertDueTask({ nextRunAt: new Date(NOW.getTime() + 10 * MINUTE_MS) });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
