@@ -71,7 +71,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, log }: QueueParts
     clock,
     alerts,
     notices: new OffGroupNotices(clock, log),
-    handler: createInboundHandler(channel, clock),
+    handler: createInboundHandler(channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey }),
   };
   const outbound = channel &&
     zalo && {
