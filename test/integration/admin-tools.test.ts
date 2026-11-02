@@ -234,4 +234,20 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Con trỏ không hợp lệ."}');
   });
+
+  it('blocks the next page when the admin lost access', async () => {
+    for (let number = 0; number < 60; number += 1) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+    }
+    const first = await runSearch();
+    await database.query(`DELETE FROM memberships WHERE display_name = 'Duy'`);
+
+    const output = await runAdminTool(pool, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: first.next_cursor }),
+    });
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+  });
 });
