@@ -14,7 +14,16 @@ export async function enqueueReportReadyTemplate(
   await transaction.query(
     `INSERT INTO outbound_messages
        (channel, account_id, external_user_id, kind, template_id, template_params, admin_membership_id, available_at)
-     VALUES ($1, $2, $3, 'template', $4, $5::jsonb, $6, $7)`,
+     SELECT $1::text, $2::text, $3::text, 'template', $4::text, $5::jsonb, $6::uuid, $7::timestamptz
+     WHERE NOT EXISTS (
+       SELECT 1 FROM outbound_messages earlier
+       JOIN channel_identities identity
+         ON identity.channel = earlier.channel
+        AND identity.account_id = earlier.account_id
+        AND identity.external_user_id = earlier.external_user_id
+       WHERE earlier.kind = 'template' AND earlier.channel = $1 AND earlier.account_id = $2 AND earlier.external_user_id = $3
+         AND earlier.created_at > identity.last_inbound_at
+     )`,
     [
       message.to.channel,
       message.to.accountId,

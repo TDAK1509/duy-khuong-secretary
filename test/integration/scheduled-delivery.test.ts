@@ -34,6 +34,12 @@ describe('the delivery rule for scheduled results', () => {
     return insertOutboundMessage(database, { externalUserId: 'zu-duy', scheduledTaskId: taskId, ...message });
   }
 
+  async function findMembershipId(): Promise<string> {
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+    if (!membership) throw new Error('the admin has no membership');
+    return membership.id;
+  }
+
   function readStatuses(): Promise<{ status: string }[]> {
     return database.query('SELECT status FROM outbound_messages ORDER BY seq');
   }
@@ -62,12 +68,19 @@ describe('the delivery rule for scheduled results', () => {
     harness.setReportReadyTemplate('tpl-1');
     taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', title: 'Báo cáo hằng ngày' });
     await wroteDaysAgo(8);
-    await insertScheduledResult();
+    await insertScheduledResult({ adminMembershipId: await findMembershipId() });
 
     await harness.sendQueuedTexts();
 
-    expect(await database.query('SELECT external_user_id, template_id, template_params FROM outbound_messages WHERE kind = \'template\'')).toEqual([
-      { external_user_id: 'zu-duy', template_id: 'tpl-1', template_params: { task_title: 'Báo cáo hằng ngày' } },
+    expect(
+      await database.query("SELECT external_user_id, template_id, template_params, admin_membership_id FROM outbound_messages WHERE kind = 'template'"),
+    ).toEqual([
+      {
+        external_user_id: 'zu-duy',
+        template_id: 'tpl-1',
+        template_params: { task_title: 'Báo cáo hằng ngày' },
+        admin_membership_id: await findMembershipId(),
+      },
     ]);
   });
 
@@ -84,5 +97,16 @@ describe('the delivery rule for scheduled results', () => {
     expect(await database.query("SELECT template_params FROM outbound_messages WHERE kind = 'template'")).toEqual([
       { template_params: { task_title: 'Báo cáo hằng ngày về doanh thu…' } },
     ]);
+  });
+
+  it('sends no second template for another held result in the same quiet period', async () => {
+    harness.setReportReadyTemplate('tpl-1');
+    await wroteDaysAgo(8);
+    await insertOutboundMessage(database, { externalUserId: 'zu-duy', templateId: 'tpl-1', status: 'sent' });
+    await insertScheduledResult();
+
+    await harness.sendQueuedTexts();
+
+    expect(await readStatuses()).toEqual([{ status: 'sent' }, { status: 'held' }]);
   });
 });
