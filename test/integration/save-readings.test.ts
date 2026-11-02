@@ -147,6 +147,15 @@ describe('saving what two readers agree on', () => {
     expect(harness.channel.texts.filter((sent) => sent.to.externalUserId === 'zu-lan')).toEqual([]);
   });
 
+  it('sends a text to the readers as text without an image', async () => {
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
+
+    expect(harness.readers.cheap.map((reader) => reader.requests.map(({ text, image }) => ({ text, image })))).toEqual([
+      [{ text: 'Đổ dầu 500.000đ', image: null }],
+      [{ text: 'Đổ dầu 500.000đ', image: null }],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
