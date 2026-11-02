@@ -24,6 +24,7 @@ export async function storeConnection(
        refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
        access_expires_at = EXCLUDED.access_expires_at,
        refresh_expires_at = EXCLUDED.refresh_expires_at,
+       status = 'active',
        refreshed_at = EXCLUDED.refreshed_at`,
     [
       connection.channel,

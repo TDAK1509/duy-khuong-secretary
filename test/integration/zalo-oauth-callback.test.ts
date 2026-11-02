@@ -91,6 +91,15 @@ describe('GET /oauth/zalo/callback', () => {
     expect(await database.query('SELECT id FROM channel_connections')).toEqual([]);
   });
 
+  it('makes the connection active again when the OA connects again', async () => {
+    await callCallback({ oa_id: 'oa-1', code: 'k1', state: makeState(NOW) });
+    await database.query(`UPDATE channel_connections SET status = 'reauthorization_required'`);
+
+    await callCallback({ oa_id: 'oa-1', code: 'k2', state: makeState(NOW) });
+
+    expect(await database.query('SELECT status FROM channel_connections')).toEqual([{ status: 'active' }]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }
