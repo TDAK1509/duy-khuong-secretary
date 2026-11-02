@@ -217,4 +217,16 @@ describe('an admin drafts a scheduled task by chat', () => {
     expect(await database.query('SELECT 1 FROM scheduled_tasks')).toEqual([]);
     expect(findToolResult()).toBe('{"ok":false,"error":"Thiếu giờ chạy."}');
   });
+
+  it('refuses the 21st task in a workspace', async () => {
+    for (let number = 1; number <= 20; number += 1) {
+      await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, title: `Lịch ${number}`, status: 'active' });
+    }
+    proposeThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+
+    expect(await database.query(`SELECT 1 FROM scheduled_tasks WHERE status = 'draft'`)).toEqual([]);
+    expect(findToolResult()).toBe('{"ok":false,"error":"Nhóm đã có 20 lịch. Xóa bớt lịch cũ trước."}');
+  });
 });
