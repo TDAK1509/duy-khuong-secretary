@@ -19,10 +19,15 @@ const TRANSACTION_TIMEOUTS = [
 
 export type RetryPolicy = {
   budgetMs: number;
+  now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
 };
 
-const DEFAULT_RETRY_POLICY: RetryPolicy = { budgetMs: 60_000, sleep: sleepFor };
+const DEFAULT_RETRY_POLICY: RetryPolicy = {
+  budgetMs: 60_000,
+  now: () => performance.now(),
+  sleep: sleepFor,
+};
 
 export type MigrationRun = {
   databaseUrl: string;
@@ -34,14 +39,13 @@ export type MigrationOutcome = { kind: 'applied'; names: string[] } | { kind: 'd
 
 export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutcome> {
   const retry = { ...DEFAULT_RETRY_POLICY, ...run.retry };
-  const startedAt = performance.now();
+  const deadline = retry.now() + retry.budgetMs;
   for (;;) {
     try {
       return await migrateOnce(run);
     } catch (error) {
       if (!isLockBusy(error)) throw error;
-      if (performance.now() - startedAt >= retry.budgetMs) throw giveUp(error, retry.budgetMs);
-      await retry.sleep(pickRetryDelayMs());
+      await sleepWithinBudget(retry, deadline, error);
     }
   }
 }
@@ -183,6 +187,13 @@ async function isInvalidIndex(db: MigrationBuilder['db'], indexName: string): Pr
   return rows[0]?.is_invalid === true;
 }
 
+async function sleepWithinBudget(retry: RetryPolicy, deadline: number, busy: unknown): Promise<void> {
+  const remainingMs = deadline - retry.now();
+  if (remainingMs <= 0) throw giveUp(busy, retry.budgetMs);
+  await retry.sleep(Math.min(pickRetryDelayMs(), remainingMs));
+  if (deadline - retry.now() <= 0) throw giveUp(busy, retry.budgetMs);
+}
+
 function isLockBusy(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === LOCK_NOT_AVAILABLE;
 }
@@ -194,5 +205,5 @@ function giveUp(error: unknown, budgetMs: number): Error {
 
 function pickRetryDelayMs(): number {
   const jitter = (Math.random() * 2 - 1) * RETRY_JITTER_RATIO;
-  return RETRY_DELAY_MS * (1 + jitter);
+  return Math.round(RETRY_DELAY_MS * (1 + jitter));
 }

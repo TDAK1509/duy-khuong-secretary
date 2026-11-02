@@ -98,6 +98,31 @@ describe('the migration runner on a busy table', () => {
     expect(await listAppliedMigrations(database)).toEqual(['0001_alter_t']);
   });
 
+  it('never sleeps or retries past the retry budget', async () => {
+    let clock = 0;
+    const sleeps: number[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: () => {},
+        retry: {
+          budgetMs: 5000,
+          now: () => clock,
+          sleep: async (milliseconds) => {
+            sleeps.push(milliseconds);
+            clock += milliseconds;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(clock).toBe(5000);
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(2500);
+  }, 15_000);
+
   it('stops once the retry budget is used up', async () => {
     const exitCode = await runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
