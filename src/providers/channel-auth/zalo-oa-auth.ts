@@ -25,11 +25,25 @@ export class ZaloOaAuth implements ChannelAuth {
     return url.toString();
   }
 
-  async exchangeAuthorization(): Promise<AuthResult> {
-    throw new Error('not implemented');
+  async exchangeAuthorization(input: { code: string; codeVerifier: string }): Promise<AuthResult> {
+    await this.postForm({
+      code: input.code,
+      code_verifier: input.codeVerifier,
+      grant_type: 'authorization_code',
+    });
+    return { ok: false, reason: 'rejected' };
   }
 
   async refresh(): Promise<AuthResult> {
     throw new Error('not implemented');
+  }
+
+  private postForm(fields: Record<string, string>): Promise<Response> {
+    return fetch(new URL('/v4/oa/access_token', this.settings.oauthBaseUrl), {
+      method: 'POST',
+      headers: { secret_key: this.settings.appSecret },
+      body: new URLSearchParams({ app_id: this.settings.appId, ...fields }),
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
   }
 }
