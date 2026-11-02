@@ -108,4 +108,14 @@ describe('the daily maintenance reminder run', () => {
       { next_run_at: new Date('2026-10-31T18:00:00+07:00'), last_run_at: harness.clock.now(), locked_until: null },
     ]);
   });
+
+  it('ignores an old record when another driver sent a newer one for the same truck and part', async () => {
+    await insertOilChange('2026-09-01', '29C12345', harness.hungUserId, 'Hùng');
+    await insertOilChange('2026-10-21');
+    await insertReminderTask();
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+  });
 });
