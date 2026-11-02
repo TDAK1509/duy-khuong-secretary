@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { decryptToken } from '../../src/app/channel-auth/token-cipher.ts';
+import { createHash } from 'node:crypto';
+import { buildAuthorizationLink } from '../../src/app/channel-auth/start-connection.ts';
 import { createPkcePair, sealConnectState } from '../../src/app/channel-auth/connect-state.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -120,6 +122,19 @@ describe('GET /oauth/zalo/callback', () => {
     expect([withoutOaId.statusCode, withoutCode.statusCode]).toEqual([400, 400]);
     expect(channelAuth.exchanges).toEqual([]);
     expect(await database.query('SELECT id FROM channel_connections')).toEqual([]);
+  });
+
+  it('exchanges the code with the verifier that matches the challenge in the link', async () => {
+    const link = new URL(
+      buildAuthorizationLink({ channelAuth, publicBaseUrl: 'https://x.test', encryptionKey: ENCRYPTION_KEY, now: NOW }),
+    );
+
+    await callCallback({ oa_id: 'oa-1', code: 'k1', state: link.searchParams.get('state') ?? '' });
+
+    const [exchange] = channelAuth.exchanges;
+    const challenge = createHash('sha256').update(exchange?.codeVerifier ?? '').digest('base64url');
+    expect(exchange?.code).toBe('k1');
+    expect(challenge).toBe(link.searchParams.get('code_challenge'));
   });
 
   function makeState(madeAt: Date): string {
