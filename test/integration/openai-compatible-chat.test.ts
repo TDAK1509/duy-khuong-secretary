@@ -50,4 +50,12 @@ describe('OpenAiCompatibleChat', () => {
 
     expect(server.requests[0]?.body['reasoning_effort']).toBe('none');
   });
+
+  it('does not send an empty reasoning effort', async () => {
+    const server = await startServer(TEXT_REPLY);
+
+    await makeChat(server, { reasoningEffort: '' }).respond(REQUEST);
+
+    expect(server.requests[0]?.body).not.toHaveProperty('reasoning_effort');
+  });
 });
