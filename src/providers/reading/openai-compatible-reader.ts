@@ -7,16 +7,19 @@ export type OpenAiCompatibleReaderSettings = {
   apiKey: string;
   model: string;
   timeoutMs: number;
+  reasoningEffort?: string;
 };
 
 export class OpenAiCompatibleReader implements ReaderService {
   readonly label: string;
   private readonly client: OpenAI;
   private readonly model: string;
+  private readonly reasoningEffort: OpenAI.ReasoningEffort | undefined;
 
   constructor(settings: OpenAiCompatibleReaderSettings) {
     this.label = settings.model;
     this.model = settings.model;
+    this.reasoningEffort = settings.reasoningEffort as OpenAI.ReasoningEffort | undefined;
     this.client = new OpenAI({
       baseURL: settings.baseUrl,
       apiKey: settings.apiKey,
@@ -32,6 +35,7 @@ export class OpenAiCompatibleReader implements ReaderService {
         { role: 'system', content: request.system },
         { role: 'user', content: buildUserContent(request) },
       ],
+      reasoning_effort: this.reasoningEffort,
       response_format: {
         type: 'json_schema',
         json_schema: { name: request.schemaName, schema: request.schema, strict: true },

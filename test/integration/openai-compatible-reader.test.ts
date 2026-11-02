@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { OpenAiCompatibleReader } from '../../src/providers/reading/openai-compatible-reader.ts';
+import {
+  OpenAiCompatibleReader,
+  type OpenAiCompatibleReaderSettings,
+} from '../../src/providers/reading/openai-compatible-reader.ts';
 import type { Photo } from '../../src/services/storage/photo-storage.ts';
 import type { ReaderRequest } from '../../src/services/reading/reader-service.ts';
 import { makeCompletionReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
@@ -27,14 +30,23 @@ describe('OpenAiCompatibleReader', () => {
     return server;
   }
 
-  function makeReader(server: StubChatServer, model = 'gpt-6-luna'): OpenAiCompatibleReader {
-    return new OpenAiCompatibleReader({ baseUrl: server.baseUrl, apiKey: 'test-key', model, timeoutMs: 5000 });
+  function makeReader(
+    server: StubChatServer,
+    overrides: Partial<OpenAiCompatibleReaderSettings> = {},
+  ): OpenAiCompatibleReader {
+    return new OpenAiCompatibleReader({
+      baseUrl: server.baseUrl,
+      apiKey: 'test-key',
+      model: 'gpt-6-luna',
+      timeoutMs: 5000,
+      ...overrides,
+    });
   }
 
   it('sends the model id of its slot', async () => {
     const server = await startServer(VALID_REPLY);
 
-    await makeReader(server, 'gpt-6-luna').read(REQUEST);
+    await makeReader(server, { model: 'gpt-6-luna' }).read(REQUEST);
 
     expect(server.requests[0]?.body['model']).toBe('gpt-6-luna');
   });
@@ -60,6 +72,14 @@ describe('OpenAiCompatibleReader', () => {
       type: 'json_schema',
       json_schema: { name: 'work_message_reading', schema, strict: true },
     });
+  });
+
+  it('sends the configured reasoning effort', async () => {
+    const server = await startServer(VALID_REPLY);
+
+    await makeReader(server, { reasoningEffort: 'low' }).read(REQUEST);
+
+    expect(server.requests[0]?.body['reasoning_effort']).toBe('low');
   });
 });
 
