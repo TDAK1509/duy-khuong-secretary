@@ -146,4 +146,17 @@ describe('an admin drafts a scheduled task by chat', () => {
 
     expect(sentTexts().at(-1)).toEqual(['zu-duy', 'Đã lưu lịch "Báo cáo hằng ngày". Lần chạy đầu: 18:00 31/10/2026.']);
   });
+
+  it('stores no choice for a card whose send ended unknown', async () => {
+    proposeThenReply({});
+    harness.channel.nextTextResult = { ok: false, reason: 'no_answer' };
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT status FROM outbound_messages')).toEqual([{ status: 'unknown' }]);
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      { pending_choice: null },
+    ]);
+  });
 });
