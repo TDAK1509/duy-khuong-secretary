@@ -131,4 +131,12 @@ describe('OpenAiCompatibleChat', () => {
 
     expect(result).toEqual({ ok: false, reason: 'timeout' });
   });
+
+  it('turns a server error into unavailable', async () => {
+    const server = await startServer({ status: 500, body: { error: { message: 'boom' } } });
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  });
 });
