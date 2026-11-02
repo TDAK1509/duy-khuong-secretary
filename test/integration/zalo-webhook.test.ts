@@ -110,6 +110,22 @@ describe('POST /webhooks/zalo', () => {
     expect(alertSink.texts[0]).toMatch(/^\[alert\] Zalo webhook could not store an event: \w+\.$/);
   });
 
+  it('stores an event through the service assembled from the environment', async () => {
+    await connectOa('oa-1');
+    const environment = { ...ZALO_ENVIRONMENT, ZALO_OA_SECRET: TEST_OA_SECRET, DATABASE_URL: database.url };
+    const service = assembleService(environment, () => {});
+    const { body, headers } = loadSignedFixture('text-event');
+
+    const response = await service.server.inject({ method: 'POST', url: '/webhooks/zalo', headers, body });
+
+    await service.server.close();
+    await service.pool.end();
+    expect(response.statusCode).toBe(200);
+    expect(await database.query('SELECT external_event_id FROM inbound_events')).toEqual([
+      { external_event_id: 'm1' },
+    ]);
+  });
+
   it('answers 503 while the webhook is not configured', async () => {
     const lines: string[] = [];
     const service = assembleService({ ...ZALO_ENVIRONMENT, DATABASE_URL: database.url }, (line) => lines.push(line));
