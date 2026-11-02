@@ -3,6 +3,8 @@ import { decryptToken, encryptToken } from './token-cipher.ts';
 
 const STATE_VALID_FOR_MS = 30 * 60 * 1000;
 
+type ConnectState = { verifier: string; expiresAt: number };
+
 export type PkcePair = { verifier: string; challenge: string };
 
 export function createPkcePair(): PkcePair {
@@ -16,11 +18,11 @@ export function sealConnectState(verifier: string, now: Date, encryptionKey: str
   return Buffer.from(encrypted, 'base64').toString('base64url');
 }
 
-export function openConnectState(state: string, encryptionKey: string): string | null {
+export function openConnectState(state: string, now: Date, encryptionKey: string): string | null {
   try {
     const encrypted = Buffer.from(state, 'base64url').toString('base64');
-    const { verifier } = JSON.parse(decryptToken(encrypted, encryptionKey)) as { verifier: string };
-    return verifier;
+    const { verifier, expiresAt } = JSON.parse(decryptToken(encrypted, encryptionKey)) as ConnectState;
+    return now.getTime() < expiresAt ? verifier : null;
   } catch {
     return null;
   }

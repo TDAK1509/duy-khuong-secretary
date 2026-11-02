@@ -72,6 +72,16 @@ describe('GET /oauth/zalo/callback', () => {
     expect(channelAuth.exchanges).toEqual([]);
   });
 
+  it('refuses an expired state and stores nothing', async () => {
+    const state = makeState(new Date('2026-11-02T09:29:00+07:00'));
+
+    const response = await callCallback({ oa_id: 'oa-1', code: 'k1', state });
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM channel_connections')).toEqual([]);
+    expect(channelAuth.exchanges).toEqual([]);
+  });
+
   function makeState(madeAt: Date): string {
     return sealConnectState(createPkcePair().verifier, madeAt, ENCRYPTION_KEY);
   }

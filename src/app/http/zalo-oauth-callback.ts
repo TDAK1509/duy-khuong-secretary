@@ -18,7 +18,7 @@ export async function handleZaloOAuthCallback(
   dependencies: OAuthCallbackDependencies,
   query: OAuthCallbackQuery,
 ): Promise<HttpResponse> {
-  const codeVerifier = openConnectState(query['state'] ?? '', dependencies.encryptionKey);
+  const codeVerifier = openConnectState(query['state'] ?? '', dependencies.clock.now(), dependencies.encryptionKey);
   if (codeVerifier === null) return respondWithConnectionFailure();
   const exchange = await dependencies.channelAuth.exchangeAuthorization({
     code: query['code'] ?? '',
