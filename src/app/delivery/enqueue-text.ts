@@ -1,6 +1,9 @@
 import type { ChannelRecipient } from '../../services/messaging/messaging-channel.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { toStoredChoice, type PendingChoice } from '../identities/pending-choice.ts';
 import { splitText } from './split-text.ts';
+
+export type OfferedChoice = { choice: PendingChoice; sourceEventId: string };
 
 export type TextToEnqueue = {
   to: ChannelRecipient;
@@ -8,14 +11,28 @@ export type TextToEnqueue = {
   maxTextLength: number;
   availableAt: Date;
   adminMembershipId?: string;
+  offeredChoice?: OfferedChoice;
 };
 
 export async function enqueueText(transaction: Transaction, message: TextToEnqueue): Promise<void> {
-  for (const part of splitText(message.text, message.maxTextLength)) {
+  const parts = splitText(message.text, message.maxTextLength);
+  for (const [index, part] of parts.entries()) {
+    const isLastPart = index === parts.length - 1;
     await transaction.query(
-      `INSERT INTO outbound_messages (channel, account_id, external_user_id, kind, body, admin_membership_id, available_at)
-       VALUES ($1, $2, $3, 'text', $4, $5, $6)`,
-      [message.to.channel, message.to.accountId, message.to.externalUserId, part, message.adminMembershipId ?? null, message.availableAt],
+      `INSERT INTO outbound_messages
+         (channel, account_id, external_user_id, kind, body, admin_membership_id, available_at, offered_choice)
+       VALUES ($1, $2, $3, 'text', $4, $5, $6,
+         $7::jsonb || jsonb_build_object('source_received_at', (SELECT received_at FROM inbound_events WHERE id = $8)))`,
+      [
+        message.to.channel,
+        message.to.accountId,
+        message.to.externalUserId,
+        part,
+        message.adminMembershipId ?? null,
+        message.availableAt,
+        isLastPart && message.offeredChoice ? JSON.stringify(toStoredChoice(message.offeredChoice.choice)) : null,
+        isLastPart ? (message.offeredChoice?.sourceEventId ?? null) : null,
+      ],
     );
   }
 }

@@ -2,7 +2,9 @@ import { z } from 'zod';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
+import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
+import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
@@ -13,6 +15,7 @@ import { formatJoinResult, NO_LONGER_IN_A_WORKSPACE_TEXT, WELCOME_TEXT } from '.
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
+import { replyToMember } from './reply-to-member.ts';
 
 export type InboundHandlerDependencies = {
   channel: MessagingChannel;
@@ -26,18 +29,18 @@ const textPayloadSchema = z.object({ text: z.string() });
 export function createInboundHandler(dependencies: InboundHandlerDependencies | null): InboundHandler {
   return async (event, stages) => {
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
-    const inviteCode = readInviteCode(event);
+    const text = readText(event);
+    const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
     const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
     return stages.finishEvent((transaction) =>
-      answerSender(transaction, dependencies, { event, inviteCode, zaloName }),
+      answerSender(transaction, dependencies, { event, text, inviteCode, zaloName }),
     );
   };
 }
 
-function readInviteCode(event: ClaimedEvent): string | null {
+function readText(event: ClaimedEvent): string | null {
   if (event.kind !== 'text') return null;
-  const { text } = textPayloadSchema.parse(event.payload);
-  return isInviteCodeMessage(text) ? text : null;
+  return textPayloadSchema.parse(event.payload).text;
 }
 
 async function lookUpNameOfNewMember(
@@ -54,7 +57,7 @@ function describeSender(event: ClaimedEvent) {
   return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
-type Message = { event: ClaimedEvent; inviteCode: string | null; zaloName: string | null };
+type Message = { event: ClaimedEvent; text: string | null; inviteCode: string | null; zaloName: string | null };
 
 async function answerSender(
   transaction: Transaction,
@@ -63,27 +66,34 @@ async function answerSender(
 ): Promise<void> {
   const now = clock.now();
   const identity = await recordSenderIdentity(transaction, message.event);
+  await clearChoiceUnlessAnswered(transaction, identity, message.text);
   const reply = await decideReply(transaction, { ...message, identity, now });
   if (reply === null) return;
   await enqueueText(transaction, {
     to: describeSender(message.event),
-    text: reply,
+    text: reply.text,
     maxTextLength: channel.maxTextLength,
     availableAt: now,
+    ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
 }
 
 type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date };
 
-async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<string | null> {
+async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
-  if (inviteCode === null) return replyToOtherMessage(transaction, identity);
+  if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
-  return formatJoinResult(joined);
+  return { text: formatJoinResult(joined) };
 }
 
-async function replyToOtherMessage(transaction: Transaction, identity: ChannelIdentity): Promise<string | null> {
-  if (identity.userId === null) return WELCOME_TEXT;
+async function replyToOtherMessage(
+  transaction: Transaction,
+  identity: ChannelIdentity,
+  text: string | null,
+): Promise<Reply | null> {
+  if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
-  return workspaceId === null ? NO_LONGER_IN_A_WORKSPACE_TEXT : null;
+  if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
 }

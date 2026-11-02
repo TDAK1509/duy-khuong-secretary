@@ -6,6 +6,8 @@ export const WELCOME_TEXT =
 export const NO_LONGER_IN_A_WORKSPACE_TEXT =
   'Bạn không còn trong nhóm nào. Nếu cần tham gia lại, bạn xin quản lý một mã mời mới rồi nhắn mã đó vào đây.';
 
+export const NO_PENDING_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
+
 const JOINED_MEMBER_HINT = 'Từ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé.';
 const JOINED_ADMIN_HINT = 'Bạn có thể hỏi Trợ lý về dữ liệu của nhóm, mời hoặc xóa thành viên và đặt lịch tự động.';
 
