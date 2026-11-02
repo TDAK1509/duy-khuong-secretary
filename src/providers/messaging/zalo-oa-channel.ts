@@ -20,6 +20,9 @@ const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
 const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
 const SERVER_ERROR_STATUS = 500;
+const MAX_REDIRECTS = 3;
+const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+const UNAVAILABLE: DownloadResult = { ok: false, reason: 'unavailable' };
 
 const REQUEST_NEVER_SENT_CODES = [
   'ECONNREFUSED',
@@ -123,12 +126,24 @@ export class ZaloOaChannel implements MessagingChannel {
 
   async downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult> {
     try {
-      const target = this.parseAllowedUrl(url);
-      if (target === null) return { ok: false, reason: 'unavailable' };
-      return await readLimited(await this.openResponse(target), maxBytes);
+      return await this.followRedirects(url, maxBytes);
     } catch {
-      return { ok: false, reason: 'unavailable' };
+      return UNAVAILABLE;
     }
+  }
+
+  private async followRedirects(firstUrl: string, maxBytes: number): Promise<DownloadResult> {
+    let next = firstUrl;
+    for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+      const target = this.parseAllowedUrl(next);
+      if (target === null) break;
+      const response = await this.openResponse(target);
+      const location = readRedirectLocation(response);
+      if (location === null) return readLimited(response, maxBytes);
+      response.destroy();
+      next = new URL(location, target).href;
+    }
+    return UNAVAILABLE;
   }
 
   private parseAllowedUrl(url: string): URL | null {
@@ -169,7 +184,7 @@ export class ZaloOaChannel implements MessagingChannel {
 async function readLimited(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
   if (!isSuccessStatus(response.statusCode)) {
     response.destroy();
-    return { ok: false, reason: 'unavailable' };
+    return UNAVAILABLE;
   }
   const chunks: Buffer[] = [];
   let received = 0;
@@ -182,6 +197,11 @@ async function readLimited(response: IncomingMessage, maxBytes: number): Promise
     chunks.push(chunk);
   }
   return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+function readRedirectLocation(response: IncomingMessage): string | null {
+  const isRedirect = response.statusCode !== undefined && REDIRECT_STATUSES.includes(response.statusCode);
+  return isRedirect ? (response.headers.location ?? null) : null;
 }
 
 function isAllowedAttachmentUrl(url: URL, mediaHosts: string[]): boolean {

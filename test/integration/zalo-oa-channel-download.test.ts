@@ -80,6 +80,27 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     expect(lookedUp).toEqual(['photo.zdn.vn']);
   });
 
+  it('follows a redirect to another allowed path', async () => {
+    const photo = new Uint8Array(1000).fill(3);
+    const server = await startStubServer((request, response) =>
+      request.url === '/a.jpg' ? redirectTo('/b.jpg')(request, response) : serveBytes(photo)(request, response),
+    );
+
+    const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: true, bytes: photo });
+    expect(server.requestedPaths).toEqual(['/a.jpg', '/b.jpg']);
+  });
+
+  it('gives up after three redirects', async () => {
+    const server = await startStubServer(redirectTo('/again.jpg'));
+
+    const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: false, reason: 'unavailable' });
+    expect(server.requestedPaths).toHaveLength(4);
+  });
+
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
     const server = await startStubMediaServer(handler);
     servers.push(server);
