@@ -62,6 +62,20 @@ describe('the scheduling tools', () => {
     expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'message-1:1' }]);
   });
 
+  it('stores two tasks when one turn creates two', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const created = new CreatedTasks('message-1');
+
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, created);
+    await runTool(duy, 'create_scheduled_task', { ...DAILY_REPORT, title: 'Báo cáo tuần' }, created);
+
+    expect(await harness.database.query(`SELECT status, creation_key FROM scheduled_tasks ORDER BY creation_key`)).toEqual([
+      { status: 'active', creation_key: 'message-1:1' },
+      { status: 'active', creation_key: 'message-1:2' },
+    ]);
+  });
+
   it('lists only the active tasks the caller created in this workspace', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
