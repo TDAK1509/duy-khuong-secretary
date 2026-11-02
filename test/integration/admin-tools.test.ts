@@ -95,4 +95,17 @@ describe('the data tools of an admin', () => {
 
     expect(result.items.map((item) => item.category)).toEqual(['toll']);
   });
+
+  it('ignores Vietnamese accents in the text', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }],
+    });
+
+    const result = await runSearch({ text: 'long bien' });
+
+    expect(result.items).toHaveLength(1);
+  });
 });

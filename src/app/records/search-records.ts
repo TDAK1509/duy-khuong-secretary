@@ -54,6 +54,20 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
 }
 
 function buildTextCondition(where: WhereClause, text: string): string {
+  return `(${buildAccentFreeCondition(where, text)} OR ${buildCodeCondition(where, text)})`;
+}
+
+function buildAccentFreeCondition(where: WhereClause, text: string): string {
+  const accentFree = toAccentFreeForm(text);
+  if (accentFree === null) return 'false';
+  const bound = where.bind(accentFree);
+  const contains = (column: string) => `strpos(lower(unaccent(${column})), ${bound}) > 0`;
+  return `(${contains('record.summary')} OR EXISTS (
+    SELECT 1 FROM jsonb_array_elements(record.details) detail
+    WHERE ${contains(`detail ->> 'label'`)} OR ${contains(`detail ->> 'value'`)}))`;
+}
+
+function buildCodeCondition(where: WhereClause, text: string): string {
   const code = normalizeCode(text);
   if (code === null) return 'false';
   const bound = where.bind(code);
