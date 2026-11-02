@@ -69,7 +69,7 @@ describe('the inbound worker step', () => {
   it('records the sender Zalo account with the time of the message', async () => {
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64) }));
+    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64), photoStorage: null }));
 
     expect(await database.query('SELECT channel, account_id, external_user_id, last_inbound_at, user_id FROM channel_identities')).toEqual([
       {
@@ -86,7 +86,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T10:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T11:00:00+07:00' });
 
-    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64) }));
+    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64), photoStorage: null }));
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });
@@ -95,7 +95,7 @@ describe('the inbound worker step', () => {
     await insertIdentity('2026-11-02T11:00:00+07:00');
     await insertInboundEvent(database, { sentAt: '2026-11-02T10:00:00+07:00' });
 
-    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64) }));
+    await runStep(createInboundHandler({ channel: new FakeMessagingChannel(), clock, database: pool, encryptionKey: 'a'.repeat(64), photoStorage: null }));
 
     expect(await readLastInboundAt()).toEqual(new Date('2026-11-02T11:00:00+07:00'));
   });

@@ -7,6 +7,10 @@ export class FakePhotoStorage implements PhotoStorage {
     this.photos.set(key, photo);
   }
 
+  listKeys(): string[] {
+    return [...this.photos.keys()];
+  }
+
   async get(key: string): Promise<Photo | null> {
     return this.photos.get(key) ?? null;
   }

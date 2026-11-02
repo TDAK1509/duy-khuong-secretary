@@ -155,7 +155,10 @@ describe('POST /webhooks/zalo', () => {
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ ok: false });
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
-    expect(lines).toEqual(['[config] zalo-webhook is off; missing: ZALO_OA_SECRET.']);
+    expect(lines).toEqual([
+      '[config] zalo-webhook is off; missing: ZALO_OA_SECRET.',
+      '[config] photos is off; missing: PHOTO_STORAGE, S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.',
+    ]);
   });
 
   it('stores the sender, the text and the send time of a text event', async () => {

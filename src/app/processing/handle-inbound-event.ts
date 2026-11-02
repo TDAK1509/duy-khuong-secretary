@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { Reply } from '../delivery/reply.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
@@ -24,6 +25,7 @@ export type InboundHandlerDependencies = {
   clock: Clock;
   database: Database;
   encryptionKey: string;
+  photoStorage: PhotoStorage | null;
 };
 
 const textPayloadSchema = z.object({ text: z.string() });

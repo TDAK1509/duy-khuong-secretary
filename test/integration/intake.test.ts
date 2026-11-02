@@ -10,6 +10,7 @@ import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -17,12 +18,20 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
+const PHOTO_URL = 'https://z.test/1.jpg';
+
+function makeJpeg(size: number): Uint8Array {
+  const bytes = new Uint8Array(size).fill(1);
+  bytes.set([0xff, 0xd8, 0xff]);
+  return bytes;
+}
 
 describe('storing what a member sends', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
   let channel: FakeMessagingChannel;
+  let photoStorage: FakePhotoStorage;
   let alerts: OperatorAlerts;
   let workspaceId: string;
   let hungUserId: string;
@@ -32,6 +41,7 @@ describe('storing what a member sends', () => {
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
     channel = new FakeMessagingChannel();
+    photoStorage = new FakePhotoStorage();
     alerts = new OperatorAlerts(new FakeAlertSink(), clock);
     const tokens = makeTokenPair({ accessToken: 'a1' });
     await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW }, ENCRYPTION_KEY);
@@ -85,6 +95,20 @@ describe('storing what a member sends', () => {
     ]);
   });
 
+  it('stores a photo under the key of its message', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(200_000) });
+
+    await receivePhoto('zu-hung');
+
+    const messages = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
+    expect(photoStorage.listKeys()).toEqual([`${workspaceId}/${messages[0]?.id}.jpg`]);
+  });
+
+  async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
+    await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
+    await runInbound();
+  }
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInbound();
@@ -96,7 +120,7 @@ describe('storing what a member sends', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage }),
     });
   }
 

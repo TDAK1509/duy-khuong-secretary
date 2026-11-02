@@ -246,7 +246,7 @@ describe('switching between workspaces', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null }),
     });
   }
 
