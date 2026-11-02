@@ -52,6 +52,16 @@ describe('listChangedAppFiles', () => {
     expect(files).toEqual(['src/app/b.ts']);
   });
 
+  it('lists nothing when the branch changes no app file', () => {
+    const fixture = createFixtureWithMergedFiles({ 'src/app/a.ts': 'export const a = 1;\n' });
+    fixture.writeFile('README.md', 'notes\n');
+    fixture.commitAll('change the readme');
+
+    const files = listChangedAppFiles(fixture.directory, 'main');
+
+    expect(files).toEqual([]);
+  });
+
   function createFixtureWithMergedFiles(files: Record<string, string>): GitFixture {
     const fixture = createGitFixture();
     fixtures.push(fixture);
