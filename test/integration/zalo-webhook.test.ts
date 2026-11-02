@@ -5,7 +5,7 @@ import { assembleService } from '../../src/bootstrap/assemble-service.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { ZaloOaChannel } from '../../src/providers/messaging/zalo-oa-channel.ts';
-import { loadSignedFixture, signBody, TEST_APP_ID, TEST_OA_SECRET, type SignedFixture } from '../fixtures/zalo/zalo-fixtures.ts';
+import { loadSignedFixture, signBody, TEST_APP_ID, TEST_CHANNEL_SETTINGS, TEST_OA_SECRET, type SignedFixture } from '../fixtures/zalo/zalo-fixtures.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
@@ -223,7 +223,7 @@ describe('POST /webhooks/zalo', () => {
   }
 
   function postWebhook(fixture: SignedFixture, webhookPool: PostgresPool = pool) {
-    const channel = new ZaloOaChannel({ appId: TEST_APP_ID, oaSecret: TEST_OA_SECRET });
+    const channel = new ZaloOaChannel(TEST_CHANNEL_SETTINGS);
     const alerts = new OperatorAlerts(alertSink, new FakeClock(new Date('2026-11-02T10:00:00+07:00')));
     const server = buildServer(pool, null, { webhook: { channel, database: webhookPool, alerts } });
     return server.inject({ method: 'POST', url: '/webhooks/zalo', headers: fixture.headers, body: fixture.body });

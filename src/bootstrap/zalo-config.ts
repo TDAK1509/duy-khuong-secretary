@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 const ZALO_OAUTH_TIMEOUT_MS = 15_000;
+const DEFAULT_ZALO_API_TIMEOUT_MS = 15_000;
+const DEFAULT_OUTBOUND_MAX_PER_MINUTE = 90;
 
 const REQUIRED_NAMES = [
   'MESSAGING_PROVIDER',
@@ -17,6 +19,9 @@ const environmentSchema = z.object({
   CHANNEL_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex characters'),
   PUBLIC_BASE_URL: z.url(),
   ZALO_OAUTH_BASE_URL: z.url().default('https://oauth.zaloapp.com'),
+  ZALO_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
+  ZALO_TIMEOUT_MS: z.coerce.number().int().positive().default(DEFAULT_ZALO_API_TIMEOUT_MS),
+  OUTBOUND_MAX_PER_MINUTE: z.coerce.number().int().positive().default(DEFAULT_OUTBOUND_MAX_PER_MINUTE),
 });
 
 export type ZaloConfig = {
@@ -25,6 +30,9 @@ export type ZaloConfig = {
   appId: string;
   appSecret: string;
   oauthBaseUrl: string;
+  apiBaseUrl: string;
+  apiTimeoutMs: number;
+  outboundMaxPerMinute: number;
   encryptionKey: string;
   publicBaseUrl: string;
 };
@@ -45,6 +53,9 @@ export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult
       appId: settings.ZALO_APP_ID,
       appSecret: settings.ZALO_APP_SECRET,
       oauthBaseUrl: settings.ZALO_OAUTH_BASE_URL,
+      apiBaseUrl: settings.ZALO_API_BASE_URL,
+      apiTimeoutMs: settings.ZALO_TIMEOUT_MS,
+      outboundMaxPerMinute: settings.OUTBOUND_MAX_PER_MINUTE,
       encryptionKey: settings.CHANNEL_TOKEN_ENCRYPTION_KEY,
       publicBaseUrl: settings.PUBLIC_BASE_URL,
     },

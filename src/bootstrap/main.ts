@@ -1,15 +1,23 @@
-import { pauseBeforeNextPoll, startInboundWorker } from '../app/processing/inbound-worker.ts';
+import { pauseBeforeNextPoll, startQueueWorker } from '../app/processing/queue-worker.ts';
 import { assembleService } from './assemble-service.ts';
 
 const TICK_INTERVAL_MS = 60_000;
 const INBOUND_CONCURRENCY = 4;
+const OUTBOUND_CONCURRENCY = 1;
 const SHUTDOWN_WAIT_MS = 25_000;
 
 const service = assembleService(process.env);
 const ticker = setInterval(() => void tick(), TICK_INTERVAL_MS);
-const inboundWorker = startInboundWorker({
+const inboundWorker = startQueueWorker({
+  name: 'inbound',
   runStep: service.runInboundStep,
   concurrency: INBOUND_CONCURRENCY,
+  pause: pauseBeforeNextPoll,
+});
+const outboundWorker = startQueueWorker({
+  name: 'outbound',
+  runStep: service.runOutboundStep,
+  concurrency: OUTBOUND_CONCURRENCY,
   pause: pauseBeforeNextPoll,
 });
 
@@ -27,7 +35,7 @@ async function tick(): Promise<void> {
 
 async function shutDown(): Promise<void> {
   clearInterval(ticker);
-  await Promise.race([inboundWorker.stop(), waitFor(SHUTDOWN_WAIT_MS)]);
+  await Promise.race([Promise.all([inboundWorker.stop(), outboundWorker.stop()]), waitFor(SHUTDOWN_WAIT_MS)]);
   await service.server.close();
   await service.pool.end();
 }

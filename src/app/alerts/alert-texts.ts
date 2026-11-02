@@ -13,3 +13,15 @@ export function describeWebhookStoreFailed(errorName: string): string {
 export function describeInboundEventFailed(eventId: string, attempts: number, errorName: string): string {
   return `[alert] Inbound event ${eventId} failed after ${attempts} attempts: ${errorName}.`;
 }
+
+export function describeOutboundMessageFailed(outboundId: string, attempts: number): string {
+  return `[alert] Outbound message ${outboundId} failed after ${attempts} attempts.`;
+}
+
+export function describeSendGotNoAnswer(outboundId: string): string {
+  return `[alert] Zalo send got no answer for outbound message ${outboundId}. It will not be resent. Check the chat in OA Manager.`;
+}
+
+export function describeNoConnection(oaId: string): string {
+  return `[alert] No Zalo connection for OA ${oaId}. Run connect-zalo.`;
+}

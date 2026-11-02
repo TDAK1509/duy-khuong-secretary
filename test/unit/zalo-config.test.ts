@@ -16,7 +16,7 @@ describe('loadZaloConfig', () => {
     expect(result).toEqual({ ok: false, missing: ['ZALO_APP_ID', 'PUBLIC_BASE_URL'] });
   });
 
-  it('reads the values with the default OAuth base URL', () => {
+  it('reads the values with the default base URLs, timeout and send rate', () => {
     expect(loadZaloConfig(COMPLETE_ENVIRONMENT)).toEqual({
       ok: true,
       config: {
@@ -25,10 +25,33 @@ describe('loadZaloConfig', () => {
         appId: 'app-1',
         appSecret: 'sec-1',
         oauthBaseUrl: 'https://oauth.zaloapp.com',
+        apiBaseUrl: 'https://openapi.zalo.me',
+        apiTimeoutMs: 15_000,
+        outboundMaxPerMinute: 90,
         encryptionKey: 'a'.repeat(64),
         publicBaseUrl: 'https://x.test',
       },
     });
+  });
+
+  it('reads the Zalo API base URL, timeout and send rate from the environment', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      ZALO_API_BASE_URL: 'http://127.0.0.1:9000',
+      ZALO_TIMEOUT_MS: '2500',
+      OUTBOUND_MAX_PER_MINUTE: '1',
+    };
+
+    expect(loadZaloConfig(environment)).toMatchObject({
+      ok: true,
+      config: { apiBaseUrl: 'http://127.0.0.1:9000', apiTimeoutMs: 2500, outboundMaxPerMinute: 1 },
+    });
+  });
+
+  it('refuses a send rate that is not a positive whole number and names the value', () => {
+    expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, OUTBOUND_MAX_PER_MINUTE: '0' })).toThrow(
+      /OUTBOUND_MAX_PER_MINUTE/,
+    );
   });
 
   it('refuses an encryption key that is not 64 hex characters and names the value', () => {

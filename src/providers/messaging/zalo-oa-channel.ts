@@ -1,11 +1,23 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import type { ChannelRecipient, InboundEvent, MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { ChannelRecipient, InboundEvent, MessagingChannel, SendResult } from '../../services/messaging/messaging-channel.ts';
 
 const ZALO_CHANNEL = 'zalo-oa';
 const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
+const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
+const RATE_LIMIT_ERROR = -32;
+const SERVER_ERROR_STATUS = 500;
+
+const REQUEST_NEVER_SENT_CODES = [
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+];
 
 const attachmentSchema = z.object({
   type: z.string(),
@@ -24,6 +36,8 @@ const eventSchema = z.object({
   }),
 });
 
+const sendAnswerSchema = z.object({ error: z.number() });
+
 const envelopeSchema = z.object({
   app_id: z.string(),
   timestamp: z.union([z.string(), z.number()]).transform(String),
@@ -33,7 +47,7 @@ type ZaloEvent = z.infer<typeof eventSchema>;
 
 const IGNORED_EVENT: InboundEvent = { kind: 'ignored' };
 
-export type ZaloOaChannelSettings = { appId: string; oaSecret: string };
+export type ZaloOaChannelSettings = { appId: string; oaSecret: string; apiBaseUrl: string; timeoutMs: number };
 
 export class ZaloOaChannel implements MessagingChannel {
   readonly channel = ZALO_CHANNEL;
@@ -57,10 +71,42 @@ export class ZaloOaChannel implements MessagingChannel {
     return event === null ? IGNORED_EVENT : toInboundEvent(event);
   }
 
+  async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
+    try {
+      const response = await fetch(new URL(SEND_TEXT_PATH, this.settings.apiBaseUrl), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', access_token: credential },
+        body: JSON.stringify({ recipient: { user_id: to.externalUserId }, message: { text } }),
+        signal: AbortSignal.timeout(this.settings.timeoutMs),
+      });
+      return await readSendResult(response);
+    } catch (error) {
+      return { ok: false, reason: wasNeverSent(error) ? 'unavailable' : 'no_answer' };
+    }
+  }
+
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+async function readSendResult(response: Response): Promise<SendResult> {
+  if (response.status < SERVER_ERROR_STATUS) return toSendResult(await response.json());
+  await response.body?.cancel();
+  return { ok: false, reason: 'no_answer' };
+}
+
+function toSendResult(answer: unknown): SendResult {
+  const { error } = sendAnswerSchema.parse(answer);
+  if (error === 0) return { ok: true };
+  return { ok: false, reason: error === RATE_LIMIT_ERROR ? 'rate_limited' : 'rejected' };
+}
+
+function wasNeverSent(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : null;
+  const code = cause instanceof Error && 'code' in cause ? cause.code : null;
+  return typeof code === 'string' && REQUEST_NEVER_SENT_CODES.includes(code);
 }
 
 function isSameText(first: string, second: string): boolean {

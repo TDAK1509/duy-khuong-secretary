@@ -12,7 +12,7 @@ import { LogAlertSink } from '../providers/alerts/log-alert-sink.ts';
 import { WebhookAlertSink } from '../providers/alerts/webhook-alert-sink.ts';
 import type { AlertConfig, Config } from './config.ts';
 import type { ReaderConfig, ReaderSlotConfig } from './reader-config.ts';
-import type { ZaloConfig, ZaloWebhookConfig } from './zalo-config.ts';
+import type { ZaloConfig } from './zalo-config.ts';
 
 export type Providers = {
   pool: PostgresPool;
@@ -48,10 +48,15 @@ export function buildChannelAuth(config: ZaloConfig, clock: Clock): ChannelAuth 
   }
 }
 
-export function buildMessagingChannel(config: ZaloWebhookConfig): MessagingChannel {
+export function buildMessagingChannel(config: ZaloConfig, oaSecret: string): MessagingChannel {
   switch (config.provider) {
     case 'zalo-oa':
-      return new ZaloOaChannel({ appId: config.appId, oaSecret: config.oaSecret });
+      return new ZaloOaChannel({
+        appId: config.appId,
+        oaSecret,
+        apiBaseUrl: config.apiBaseUrl,
+        timeoutMs: config.apiTimeoutMs,
+      });
   }
 }
 
