@@ -22,6 +22,14 @@ describe('ZaloOaChannel.downloadAttachment against a stub media server', () => {
     expect(result).toEqual({ ok: true, bytes: photo });
   });
 
+  it('stops a download that passes the limit', async () => {
+    const server = await startStubServer(serveBytes(new Uint8Array(6_000_000)));
+
+    const result = await downloadFromAllowedHost(server, '/a.jpg', FIVE_MEGABYTES);
+
+    expect(result).toEqual({ ok: false, reason: 'too_large' });
+  });
+
   async function startStubServer(handler: MediaHandler): Promise<StubMediaServer> {
     const server = await startStubMediaServer(handler);
     servers.push(server);
