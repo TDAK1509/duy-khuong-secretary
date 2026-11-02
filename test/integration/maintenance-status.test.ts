@@ -235,4 +235,12 @@ describe('the maintenance status tool of an admin', () => {
       },
     ]);
   });
+
+  it('refuses a member', async () => {
+    const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+
+    const output = await runStatusOutput({}, memberScope);
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+  });
 });
