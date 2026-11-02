@@ -157,6 +157,24 @@ describe('POST /webhooks/zalo', () => {
     ]);
   });
 
+  it('checks the signature against the exact bytes it received', async () => {
+    await connectOa('oa-1');
+    const { body } = loadSignedFixture('text-event');
+    const spacedBody = `${JSON.stringify(JSON.parse(body), null, 2).replaceAll('à', '\\u00e0')}\n`;
+
+    const response = await postWebhook(signBody(spacedBody));
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('refuses a body larger than 1 MB', async () => {
+    const { headers } = loadSignedFixture('text-event');
+
+    const response = await postWebhook({ body: 'x'.repeat(1_048_577), headers });
+
+    expect(response.statusCode).toBe(413);
+  });
+
   async function connectOa(accountId: string): Promise<void> {
     const connection = { channel: 'zalo-oa' as const, accountId, tokens: makeTokenPair(), storedAt: new Date() };
     await storeConnection(pool, connection, 'a'.repeat(64));

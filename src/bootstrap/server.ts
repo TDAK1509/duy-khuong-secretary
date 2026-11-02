@@ -12,6 +12,8 @@ import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zal
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
 
+const WEBHOOK_BODY_LIMIT_BYTES = 1024 * 1024;
+
 export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
@@ -45,7 +47,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
 function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
-    scope.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
+    scope.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit: WEBHOOK_BODY_LIMIT_BYTES }, (_request, body, done) => done(null, body));
     scope.post('/webhooks/zalo', async (request, reply) => {
       const rawBody = Buffer.isBuffer(request.body) ? request.body.toString('utf8') : '';
       const response = await handleZaloWebhook(webhook, { rawBody, headers: readHeaders(request.headers) });
