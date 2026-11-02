@@ -63,6 +63,17 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('saves with its own marker when the strong pair agrees', async () => {
+    const [firstCheap, secondCheap] = harness.readers.cheap;
+    firstCheap.answerWith(makeReading([makeFuelItem()]));
+    secondCheap.answerWith(makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })]));
+    answerPair(harness.readers.strong, makeReading([makeFuelItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT read_by FROM records')).toEqual([{ read_by: 'expensive_pair' }]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
