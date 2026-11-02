@@ -27,11 +27,20 @@ export async function runOutboundStep(dependencies: OutboundDependencies): Promi
 }
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
+  if (!(await isAdminStillMember(dependencies.database, message))) {
+    return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: 'membership_changed' } });
+  }
   const { database, clock, channel, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
   const result = await channel.sendText(message.to, message.body, accessKey);
   await recordSendResult(dependencies, message, result);
+}
+
+async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {
+  if (message.adminMembershipId === null) return true;
+  const { rows } = await database.query('SELECT 1 FROM memberships WHERE id = $1', [message.adminMembershipId]);
+  return rows.length !== 0;
 }
 
 async function markLostSendsUnknown({ database, clock, alerts }: OutboundDependencies): Promise<void> {

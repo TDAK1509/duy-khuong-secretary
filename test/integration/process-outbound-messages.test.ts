@@ -210,6 +210,29 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('fails admin-only content once the admin membership is gone', async () => {
+    await connectOa('oa-1', 'a1');
+    const membershipId = await insertMembership();
+    await database.query(`DELETE FROM memberships WHERE id = '${membershipId}'`);
+    const id = await insertOutboundMessage(database, { adminMembershipId: membershipId });
+
+    await runStep();
+
+    expect(channel.texts).toEqual([]);
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'membership_changed' });
+    expect(alertSink.texts).toEqual([]);
+  });
+
+  async function insertMembership(): Promise<string> {
+    const [workspace] = await database.query<{ id: string }>(`INSERT INTO workspaces (name) VALUES ('W') RETURNING id`);
+    const [user] = await database.query<{ id: string }>('INSERT INTO users DEFAULT VALUES RETURNING id');
+    const [membership] = await database.query<{ id: string }>(
+      `INSERT INTO memberships (workspace_id, user_id, role, display_name)
+       VALUES ('${workspace?.id}', '${user?.id}', 'admin', 'Duy') RETURNING id`,
+    );
+    return membership?.id ?? '';
+  }
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
