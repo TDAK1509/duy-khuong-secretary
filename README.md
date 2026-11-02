@@ -23,6 +23,17 @@ curl -i http://localhost:3000/health
 
 `GET /health` answers `200 {"ok":true,"commit":"<sha>"}` when the database answers, and `503 {"ok":false,"commit":"<sha>"}` when it does not. `commit` is `GIT_COMMIT`, else `RENDER_GIT_COMMIT`, else `null`.
 
+## Create a workspace
+
+The operator creates a workspace and the invite code of its first admin with one command (needs `DATABASE_URL`, and the migrations applied):
+
+```sh
+npm run build
+DATABASE_URL=postgres://app_owner:app_owner@localhost:5432/secretary node dist/bootstrap/create-workspace.js "Xe tải Duy Khương" "Duy"
+```
+
+It prints `Workspace "<name>" created: <id>` and `First admin invite for <admin>: MOI-XXXXXX (valid until HH:mm dd/MM/yyyy)`. The code works once and for 7 days. Only its SHA-256 hash is stored, so the printed code is the only copy. Every run creates a new workspace. A name that is empty after trimming prints `Invalid workspace name.` or `Invalid admin name.` (exit 1) and creates nothing. On Render, run the same command in the service shell as `node dist/bootstrap/create-workspace.js "<workspace>" "<admin>"`.
+
 ## Migrations
 
 Run them by hand against the local database:
