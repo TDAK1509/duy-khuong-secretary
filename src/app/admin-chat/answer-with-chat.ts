@@ -14,6 +14,8 @@ import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
+import { DraftProposals, type DraftProposal } from './draft-proposals.ts';
+import { loadDraftCard } from '../schedules/draft-card.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
@@ -25,7 +27,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[] };
+type Answer = { text: string; photos: AttachablePhoto[]; draft: DraftProposal | null };
 
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
@@ -36,9 +38,9 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
     tools: ADMIN_TOOLS,
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const dependencies = { database, clock, attachments: new PhotoAttachments() };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), drafts: new DraftProposals() };
   const text = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text, photos: dependencies.attachments.list() };
+  return { text, photos: dependencies.attachments.list(), draft: dependencies.drafts.findLatest() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -55,12 +57,19 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
   if (!(await isStillSameAdmin(transaction, sender.membershipId))) return;
-  await storeBotReply(transaction, messageId, { text: answer.text, kind: 'answer' });
+  const text = await appendDraftCard(transaction, context, answer);
+  await storeBotReply(transaction, messageId, { text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, answer.text, sender.membershipId);
+  await enqueueReply(transaction, context, text, sender.membershipId);
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
+}
+
+async function appendDraftCard(transaction: Transaction, context: IntakeContext, answer: Answer): Promise<string> {
+  if (answer.draft === null) return answer.text;
+  const card = await loadDraftCard(transaction, answer.draft.taskId, context.sender, context.dependencies.clock.now());
+  return card === null ? answer.text : `${answer.text}\n\n${card}`;
 }
 
 async function isStillSameAdmin(transaction: Transaction, membershipId: string): Promise<boolean> {

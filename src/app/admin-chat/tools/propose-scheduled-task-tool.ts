@@ -17,13 +17,14 @@ const argumentsSchema = z.object({
 });
 
 export async function runProposeScheduledTask(
-  { database, clock }: AdminToolDependencies,
+  { database, clock, drafts }: AdminToolDependencies,
   scope: AccessScope,
   parsedArguments: unknown,
 ): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const schedule = { repeat: 'daily' as const, timeOfDay: args.time_of_day ?? '' };
-  await storeDraft(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, title: args.title, instruction: args.instruction, schedule });
+  const taskId = await storeDraft(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, title: args.title, instruction: args.instruction, schedule });
+  drafts.record({ taskId });
   const firstRun = computeNextRun(schedule, clock.now());
   return JSON.stringify({ ok: true, draft: true, schedule: formatSchedule(schedule), first_run: formatVietnamDateTime(firstRun) });
 }

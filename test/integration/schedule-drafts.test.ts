@@ -57,6 +57,10 @@ describe('an admin drafts a scheduled task by chat', () => {
     harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(reply)));
   }
 
+  function sentTexts(): string[][] {
+    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
+  }
+
   function findToolResult(): string {
     const turns = harness.chat.requests[1]?.turns ?? [];
     const result = turns.find((turn) => turn.role === 'tool_result');
@@ -82,5 +86,29 @@ describe('an admin drafts a scheduled task by chat', () => {
     await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
 
     expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"18:00 hằng ngày","first_run":"18:00 31/10/2026"}');
+  });
+
+  it('ends the answer with the card of the draft', async () => {
+    proposeThenReply({});
+
+    await harness.receiveText('zu-duy', 'Mỗi ngày 18 giờ gửi tôi báo cáo');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      [
+        'zu-duy',
+        [
+          CHECK_THE_DRAFT_TEXT,
+          '',
+          'Lịch mới: Báo cáo hằng ngày',
+          'Chạy: 18:00 hằng ngày',
+          'Lần chạy đầu: 18:00 31/10/2026',
+          'Việc cần làm:',
+          'Lập báo cáo.',
+          'Lịch này chưa được lưu.',
+          'Trả lời 1 để Lưu lịch "Báo cáo hằng ngày", 2 để Hủy.',
+        ].join('\n'),
+      ],
+    ]);
   });
 });
