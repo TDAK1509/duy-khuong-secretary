@@ -251,4 +251,15 @@ describe('an admin drafts a scheduled task by chat', () => {
 
     expect(harness.chat.requests[0]?.system).toContain('Lịch tự động:');
   });
+
+  it('stores a weekly draft and tells the model its weekday and first run', async () => {
+    proposeThenReply({ repeat: 'weekly', weekday: 1, time_of_day: '07:00' });
+
+    await harness.receiveText('zu-duy', 'Thứ Hai hằng tuần 7 giờ gửi tôi báo cáo');
+
+    expect(await database.query('SELECT repeat, weekday, day_of_month FROM scheduled_tasks')).toEqual([
+      { repeat: 'weekly', weekday: 1, day_of_month: null },
+    ]);
+    expect(findToolResult()).toBe('{"ok":true,"draft":true,"schedule":"07:00 Thứ Hai hằng tuần","first_run":"07:00 02/11/2026"}');
+  });
 });
