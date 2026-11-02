@@ -36,7 +36,7 @@ const eventSchema = z.object({
   }),
 });
 
-const sendAnswerSchema = z.object({ error: z.coerce.number() });
+const sendAnswerSchema = z.object({ error: z.number() });
 
 const envelopeSchema = z.object({
   app_id: z.string(),

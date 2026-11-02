@@ -75,6 +75,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: false, reason: 'no_answer' });
   });
 
+  it('turns an answer without a real error number into no answer', async () => {
+    const server = await startStubServer(replyWithJson({ error: null }));
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'no_answer' });
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
