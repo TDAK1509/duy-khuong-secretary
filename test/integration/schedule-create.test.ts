@@ -152,6 +152,25 @@ describe('an admin creates a scheduled task by chat', () => {
     expect(line).toBe(`Việc cần làm: ${instruction.slice(0, 200)}…`);
   });
 
+  it('gives one summary per task in creation order, separated by a blank line', async () => {
+    const calls = ['Báo cáo hằng ngày', 'Báo cáo tuần'].map((title, index) => ({
+      id: `call_${index + 1}`,
+      name: 'create_scheduled_task',
+      argumentsJson: JSON.stringify({ ...DAILY_REPORT, title }),
+    }));
+    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(...calls) : replyWithText(SAVED_TEXT)));
+
+    await harness.receiveText('zu-duy', 'Đặt hai lịch báo cáo');
+    await harness.sendQueuedTexts();
+
+    const paragraphs = sentTexts()[0]?.[1]?.split('\n\n') ?? [];
+    expect(paragraphs.map((paragraph) => paragraph.split('\n')[0])).toEqual([
+      SAVED_TEXT,
+      'Đã đặt lịch "Báo cáo hằng ngày".',
+      'Đã đặt lịch "Báo cáo tuần".',
+    ]);
+  });
+
   it('refuses a one-time task in the past', async () => {
     createThenReply({ repeat: 'once', run_once_at: '2026-10-30 09:00', time_of_day: null });
 
