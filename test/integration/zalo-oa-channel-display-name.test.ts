@@ -34,6 +34,22 @@ describe('ZaloOaChannel.getDisplayName against a stub Zalo API', () => {
     expect(name).toBeNull();
   });
 
+  it('gives no name when the HTTP status is an error even though the body holds a name', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0, data: { display_name: 'Hung Nguyen' } }, 500));
+
+    const name = await readNameFromChannel(server.baseUrl);
+
+    expect(name).toBeNull();
+  });
+
+  it('gives no name when Zalo reports an error even though the body holds a name', async () => {
+    const server = await startStubServer(replyWithJson({ error: -201, message: 'user not found', data: { display_name: 'Hung Nguyen' } }));
+
+    const name = await readNameFromChannel(server.baseUrl);
+
+    expect(name).toBeNull();
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);

@@ -39,7 +39,7 @@ const eventSchema = z.object({
 
 const sendAnswerSchema = z.object({ error: z.number() });
 
-const userDetailSchema = z.object({ data: z.object({ display_name: z.string() }) });
+const userDetailSchema = z.object({ error: z.literal(0), data: z.object({ display_name: z.string() }) });
 
 const envelopeSchema = z.object({
   app_id: z.string(),
@@ -94,6 +94,7 @@ export class ZaloOaChannel implements MessagingChannel {
         headers: { access_token: credential },
         signal: AbortSignal.timeout(this.settings.timeoutMs),
       });
+      if (!response.ok) return await discardBody(response);
       const answer = userDetailSchema.safeParse(await response.json());
       return answer.success ? answer.data.data.display_name : null;
     } catch {
@@ -111,6 +112,11 @@ function buildUserDetailUrl(apiBaseUrl: string, user: ChannelRecipient): URL {
   const url = new URL(USER_DETAIL_PATH, apiBaseUrl);
   url.searchParams.set('data', JSON.stringify({ user_id: user.externalUserId }));
   return url;
+}
+
+async function discardBody(response: Response): Promise<null> {
+  await response.body?.cancel();
+  return null;
 }
 
 async function readSendResult(response: Response): Promise<SendResult> {
