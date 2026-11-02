@@ -184,6 +184,16 @@ describe('storing what a member sends', () => {
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
   });
 
+  it('asks for a photo again when it cannot be downloaded', async () => {
+    channel.attachments.set(PHOTO_URL, { ok: false, reason: 'unavailable' });
+
+    await receivePhoto('zu-hung');
+    await sendQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Trợ lý chưa tải được ảnh này. Bạn gửi lại ảnh nhé.']);
+    expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+  });
+
   async function receivePhoto(externalUserId: string, caption: string | null = null): Promise<void> {
     await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
     await runInbound();
