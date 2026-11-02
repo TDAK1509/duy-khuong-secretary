@@ -18,6 +18,7 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
   const saved = saveAgreedReading(...decision.agreed);
   if (!saved.has_work_data || saved.items.length === 0) return planUploadOnlyReply();
   const records = buildNewRecords(saved.items);
+  if (records.some(isMaintenanceWithoutName)) return planUnresolvedReply();
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
   return {
     replyText: formatSavedReply(records),
@@ -25,6 +26,10 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
     status: 'accepted',
     saved: { readBy: decision.outcome, records },
   };
+}
+
+function isMaintenanceWithoutName(record: NewRecord): boolean {
+  return record.category === 'maintenance' && record.maintenanceItem === null;
 }
 
 function isMaintenanceWithoutPlate(record: NewRecord): boolean {

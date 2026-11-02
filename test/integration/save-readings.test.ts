@@ -413,6 +413,18 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
+  it('asks the sender to send again when a maintenance item has no name', async () => {
+    const unnamed = makeItem({ category: 'maintenance', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([unnamed]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
+      { submission_status: 'unresolved' },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
