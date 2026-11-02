@@ -8,10 +8,13 @@ export function makeArchitectureConfig(rootDir) {
     makeParserConfig(),
     {
       files: ['src/services/**/*.ts'],
-      rules: restrictPaths(rootDir, [
-        { target: './src/services', from: './src/app' },
-        { target: './src/services', from: './src/providers' },
-      ]),
+      rules: {
+        ...restrictPaths(rootDir, [
+          { target: './src/services', from: './src/app' },
+          { target: './src/services', from: './src/providers' },
+        ]),
+        ...restrictVendorPackages(),
+      },
     },
   ];
 }
@@ -29,4 +32,23 @@ function makeParserConfig() {
 /** @returns {import('eslint').Linter.RulesRecord} */
 function restrictPaths(rootDir, zones) {
   return { 'import-x/no-restricted-paths': ['error', { basePath: rootDir, zones }] };
+}
+
+const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
+
+/** @returns {import('eslint').Linter.RulesRecord} */
+function restrictVendorPackages() {
+  return {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: VENDOR_PACKAGES,
+            message: 'Vendor packages are imported only in src/providers and src/bootstrap.',
+          },
+        ],
+      },
+    ],
+  };
 }

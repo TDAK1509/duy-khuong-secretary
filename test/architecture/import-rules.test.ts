@@ -15,4 +15,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain('../providers/chat/openai-compatible-chat.ts');
   });
+
+  it('rejects an import from services to a vendor package', async () => {
+    const messages = await lintFixture('services-import-vendor', 'src/services/database-service.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("'pg'");
+  });
 });
