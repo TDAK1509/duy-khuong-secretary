@@ -9,6 +9,7 @@ import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertOutboundMessage, type OutboundRow } from './outbound-message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -22,6 +23,7 @@ describe('the outbound worker step', () => {
   let clock: FakeClock;
   let alertSink: FakeAlertSink;
   let channel: FakeMessagingChannel;
+  let photoStorage: FakePhotoStorage;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
@@ -29,6 +31,7 @@ describe('the outbound worker step', () => {
     clock = new FakeClock(NOW);
     alertSink = new FakeAlertSink();
     channel = new FakeMessagingChannel();
+    photoStorage = new FakePhotoStorage();
   });
 
   afterEach(async () => {
@@ -210,6 +213,16 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('fails an image whose photo is missing from the storage', async () => {
+    await connectOa('oa-1', 'a1');
+    const id = await insertOutboundMessage(database, { photoKey: 'w/gone.jpg' });
+
+    await runStep();
+
+    expect(channel.sends).toEqual([]);
+    expect(await readMessage(id)).toMatchObject({ status: 'failed', last_error: 'photo_missing' });
+  });
+
   it('fails admin-only content once the admin membership is gone', async () => {
     await connectOa('oa-1', 'a1');
     const membershipId = await insertMembership();
@@ -291,6 +304,6 @@ describe('the outbound worker step', () => {
 
   function runStep(maxPerMinute = 90): Promise<'processed' | 'idle'> {
     const alerts = new OperatorAlerts(alertSink, clock);
-    return runOutboundStep({ database: pool, clock, alerts, channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
+    return runOutboundStep({ database: pool, clock, alerts, channel, photoStorage, encryptionKey: ENCRYPTION_KEY, maxPerMinute });
   }
 });

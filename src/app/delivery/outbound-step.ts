@@ -1,5 +1,5 @@
 import type { ChannelRecipient, MessagingChannel, SendResult } from '../../services/messaging/messaging-channel.ts';
-import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
+import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import { describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
@@ -42,26 +42,30 @@ async function markLostSendsUnknown({ database, clock, alerts }: OutboundDepende
 }
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  if (!(await isAdminStillMember(dependencies.database, message))) {
-    return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: 'membership_changed' } });
-  }
+  if (!(await isAdminStillMember(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
+  const payload = await loadPayload(dependencies.photoStorage, message.content);
+  if (payload === null) return failMessage(dependencies, message, 'photo_missing');
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
-  const result = await sendContent(dependencies, message.to, message.content, accessKey);
+  const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result);
 }
 
-async function sendContent(
-  { channel, photoStorage }: OutboundDependencies,
-  to: ChannelRecipient,
-  content: MessageContent,
-  accessKey: string,
-): Promise<SendResult> {
-  if (content.kind === 'text') return channel.sendText(to, content.body, accessKey);
+function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage, reason: string): Promise<void> {
+  return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: reason } });
+}
+
+type Payload = { kind: 'text'; body: string } | { kind: 'image'; photo: Photo };
+
+async function loadPayload(photoStorage: PhotoStorage | null, content: MessageContent): Promise<Payload | null> {
+  if (content.kind === 'text') return content;
   const photo = await photoStorage?.get(content.photoKey);
-  if (!photo) throw new Error(`the photo ${content.photoKey} is missing`);
-  return channel.sendImage(to, photo, accessKey);
+  return photo ? { kind: 'image', photo } : null;
+}
+
+function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: Payload, accessKey: string): Promise<SendResult> {
+  return payload.kind === 'text' ? channel.sendText(to, payload.body, accessKey) : channel.sendImage(to, payload.photo, accessKey);
 }
 
 async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {
