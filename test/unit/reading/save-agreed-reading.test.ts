@@ -11,4 +11,13 @@ describe('saveAgreedReading', () => {
 
     expect(saved.items[0]?.details).toEqual([{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }]);
   });
+
+  it('drops a detail only one reader returned', () => {
+    const first = makeReading([makeItem({ details: [{ label: 'Số lít', value: '50' }] })]);
+    const second = makeReading([makeItem({ details: [] })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.details).toEqual([]);
+  });
 });
