@@ -29,6 +29,19 @@ describe('the migration runner building indexes', () => {
       .toEqual([{ indisvalid: true }]);
   });
 
+  it('rebuilds an invalid index left by a failed build', async () => {
+    await leaveInvalidIndex(database);
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      { directory: concurrentIndex, log: () => {} },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = 't_idx'::regclass`))
+      .toEqual([{ indisvalid: true }]);
+  });
+
   it('gives a migration outside a transaction ten minutes per statement', async () => {
     await runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
@@ -40,3 +53,10 @@ describe('the migration runner building indexes', () => {
     ]);
   });
 });
+
+async function leaveInvalidIndex(database: TemporaryDatabase): Promise<void> {
+  await database.query('INSERT INTO t VALUES (1), (1)');
+  await expect(database.query('CREATE UNIQUE INDEX CONCURRENTLY t_idx ON t (x)')).rejects.toThrow();
+  expect(await database.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = 't_idx'::regclass`))
+    .toEqual([{ indisvalid: false }]);
+}

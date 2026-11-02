@@ -7,6 +7,7 @@ const LOCK_NOT_AVAILABLE = '55P03';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
 const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
+const INDEX_BUILD = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."]+)/gi;
 const BUILD_STATEMENT_TIMEOUT = "SET statement_timeout = '10min'";
 const RESET_STATEMENT_TIMEOUT = 'RESET statement_timeout';
 const TRANSACTION_TIMEOUTS = [
@@ -114,11 +115,11 @@ const loadGuardedMigrations: MigrationLoader = (filePaths) =>
 
 type Recording = { statements: string[]; usesTransaction: boolean };
 
-function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => void {
-  return (pgm) => {
+function guardMigration(up: AppMigration['up']): (pgm: MigrationBuilder) => Promise<void> {
+  return async (pgm) => {
     const { statements, usesTransaction } = record(up);
     if (usesTransaction) guardTransaction(pgm, statements);
-    else guardBuild(pgm, statements);
+    else await guardBuild(pgm, statements);
   };
 }
 
@@ -127,8 +128,9 @@ function guardTransaction(pgm: MigrationBuilder, statements: string[]): void {
   statements.forEach((statement) => pgm.sql(statement));
 }
 
-function guardBuild(pgm: MigrationBuilder, statements: string[]): void {
+async function guardBuild(pgm: MigrationBuilder, statements: string[]): Promise<void> {
   pgm.noTransaction();
+  await dropInvalidIndexes(pgm.db, statements);
   pgm.sql(BUILD_STATEMENT_TIMEOUT);
   statements.forEach((statement) => pgm.sql(statement));
   pgm.sql(RESET_STATEMENT_TIMEOUT);
@@ -143,4 +145,29 @@ function record(up: AppMigration['up']): Recording {
     },
   });
   return recording;
+}
+
+async function dropInvalidIndexes(db: MigrationBuilder['db'], statements: string[]): Promise<void> {
+  for (const indexName of listBuiltIndexNames(statements)) {
+    if (await isInvalidIndex(db, indexName)) await dropIndex(db, indexName);
+  }
+}
+
+async function dropIndex(db: MigrationBuilder['db'], indexName: string): Promise<void> {
+  await db.query(BUILD_STATEMENT_TIMEOUT);
+  await db.query(`DROP INDEX CONCURRENTLY ${indexName}`);
+}
+
+function listBuiltIndexNames(statements: string[]): string[] {
+  return statements.flatMap((statement) =>
+    [...statement.matchAll(INDEX_BUILD)].map((match) => match[1] ?? ''),
+  );
+}
+
+async function isInvalidIndex(db: MigrationBuilder['db'], indexName: string): Promise<boolean> {
+  const rows = await db.select(
+    'SELECT NOT indisvalid AS is_invalid FROM pg_index WHERE indexrelid = to_regclass($1)',
+    [indexName],
+  );
+  return rows[0]?.is_invalid === true;
 }
