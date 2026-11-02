@@ -57,8 +57,9 @@ export class ZaloOaAuth implements ChannelAuth {
     };
   }
 
-  async refresh(): Promise<AuthResult> {
-    throw new Error('not implemented');
+  async refresh(refreshToken: string): Promise<AuthResult> {
+    const response = await this.postForm({ refresh_token: refreshToken, grant_type: 'refresh_token' });
+    return this.readTokens(await response.json());
   }
 
   private postForm(fields: Record<string, string>): Promise<Response> {

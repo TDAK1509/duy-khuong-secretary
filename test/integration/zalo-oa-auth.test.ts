@@ -45,6 +45,20 @@ describe('ZaloOaAuth against a stub Zalo OAuth server', () => {
     });
   });
 
+  it('sends the renewal key when it renews', async () => {
+    const { auth, server } = await startAuth(VALID_TOKEN_ANSWER);
+
+    await auth.refresh('r1');
+
+    const [request] = server.requests;
+    expect(request?.headers['secret_key']).toBe('sec-1');
+    expect(Object.fromEntries(new URLSearchParams(request?.body))).toEqual({
+      app_id: 'app-1',
+      refresh_token: 'r1',
+      grant_type: 'refresh_token',
+    });
+  });
+
   async function startAuth(answer: StubAnswer): Promise<{ auth: ZaloOaAuth; server: StubHttpServer }> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
