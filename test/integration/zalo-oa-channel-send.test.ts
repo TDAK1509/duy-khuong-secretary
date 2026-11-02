@@ -42,6 +42,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: false, reason: 'rate_limited' });
   });
 
+  it('turns another Zalo error into rejected', async () => {
+    const server = await startStubServer(replyWithJson({ error: -213, message: 'User has not interacted' }));
+
+    const result = await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(result).toEqual({ ok: false, reason: 'rejected' });
+  });
+
   async function startStubServer(answer: StubAnswer): Promise<StubHttpServer> {
     const server = await startStubHttpServer(answer);
     servers.push(server);
