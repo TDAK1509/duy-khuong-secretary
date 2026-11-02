@@ -190,6 +190,14 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('saves the data of a member who also asks a question', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()], { has_question: true }));
+
+    await harness.receivePhoto('zu-hung', 'Lưu giúp tôi, còn bao nhiêu tiền?');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
