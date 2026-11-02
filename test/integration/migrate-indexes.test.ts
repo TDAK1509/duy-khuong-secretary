@@ -42,6 +42,22 @@ describe('the migration runner building indexes', () => {
       .toEqual([{ indisvalid: true }]);
   });
 
+  it('never drops a valid index', async () => {
+    await database.query('CREATE INDEX t_idx ON t (x)');
+    const before = await database.query(`SELECT 't_idx'::regclass::oid AS oid`);
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: new URL('./migration-fixtures/concurrent-index-if-absent/', import.meta.url),
+        log: () => {},
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(await database.query(`SELECT 't_idx'::regclass::oid AS oid`)).toEqual(before);
+  });
+
   it('gives a migration outside a transaction ten minutes per statement', async () => {
     await runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
