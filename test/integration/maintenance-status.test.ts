@@ -102,4 +102,14 @@ describe('the maintenance status tool of an admin', () => {
 
     expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'dầu máy'], ['29C12345', 'lốp']]);
   });
+
+  it('filters by plate, ignoring punctuation and case', async () => {
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', maintenanceItem: 'dầu máy' };
+    await insertRecordRow(database, { ...maintenance, vehiclePlate: '29C12345' });
+    await insertRecordRow(database, { ...maintenance, vehiclePlate: '51D67890' });
+
+    const result = await runStatus({ plate: '29c-123.45' });
+
+    expect(result.items.map((row) => row.plate)).toEqual(['29C12345']);
+  });
 });

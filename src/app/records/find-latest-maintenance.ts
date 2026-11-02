@@ -1,16 +1,36 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
+import { normalizeCode } from '../reading/normalize.ts';
+import { WhereClause } from './where-clause.ts';
+
+export type MaintenanceFilters = { plate: string | null };
 
 export type LatestMaintenance = { plate: string; maintenance_item: string; sent_by: string; sent_on: string };
 
 const SELECT_LATEST_PER_TRUCK_PART = `SELECT DISTINCT ON (record.vehicle_plate, record.maintenance_item)
     record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,
     to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') AS sent_on
-  FROM records record
-  WHERE record.workspace_id = $1 AND record.category = 'maintenance'
-  ORDER BY record.vehicle_plate, record.maintenance_item, record.created_at DESC, record.id DESC`;
+  FROM records record`;
 
-export async function findLatestMaintenance(database: Database, scope: AccessScope): Promise<LatestMaintenance[]> {
-  const { rows } = await database.query<LatestMaintenance>(SELECT_LATEST_PER_TRUCK_PART, [scope.workspaceId]);
+const NEWEST_FIRST_PER_TRUCK_PART = `ORDER BY record.vehicle_plate, record.maintenance_item, record.created_at DESC, record.id DESC`;
+
+export async function findLatestMaintenance(
+  database: Database,
+  scope: AccessScope,
+  filters: MaintenanceFilters,
+): Promise<LatestMaintenance[]> {
+  const where = buildWhere(scope, filters);
+  const { rows } = await database.query<LatestMaintenance>(
+    `${SELECT_LATEST_PER_TRUCK_PART} WHERE ${where.toSql()} ${NEWEST_FIRST_PER_TRUCK_PART}`,
+    where.values,
+  );
   return rows;
+}
+
+function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClause {
+  const where = new WhereClause();
+  where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
+  where.require(`record.category = 'maintenance'`);
+  if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
+  return where;
 }

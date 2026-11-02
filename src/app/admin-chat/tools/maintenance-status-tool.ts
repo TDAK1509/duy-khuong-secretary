@@ -10,7 +10,7 @@ const argumentsSchema = z.object({
 });
 
 export async function runMaintenanceStatus(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  argumentsSchema.parse(parsedArguments);
-  const items = await findLatestMaintenance(database, scope);
+  const args = argumentsSchema.parse(parsedArguments);
+  const items = await findLatestMaintenance(database, scope, { plate: args.plate });
   return JSON.stringify({ items, next_cursor: null });
 }
