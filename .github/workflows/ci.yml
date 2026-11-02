@@ -131,8 +131,6 @@ jobs:
       SUPERUSER_DATABASE_URL: postgres://ci:ci@localhost:5432/secretary
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -142,18 +140,17 @@ jobs:
         run: |
           psql "$DATABASE_URL" -c "CREATE ROLE app_owner LOGIN CREATEDB PASSWORD 'app_owner'"
           psql "$DATABASE_URL" -c "CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime'"
-      - name: Mutate this shard's share of the app files the pull request changes
+      - name: Mutate this shard's share of the gated files
         env:
-          BASE_REF: ${{ github.base_ref }}
           SHARD: ${{ matrix.shard }}
           SHARD_COUNT: ${{ strategy.job-total }}
         run: |
-          changed_files="$(npm run --silent changed:app-files -- "origin/$BASE_REF" "$SHARD" "$SHARD_COUNT")"
-          if [ -z "$changed_files" ]; then
-            echo "no app files changed; mutation skipped"
+          shard_files="$(npm run --silent mutation:shard-files -- "$SHARD" "$SHARD_COUNT")"
+          if [ -z "$shard_files" ]; then
+            echo "no gated files in this shard; mutation skipped"
             exit 0
           fi
-          npm run mutation -- --mutate "$changed_files"
+          npm run mutation -- --mutate "$shard_files"
 
   mutation:
     needs: mutation-shard

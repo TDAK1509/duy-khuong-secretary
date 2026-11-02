@@ -1,14 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { listMutationGatedFiles } from '../../src/bootstrap/list-mutation-gated-files.ts';
+import { createProjectFixture, type ProjectFixture } from './project-fixture.ts';
 
 describe('listMutationGatedFiles', () => {
-  const directories: string[] = [];
+  const fixtures: ProjectFixture[] = [];
 
   afterEach(() => {
-    directories.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true }));
+    fixtures.splice(0).forEach((fixture) => fixture.remove());
   });
 
   it('lists the typescript files of the access scope and of the tool executors, sorted', () => {
@@ -41,12 +39,8 @@ describe('listMutationGatedFiles', () => {
   });
 
   function createProjectWith(files: string[]): string {
-    const directory = mkdtempSync(join(tmpdir(), 'mutation-gated-files-'));
-    directories.push(directory);
-    files.forEach((file) => {
-      mkdirSync(dirname(join(directory, file)), { recursive: true });
-      writeFileSync(join(directory, file), 'export const x = 1;\n');
-    });
-    return directory;
+    const fixture = createProjectFixture(files);
+    fixtures.push(fixture);
+    return fixture.directory;
   }
 });
