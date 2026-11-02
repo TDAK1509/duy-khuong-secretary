@@ -51,6 +51,14 @@ describe('the first reply to someone who never joined', () => {
     ]);
   });
 
+  it('sends the welcome text to someone who sends a photo without an identity', async () => {
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images' });
+
+    await runInboundThenOutboundStep();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-hung', WELCOME]]);
+  });
+
   async function runInboundThenOutboundStep(): Promise<void> {
     const notices = new OffGroupNotices(clock, () => {});
     const handler = createInboundHandler(channel, clock);
