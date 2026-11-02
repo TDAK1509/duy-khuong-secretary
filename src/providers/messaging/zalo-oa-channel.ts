@@ -7,6 +7,7 @@ const SIGNATURE_HEADER = 'x-zevent-signature';
 const SIGNATURE_PREFIX = 'mac=';
 const ZALO_MAX_TEXT_LENGTH = 2000;
 const SEND_TEXT_PATH = '/v3.0/oa/message/cs';
+const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
 const RATE_LIMIT_ERROR = -32;
 const SERVER_ERROR_STATUS = 500;
 
@@ -37,6 +38,8 @@ const eventSchema = z.object({
 });
 
 const sendAnswerSchema = z.object({ error: z.number() });
+
+const userDetailSchema = z.object({ error: z.literal(0), data: z.object({ display_name: z.string() }) });
 
 const envelopeSchema = z.object({
   app_id: z.string(),
@@ -85,10 +88,35 @@ export class ZaloOaChannel implements MessagingChannel {
     }
   }
 
+  async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
+    try {
+      const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
+        headers: { access_token: credential },
+        signal: AbortSignal.timeout(this.settings.timeoutMs),
+      });
+      if (!response.ok) return await discardBody(response);
+      const answer = userDetailSchema.safeParse(await response.json());
+      return answer.success ? answer.data.data.display_name : null;
+    } catch {
+      return null;
+    }
+  }
+
   private computeMac(rawBody: string, timestamp: string): string {
     const { appId, oaSecret } = this.settings;
     return createHash('sha256').update(`${appId}${rawBody}${timestamp}${oaSecret}`).digest('hex');
   }
+}
+
+function buildUserDetailUrl(apiBaseUrl: string, user: ChannelRecipient): URL {
+  const url = new URL(USER_DETAIL_PATH, apiBaseUrl);
+  url.searchParams.set('data', JSON.stringify({ user_id: user.externalUserId }));
+  return url;
+}
+
+async function discardBody(response: Response): Promise<null> {
+  await response.body?.cancel();
+  return null;
 }
 
 async function readSendResult(response: Response): Promise<SendResult> {

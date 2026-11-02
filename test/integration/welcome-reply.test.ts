@@ -61,7 +61,7 @@ describe('the first reply to someone who never joined', () => {
 
   async function runInboundThenOutboundStep(): Promise<void> {
     const notices = new OffGroupNotices(clock, () => {});
-    const handler = createInboundHandler(channel, clock);
+    const handler = createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY });
     await runInboundStep({ database: pool, clock, alerts, notices, handler });
     await runOutboundStep({ database: pool, clock, alerts, channel, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90 });
   }
