@@ -33,4 +33,12 @@ describe('splitText', () => {
 
     expect(parts).toEqual(['a'.repeat(2000), 'a'.repeat(500)]);
   });
+
+  it('never cuts a character made of two UTF-16 units in half', () => {
+    const text = `${'a'.repeat(1999)}😀${'b'.repeat(500)}`;
+
+    const parts = splitText(text, LIMIT);
+
+    expect(parts).toEqual([`${'a'.repeat(1999)}😀`, 'b'.repeat(500)]);
+  });
 });
