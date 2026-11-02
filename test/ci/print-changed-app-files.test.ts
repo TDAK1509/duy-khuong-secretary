@@ -19,6 +19,12 @@ describe('print-changed-app-files', () => {
     expect(printShard(fixture, 2, 2)).toBe('src/app/b.ts');
   });
 
+  it('prints nothing for a shard that has no file', () => {
+    const fixture = createFixtureWithChangedFiles(['a']);
+
+    expect(printShard(fixture, 2, 4)).toBe('');
+  });
+
   function createFixtureWithChangedFiles(names: string[]): GitFixture {
     const fixture = createGitFixture();
     fixtures.push(fixture);
