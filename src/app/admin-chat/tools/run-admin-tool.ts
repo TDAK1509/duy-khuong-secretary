@@ -8,6 +8,7 @@ import { runAttachPhotos } from './attach-photos-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
+import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runProposeScheduledTask } from './propose-scheduled-task-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
@@ -53,6 +54,8 @@ async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessSc
       return runAttachPhotos(dependencies, scope, parsedArguments);
     case 'propose_scheduled_task':
       return runProposeScheduledTask(dependencies, scope, parsedArguments);
+    case 'list_scheduled_tasks':
+      return runListScheduledTasks(database, scope);
     default:
       return failInvalidArgument('name');
   }
