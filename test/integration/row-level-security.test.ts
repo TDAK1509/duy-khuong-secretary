@@ -152,6 +152,15 @@ describe('row-level security for the runtime role', () => {
     await expect(create).rejects.toThrow(/permission denied/);
   });
 
+  it('lets the runtime role write a table added by a later migration', async () => {
+    await database.query('CREATE TABLE later_table (id integer)');
+    const session = await database.openRuntimeSession();
+
+    const insert = session.query('INSERT INTO later_table (id) VALUES (1)');
+
+    await expect(insert).resolves.toMatchObject({ rowCount: 1 });
+  });
+
   async function insertMessages(userId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let index = 0; index < count; index += 1) {
