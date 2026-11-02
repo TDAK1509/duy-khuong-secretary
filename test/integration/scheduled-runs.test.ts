@@ -116,4 +116,20 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(harness.chat.requests).toEqual([]);
     expect(await database.query('SELECT next_run_at FROM scheduled_tasks')).toEqual([{ next_run_at: dueAt }]);
   });
+
+  it('moves a daily task to tomorrow after it runs', async () => {
+    harness.clock.setTo(new Date('2026-10-31T18:00:30+07:00'));
+    await insertScheduledTask(database, {
+      workspaceId,
+      createdBy: duyUserId,
+      status: 'active',
+      nextRunAt: new Date('2026-10-31T18:00:00+07:00'),
+    });
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT next_run_at, last_run_at, locked_until FROM scheduled_tasks')).toEqual([
+      { next_run_at: new Date('2026-11-01T18:00:00+07:00'), last_run_at: harness.clock.now(), locked_until: null },
+    ]);
+  });
 });

@@ -1,6 +1,7 @@
 import { scopeDatabase } from '../db/scoped-database.ts';
 import { runInTransaction, type Transaction } from '../db/transaction.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
+import { computeNextRun } from '../schedules/compute-next-run.ts';
 import type { ClaimedTask } from './claim-due-task.ts';
 import type { ScheduledRunDependencies } from './run-due-tasks.ts';
 
@@ -15,7 +16,16 @@ export async function finishScheduledRun(
   await runInTransaction(database, async (transaction) => {
     await storeResultMessage(transaction, task, text);
     await enqueueResult(transaction, dependencies, task, text);
+    await moveToNextRun(transaction, task, dependencies.clock.now());
   });
+}
+
+async function moveToNextRun(transaction: Transaction, task: ClaimedTask, now: Date): Promise<void> {
+  await transaction.query('UPDATE scheduled_tasks SET next_run_at = $2, last_run_at = $3, locked_until = NULL WHERE id = $1', [
+    task.id,
+    computeNextRun(task.schedule, now),
+    now,
+  ]);
 }
 
 async function storeResultMessage(transaction: Transaction, task: ClaimedTask, text: string): Promise<void> {
