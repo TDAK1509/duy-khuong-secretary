@@ -9,3 +9,7 @@ export function generateInviteCode(): string {
   );
   return `MOI-${characters.join('')}`;
 }
+
+export function normalizeInviteCode(text: string): string {
+  return text.trim().toUpperCase().replaceAll(/[ -]/g, '');
+}
