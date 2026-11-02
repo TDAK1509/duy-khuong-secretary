@@ -25,4 +25,12 @@ describe('computeNextRun', () => {
 
     expect(nextRun).toEqual(new Date('2026-11-02T07:00:00+07:00'));
   });
+
+  it('runs a monthly task past its day this month next month', () => {
+    const now = new Date('2026-10-31T10:00:00+07:00');
+
+    const nextRun = computeNextRun({ repeat: 'monthly', timeOfDay: '08:00', dayOfMonth: 5 }, now);
+
+    expect(nextRun).toEqual(new Date('2026-11-05T08:00:00+07:00'));
+  });
 });

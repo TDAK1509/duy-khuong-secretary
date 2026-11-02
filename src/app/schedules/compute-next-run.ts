@@ -20,6 +20,8 @@ function listCandidateDays(schedule: Schedule, today: VietnamDay): VietnamDay[] 
       const daysAhead = (schedule.weekday - today.weekday + DAYS_IN_WEEK) % DAYS_IN_WEEK;
       return [addDays(today, daysAhead), addDays(today, daysAhead + DAYS_IN_WEEK)];
     }
+    case 'monthly':
+      return [0, 1].map((monthsAhead) => findDayOfMonth(today, monthsAhead, schedule.dayOfMonth));
   }
 }
 
@@ -29,6 +31,10 @@ function findVietnamDay(instant: Date): VietnamDay {
 
 function addDays({ year, month, day }: VietnamDay, days: number): VietnamDay {
   return readUtcDay(new Date(Date.UTC(year, month - 1, day + days)));
+}
+
+function findDayOfMonth({ year, month }: VietnamDay, monthsAhead: number, dayOfMonth: number): VietnamDay {
+  return readUtcDay(new Date(Date.UTC(year, month - 1 + monthsAhead, dayOfMonth)));
 }
 
 function readUtcDay(date: Date): VietnamDay {
