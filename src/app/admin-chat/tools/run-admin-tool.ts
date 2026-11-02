@@ -2,6 +2,7 @@ import type { ToolCall } from '../../../services/chat/chat-service.ts';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
+import { runCountRecords } from './count-records-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
 
@@ -16,6 +17,8 @@ async function runToolByName(database: Database, scope: AccessScope, call: ToolC
   switch (call.name) {
     case 'search_records':
       return runSearchRecords(database, scope, parsedArguments);
+    case 'count_records':
+      return runCountRecords(database, scope, parsedArguments);
     default:
       return failInvalidArgument('name');
   }

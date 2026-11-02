@@ -1,6 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
+import { addDateConditions } from './add-date-conditions.ts';
 import { encodeSearchCursor, type SearchCursor } from './search-cursor.ts';
 import { WhereClause } from './where-clause.ts';
 
@@ -122,10 +123,4 @@ function buildCodeCondition(where: WhereClause, text: string): string {
 function buildMemberCondition(where: WhereClause, member: string): string {
   const bound = where.bind(toAccentFreeForm(member) ?? '');
   return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
-}
-
-function addDateConditions(where: WhereClause, filters: SearchFilters): void {
-  const vietnamDate = `(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
-  if (filters.addedFrom !== null) where.require(`${vietnamDate} >= ${where.bind(filters.addedFrom)}::date`);
-  if (filters.addedTo !== null) where.require(`${vietnamDate} <= ${where.bind(filters.addedTo)}::date`);
 }

@@ -268,4 +268,24 @@ describe('the data tools of an admin', () => {
 
     expect(result.items).toMatchObject([{ id: recordId, has_photo: true }]);
   });
+
+  describe('counting', () => {
+    type CountResult = {
+      members: { member: string; total_count: number; by_category: { category: string; count: number; amount_vnd: number }[] }[];
+    };
+
+    async function runCount(scope: AccessScope = duy, range = { added_from: '2026-10-31', added_to: '2026-10-31' }): Promise<CountResult> {
+      const output = await runAdminTool(pool, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
+      return JSON.parse(output) as CountResult;
+    }
+
+    it('lists every current person, including those with nothing', async () => {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+
+      const result = await runCount();
+
+      expect(result.members.map((row) => [row.member, row.total_count])).toEqual([['Duy', 0], ['Hùng', 2], ['Lan', 0]]);
+    });
+  });
 });
