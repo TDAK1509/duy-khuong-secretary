@@ -41,6 +41,29 @@ describe('the migration runner on a busy table', () => {
     expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
   });
 
+  it('reports the busy table when the budget runs out while connecting', async () => {
+    let clock = 0;
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: database.url },
+      {
+        directory: alterThroughLock,
+        log: (line) => lines.push(line),
+        retry: {
+          budgetMs: 1000,
+          now: () => clock,
+          sleep: async () => {
+            clock = 999;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain('could not obtain lock on relation "t"');
+  });
+
   it('fails its lock attempt at once instead of waiting for the lock', async () => {
     const observer = await database.openSession();
     const running = runMigrationCommand(

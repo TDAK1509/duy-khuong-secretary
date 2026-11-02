@@ -6,6 +6,7 @@ import pg from 'pg';
 
 const APPLICATION_NAME = 'migrate';
 const LOCK_NOT_AVAILABLE = '55P03';
+const CONNECTION_TIMEOUT_MESSAGE = 'timeout expired';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
 const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
@@ -44,15 +45,20 @@ export type MigrationOutcome = { kind: 'applied'; names: string[] } | { kind: 'd
 export async function migrateDatabase(run: MigrationRun): Promise<MigrationOutcome> {
   const retry = { ...DEFAULT_RETRY_POLICY, ...run.retry };
   const deadline = retry.now() + retry.budgetMs;
+  let lastBusy: unknown;
   for (;;) {
     try {
       return await migrateOnce(run, budgetOf(retry, deadline));
     } catch (error) {
+      if (error instanceof BudgetUsedUp) throw giveUp(lastBusy ?? error, retry.budgetMs);
       if (!isLockBusy(error)) throw error;
+      lastBusy = error;
       await sleepWithinBudget(retry, deadline, error);
     }
   }
 }
+
+class BudgetUsedUp extends Error {}
 
 type Budget = { totalMs: number; remainingMs: () => number };
 
@@ -63,11 +69,22 @@ async function migrateOnce(run: MigrationRun, budget: Budget): Promise<Migration
     connectionTimeoutMillis: takeRemainingMs(budget),
   });
   client.on('error', () => {});
-  await client.connect();
+  await connectWithinBudget(client);
   try {
     return await applyMigrations(client, run.directory, budget);
   } finally {
     await endCleanly(client);
+  }
+}
+
+async function connectWithinBudget(client: pg.Client): Promise<void> {
+  try {
+    await client.connect();
+  } catch (error) {
+    if (error instanceof Error && error.message === CONNECTION_TIMEOUT_MESSAGE) {
+      throw new BudgetUsedUp(error.message, { cause: error });
+    }
+    throw error;
   }
 }
 
@@ -218,7 +235,7 @@ function budgetOf(retry: RetryPolicy, deadline: number): Budget {
 
 function takeRemainingMs(budget: Budget): number {
   const remainingMs = Math.floor(budget.remainingMs());
-  if (remainingMs <= 0) throw giveUp(new Error('no time left in the budget'), budget.totalMs);
+  if (remainingMs <= 0) throw new BudgetUsedUp('no time left in the budget');
   return remainingMs;
 }
 
