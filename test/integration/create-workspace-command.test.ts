@@ -85,6 +85,15 @@ describe('the create-workspace command', () => {
     expect(await countAllRows()).toBe(0);
   });
 
+  it('creates nothing when the admin name is only spaces', async () => {
+    const lines: string[] = [];
+
+    await runCommand(['Xe tải Duy Khương', '   '], { log: (line) => lines.push(line) });
+
+    expect(lines).toEqual(['Invalid admin name.']);
+    expect(await countAllRows()).toBe(0);
+  });
+
   async function countAllRows(): Promise<number> {
     const tables = ['users', 'workspaces', 'memberships', 'workspace_invites'];
     const counts = await Promise.all(
