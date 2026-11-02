@@ -173,6 +173,17 @@ describe('the outbound worker step', () => {
     expect(alertSink.texts).toEqual([]);
   });
 
+  it('marks a send cut off by a crash unknown and alerts', async () => {
+    const id = await insertOutboundMessage(database, { status: 'sending', lockedUntil: new Date(NOW.getTime() - 60_000) });
+
+    await runStep();
+
+    expect((await readMessage(id)).status).toBe('unknown');
+    expect(alertSink.texts).toEqual([
+      `[alert] Zalo send got no answer for outbound message ${id}. It will not be resent. Check the chat in OA Manager.`,
+    ]);
+  });
+
   async function connectOa(accountId: string, accessToken: string): Promise<void> {
     const tokens = makeTokenPair({ accessToken });
     await storeConnection(pool, { channel: 'zalo-oa', accountId, tokens, storedAt: NOW }, ENCRYPTION_KEY);
