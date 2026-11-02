@@ -44,8 +44,21 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('replies to one saved item with what was saved', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+  }
+
+  function sentTexts(): string[][] {
+    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
   }
 
   function answerPair(pair: readonly [FakeReader, FakeReader], reading: Reading): void {
