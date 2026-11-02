@@ -88,4 +88,11 @@ describe('areAgreeing', () => {
 
     expect(areAgreeing(succeed(reading), succeed(reading))).toBe(true);
   });
+
+  it('disagrees when the question flag differs', () => {
+    const first = succeed(makeReading([makeItem()], { has_question: true }));
+    const second = succeed(makeReading([makeItem()], { has_question: false }));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
 });
