@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const PLAIN_FILE_NAME = /^[A-Za-z0-9._-]+$/;
+
 const environmentSchema = z
   .object({
     DATABASE_URL: z.url(),
@@ -8,7 +10,7 @@ const environmentSchema = z
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     ALERT_PROVIDER: z.enum(['log', 'webhook']).default('log'),
     ALERT_WEBHOOK_URL: z.url().optional(),
-    ZALO_VERIFIER_FILE_NAME: z.string().optional(),
+    ZALO_VERIFIER_FILE_NAME: z.string().regex(PLAIN_FILE_NAME, 'must be a plain file name').or(z.literal('')).optional(),
     ZALO_VERIFIER_FILE_CONTENT: z.string().optional(),
   })
   .superRefine((environment, context) => {

@@ -23,4 +23,10 @@ describe('loadConfig', () => {
 
     expect(config.verifierFile).toBeNull();
   });
+
+  it('refuses a verification file name that is not a plain file name and names the value', () => {
+    expect(() =>
+      loadConfig({ DATABASE_URL, ZALO_VERIFIER_FILE_NAME: '../health', ZALO_VERIFIER_FILE_CONTENT: 'x' }),
+    ).toThrow(/ZALO_VERIFIER_FILE_NAME/);
+  });
 });
