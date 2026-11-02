@@ -262,4 +262,14 @@ describe('the ticker runs the due scheduled tasks', () => {
       { status: 'cancelled', next_run_at: null, locked_until: null },
     ]);
   });
+
+  it('turns off a task whose creator was removed', async () => {
+    await insertDueTask();
+    await database.query(`DELETE FROM memberships WHERE user_id = '${duyUserId}'`);
+
+    await harness.runTick();
+
+    expect(harness.chat.requests).toEqual([]);
+    expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
+  });
 });
