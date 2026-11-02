@@ -56,7 +56,7 @@ async function askModel(
   const outcome = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );
-  if (!outcome.ok) return { text: describeFailedRun(task.title), remindedRecordIds: [] };
+  if (!outcome.ok || outcome.text.trim() === '') return { text: describeFailedRun(task.title), remindedRecordIds: [] };
   return { text: outcome.text, remindedRecordIds: dueRecords.map((record) => record.record_id) };
 }
 

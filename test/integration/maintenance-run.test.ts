@@ -278,4 +278,16 @@ describe('the daily maintenance reminder run', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
     expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
   });
+
+  it('treats a blank reply as a failed run and records no notification', async () => {
+    await insertOilChange('2026-10-01');
+    await insertReminderTask({ title: 'Nhắc bảo dưỡng' });
+    harness.chat.replyWith('  ');
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Lịch "Nhắc bảo dưỡng" chạy lỗi. Lần chạy sau sẽ thử lại.']);
+  });
 });
