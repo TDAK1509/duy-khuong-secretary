@@ -1,6 +1,7 @@
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
+import { loadHistoryTurns } from './load-history-turns.ts';
 import { loadAdminProfile } from './load-admin-profile.ts';
 import { enqueueReply } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
@@ -13,7 +14,7 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   if (profile === null) return;
   const result = await requireChat(context).respond({
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
-    turns: [{ role: 'user', text: message.text, image: message.photo }],
+    turns: [...(await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id)), { role: 'user', text: message.text, image: message.photo }],
     tools: [],
   });
   const answer = result.ok && result.reply.kind === 'text' ? result.reply.text : '';

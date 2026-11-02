@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -25,6 +26,14 @@ describe('an admin asks the bot', () => {
     const reading = makeReading([], { has_work_data: false, has_question: true });
     const pair: readonly [FakeReader, FakeReader] = harness.readers.cheap;
     pair.forEach((reader) => reader.answerWith(reading));
+  }
+
+  async function findUserId(displayName: string): Promise<string> {
+    const [row] = await database.query<{ user_id: string }>(
+      `SELECT user_id FROM memberships WHERE display_name = '${displayName}'`,
+    );
+    if (!row) throw new Error(`no member named ${displayName}`);
+    return row.user_id;
   }
 
   function sentTexts(): string[][] {
@@ -96,5 +105,25 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-duy', 'Chào bạn');
 
     expect(JSON.stringify(harness.chat.requests)).not.toContain('zu-duy');
+  });
+
+  it('shows the model at most the last 20 messages of the chat', async () => {
+    const duyUserId = await findUserId('Duy');
+    for (let number = 1; number <= 30; number += 1) {
+      await insertChatMessage(database, {
+        workspaceId,
+        userId: duyUserId,
+        author: number % 2 === 0 ? 'bot' : 'user',
+        text: `tin ${number}`,
+        createdAt: new Date(Date.UTC(2026, 10, 2, 1, number)),
+      });
+    }
+
+    await harness.receiveText('zu-duy', 'Hôm nay thế nào?');
+
+    const turns = harness.chat.requests[0]?.turns ?? [];
+    expect(turns).toHaveLength(21);
+    expect(turns[0]).toEqual({ role: 'user', text: 'tin 11', image: null });
+    expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?', image: null });
   });
 });
