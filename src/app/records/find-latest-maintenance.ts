@@ -27,15 +27,6 @@ const PAGE_SIZE = 50;
 
 const VIETNAM_SENT_DATE = `(message.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
 
-function selectLatestPerTruckPart(nowParameter: string): string {
-  return `SELECT DISTINCT ON (record.vehicle_plate, record.maintenance_item)
-    record.id AS record_id, record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,
-    to_char(${VIETNAM_SENT_DATE}, 'YYYY-MM-DD') AS sent_on,
-    to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.summary,
-    ((${nowParameter}::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ${VIETNAM_SENT_DATE})::int AS days_since_sent
-  FROM records record JOIN messages message ON message.id = record.message_id`;
-}
-
 const NEWEST_FIRST_PER_TRUCK_PART = `ORDER BY record.vehicle_plate, record.maintenance_item, message.created_at DESC, record.id DESC`;
 
 export async function findLatestMaintenance(
@@ -68,6 +59,15 @@ function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClaus
 function buildItemCondition(where: WhereClause, maintenanceItem: string): string {
   const bound = where.bind(toAccentFreeForm(maintenanceItem) ?? '');
   return `regexp_replace(trim(lower(unaccent(record.maintenance_item))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function selectLatestPerTruckPart(nowParameter: string): string {
+  return `SELECT DISTINCT ON (record.vehicle_plate, record.maintenance_item)
+    record.id AS record_id, record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,
+    to_char(${VIETNAM_SENT_DATE}, 'YYYY-MM-DD') AS sent_on,
+    to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.summary,
+    ((${nowParameter}::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ${VIETNAM_SENT_DATE})::int AS days_since_sent
+  FROM records record JOIN messages message ON message.id = record.message_id`;
 }
 
 function toPage(rows: LatestMaintenance[]): MaintenancePage {
