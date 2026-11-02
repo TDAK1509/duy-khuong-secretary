@@ -51,6 +51,16 @@ describe('joining a workspace with an invite code', () => {
     expect(memberships).toEqual([{ workspace_id: workspaceId, display_name: 'Hùng', role: 'member' }]);
   });
 
+  it('links the Zalo account to a new user who owns the membership', async () => {
+    await insertInvite(database, { workspaceId, code: CODE, displayName: 'Hùng', role: 'member' });
+
+    await receiveText('zu-hung', CODE);
+
+    const [membership] = await database.query<{ user_id: string }>('SELECT user_id FROM memberships');
+    const identities = await database.query('SELECT external_user_id, user_id FROM channel_identities');
+    expect(identities).toEqual([{ external_user_id: 'zu-hung', user_id: membership?.user_id }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

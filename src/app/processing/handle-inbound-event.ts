@@ -24,9 +24,9 @@ export function createInboundHandler(dependencies: InboundHandlerDependencies | 
     if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
     const { channel, clock } = dependencies;
     return stages.finishEvent(async (transaction) => {
-      await recordSenderIdentity(transaction, event);
+      const identity = await recordSenderIdentity(transaction, event);
       const inviteCode = readInviteCode(event);
-      if (inviteCode !== null) return joinWithInviteCode(transaction, inviteCode);
+      if (inviteCode !== null) return joinWithInviteCode(transaction, identity, inviteCode);
       await enqueueText(transaction, {
         to: describeSender(event),
         text: WELCOME_TEXT,
