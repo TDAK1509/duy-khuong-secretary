@@ -107,6 +107,23 @@ describe('rejecting duplicate papers', () => {
     expect(sentTexts).toContain('Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.');
   });
 
+  it('finds a saved copy when the connections format dates another way', async () => {
+    await formatDatesDayFirstOnNewConnections();
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    await harness.receivePhoto('zu-hung');
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
+  async function formatDatesDayFirstOnNewConnections(): Promise<void> {
+    const databaseName = new URL(database.url).pathname.slice(1);
+    await database.query(`ALTER DATABASE ${databaseName} SET DateStyle = 'SQL, DMY'`);
+    const idleConnection = await harness.pool.connect();
+    idleConnection.release(true);
+  }
+
   async function processSamePaperFromHungAndLanTogether(): Promise<void> {
     answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
     holdReaderUntilArrivals(harness.readers.cheap[0], 2);

@@ -40,7 +40,7 @@ function buildSavedCopyQuery(workspaceId: string, record: NewRecord): [string, u
   equalOrBothEmpty('document_number', record.documentNumber);
   equalOrBothEmpty('occurred_on', record.occurredOn);
   return [
-    `SELECT category, maintenance_item, vehicle_plate, document_number, occurred_on::text AS occurred_on,
+    `SELECT category, maintenance_item, vehicle_plate, document_number, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on,
        amount_vnd::float8 AS amount_vnd, identifiers, details
      FROM records WHERE ${conditions.join(' AND ')}`,
     values,
