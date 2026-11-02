@@ -104,6 +104,13 @@ describe('an admin asks the bot', () => {
     expect(harness.chat.requests[0]?.system).toContain('Người này là quản lý.');
   });
 
+  it('offers the invite and removal tools', async () => {
+    await harness.receiveText('zu-duy', 'Mời tài xế Hùng');
+
+    const toolNames = harness.chat.requests[0]?.tools.map((tool) => tool.name);
+    expect(toolNames).toEqual(expect.arrayContaining(['create_invite', 'remove_member']));
+  });
+
   it('keeps the person identifier out of the model input', async () => {
     await harness.receiveText('zu-duy', 'Chào bạn');
 
@@ -247,10 +254,10 @@ describe('an admin asks the bot', () => {
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
   });
 
-  it('offers the three data tools', async () => {
+  it('offers the three data tools first', async () => {
     await harness.receiveText('zu-duy', 'Nhóm có ai?');
 
-    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual(['search_records', 'count_records', 'list_members']);
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name).slice(0, 3)).toEqual(['search_records', 'count_records', 'list_members']);
   });
 
   describe('with tool calls', () => {
