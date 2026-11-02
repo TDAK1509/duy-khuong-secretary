@@ -451,4 +451,14 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: arguments"}');
   });
+
+  it('lets an unexpected error of a tool reach the caller', async () => {
+    const connectionLost = new Error('connection lost');
+    const database = { query: pool.query.bind(pool), connect: () => Promise.reject(connectionLost) };
+    const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+
+    const running = runAdminTool(dependencies, duy, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
+
+    await expect(running).rejects.toBe(connectionLost);
+  });
 });
