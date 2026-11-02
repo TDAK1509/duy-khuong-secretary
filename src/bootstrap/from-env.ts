@@ -5,7 +5,10 @@ import { ZaloOaAuth } from '../providers/channel-auth/zalo-oa-auth.ts';
 import { SystemClock } from '../providers/clock/system-clock.ts';
 import { OpenAiCompatibleReader } from '../providers/reading/openai-compatible-reader.ts';
 import type { Clock } from '../services/clock/clock.ts';
-import type { Config } from './config.ts';
+import type { AlertSink } from '../services/alerts/alert-sink.ts';
+import { LogAlertSink } from '../providers/alerts/log-alert-sink.ts';
+import { WebhookAlertSink } from '../providers/alerts/webhook-alert-sink.ts';
+import type { AlertConfig, Config } from './config.ts';
 import type { ReaderConfig, ReaderSlotConfig } from './reader-config.ts';
 import type { ZaloConfig } from './zalo-config.ts';
 
@@ -21,6 +24,15 @@ export function buildProvidersFromConfig(config: Config): Providers {
 
 export function buildClock(): Clock {
   return new SystemClock();
+}
+
+export function buildAlertSink(config: AlertConfig): AlertSink {
+  switch (config.provider) {
+    case 'log':
+      return new LogAlertSink();
+    case 'webhook':
+      return new WebhookAlertSink(config.webhookUrl);
+  }
 }
 
 export function buildChannelAuth(config: ZaloConfig, clock: Clock): ChannelAuth {
