@@ -9,12 +9,11 @@ export type MemberCount = { member: string; total_count: number; by_category: Ca
 
 type CountRow = { user_id: string; sender_name: string; category: string; count: number; amount_vnd: number };
 
-const COUNT_BY_CATEGORY = `SELECT record.user_id, record.sender_name, record.category, count(*)::int AS count,
-    coalesce(sum(record.amount_vnd), 0)::float8 AS amount_vnd
+const COUNT_BY_CATEGORY = `SELECT record.user_id, (array_agg(record.sender_name ORDER BY record.created_at DESC))[1] AS sender_name,
+    record.category, count(*)::int AS count, coalesce(sum(record.amount_vnd), 0)::float8 AS amount_vnd
   FROM records record`;
 
-const GROUP_BY_SENDER = `GROUP BY record.user_id, record.sender_name, record.category
-  ORDER BY record.sender_name, record.category`;
+const GROUP_BY_SENDER = `GROUP BY record.user_id, record.category ORDER BY record.user_id, record.category`;
 
 export async function countRecords(
   database: Database,
@@ -40,9 +39,9 @@ async function countByCategory(database: Database, scope: AccessScope, range: { 
 }
 
 function listFormerMembers(rows: CountRow[]): MemberCount[] {
-  const names = [...new Set(rows.map((row) => `${row.user_id}|${row.sender_name}`))];
-  return names.map((key) => {
-    const own = rows.filter((row) => `${row.user_id}|${row.sender_name}` === key);
+  const userIds = [...new Set(rows.map((row) => row.user_id))];
+  return userIds.map((userId) => {
+    const own = rows.filter((row) => row.user_id === userId);
     return toMemberCount(own[0]?.sender_name ?? '', own);
   });
 }

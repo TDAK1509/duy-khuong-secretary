@@ -323,6 +323,18 @@ describe('the data tools of an admin', () => {
       expect(result.members.every((row) => row.total_count === 0)).toBe(true);
       expect(result.members.map((row) => row.member)).not.toContain('Vy');
     });
+
+    it('combines the records of one person who saved under two names', async () => {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', amountVnd: 1000000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng Nguyễn', amountVnd: 500000 });
+
+      const result = await runCount();
+
+      expect(result.members.filter((row) => row.member === 'Hùng')).toEqual([
+        { member: 'Hùng', total_count: 2, by_category: [{ category: 'fuel', count: 2, amount_vnd: 1500000 }] },
+      ]);
+      expect(result.members).toHaveLength(3);
+    });
   });
 
   describe('listing members', () => {
