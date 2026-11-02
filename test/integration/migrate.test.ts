@@ -18,11 +18,22 @@ describe('the migration runner', () => {
   it('applies every migration to an empty database', async () => {
     const exitCode = await runMigrationCommand(
       { MIGRATION_DATABASE_URL: database.url },
-      { directory: new URL('two-tables/', fixtures) },
+      { directory: new URL('two-tables/', fixtures), log: () => {} },
     );
 
     expect(exitCode).toBe(0);
     expect(await listAppliedMigrations(database)).toEqual(['0001_create_a', '0002_create_b']);
+  });
+
+  it('applies nothing on a second run', async () => {
+    const directory = new URL('two-tables/', fixtures);
+    const environment = { MIGRATION_DATABASE_URL: database.url };
+    await runMigrationCommand(environment, { directory, log: () => {} });
+    const lines: string[] = [];
+
+    await runMigrationCommand(environment, { directory, log: (line) => lines.push(line) });
+
+    expect(lines).toContain('[migrate] nothing to apply');
   });
 });
 
