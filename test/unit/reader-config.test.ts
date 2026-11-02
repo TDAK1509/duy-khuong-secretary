@@ -43,4 +43,14 @@ describe('loadReaderConfig', () => {
       },
     });
   });
+
+  it('reads the timeout and the reasoning effort when set', () => {
+    const result = loadReaderConfig({
+      ...COMPLETE_ENVIRONMENT,
+      READER_TIMEOUT_MS: '30000',
+      READER_REASONING_EFFORT: 'low',
+    });
+
+    expect(result).toMatchObject({ ok: true, config: { timeoutMs: 30000, reasoningEffort: 'low' } });
+  });
 });

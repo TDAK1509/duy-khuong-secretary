@@ -23,8 +23,8 @@ export function loadReaderConfig(environment: NodeJS.ProcessEnv): ReaderConfigRe
   return {
     ok: true,
     config: {
-      timeoutMs: 60000,
-      reasoningEffort: undefined,
+      timeoutMs: Number(environment['READER_TIMEOUT_MS'] ?? 60000),
+      reasoningEffort: environment['READER_REASONING_EFFORT'],
       cheap: [readSlot(environment, 'READER_CHEAP_1'), readSlot(environment, 'READER_CHEAP_2')],
       strong: [readSlot(environment, 'READER_STRONG_1'), readSlot(environment, 'READER_STRONG_2')],
     },
