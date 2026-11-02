@@ -1,5 +1,3 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import importX from 'eslint-plugin-import-x';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import tseslint from 'typescript-eslint';
@@ -18,7 +16,7 @@ export function makeArchitectureConfig(rootDir) {
       folders: ['app', 'services'],
       files: ['providers/database/postgres.ts'],
     }),
-    ...makeProviderConfigs(rootDir),
+    makeFolderConfig(rootDir, 'providers', { folders: ['services'], mayImportVendors: true }),
     makeFolderConfig(rootDir, 'bootstrap', {
       folders: SOURCE_FOLDERS,
       mayImportVendors: true,
@@ -27,25 +25,6 @@ export function makeArchitectureConfig(rootDir) {
     makeMigrationEntryConfig(),
     makeTestConfig(rootDir),
   ];
-}
-
-/** @returns {import('eslint').Linter.Config[]} */
-function makeProviderConfigs(rootDir) {
-  return listProviderRoles(rootDir).map((role) =>
-    makeFolderConfig(rootDir, `providers/${role}`, {
-      folders: ['services'],
-      files: [`providers/${role}`],
-      mayImportVendors: true,
-    }),
-  );
-}
-
-function listProviderRoles(rootDir) {
-  const providersDir = join(rootDir, 'src/providers');
-  if (!existsSync(providersDir)) return [];
-  return readdirSync(providersDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
 }
 
 /** @returns {import('eslint').Linter.Config} */

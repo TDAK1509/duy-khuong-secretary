@@ -95,4 +95,11 @@ describe('import rules', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.message).toContain("../src/providers/database/migration-tool.ts");
   });
+
+  it('rejects an import between two provider files of the same role', async () => {
+    const messages = await lintFixture('provider-import-same-folder', 'src/providers/chat/a.ts');
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain("./b.ts");
+  });
 });
