@@ -439,4 +439,10 @@ describe('the data tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: name"}');
   });
+
+  it('refuses arguments that are not valid JSON', async () => {
+    const output = await runCall('search_records', '{"text":');
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: arguments"}');
+  });
 });
