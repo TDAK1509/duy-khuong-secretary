@@ -47,7 +47,7 @@ async function markLostSendsUnknown({ database, clock, alerts }: OutboundDepende
 }
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  if (!(await isAdminStillMember(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
+  if (!(await isStillAdmin(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
   const lastInboundAt = await readLastInboundOfHoldableRecipient(dependencies.database, message);
   if (isOutsideWindow(message, lastInboundAt, dependencies.clock.now())) return holdMessage(dependencies, message, lastInboundAt);
   if (message.content.kind === 'image' && dependencies.photoStorage === null) {
@@ -80,7 +80,7 @@ async function sendToRecipient(
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
-  if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
+  if (!(await isStillAdmin(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result, lastInboundAt);
 }
@@ -108,8 +108,10 @@ function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: P
   }
 }
 
-async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {
+async function isStillAdmin(database: Database, message: ClaimedMessage): Promise<boolean> {
   if (message.adminMembershipId === null) return true;
-  const { rows } = await database.query('SELECT 1 FROM memberships WHERE id = $1', [message.adminMembershipId]);
+  const { rows } = await database.query(`SELECT 1 FROM memberships WHERE id = $1 AND role = 'admin'`, [
+    message.adminMembershipId,
+  ]);
   return rows.length !== 0;
 }

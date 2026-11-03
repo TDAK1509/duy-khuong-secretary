@@ -203,4 +203,19 @@ describe('notices to admins about a member photo', () => {
     ]);
     expect(readSendsTo('zu-khuong').map((sent) => sent.kind)).toEqual(['text', 'image']);
   });
+
+  it('sends nothing to an admin whose role is no longer admin', async () => {
+    await harness.receivePhoto('zu-hung');
+    await database.query("UPDATE memberships SET role = 'member' WHERE display_name = 'Duy'");
+
+    await harness.sendAllQueuedTexts();
+
+    expect(readSendsTo('zu-duy')).toEqual([]);
+    expect(
+      await database.query("SELECT kind, status, last_error FROM outbound_messages WHERE external_user_id = 'zu-duy' ORDER BY seq"),
+    ).toEqual([
+      { kind: 'text', status: 'failed', last_error: 'membership_changed' },
+      { kind: 'image', status: 'failed', last_error: 'membership_changed' },
+    ]);
+  });
 });
