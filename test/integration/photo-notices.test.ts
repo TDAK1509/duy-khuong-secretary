@@ -160,4 +160,15 @@ describe('notices to admins about a member photo', () => {
 
     expect(await database.query("SELECT 1 FROM outbound_messages WHERE external_user_id IN ('zu-duy', 'zu-khuong')")).toEqual([]);
   });
+
+  it('does not announce a photo refused before it was stored', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-hung', text: 'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.' },
+    ]);
+  });
 });
