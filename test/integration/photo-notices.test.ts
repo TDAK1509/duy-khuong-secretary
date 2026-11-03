@@ -145,4 +145,12 @@ describe('notices to admins about a member photo', () => {
     expect(sentToDuy.map((sent) => sent.kind)).toEqual(['text', 'image', 'text', 'image']);
     expect(sentToDuy.map(describeSend)).toEqual([SAVED_REPLY, 1000, DUPLICATE_REPLY, 2000]);
   });
+
+  it("does not announce an admin's own photo", async () => {
+    await harness.receivePhoto('zu-duy');
+    await harness.sendAllQueuedTexts();
+
+    expect(readSendsTo('zu-khuong')).toEqual([]);
+    expect(await database.query("SELECT 1 FROM outbound_messages WHERE external_user_id = 'zu-khuong'")).toEqual([]);
+  });
 });
