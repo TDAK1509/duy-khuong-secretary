@@ -6,18 +6,20 @@ export type ImageToEnqueue = {
   photoKey: string;
   availableAt: Date;
   adminMembershipId?: string;
+  requiresOpenWindow?: boolean;
 };
 
 export async function enqueueImage(transaction: Transaction, message: ImageToEnqueue): Promise<void> {
   await transaction.query(
-    `INSERT INTO outbound_messages (channel, account_id, external_user_id, kind, photo_key, admin_membership_id, available_at)
-     VALUES ($1, $2, $3, 'image', $4, $5, $6)`,
+    `INSERT INTO outbound_messages (channel, account_id, external_user_id, kind, photo_key, admin_membership_id, requires_open_window, available_at)
+     VALUES ($1, $2, $3, 'image', $4, $5, $6, $7)`,
     [
       message.to.channel,
       message.to.accountId,
       message.to.externalUserId,
       message.photoKey,
       message.adminMembershipId ?? null,
+      message.requiresOpenWindow ?? false,
       message.availableAt,
     ],
   );
