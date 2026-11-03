@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
-import { makeReading } from '../unit/reading/make-reading.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
@@ -15,6 +15,17 @@ const REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch,
 Nếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này, chỉ bằng chữ, không kèm ảnh.`;
 
 const SEARCH_EVERYTHING = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
+
+const DAILY_REPORT = {
+  title: 'Báo cáo hằng ngày',
+  instruction: 'Lập báo cáo.',
+  repeat: 'daily',
+  run_once_at: null,
+  time_of_day: '18:00',
+  weekday: null,
+  day_of_month: null,
+  maintenance_rules: [],
+};
 
 describe('the text an admin wrote is the only text that changes anything', () => {
   let harness: IntakeHarness;
@@ -135,5 +146,19 @@ describe('the text an admin wrote is the only text that changes anything', () =>
 
     expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
     expect(sentTexts()).toEqual([['zu-duy', `Đây là mã mời.\n\n${REFUSED_NOTICE}`]]);
+  });
+
+  it('still changes things in a text message that also holds work data', async () => {
+    const reading = makeReading([makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30' })], { has_question: true });
+    harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+    followRounds(replyWithToolCalls(callTool('create_scheduled_task', DAILY_REPORT)), replyWithText('Đã đặt lịch.'));
+
+    await harness.receiveText('zu-duy', 'Đổ dầu 1.250.000đ. Mỗi ngày 18 giờ gửi tôi báo cáo hoạt động.');
+    await harness.sendAllQueuedTexts();
+
+    expect(JSON.stringify(harness.chat.requests[0]?.turns.at(-1))).toContain('Hệ thống đã lưu:');
+    expect(await database.query(`SELECT title FROM scheduled_tasks WHERE status = 'active'`)).toEqual([{ title: 'Báo cáo hằng ngày' }]);
+    expect(sentTexts()[1]?.[1]).toMatch(/^Đã đặt lịch\.\n\nĐã đặt lịch "Báo cáo hằng ngày"\./);
+    expect(sentTexts()[1]?.[1]).not.toContain(REFUSED_NOTICE);
   });
 });
