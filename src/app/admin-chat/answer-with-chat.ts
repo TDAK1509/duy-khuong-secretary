@@ -16,6 +16,7 @@ import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { CreatedTasks } from './created-tasks.ts';
+import { AdminTextGuard } from './tools/admin-text-guard.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
@@ -39,7 +40,7 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
     tools: ADMIN_TOOLS,
   };
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id) };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), guard: new AdminTextGuard(message.photo !== null) };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
   return { text: outcome.text, photos: dependencies.attachments.list(), createdTaskIds: dependencies.created.listTaskIds() };
 }

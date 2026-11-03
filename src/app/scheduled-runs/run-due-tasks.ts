@@ -16,6 +16,7 @@ import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { describeFailedRun, NOTHING_TO_REPORT } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
+import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
 
 const MAX_TASKS_PER_TICK = 5;
 
@@ -55,7 +56,7 @@ async function askModel(
   { userTurn, dueRecords }: { userTurn: string; dueRecords: DueRecord[] },
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
-  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(true) };
   const outcome = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );

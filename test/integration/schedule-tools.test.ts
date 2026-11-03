@@ -6,6 +6,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 const DAILY_REPORT = {
   title: 'Báo cáo hằng ngày',
@@ -32,7 +33,7 @@ describe('the scheduling tools', () => {
   });
 
   function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null)): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created };
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 

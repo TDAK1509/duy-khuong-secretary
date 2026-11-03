@@ -15,11 +15,13 @@ import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-import { failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
+import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
   if (scope === null || scope.role !== 'admin') return failTool(REFUSAL_ERROR);
+  if (dependencies.guard.refuses(call.name)) return failTool(CHANGE_REFUSED_ERROR);
+  dependencies.guard.noteCall(call.name);
   const database = scopeDatabase(dependencies.database, toDatabaseScope(scope));
   return runToolByName({ ...dependencies, database }, scope, call);
 }
