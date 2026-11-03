@@ -153,4 +153,11 @@ describe('notices to admins about a member photo', () => {
     expect(readSendsTo('zu-khuong')).toEqual([]);
     expect(await database.query("SELECT 1 FROM outbound_messages WHERE external_user_id = 'zu-khuong'")).toEqual([]);
   });
+
+  it('does not announce a text message from a member', async () => {
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ');
+    await harness.sendAllQueuedTexts();
+
+    expect(await database.query("SELECT 1 FROM outbound_messages WHERE external_user_id IN ('zu-duy', 'zu-khuong')")).toEqual([]);
+  });
 });
