@@ -1,3 +1,5 @@
+import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
+
 export const UPLOAD_ONLY_TEXT =
   'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.';
 
@@ -15,3 +17,13 @@ export const PHOTO_TOO_LARGE_TEXT = 'Ảnh này lớn hơn 5 MB nên Trợ lý c
 export const PHOTO_NOT_JPEG_OR_PNG_TEXT = 'Trợ lý chỉ nhận ảnh dạng JPEG hoặc PNG. Bạn chụp lại rồi gửi nhé.';
 
 export const PHOTO_NOT_DOWNLOADED_TEXT = 'Trợ lý chưa tải được ảnh này. Bạn gửi lại ảnh nhé.';
+
+export type PhotoNotice = { senderName: string; workspaceName: string; sentAt: Date; replyText: string };
+
+export function formatPhotoNotice({ senderName, workspaceName, sentAt, replyText }: PhotoNotice): string {
+  return [
+    `${senderName} gửi ảnh vào nhóm "${workspaceName}" lúc ${formatVietnamDateTime(sentAt)}.`,
+    `Trợ lý đã trả lời ${senderName}:`,
+    replyText,
+  ].join('\n');
+}
