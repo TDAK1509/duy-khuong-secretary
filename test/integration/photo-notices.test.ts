@@ -65,4 +65,23 @@ describe('notices to admins about a member photo', () => {
       { kind: 'image', to: 'zu-khuong', photo: PHOTO },
     ]);
   });
+
+  it('marks the notice rows with the admin membership and the hold marker', async () => {
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(
+        `SELECT outbound.kind, outbound.requires_open_window, outbound.admin_membership_id = membership.id AS is_duys
+         FROM outbound_messages outbound
+         LEFT JOIN memberships membership ON membership.display_name = 'Duy'
+         WHERE outbound.external_user_id = 'zu-duy' ORDER BY outbound.seq`,
+      ),
+    ).toEqual([
+      { kind: 'text', requires_open_window: true, is_duys: true },
+      { kind: 'image', requires_open_window: true, is_duys: true },
+    ]);
+    expect(await database.query("SELECT admin_membership_id, requires_open_window FROM outbound_messages WHERE external_user_id = 'zu-hung'")).toEqual([
+      { admin_membership_id: null, requires_open_window: false },
+    ]);
+  });
 });
