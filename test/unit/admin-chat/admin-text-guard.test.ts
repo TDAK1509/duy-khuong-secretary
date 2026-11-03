@@ -58,4 +58,16 @@ describe('the admin text guard', () => {
 
     expect(guard.refuses(readTool)).toBe(false);
   });
+
+  it('reports a refusal only after it refused a change', () => {
+    const guardWithOtherText = new AdminTextGuard(true);
+    const guardWithoutOtherText = new AdminTextGuard(false);
+    const before = [guardWithOtherText.hasRefused(), guardWithoutOtherText.hasRefused()];
+
+    guardWithOtherText.refuses('remove_member');
+    guardWithoutOtherText.refuses('remove_member');
+
+    expect(before).toEqual([false, false]);
+    expect([guardWithOtherText.hasRefused(), guardWithoutOtherText.hasRefused()]).toEqual([true, false]);
+  });
 });

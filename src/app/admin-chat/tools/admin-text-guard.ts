@@ -6,6 +6,7 @@ export const ADMIN_TEXT_TOOLS: readonly string[] = ['count_records', 'list_membe
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;
+  private changeRefused = false;
 
   constructor(otherTextAtStart: boolean) {
     this.otherTextSeen = otherTextAtStart;
@@ -16,6 +17,12 @@ export class AdminTextGuard {
   }
 
   refuses(toolName: string): boolean {
-    return CHANGE_TOOLS.includes(toolName) && this.otherTextSeen;
+    const isRefused = CHANGE_TOOLS.includes(toolName) && this.otherTextSeen;
+    if (isRefused) this.changeRefused = true;
+    return isRefused;
+  }
+
+  hasRefused(): boolean {
+    return this.changeRefused;
   }
 }
