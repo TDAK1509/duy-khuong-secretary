@@ -39,4 +39,10 @@ describe('the admin text guard', () => {
 
     expect(guard.refuses('create_invite')).toBe(true);
   });
+
+  it('refuses a change when the turn starts with other text', () => {
+    const guard = new AdminTextGuard(true);
+
+    expect(guard.refuses('cancel_scheduled_task')).toBe(true);
+  });
 });
