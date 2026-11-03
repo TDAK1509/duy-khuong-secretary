@@ -161,4 +161,25 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     expect(sentTexts()[1]?.[1]).toMatch(/^Đã đặt lịch\.\n\nĐã đặt lịch "Báo cáo hằng ngày"\./);
     expect(sentTexts()[1]?.[1]).not.toContain(REFUSED_NOTICE);
   });
+
+  it('keeps the summary of a task created before a search and refuses a later one', async () => {
+    followRounds(
+      replyWithToolCalls(callTool('create_scheduled_task', DAILY_REPORT, 'call_1')),
+      replyWithToolCalls(callTool('search_records', SEARCH_EVERYTHING, 'call_2')),
+      replyWithToolCalls(callTool('create_scheduled_task', { ...DAILY_REPORT, title: 'Báo cáo tuần' }, 'call_3')),
+      replyWithText('Đã đặt lịch.'),
+    );
+
+    await harness.receiveText('zu-duy', 'Đặt lịch báo cáo hằng ngày và tuần');
+    await harness.sendQueuedTexts();
+
+    const paragraphs = sentTexts()[0]?.[1]?.split('\n\n') ?? [];
+    expect(await database.query('SELECT title FROM scheduled_tasks')).toEqual([{ title: 'Báo cáo hằng ngày' }]);
+    expect(paragraphs.map((paragraph) => paragraph.split('\n')[0])).toEqual([
+      'Đã đặt lịch.',
+      'Đã đặt lịch "Báo cáo hằng ngày".',
+      REFUSED_NOTICE.split('\n')[0],
+    ]);
+    expect(paragraphs[2]).toBe(REFUSED_NOTICE);
+  });
 });
