@@ -26,6 +26,7 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     ({ database, workspaceId } = harness);
     await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
     answerQuestionOnly();
   });
 
@@ -106,5 +107,19 @@ describe('the text an admin wrote is the only text that changes anything', () =>
       expect(await countMembers('Lan')).toBe(1);
       expect(sentTexts()).toEqual([['zu-duy', `Hùng gửi 1 phiếu.\n\n${REFUSED_NOTICE}`]]);
     });
+  });
+
+  it('refuses a change that comes in the same round as a search', async () => {
+    const lanId = await findMembershipId('Lan');
+    followRounds(
+      replyWithToolCalls(callTool('search_records', SEARCH_EVERYTHING), callTool('remove_member', { member_id: lanId })),
+      replyWithText('Xong.'),
+    );
+
+    await harness.receiveText('zu-duy', 'Hùng gửi gì?');
+    await harness.sendQueuedTexts();
+
+    expect(await countMembers('Lan')).toBe(1);
+    expect(sentTexts()).toEqual([['zu-duy', `Xong.\n\n${REFUSED_NOTICE}`]]);
   });
 });
