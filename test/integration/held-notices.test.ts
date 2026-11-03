@@ -89,4 +89,18 @@ describe('notices that are held when the window is closed', () => {
       },
     ]);
   });
+
+  it('queues only one template for many held notices', async () => {
+    harness.setReportReadyTemplate('tpl-1');
+    await duyWroteDaysAgo(8);
+    for (const number of [1, 2, 3]) {
+      await insertNotice({ body: `Thông báo ${number}` });
+      await insertNotice({ photoKey: PHOTO_KEY });
+    }
+
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.templates).toHaveLength(1);
+    expect(await database.query("SELECT 1 FROM outbound_messages WHERE status = 'held'")).toHaveLength(6);
+  });
 });
