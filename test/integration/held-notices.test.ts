@@ -72,4 +72,21 @@ describe('notices that are held when the window is closed', () => {
 
     expect(await readRows()).toEqual([{ kind: 'text', status: 'held', last_error: 'window_closed' }]);
   });
+
+  it('queues one template with the photo title for a held notice', async () => {
+    harness.setReportReadyTemplate('tpl-1');
+    await duyWroteDaysAgo(8);
+    await insertNotice({ body: 'Thông báo 1' });
+
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.templates).toEqual([
+      {
+        to: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-duy' },
+        templateId: 'tpl-1',
+        params: { task_title: 'Ảnh mới trong nhóm' },
+        credential: 'a1',
+      },
+    ]);
+  });
 });
