@@ -366,11 +366,14 @@ describe('the data tools of an admin', () => {
   });
 
   describe('listing members', () => {
-    type MembersResult = { members: { id: string; name: string; zalo_name: string | null; role: string }[] };
+    type MembersResult = { members: { id: string; name: string; role: string; joined_on: string }[] };
 
     async function runListMembers(scope: AccessScope = duy): Promise<MembersResult> {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
-      return JSON.parse(output) as MembersResult;
+      return JSON.parse(await runListMembersOutput(scope)) as MembersResult;
+    }
+
+    async function runListMembersOutput(scope: AccessScope = duy): Promise<string> {
+      return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
     }
 
     it('lists only the caller\'s workspace', async () => {
@@ -389,12 +392,20 @@ describe('the data tools of an admin', () => {
       expect(result.members.every((member) => member.id !== '')).toBe(true);
     });
 
-    it('shows each person\'s Zalo name', async () => {
+    it('shows each person\'s join date and no Zalo name', async () => {
       await database.query(`UPDATE channel_identities SET zalo_name = 'Hung Nguyen' WHERE external_user_id = 'zu-hung'`);
+      await database.query(`UPDATE memberships SET created_at = '2026-11-01 09:00 +07' WHERE user_id = '${hungUserId}'`);
+      const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
 
-      const result = await runListMembers();
+      const output = await runListMembersOutput();
 
-      expect(result.members.find((member) => member.name === 'Hùng')?.zalo_name).toBe('Hung Nguyen');
+      expect((JSON.parse(output) as MembersResult).members.find((member) => member.name === 'Hùng')).toEqual({
+        id: hung?.id,
+        name: 'Hùng',
+        role: 'thành viên',
+        joined_on: '01/11/2026',
+      });
+      expect(output).not.toContain('Hung Nguyen');
     });
   });
 
