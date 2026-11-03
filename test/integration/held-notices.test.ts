@@ -117,4 +117,21 @@ describe('notices that are held when the window is closed', () => {
     ]);
     expect(harness.channel.templates).toEqual([]);
   });
+
+  it('sends the held notices after the release line when the admin writes', async () => {
+    await duyWroteDaysAgo(8);
+    await insertNotice({ status: 'held', body: 'Thông báo 1' });
+    await insertNotice({ status: 'held', photoKey: PHOTO_KEY });
+
+    await harness.receiveText('zu-duy', 'chào');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-duy', text: 'Bạn có 2 tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.' },
+      { kind: 'text', to: 'zu-duy', text: 'Thông báo 1' },
+      { kind: 'image', to: 'zu-duy', photo: { bytes: makeJpeg(100), contentType: 'image/jpeg' } },
+      { kind: 'text', to: 'zu-duy', text: 'Chào anh' },
+    ]);
+    expect(await database.query("SELECT 1 FROM outbound_messages WHERE status = 'held'")).toEqual([]);
+  });
 });

@@ -18,7 +18,7 @@ export async function releaseHeldMessages(transaction: Transaction, { to, maxTex
 }
 
 function describeRelease(count: number): string {
-  return `Bạn có ${count} tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.`;
+  return `Bạn có ${count} tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.`;
 }
 
 async function copyAsQueued(transaction: Transaction, ids: string[], now: Date): Promise<void> {
