@@ -11,6 +11,7 @@ const SAVED_REPLY = 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ng
 const NOTICE_TEXT = `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${SAVED_REPLY}`;
 const UNRESOLVED_REPLY =
   'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
+const DUPLICATE_REPLY = 'Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.';
 const PHOTO = { bytes: makeJpeg(1000), contentType: 'image/jpeg' };
 
 describe('notices to admins about a member photo', () => {
@@ -111,5 +112,17 @@ describe('notices to admins about a member photo', () => {
       },
       { kind: 'image', to: 'zu-duy', photo: PHOTO },
     ]);
+  });
+
+  it('announces a duplicate photo as a duplicate', async () => {
+    await harness.receivePhoto('zu-hung');
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    const sentToDuy = readSendsTo('zu-duy');
+    expect(sentToDuy).toHaveLength(4);
+    expect(sentToDuy[2]).toMatchObject({ kind: 'text', text: expect.stringMatching(new RegExp(`${DUPLICATE_REPLY}$`)) });
+    expect(sentToDuy[3]).toEqual({ kind: 'image', to: 'zu-duy', photo: PHOTO });
   });
 });
