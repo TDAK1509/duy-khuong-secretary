@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
-import { ADMIN_TEXT_TOOLS, CHANGE_TOOLS, MEMBER_TEXT_TOOLS } from '../../../src/app/admin-chat/tools/admin-text-guard.ts';
+import { ADMIN_TEXT_TOOLS, AdminTextGuard, CHANGE_TOOLS, MEMBER_TEXT_TOOLS } from '../../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 describe('the kinds of admin tool', () => {
   it('puts every admin tool in exactly one kind', () => {
@@ -16,5 +16,13 @@ describe('the kinds of admin tool', () => {
     expect(CHANGE_TOOLS).toEqual(['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member']);
     expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status']);
     expect(ADMIN_TEXT_TOOLS).toEqual(['count_records', 'list_members', 'list_scheduled_tasks', 'attach_photos']);
+  });
+});
+
+describe('the admin text guard', () => {
+  it('allows a change while no other text was seen', () => {
+    const guard = new AdminTextGuard(false);
+
+    expect(guard.refuses('remove_member')).toBe(false);
   });
 });

@@ -3,3 +3,15 @@ export const CHANGE_TOOLS: readonly string[] = ['create_scheduled_task', 'cancel
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'maintenance_status'];
 
 export const ADMIN_TEXT_TOOLS: readonly string[] = ['count_records', 'list_members', 'list_scheduled_tasks', 'attach_photos'];
+
+export class AdminTextGuard {
+  private otherTextSeen: boolean;
+
+  constructor(otherTextAtStart: boolean) {
+    this.otherTextSeen = otherTextAtStart;
+  }
+
+  refuses(toolName: string): boolean {
+    return CHANGE_TOOLS.includes(toolName) && this.otherTextSeen;
+  }
+}
