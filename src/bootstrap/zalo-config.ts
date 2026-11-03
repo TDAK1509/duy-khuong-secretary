@@ -3,6 +3,7 @@ import { z } from 'zod';
 const ZALO_OAUTH_TIMEOUT_MS = 15_000;
 const DEFAULT_ZALO_API_TIMEOUT_MS = 15_000;
 const DEFAULT_OUTBOUND_MAX_PER_MINUTE = 90;
+const MIN_OUTBOUND_MAX_PER_MINUTE = 2;
 const DEFAULT_MEDIA_HOSTS = 'zdn.vn,zadn.vn';
 
 const REQUIRED_NAMES = [
@@ -24,7 +25,7 @@ const environmentSchema = z.object({
   ZALO_BUSINESS_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
   ZALO_TIMEOUT_MS: z.coerce.number().int().positive().default(DEFAULT_ZALO_API_TIMEOUT_MS),
   ZALO_MEDIA_HOSTS: z.string().default(DEFAULT_MEDIA_HOSTS),
-  OUTBOUND_MAX_PER_MINUTE: z.coerce.number().int().positive().default(DEFAULT_OUTBOUND_MAX_PER_MINUTE),
+  OUTBOUND_MAX_PER_MINUTE: z.coerce.number().int().min(MIN_OUTBOUND_MAX_PER_MINUTE).default(DEFAULT_OUTBOUND_MAX_PER_MINUTE),
 });
 
 export type ZaloConfig = {
