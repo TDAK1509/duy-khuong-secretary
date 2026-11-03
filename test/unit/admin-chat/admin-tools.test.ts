@@ -10,6 +10,12 @@ describe('the admin tool list', () => {
     );
   });
 
+  it('offers list_members with the join date and no Zalo name', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'list_members');
+
+    expect(tool?.description).toBe('Liệt kê mọi người trong nhóm: id, tên trong nhóm, vai trò, ngày vào nhóm.');
+  });
+
   it('offers no propose_scheduled_task', () => {
     expect(ADMIN_TOOLS.map((tool) => tool.name)).not.toContain('propose_scheduled_task');
   });

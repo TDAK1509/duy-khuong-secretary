@@ -104,7 +104,7 @@ export const COUNT_RECORDS_SPEC: ToolSpec = {
 
 export const LIST_MEMBERS_SPEC: ToolSpec = {
   "name": "list_members",
-  "description": "Liệt kê mọi người trong nhóm: id, tên trong nhóm, tên Zalo, vai trò.",
+  "description": "Liệt kê mọi người trong nhóm: id, tên trong nhóm, vai trò, ngày vào nhóm.",
   "parameters": {
     "type": "object",
     "properties": {},
