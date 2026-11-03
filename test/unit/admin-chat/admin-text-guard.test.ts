@@ -52,4 +52,10 @@ describe('the admin text guard', () => {
 
     expect(guard.refuses('remove_member')).toBe(false);
   });
+
+  it.each([...MEMBER_TEXT_TOOLS, ...ADMIN_TEXT_TOOLS])('never refuses the read tool %s', (readTool) => {
+    const guard = new AdminTextGuard(true);
+
+    expect(guard.refuses(readTool)).toBe(false);
+  });
 });
