@@ -171,4 +171,20 @@ describe('notices to admins about a member photo', () => {
       { kind: 'text', to: 'zu-hung', text: 'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.' },
     ]);
   });
+
+  it("holds a quiet admin's notice and still sends the others", async () => {
+    await database.query(`UPDATE channel_identities SET last_inbound_at = '2026-10-26T09:00:00+07:00' WHERE external_user_id = 'zu-duy'`);
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    expect(
+      await database.query("SELECT kind, status, last_error FROM outbound_messages WHERE external_user_id = 'zu-duy' ORDER BY seq"),
+    ).toEqual([
+      { kind: 'text', status: 'held', last_error: 'outside_window' },
+      { kind: 'image', status: 'held', last_error: 'outside_window' },
+    ]);
+    expect(readSendsTo('zu-duy')).toEqual([]);
+    expect(readSendsTo('zu-khuong').map((sent) => sent.kind)).toEqual(['text', 'image']);
+  });
 });
