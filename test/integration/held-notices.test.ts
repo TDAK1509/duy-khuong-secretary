@@ -62,4 +62,14 @@ describe('notices that are held when the window is closed', () => {
     ]);
     expect(harness.channel.sends).toEqual([]);
   });
+
+  it('holds a notice when Zalo answers that the window is closed', async () => {
+    await duyWroteDaysAgo(2);
+    await insertNotice({ body: 'Thông báo 1' });
+    harness.channel.nextTextResult = { ok: false, reason: 'window_closed' };
+
+    await harness.sendQueuedTexts();
+
+    expect(await readRows()).toEqual([{ kind: 'text', status: 'held', last_error: 'window_closed' }]);
+  });
 });
