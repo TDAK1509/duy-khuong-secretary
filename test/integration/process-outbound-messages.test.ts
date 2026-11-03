@@ -314,6 +314,16 @@ describe('the outbound worker step', () => {
     expect(channel.sends).toEqual([]);
   });
 
+  it('keeps an image waiting when only one call is left', async () => {
+    await connectOa('oa-1', 'a1');
+    await insertOutboundMessage(database, { status: 'sent', sentAt: new Date(NOW.getTime() - 10_000) });
+    await insertOutboundMessage(database, { photoKey: 'a/1.jpg' });
+
+    await runStep(2);
+
+    expect(channel.sends).toEqual([]);
+  });
+
   it('fails a text and alerts after the tenth rate-limited attempt', async () => {
     await connectOa('oa-1', 'a1');
     const id = await insertOutboundMessage(database, { attempts: 9 });
