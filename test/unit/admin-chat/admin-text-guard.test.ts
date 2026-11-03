@@ -45,4 +45,11 @@ describe('the admin text guard', () => {
 
     expect(guard.refuses('cancel_scheduled_task')).toBe(true);
   });
+
+  it('keeps allowing a change after tools that return only admin text', () => {
+    const guard = new AdminTextGuard(false);
+    for (const toolName of [...ADMIN_TEXT_TOOLS, 'create_invite']) guard.noteCall(toolName);
+
+    expect(guard.refuses('remove_member')).toBe(false);
+  });
 });
