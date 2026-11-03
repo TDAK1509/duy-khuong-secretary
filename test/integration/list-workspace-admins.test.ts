@@ -61,4 +61,15 @@ describe('listWorkspaceAdmins', () => {
       },
     ]);
   });
+
+  it('does not list an admin whose membership was removed', async () => {
+    await database.query(`DELETE FROM memberships WHERE display_name = 'Khương'`);
+
+    expect(await listAdmins()).toEqual([
+      {
+        membershipId: await findMembershipId('Duy'),
+        recipient: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-duy' },
+      },
+    ]);
+  });
 });
