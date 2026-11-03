@@ -234,4 +234,18 @@ describe('notices to admins about a member photo', () => {
     expect(readSendsTo('zu-duy').map((sent) => sent.kind)).toEqual(['text', 'image']);
     expect(readSendsTo('zu-hung')).toEqual([{ kind: 'text', to: 'zu-hung', text: SAVED_REPLY }]);
   });
+
+  it('keeps the notices out of the admin chat', async () => {
+    harness.chat.replyWith('Hùng gửi 1 phiếu.');
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+    for (const reader of harness.readers.cheap) reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
+
+    await harness.receiveText('zu-duy', 'Hùng gửi gì?');
+
+    const [request] = harness.chat.requests;
+    expect(JSON.stringify(request)).not.toContain('gửi ảnh vào nhóm');
+    expect(request?.turns.filter((turn) => turn.role === 'assistant')).toEqual([]);
+    expect(await database.query("SELECT 1 FROM messages WHERE text LIKE '%gửi ảnh vào nhóm%'")).toEqual([]);
+  });
 });
