@@ -134,4 +134,19 @@ describe('notices that are held when the window is closed', () => {
     ]);
     expect(await database.query("SELECT 1 FROM outbound_messages WHERE status = 'held'")).toEqual([]);
   });
+
+  it('keeps the marker on the queued copies of released notices', async () => {
+    await duyWroteDaysAgo(8);
+    await insertNotice({ status: 'held', body: 'Thông báo 1' });
+    await insertNotice({ status: 'held', photoKey: PHOTO_KEY });
+
+    await harness.receiveText('zu-duy', 'chào');
+
+    expect(
+      await database.query("SELECT kind, requires_open_window FROM outbound_messages WHERE status = 'queued' AND (body = 'Thông báo 1' OR kind = 'image') ORDER BY seq"),
+    ).toEqual([
+      { kind: 'text', requires_open_window: true },
+      { kind: 'image', requires_open_window: true },
+    ]);
+  });
 });
