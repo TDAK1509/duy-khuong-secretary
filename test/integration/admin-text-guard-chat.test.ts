@@ -3,7 +3,7 @@ import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -121,5 +121,19 @@ describe('the text an admin wrote is the only text that changes anything', () =>
 
     expect(await countMembers('Lan')).toBe(1);
     expect(sentTexts()).toEqual([['zu-duy', `Xong.\n\n${REFUSED_NOTICE}`]]);
+  });
+
+  it('cannot change anything in a message with a photo', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    followRounds(
+      replyWithToolCalls(callTool('create_invite', { display_name: 'Nam', role: 'member' })),
+      replyWithText('Đây là mã mời.'),
+    );
+
+    await harness.receivePhoto('zu-duy', 'Mời tài xế này vào nhóm');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+    expect(sentTexts()).toEqual([['zu-duy', `Đây là mã mời.\n\n${REFUSED_NOTICE}`]]);
   });
 });
