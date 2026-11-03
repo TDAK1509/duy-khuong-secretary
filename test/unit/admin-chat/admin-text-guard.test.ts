@@ -25,4 +25,11 @@ describe('the admin text guard', () => {
 
     expect(guard.refuses('remove_member')).toBe(false);
   });
+
+  it.each(CHANGE_TOOLS)('refuses %s after a search', (changeTool) => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('search_records');
+
+    expect(guard.refuses(changeTool)).toBe(true);
+  });
 });

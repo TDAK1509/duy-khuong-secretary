@@ -11,6 +11,10 @@ export class AdminTextGuard {
     this.otherTextSeen = otherTextAtStart;
   }
 
+  noteCall(toolName: string): void {
+    if (MEMBER_TEXT_TOOLS.includes(toolName)) this.otherTextSeen = true;
+  }
+
   refuses(toolName: string): boolean {
     return CHANGE_TOOLS.includes(toolName) && this.otherTextSeen;
   }
