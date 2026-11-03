@@ -218,4 +218,20 @@ describe('notices to admins about a member photo', () => {
       { kind: 'image', status: 'failed', last_error: 'membership_changed' },
     ]);
   });
+
+  it('announces a photo once when its event is processed again after a crash', async () => {
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    await harness.runInbound({
+      beforeFinish: async () => {
+        throw new Error('the worker crashed before finishing');
+      },
+    });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(readSendsTo('zu-duy').map((sent) => sent.kind)).toEqual(['text', 'image']);
+    expect(readSendsTo('zu-hung')).toEqual([{ kind: 'text', to: 'zu-hung', text: SAVED_REPLY }]);
+  });
 });
