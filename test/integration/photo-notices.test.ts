@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import type { RecordedSend } from '../fakes/fake-messaging-channel.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -54,6 +56,11 @@ describe('notices to admins about a member photo', () => {
 
   function makeFuelItem() {
     return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+  }
+
+  function describeSend(sent: RecordedSend): string | number {
+    if (sent.kind === 'text') return sent.text.split('\n')[2] ?? '';
+    return sent.kind === 'image' ? sent.photo.bytes.length : sent.templateId;
   }
 
   function readSendsTo(externalUserId: string) {
@@ -124,5 +131,18 @@ describe('notices to admins about a member photo', () => {
     expect(sentToDuy).toHaveLength(4);
     expect(sentToDuy[2]).toMatchObject({ kind: 'text', text: expect.stringMatching(new RegExp(`${DUPLICATE_REPLY}$`)) });
     expect(sentToDuy[3]).toEqual({ kind: 'image', to: 'zu-duy', photo: PHOTO });
+  });
+
+  it('announces each photo of one message in order', async () => {
+    const secondUrl = 'https://z.test/2.jpg';
+    harness.channel.attachments.set(secondUrl, { ok: true, bytes: makeJpeg(2000) });
+
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL, secondUrl] });
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    const sentToDuy = readSendsTo('zu-duy');
+    expect(sentToDuy.map((sent) => sent.kind)).toEqual(['text', 'image', 'text', 'image']);
+    expect(sentToDuy.map(describeSend)).toEqual([SAVED_REPLY, 1000, DUPLICATE_REPLY, 2000]);
   });
 });
