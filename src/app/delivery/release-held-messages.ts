@@ -18,14 +18,14 @@ export async function releaseHeldMessages(transaction: Transaction, { to, maxTex
 }
 
 function describeRelease(count: number): string {
-  return `Bạn có ${count} tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.`;
+  return `Bạn có ${count} tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.`;
 }
 
 async function copyAsQueued(transaction: Transaction, ids: string[], now: Date): Promise<void> {
   await transaction.query(
     `INSERT INTO outbound_messages
-       (channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, scheduled_task_id, available_at)
-     SELECT channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, scheduled_task_id, $2
+       (channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, scheduled_task_id, requires_open_window, available_at)
+     SELECT channel, account_id, external_user_id, kind, body, photo_key, admin_membership_id, scheduled_task_id, requires_open_window, $2
      FROM outbound_messages WHERE id = ANY($1::uuid[]) ORDER BY seq`,
     [ids, now],
   );

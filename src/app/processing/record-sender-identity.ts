@@ -1,15 +1,12 @@
-import { z } from 'zod';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { readStoredChoice } from '../identities/pending-choice.ts';
 import type { Transaction } from '../db/transaction.ts';
-import type { ClaimedEvent } from './claimed-event.ts';
-
-const payloadSchema = z.object({ sent_at: z.iso.datetime({ offset: true }) });
+import { readSentAt, type ClaimedEvent } from './claimed-event.ts';
 
 type IdentityRow = { id: string; user_id: string | null; current_workspace_id: string | null; pending_choice: unknown };
 
 export async function recordSenderIdentity(transaction: Transaction, event: ClaimedEvent): Promise<ChannelIdentity> {
-  const sentAt = new Date(payloadSchema.parse(event.payload).sent_at);
+  const sentAt = readSentAt(event);
   const [row] = await transaction.query<IdentityRow>(
     `INSERT INTO channel_identities (channel, account_id, external_user_id, last_inbound_at)
      VALUES ($1, $2, $3, $4)

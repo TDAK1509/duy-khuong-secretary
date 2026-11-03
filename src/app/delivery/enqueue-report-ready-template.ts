@@ -2,15 +2,14 @@ import type { Transaction } from '../db/transaction.ts';
 import type { ClaimedMessage } from './claimed-message.ts';
 
 const MAX_TITLE_LENGTH = 30;
+const PHOTO_NOTICE_TITLE = 'Ảnh mới trong nhóm';
 
 export async function enqueueReportReadyTemplate(
   transaction: Transaction,
   message: ClaimedMessage,
   { templateId, now }: { templateId: string; now: Date },
 ): Promise<void> {
-  const [task] = await transaction.query<{ title: string }>('SELECT title FROM scheduled_tasks WHERE id = $1', [
-    message.scheduledTaskId,
-  ]);
+  const title = await readTitle(transaction, message);
   await transaction.query(
     `INSERT INTO outbound_messages
        (channel, account_id, external_user_id, kind, template_id, template_params, admin_membership_id, available_at)
@@ -29,11 +28,19 @@ export async function enqueueReportReadyTemplate(
       message.to.accountId,
       message.to.externalUserId,
       templateId,
-      JSON.stringify({ task_title: cutTitle(task?.title ?? '') }),
+      JSON.stringify({ task_title: cutTitle(title) }),
       message.adminMembershipId,
       now,
     ],
   );
+}
+
+async function readTitle(transaction: Transaction, message: ClaimedMessage): Promise<string> {
+  if (message.scheduledTaskId === null) return PHOTO_NOTICE_TITLE;
+  const [task] = await transaction.query<{ title: string }>('SELECT title FROM scheduled_tasks WHERE id = $1', [
+    message.scheduledTaskId,
+  ]);
+  return task?.title ?? '';
 }
 
 function cutTitle(title: string): string {

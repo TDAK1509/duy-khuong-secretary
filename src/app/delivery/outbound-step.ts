@@ -7,7 +7,7 @@ import { readAccessKey } from '../channel-auth/read-access-key.ts';
 import type { Database } from '../db/transaction.ts';
 import type { OffGroupNotices } from '../processing/off-group-notices.ts';
 import { claimOutboundMessage } from './claim-outbound-message.ts';
-import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
+import { mayBeHeld, type ClaimedMessage, type MessageContent } from './claimed-message.ts';
 import { decideNoConnectionOutcome } from './decide-send-outcome.ts';
 import { isWithinWindow, readLastInboundAt } from './recipient-window.ts';
 import { postponeOutboundMessage } from './postpone-outbound-message.ts';
@@ -47,8 +47,8 @@ async function markLostSendsUnknown({ database, clock, alerts }: OutboundDepende
 }
 
 async function deliverMessage(dependencies: OutboundDependencies, message: ClaimedMessage): Promise<void> {
-  if (!(await isAdminStillMember(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
-  const lastInboundAt = await readLastInboundOfScheduledRecipient(dependencies.database, message);
+  if (!(await isStillAdmin(dependencies.database, message))) return failMessage(dependencies, message, 'membership_changed');
+  const lastInboundAt = await readLastInboundOfHoldableRecipient(dependencies.database, message);
   if (isOutsideWindow(message, lastInboundAt, dependencies.clock.now())) return holdMessage(dependencies, message, lastInboundAt);
   if (message.content.kind === 'image' && dependencies.photoStorage === null) {
     return postponeOutboundMessage(dependencies, message, 'photos');
@@ -58,12 +58,12 @@ async function deliverMessage(dependencies: OutboundDependencies, message: Claim
   await sendToRecipient(dependencies, message, payload, lastInboundAt);
 }
 
-function readLastInboundOfScheduledRecipient(database: Database, message: ClaimedMessage): Promise<Date | null> {
-  return message.scheduledTaskId === null ? Promise.resolve(null) : readLastInboundAt(database, message.to);
+function readLastInboundOfHoldableRecipient(database: Database, message: ClaimedMessage): Promise<Date | null> {
+  return mayBeHeld(message) ? readLastInboundAt(database, message.to) : Promise.resolve(null);
 }
 
 function isOutsideWindow(message: ClaimedMessage, lastInboundAt: Date | null, now: Date): boolean {
-  return message.scheduledTaskId !== null && !isWithinWindow(lastInboundAt, now);
+  return mayBeHeld(message) && !isWithinWindow(lastInboundAt, now);
 }
 
 function holdMessage(dependencies: OutboundDependencies, message: ClaimedMessage, lastInboundAt: Date | null): Promise<void> {
@@ -80,7 +80,7 @@ async function sendToRecipient(
   const { database, clock, encryptionKey } = dependencies;
   const accessKey = await readAccessKey(database, message.to.channel, message.to.accountId, encryptionKey);
   if (accessKey === null) return applyOutcome(dependencies, message, decideNoConnectionOutcome(message, clock.now()));
-  if (!(await isAdminStillMember(database, message))) return failMessage(dependencies, message, 'membership_changed');
+  if (!(await isStillAdmin(database, message))) return failMessage(dependencies, message, 'membership_changed');
   const result = await sendPayload(dependencies.channel, message.to, payload, accessKey);
   await recordSendResult(dependencies, message, result, lastInboundAt);
 }
@@ -108,8 +108,10 @@ function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: P
   }
 }
 
-async function isAdminStillMember(database: Database, message: ClaimedMessage): Promise<boolean> {
+async function isStillAdmin(database: Database, message: ClaimedMessage): Promise<boolean> {
   if (message.adminMembershipId === null) return true;
-  const { rows } = await database.query('SELECT 1 FROM memberships WHERE id = $1', [message.adminMembershipId]);
+  const { rows } = await database.query(`SELECT 1 FROM memberships WHERE id = $1 AND role = 'admin'`, [
+    message.adminMembershipId,
+  ]);
   return rows.length !== 0;
 }

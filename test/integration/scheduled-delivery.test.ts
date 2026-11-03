@@ -220,7 +220,7 @@ describe('the delivery rule for scheduled results', () => {
       await harness.sendQueuedTexts();
 
       expect(harness.channel.texts[0]?.text).toBe(
-        'Bạn có 2 tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.',
+        'Bạn có 2 tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.',
       );
     });
 
@@ -229,7 +229,7 @@ describe('the delivery rule for scheduled results', () => {
       await harness.sendAllQueuedTexts();
 
       expect(harness.channel.texts.slice(0, 3).map((sent) => sent.text)).toEqual([
-        'Bạn có 2 tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.',
+        'Bạn có 2 tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.',
         'Báo cáo 1',
         'Báo cáo 2',
       ]);

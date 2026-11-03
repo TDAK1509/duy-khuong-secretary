@@ -12,6 +12,7 @@ export type TextToEnqueue = {
   availableAt: Date;
   adminMembershipId?: string;
   scheduledTaskId?: string;
+  requiresOpenWindow?: boolean;
   offeredChoice?: OfferedChoice;
 };
 
@@ -21,11 +22,11 @@ export async function enqueueText(transaction: Transaction, message: TextToEnque
     const isLastPart = index === parts.length - 1;
     await transaction.query(
       `INSERT INTO outbound_messages
-         (channel, account_id, external_user_id, kind, body, admin_membership_id, available_at, scheduled_task_id, offered_choice)
-       VALUES ($1, $2, $3, 'text', $4, $5, $6, $7,
-         $8::jsonb || jsonb_build_object(
-           'source_received_at', (SELECT received_at FROM inbound_events WHERE id = $9),
-           'source_event_id', $9::text))`,
+         (channel, account_id, external_user_id, kind, body, admin_membership_id, available_at, scheduled_task_id, requires_open_window, offered_choice)
+       VALUES ($1, $2, $3, 'text', $4, $5, $6, $7, $8,
+         $9::jsonb || jsonb_build_object(
+           'source_received_at', (SELECT received_at FROM inbound_events WHERE id = $10),
+           'source_event_id', $10::text))`,
       [
         message.to.channel,
         message.to.accountId,
@@ -34,6 +35,7 @@ export async function enqueueText(transaction: Transaction, message: TextToEnque
         message.adminMembershipId ?? null,
         message.availableAt,
         message.scheduledTaskId ?? null,
+        message.requiresOpenWindow ?? false,
         isLastPart && message.offeredChoice ? JSON.stringify(toStoredChoice(message.offeredChoice.choice)) : null,
         isLastPart ? (message.offeredChoice?.sourceEventId ?? null) : null,
       ],

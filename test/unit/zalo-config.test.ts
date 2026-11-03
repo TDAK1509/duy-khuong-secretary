@@ -47,17 +47,23 @@ describe('loadZaloConfig', () => {
       ...COMPLETE_ENVIRONMENT,
       ZALO_API_BASE_URL: 'http://127.0.0.1:9000',
       ZALO_TIMEOUT_MS: '2500',
-      OUTBOUND_MAX_PER_MINUTE: '1',
+      OUTBOUND_MAX_PER_MINUTE: '2',
     };
 
     expect(loadZaloConfig(environment)).toMatchObject({
       ok: true,
-      config: { apiBaseUrl: 'http://127.0.0.1:9000', apiTimeoutMs: 2500, outboundMaxPerMinute: 1 },
+      config: { apiBaseUrl: 'http://127.0.0.1:9000', apiTimeoutMs: 2500, outboundMaxPerMinute: 2 },
     });
   });
 
   it('refuses a send rate that is not a positive whole number and names the value', () => {
     expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, OUTBOUND_MAX_PER_MINUTE: '0' })).toThrow(
+      /OUTBOUND_MAX_PER_MINUTE/,
+    );
+  });
+
+  it('refuses a send rate below 2 because an image needs two calls', () => {
+    expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, OUTBOUND_MAX_PER_MINUTE: '1' })).toThrow(
       /OUTBOUND_MAX_PER_MINUTE/,
     );
   });

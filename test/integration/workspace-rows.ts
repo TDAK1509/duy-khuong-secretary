@@ -17,6 +17,7 @@ export type NewInvite = {
   createdBy?: string;
 };
 
+const DEFAULT_LAST_INBOUND_AT = new Date('2026-10-01T10:00:00+07:00');
 const FAR_FUTURE = new Date('2026-12-01T00:00:00+07:00');
 
 export async function insertInvite(database: TemporaryDatabase, invite: NewInvite): Promise<void> {
@@ -33,6 +34,7 @@ export type NewMember = {
   displayName: string;
   role?: 'admin' | 'member';
   joinedAt?: Date;
+  lastInboundAt?: Date;
 };
 
 export async function insertMember(database: TemporaryDatabase, member: NewMember): Promise<string> {
@@ -44,7 +46,7 @@ export async function insertMember(database: TemporaryDatabase, member: NewMembe
   await database.query(
     `INSERT INTO channel_identities (channel, account_id, external_user_id, user_id, current_workspace_id, last_inbound_at)
      VALUES ('zalo-oa', 'oa-1', ${literal(member.externalUserId)}, ${literal(user.id)}, ${literal(member.workspaceId)},
-       ${timestamp(new Date('2026-10-01T10:00:00+07:00'))})
+       ${timestamp(member.lastInboundAt ?? DEFAULT_LAST_INBOUND_AT)})
      ON CONFLICT (channel, account_id, external_user_id) DO NOTHING`,
   );
   return user.id;
