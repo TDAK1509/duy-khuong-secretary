@@ -302,6 +302,18 @@ describe('the outbound worker step', () => {
     expect(channel.texts).toEqual([]);
   });
 
+  it('counts a sent image as two calls toward the per-minute limit', async () => {
+    await connectOa('oa-1', 'a1');
+    const tenSecondsAgo = new Date(NOW.getTime() - 10_000);
+    await insertOutboundMessage(database, { status: 'sent', sentAt: tenSecondsAgo, photoKey: 'a/1.jpg' });
+    await insertOutboundMessage(database, { status: 'sent', sentAt: tenSecondsAgo });
+    await insertOutboundMessage(database, { body: 'chờ' });
+
+    await runStep(3);
+
+    expect(channel.sends).toEqual([]);
+  });
+
   it('fails a text and alerts after the tenth rate-limited attempt', async () => {
     await connectOa('oa-1', 'a1');
     const id = await insertOutboundMessage(database, { attempts: 9 });

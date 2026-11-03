@@ -4,6 +4,7 @@ import type { ClaimedMessage, MessageContent } from './claimed-message.ts';
 const LOCK_MS = 2 * 60 * 1000;
 const THROTTLE_WINDOW_MS = 60 * 1000;
 const CLAIM_LOCK_KEY = 80_001;
+const CALLS_PER_IMAGE = 2;
 
 type ClaimedRow = {
   id: string;
@@ -47,7 +48,8 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
              AND earlier.status IN ('queued', 'sending')
              AND earlier.seq < outbound_messages.seq
          )
-         AND (SELECT count(*) FROM outbound_messages WHERE sent_at > $3 OR status = 'sending') < $4
+         AND (SELECT coalesce(sum(${callsOf('recent.kind')}), 0) FROM outbound_messages recent WHERE recent.sent_at > $3 OR recent.status = 'sending')
+           + ${callsOf('outbound_messages.kind')} <= $4
        ORDER BY seq
        LIMIT 1
        FOR UPDATE SKIP LOCKED
@@ -59,6 +61,10 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, requires_open_window, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
+}
+
+function callsOf(kindColumn: string): string {
+  return `(CASE ${kindColumn} WHEN 'image' THEN ${CALLS_PER_IMAGE} ELSE 1 END)`;
 }
 
 function describeClaim(row: ClaimedRow): ClaimedMessage {
