@@ -1,4 +1,4 @@
-import type { ChatService } from '../../services/chat/chat-service.ts';
+import type { ChatRequest, ChatService } from '../../services/chat/chat-service.ts';
 import { isCurrentAdmin } from '../access/is-current-admin.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -16,6 +16,8 @@ import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { CreatedTasks } from './created-tasks.ts';
+import { AdminTextGuard } from './tools/admin-text-guard.ts';
+import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
 export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
@@ -28,20 +30,27 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[] };
+type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[]; changeRefused: boolean };
 
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
+  const request = await buildChatRequest(context, message, profile);
+  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
+  const guard = new AdminTextGuard(message.photo !== null);
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), guard };
+  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  const { attachments, created } = dependencies;
+  return { text: outcome.text, photos: attachments.list(), createdTaskIds: created.listTaskIds(), changeRefused: guard.hasRefused() };
+}
+
+async function buildChatRequest(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<ChatRequest> {
+  const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
-  const request = {
+  return {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history, await buildUserTurn(database, message)],
     tools: ADMIN_TOOLS,
   };
-  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id) };
-  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  return { text: outcome.text, photos: dependencies.attachments.list(), createdTaskIds: dependencies.created.listTaskIds() };
 }
 
 function requireChat(context: IntakeContext): ChatService {
@@ -59,11 +68,16 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   const { sender } = context;
   if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
-  const text = [answer.text, ...summaries].join('\n\n');
+  const text = joinAnswerParts(answer, summaries);
   await storeBotReply(transaction, messageId, { text, kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueReply(transaction, context, text, sender.membershipId);
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
+}
+
+function joinAnswerParts(answer: Answer, summaries: string[]): string {
+  const notice = answer.changeRefused ? [CHANGE_REFUSED_NOTICE] : [];
+  return [answer.text, ...summaries, ...notice].join('\n\n');
 }

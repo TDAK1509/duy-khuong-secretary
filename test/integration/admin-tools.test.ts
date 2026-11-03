@@ -9,6 +9,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'cursor', string>>;
 
@@ -40,7 +41,7 @@ describe('the data tools of an admin', () => {
 
   async function runSearch(filters: SearchFilters = {}, scope: AccessScope = duy): Promise<SearchResult> {
     const args = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null, ...filters };
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
     return JSON.parse(output) as SearchResult;
   }
 
@@ -169,7 +170,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an invalid date', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: '2026-02-30', added_to: null, cursor: null }),
@@ -243,7 +244,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an unreadable cursor', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: 'xyz' }),
@@ -259,7 +260,7 @@ describe('the data tools of an admin', () => {
     const first = await runSearch();
     await database.query(`DELETE FROM memberships WHERE display_name = 'Duy'`);
 
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: first.next_cursor }),
@@ -292,12 +293,12 @@ describe('the data tools of an admin', () => {
     };
 
     async function runCount(scope: AccessScope = duy, range = { added_from: '2026-10-31', added_to: '2026-10-31' }): Promise<CountResult> {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
       return JSON.parse(output) as CountResult;
     }
 
     it('refuses a range whose end is not a real date', async () => {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
         id: 'call_1',
         name: 'count_records',
         argumentsJson: JSON.stringify({ added_from: '2026-10-31', added_to: '2026-02-30' }),
@@ -365,11 +366,14 @@ describe('the data tools of an admin', () => {
   });
 
   describe('listing members', () => {
-    type MembersResult = { members: { id: string; name: string; zalo_name: string | null; role: string }[] };
+    type MembersResult = { members: { id: string; name: string; role: string; joined_on: string }[] };
 
     async function runListMembers(scope: AccessScope = duy): Promise<MembersResult> {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
-      return JSON.parse(output) as MembersResult;
+      return JSON.parse(await runListMembersOutput(scope)) as MembersResult;
+    }
+
+    async function runListMembersOutput(scope: AccessScope = duy): Promise<string> {
+      return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
     }
 
     it('lists only the caller\'s workspace', async () => {
@@ -388,19 +392,27 @@ describe('the data tools of an admin', () => {
       expect(result.members.every((member) => member.id !== '')).toBe(true);
     });
 
-    it('shows each person\'s Zalo name', async () => {
+    it('shows each person\'s join date and no Zalo name', async () => {
       await database.query(`UPDATE channel_identities SET zalo_name = 'Hung Nguyen' WHERE external_user_id = 'zu-hung'`);
+      await database.query(`UPDATE memberships SET created_at = '2026-11-01 09:00 +07' WHERE user_id = '${hungUserId}'`);
+      const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
 
-      const result = await runListMembers();
+      const output = await runListMembersOutput();
 
-      expect(result.members.find((member) => member.name === 'Hùng')?.zalo_name).toBe('Hung Nguyen');
+      expect((JSON.parse(output) as MembersResult).members.find((member) => member.name === 'Hùng')).toEqual({
+        id: hung?.id,
+        name: 'Hùng',
+        role: 'thành viên',
+        joined_on: '01/11/2026',
+      });
+      expect(output).not.toContain('Hung Nguyen');
     });
   });
 
   it('refuses a tool called with a member\'s scope', async () => {
     const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
 
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, memberScope, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, memberScope, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -410,7 +422,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('names the argument that has the wrong type', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: 5, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -420,7 +432,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses a category that does not exist', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: 'banana', member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -430,7 +442,7 @@ describe('the data tools of an admin', () => {
   });
 
   async function runCall(name: string, argumentsJson: string): Promise<string> {
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, duy, { id: 'call_1', name, argumentsJson });
   }
 
@@ -455,10 +467,29 @@ describe('the data tools of an admin', () => {
   it('lets an unexpected error of a tool reach the caller', async () => {
     const connectionLost = new Error('connection lost');
     const database = { query: pool.query.bind(pool), connect: () => Promise.reject(connectionLost) };
-    const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) };
+    const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) };
 
     const running = runAdminTool(dependencies, duy, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
 
     await expect(running).rejects.toBe(connectionLost);
+  });
+
+  it('refuses a change after a search and writes nothing', async () => {
+    const guard = new AdminTextGuard(false);
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard };
+    const searchArguments = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
+    await runAdminTool(dependencies, duy, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(searchArguments) });
+    const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
+
+    const output = await runAdminTool(dependencies, duy, {
+      id: 'call_2',
+      name: 'remove_member',
+      argumentsJson: JSON.stringify({ member_id: hung?.id }),
+    });
+
+    expect(output).toBe(
+      '{"ok":false,"error":"Chưa làm: tin nhắn có ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
+    );
+    expect(await database.query(`SELECT 1 FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
   });
 });

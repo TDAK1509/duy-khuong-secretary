@@ -9,6 +9,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 type StatusFilters = Partial<Record<'plate' | 'maintenance_item' | 'cursor', string>>;
 
@@ -52,7 +53,7 @@ describe('the maintenance status tool of an admin', () => {
 
   async function runStatusOutput(filters: StatusFilters = {}, scope: AccessScope = duy): Promise<string> {
     const args = { plate: null, maintenance_item: null, cursor: null, ...filters };
-    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, scope, { id: 'call_1', name: 'maintenance_status', argumentsJson: JSON.stringify(args) });
+    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'maintenance_status', argumentsJson: JSON.stringify(args) });
   }
 
   async function runStatus(filters: StatusFilters = {}, scope: AccessScope = duy): Promise<StatusResult> {

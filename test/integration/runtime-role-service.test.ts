@@ -11,6 +11,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 describe('the service connected as the runtime role', () => {
   describe('when two drivers send the same paper', () => {
@@ -67,7 +68,7 @@ describe('the service connected as the runtime role', () => {
       const filters = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
 
       const output = await runAdminTool(
-        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments(), created: new CreatedTasks(null) },
+        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) },
         duy,
         { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(filters) },
       );

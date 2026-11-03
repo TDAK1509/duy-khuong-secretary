@@ -13,6 +13,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
 describe('the member tools of an admin', () => {
   let database: TemporaryDatabase;
@@ -38,7 +39,7 @@ describe('the member tools of an admin', () => {
   });
 
   async function runTool(name: string, args: object, scope: AccessScope = duy): Promise<string> {
-    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null) }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
   describe('creating an invite', () => {
