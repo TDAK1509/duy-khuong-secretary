@@ -17,6 +17,7 @@ type ClaimedRow = {
   template_params: Record<string, string> | null;
   admin_membership_id: string | null;
   scheduled_task_id: string | null;
+  requires_open_window: boolean;
   attempts: number;
 };
 
@@ -55,7 +56,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      SET status = 'sending', locked_until = $2, attempts = attempts + 1
      FROM candidate
      WHERE outbound_messages.id = candidate.id
-     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, attempts`,
+     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, requires_open_window, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
 }
@@ -67,6 +68,7 @@ function describeClaim(row: ClaimedRow): ClaimedMessage {
     content: describeContent(row),
     adminMembershipId: row.admin_membership_id,
     scheduledTaskId: row.scheduled_task_id,
+    requiresOpenWindow: row.requires_open_window,
     attempts: row.attempts,
   };
 }

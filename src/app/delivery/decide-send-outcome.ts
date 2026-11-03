@@ -1,6 +1,6 @@
 import type { SendResult } from '../../services/messaging/messaging-channel.ts';
 import { describeNoConnection, describeOutboundMessageFailed, describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
-import type { ClaimedMessage } from './claimed-message.ts';
+import { mayBeHeld, type ClaimedMessage } from './claimed-message.ts';
 
 export type Settlement = {
   status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
@@ -53,7 +53,7 @@ function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: 
     case 'no_answer':
       return { settlement: { status: 'unknown', lastError: result.reason }, alert: describeSendGotNoAnswer(message.id) };
     case 'window_closed':
-      return message.scheduledTaskId === null ? failSend(result) : { settlement: { status: 'held', lastError: result.reason } };
+      return mayBeHeld(message) ? { settlement: { status: 'held', lastError: result.reason } } : failSend(result);
     case 'rejected':
       return failSend(result);
   }

@@ -11,5 +11,10 @@ export type ClaimedMessage = {
   content: MessageContent;
   adminMembershipId: string | null;
   scheduledTaskId: string | null;
+  requiresOpenWindow: boolean;
   attempts: number;
 };
+
+export function mayBeHeld(message: ClaimedMessage): boolean {
+  return message.scheduledTaskId !== null || message.requiresOpenWindow;
+}
