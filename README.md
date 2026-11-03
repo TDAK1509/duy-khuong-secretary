@@ -57,7 +57,7 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `ZALO_API_BASE_URL` | `https://openapi.zalo.me` | Zalo API host (sending messages) |
 | `ZALO_BUSINESS_API_BASE_URL` | `https://openapi.zalo.me` | Host of the template message call `POST /v3.0/oa/message/template` (ZBS by user id; checked against the Zalo docs; the plan named `https://business.openapi.zalo.me`) |
 | `ZALO_TIMEOUT_MS` | `15000` | How long a Zalo API call may take before it counts as unanswered |
-| `OUTBOUND_MAX_PER_MINUTE` | `90` | How many messages go out per minute (the Tăng trưởng package allows 100) |
+| `OUTBOUND_MAX_PER_MINUTE` | `90` | How many Zalo calls go out per minute, at least `2` (the Tăng trưởng package allows 100). An image counts as two calls |
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
 | `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
@@ -94,7 +94,7 @@ Replies wait in the `outbound_messages` table (one row per message, at most 2,00
 | `failed` | Zalo refused it, or the retries ran out |
 | `unknown` | The request may have reached Zalo but no answer came back. It is never sent again |
 
-The worker sends at most `OUTBOUND_MAX_PER_MINUTE` messages in any 60 seconds (sent plus still sending). Zalo's rate-limit error waits 60 seconds and retries up to 10 attempts. A request that never left the server (connection refused, DNS failure) waits 30 s, 60 s, 120 s, ... and fails after 5 attempts. A missing OA connection waits 60 s and fails after 5 attempts. A `sending` row whose lock passed becomes `unknown`.
+The worker makes at most `OUTBOUND_MAX_PER_MINUTE` Zalo calls in any 60 seconds. An image counts as two calls (upload and send). A message is claimed only when the calls of the last 60 seconds (sent plus still sending) plus its own stay within the limit. Zalo's rate-limit error waits 60 seconds and retries up to 10 attempts. A request that never left the server (connection refused, DNS failure) waits 30 s, 60 s, 120 s, ... and fails after 5 attempts. A missing OA connection waits 60 s and fails after 5 attempts. A `sending` row whose lock passed becomes `unknown`.
 
 The operator gets `[alert] Zalo send got no answer for outbound message <id>. It will not be resent. Check the chat in OA Manager.` for each `unknown` message, `[alert] Outbound message <id> failed after <n> attempts.` when retries run out, and `[alert] No Zalo connection for OA <oa id>. Run connect-zalo.` while the OA has no stored keys. A row with `admin_membership_id` is sent only while that membership exists; otherwise it becomes `failed` (`membership_changed`).
 
@@ -146,13 +146,24 @@ An admin asks for a task that runs once, daily, weekly or monthly (Vietnam time)
 
 Every 60 seconds the ticker claims the `active` tasks whose `next_run_at` has passed (and whose `locked_until` is empty or past) with `FOR UPDATE SKIP LOCKED`, locks each for 10 minutes and runs its `instruction` with the creator's admin scope and exactly the tools `search_records`, `count_records`, `maintenance_status` and `list_members`. This runs only while the `chat` group is on. A creator who is no longer an admin (removed, or removed and invited again as a member) turns the task off (`cancelled`). The finish is one transaction that proceeds only when `next_run_at` still equals the claimed value and the creator's membership row is still the same admin row. It stores the result as a bot message in the creator's chat, queues it with `scheduled_task_id` and moves `next_run_at` to the next occurrence (empty for a one-time task). An answer that is exactly `KHONG_CO_THONG_BAO` sends nothing. A model error sends `Lịch "{title}" chạy lỗi. Lần chạy sau sẽ thử lại.` A crash leaves the lock to expire and the task runs again once; the conditional finish prevents a double send.
 
-The outbound worker applies the delivery rule to rows that carry `scheduled_task_id`. When the creator wrote within the last 7 days (less a 10-minute margin) the row is sent as usual. Otherwise, or when Zalo answers that the window is closed (error `-230`, unverified), the row becomes `held`. A held row is never claimed. With `ZALO_REPORT_READY_TEMPLATE_ID` set (the `report-template` group), the first held row after the creator's last message also queues one `template` row with `{"task_title": "…"}` (title cut to 30 characters). Template rows are sent whatever the window. When the person writes again, the inbound handler queues the line `Bạn có {n} tin nhắn từ lịch tự động chưa nhận được. Trợ lý gửi ngay sau đây.`, then a queued copy of each held row in order, and deletes the held rows.
+The outbound worker applies the delivery rule to rows that carry `scheduled_task_id` or `requires_open_window` (the photo notices below). When the creator wrote within the last 7 days (less a 10-minute margin) the row is sent as usual. Otherwise, or when Zalo answers that the window is closed (error `-230`, unverified), the row becomes `held`. A held row is never claimed. With `ZALO_REPORT_READY_TEMPLATE_ID` set (the `report-template` group), the first held row after the creator's last message also queues one `template` row with `{"task_title": "…"}` (title cut to 30 characters). Template rows are sent whatever the window. When the person writes again, the inbound handler queues the line `Bạn có {n} tin nhắn chưa nhận được. Trợ lý gửi ngay sau đây.`, then a queued copy of each held row in order, and deletes the held rows.
+
+#### Photo notices
+
+When a member's photo is stored and answered, every current admin of that workspace gets two Zalo messages after the member's own reply: a text and then the photo. The text reads `{display_name} gửi ảnh vào nhóm "{workspace_name}" lúc {HH:mm dd/MM/yyyy}.`, then `Trợ lý đã trả lời {display_name}:`, then the exact reply the member got. Admins' own photos, member texts, captions and photos refused before storage are not announced. The notice rows exist only in `outbound_messages`: each carries `admin_membership_id` (the worker drops it when that membership is gone or no longer an admin) and `requires_open_window`. A row with this marker is held, like a scheduled result, when the admin's 7-day window is closed, and is released at the admin's next message. The notices never enter `messages`, so the admin chat model never sees them. The photo is sent unchanged; Zalo may refuse a photo over about 1 MB, in which case the text still arrives and the image row fails.
 
 #### Maintenance reminders
 
 A task can carry `maintenance_rules`, a list of `{maintenance_item, age_days}` (the item is stored lowercased). The server, not the model, chooses what is due. Before the model call it selects, in the task's workspace, the newest `maintenance` record of each (`vehicle_plate`, `maintenance_item`) by upload time (`messages.created_at`, then record `id`, whoever sent it). A record is due when its item equals a rule's item (accent-free form), today's Vietnam date minus the Vietnam date of its upload is at least the rule's `age_days`, and `maintenance_notifications` has no row for (task, record). With nothing due, no model call happens, nothing is sent and `next_run_at` moves on. Otherwise the user turn is the `instruction` plus the due list as JSON. When the finish transaction stores and queues the reminder it also inserts one `maintenance_notifications` row per due record. `KHONG_CO_THONG_BAO` or a model error inserts none, so the record is due again at the next run. Two rules for the same part count as one, with the smaller number of days.
 
-Owner action: submit the "report ready" template of the plan (section 4.7) to Zalo and, after approval, set `ZALO_REPORT_READY_TEMPLATE_ID` in Render. Without it the reports of quiet admins stay held until they write. While the group is off the service logs `[config] report-template is off; missing: ZALO_REPORT_READY_TEMPLATE_ID.`
+For a held photo notice the template parameter `task_title` is `Ảnh mới trong nhóm`.
+
+Owner action: submit this "report ready" template text to Zalo (the parameter is `task_title`; replace the text of an earlier submission, which needs approval again) and, after approval, set `ZALO_REPORT_READY_TEMPLATE_ID` in Render:
+
+```
+Thông báo nội bộ: Trợ lý có tin mới cho bạn: "<task_title>". Bạn nhắn một tin bất kỳ cho Trợ lý để nhận.
+```
+ Without it the reports of quiet admins stay held until they write. While the group is off the service logs `[config] report-template is off; missing: ZALO_REPORT_READY_TEMPLATE_ID.`
 
 ## Row-level security
 
