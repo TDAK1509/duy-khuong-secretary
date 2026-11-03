@@ -32,8 +32,8 @@ describe('the scheduling tools', () => {
     await harness.close();
   });
 
-  function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null)): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, guard: new AdminTextGuard(false) };
+  function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null), guard = new AdminTextGuard(false)): Promise<string> {
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, guard };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
@@ -61,6 +61,21 @@ describe('the scheduling tools', () => {
 
     expect(again).toBe(first);
     expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'message-1:1' }]);
+  });
+
+  it('takes no creation key for a refused creation', async () => {
+    const duy = await addAdmin();
+    harness.clock.setTo(new Date('2026-10-31T10:00:00+07:00'));
+    const created = new CreatedTasks('M');
+
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, created, new AdminTextGuard(true));
+    const rowsAfterRefusal = await harness.database.query('SELECT 1 FROM scheduled_tasks');
+    const taskIdsAfterRefusal = created.listTaskIds();
+    await runTool(duy, 'create_scheduled_task', DAILY_REPORT, created, new AdminTextGuard(false));
+
+    expect(rowsAfterRefusal).toEqual([]);
+    expect(taskIdsAfterRefusal).toEqual([]);
+    expect(await harness.database.query('SELECT creation_key FROM scheduled_tasks')).toEqual([{ creation_key: 'M:1' }]);
   });
 
   it('returns the stored one-time task when the creation is repeated after its time passed', async () => {
