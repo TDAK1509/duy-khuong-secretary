@@ -4,6 +4,7 @@ import type { IntakeSender } from '../intake/find-intake-sender.ts';
 
 const HISTORY_LIMIT = 20;
 const PHOTO_MARK = '[ảnh]';
+const HIDDEN_ANSWER_TEXT = '(Câu trả lời cũ đã được ẩn.)';
 
 type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null };
 
@@ -25,7 +26,7 @@ export async function loadHistoryTurns(
 }
 
 function toTurn(row: HistoryRow): ChatTurn {
-  if (row.author === 'bot') return { role: 'assistant', text: row.text ?? '' };
+  if (row.author === 'bot') return { role: 'assistant', text: HIDDEN_ANSWER_TEXT };
   return { role: 'user', text: row.image_key === null ? row.text : describePhotoMessage(row.text), image: null };
 }
 
