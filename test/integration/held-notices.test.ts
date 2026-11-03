@@ -103,4 +103,18 @@ describe('notices that are held when the window is closed', () => {
     expect(harness.channel.templates).toHaveLength(1);
     expect(await database.query("SELECT 1 FROM outbound_messages WHERE status = 'held'")).toHaveLength(6);
   });
+
+  it('keeps notices held and sends no template without a template id', async () => {
+    await duyWroteDaysAgo(8);
+    await insertNotice({ body: 'Thông báo 1' });
+    await insertNotice({ photoKey: PHOTO_KEY });
+
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRows()).toEqual([
+      { kind: 'text', status: 'held', last_error: 'outside_window' },
+      { kind: 'image', status: 'held', last_error: 'outside_window' },
+    ]);
+    expect(harness.channel.templates).toEqual([]);
+  });
 });
