@@ -32,6 +32,16 @@ describe('loadReaderConfig', () => {
     expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-shared']);
   });
 
+  it('keeps the own key of a slot over the LLM_API_KEY', () => {
+    const result = loadReaderConfig({
+      ...ENVIRONMENT_WITHOUT_SLOT_KEYS,
+      LLM_API_KEY: 'sk-shared',
+      READER_STRONG_2_API_KEY: 'sk-own',
+    });
+
+    expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-own']);
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_STRONG_2_MODEL: '' });
 
