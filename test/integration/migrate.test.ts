@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PG_MIGRATE_LOCK_ID } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -137,6 +138,7 @@ describe('the migration runner', () => {
 describe('the runtime password step', () => {
   let database: TemporaryDatabase;
   let superuserMigrationUrl: string;
+  let stranger: string | null = null;
 
   beforeEach(async () => {
     database = await createTemporaryDatabase();
@@ -144,7 +146,10 @@ describe('the runtime password step', () => {
   });
 
   afterEach(async () => {
+    if (stranger) await runAsSuperuser(`ALTER DATABASE ${databaseName()} OWNER TO app_owner`);
     await database.drop();
+    if (stranger) await runAsSuperuser(`DROP ROLE ${stranger}`);
+    stranger = null;
   });
 
   it('sets the app_runtime password after the migrations', async () => {
@@ -176,6 +181,30 @@ describe('the runtime password step', () => {
     expect(lines.some((line) => line.includes('password set'))).toBe(false);
   });
 
+  it('fails the deploy and prints no secret when the password cannot be set', async () => {
+    stranger = `stranger_${randomUUID().replaceAll('-', '')}`;
+    await runAsSuperuser(`CREATE ROLE ${stranger} LOGIN PASSWORD 'stranger-pass'`);
+    await runAsSuperuser(`ALTER DATABASE ${databaseName()} OWNER TO ${stranger}`);
+    const strangerUrl = signInAs(superuserMigrationUrl, stranger, 'stranger-pass');
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: strangerUrl, APP_RUNTIME_PASSWORD: 'ab+cd/ef==' },
+      { directory: new URL('two-tables/', fixtures), log: (line) => lines.push(line) },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines.at(-1)).toBe('[migrate] failed: could not set the app_runtime password (SQLSTATE 42501)');
+    const output = lines.join('\n');
+    for (const secret of ['ab+cd/ef==', 'ALTER ROLE', 'permission denied', strangerUrl]) {
+      expect(output).not.toContain(secret);
+    }
+  });
+
+  function databaseName(): string {
+    return new URL(database.url).pathname.slice(1);
+  }
+
   function readRuntimePasswordHash(): Promise<string> {
     return readRolePasswordHash(superuserMigrationUrl, 'app_runtime');
   }
@@ -190,6 +219,23 @@ async function readRolePasswordHash(superuserUrl: string, role: string): Promise
       [role],
     );
     return result.rows[0]?.rolpassword ?? '';
+  } finally {
+    await client.end();
+  }
+}
+
+function signInAs(databaseUrl: string, role: string, password: string): string {
+  const url = new URL(databaseUrl);
+  url.username = role;
+  url.password = password;
+  return url.toString();
+}
+
+async function runAsSuperuser(statement: string): Promise<void> {
+  const client = new pg.Client({ connectionString: superuserDatabaseUrl });
+  await client.connect();
+  try {
+    await client.query(statement);
   } finally {
     await client.end();
   }
