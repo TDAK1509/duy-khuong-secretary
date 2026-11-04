@@ -83,6 +83,15 @@ describe('loadZaloConfig', () => {
     expect(loadZaloConfig(environment)).toMatchObject({ ok: true, config: { encryptionKey: '07'.repeat(32) } });
   });
 
+  it('refuses a base64 key of another length and names the value', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      CHANNEL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(31).toString('base64'),
+    };
+
+    expect(() => loadZaloConfig(environment)).toThrow(/CHANNEL_TOKEN_ENCRYPTION_KEY/);
+  });
+
   it('refuses a messaging provider other than zalo-oa and names the value', () => {
     expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, MESSAGING_PROVIDER: 'other' })).toThrow(/MESSAGING_PROVIDER/);
   });
