@@ -16,16 +16,17 @@ curl -i http://localhost:3000/health
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | none, required | Postgres connection string of the runtime role `app_runtime` (see Row-level security) |
+| `DATABASE_URL` | derived when unset | Postgres connection string of the runtime role `app_runtime` (see Row-level security). When unset, the service builds it from `MIGRATION_DATABASE_URL` and `APP_RUNTIME_PASSWORD`. The start fails when neither way works |
 | `PORT` | `3000` | HTTP port |
 | `GIT_COMMIT` | `RENDER_GIT_COMMIT`, else none | The deployed commit, shown by `/health` |
-| `MIGRATION_DATABASE_URL` | none | Direct connection as the schema-owner role. Read only by `node dist/bootstrap/migrate.js` |
+| `MIGRATION_DATABASE_URL` | none | Direct connection as the schema-owner role. Read by `node dist/bootstrap/migrate.js`, and by the service when `DATABASE_URL` is unset (only the host, port, database and query are used) |
+| `APP_RUNTIME_PASSWORD` | none | Password of `app_runtime`. `migrate.js` sets it after the migrations, and the service signs in with it when `DATABASE_URL` is unset. On Render, Render generates it |
 
 `GET /health` answers `200 {"ok":true,"commit":"<sha>"}` when the database answers, and `503 {"ok":false,"commit":"<sha>"}` when it does not. `commit` is `GIT_COMMIT`, else `RENDER_GIT_COMMIT`, else `null`.
 
 ## Create a workspace
 
-The operator creates a workspace and the invite code of its first admin with one command (needs `DATABASE_URL`, and the migrations applied):
+The operator creates a workspace and the invite code of its first admin with one command (needs `DATABASE_URL`, or `MIGRATION_DATABASE_URL` with `APP_RUNTIME_PASSWORD`, and the migrations applied):
 
 ```sh
 npm run build
@@ -58,8 +59,8 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `ZALO_BUSINESS_API_BASE_URL` | `https://openapi.zalo.me` | Host of the template message call `POST /v3.0/oa/message/template` (ZBS by user id; checked against the Zalo docs; the plan named `https://business.openapi.zalo.me`) |
 | `ZALO_TIMEOUT_MS` | `15000` | How long a Zalo API call may take before it counts as unanswered |
 | `OUTBOUND_MAX_PER_MINUTE` | `90` | How many Zalo calls go out per minute, at least `2` (the Tăng trưởng package allows 100). An image counts as two calls |
-| `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters (32 bytes) |
-| `PUBLIC_BASE_URL` | none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com` |
+| `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters, or base64 of exactly 32 bytes (the form Render generates). Any other value stops the start |
+| `PUBLIC_BASE_URL` | `RENDER_EXTERNAL_URL`, else none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com`. Set it only for a custom domain |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
 | `ZALO_MEDIA_HOSTS` | `zdn.vn,zadn.vn` | Comma-separated hosts that photo downloads may use. A host matches when it equals an entry or ends with `.` plus an entry |
 | `ZALO_OA_SECRET` | none | The OA secret key shown in the Zalo app's webhook settings; turns the webhook on |
@@ -121,7 +122,7 @@ To run with MinIO by hand (never in CI): `docker compose --profile minio up -d -
 
 Every text and photo from a person in a workspace goes to the readers (the cheap pair, then the strong pair when the cheap pair disagrees). When a pair agrees on work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. `read_by` is `cheap_pair` or `expensive_pair`. When no pair agrees, nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message from a member with no work data gets the upload-only reply. A question in a member's message is ignored. Admins get the chat model (see "Admins ask the bot").
 
-The `readers` group is on only when `READER_PROVIDER` and the 12 `READER_<SLOT>_BASE_URL/_API_KEY/_MODEL` values are set (see "Evaluate the readers"). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
+The `readers` group is on only when `READER_PROVIDER` and the 12 `READER_<SLOT>_BASE_URL/_API_KEY/_MODEL` values are set (an empty `_API_KEY` falls back to `LLM_API_KEY`) (see "Evaluate the readers"). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
 
 ## Admins ask the bot
 
@@ -171,13 +172,15 @@ The tables `records`, `messages` and `reply_photos` have row-level security (`EN
 
 At start the service refuses to run as a superuser or a role with `BYPASSRLS`. When its role owns the tables, it logs `[config] database role owns the tables; row-level security is not enforced until DATABASE_URL uses app_runtime.`
 
-Owner action, once per database. A migration creates `app_runtime` without a password when the role does not exist, and always reapplies its grants. Set the password as the database owner, then set `DATABASE_URL` in Render to the same host and database with the user `app_runtime`:
+On Render nobody runs SQL. A migration creates `app_runtime` without a password when the role does not exist, and always reapplies its grants. Render generates `APP_RUNTIME_PASSWORD`, and the pre-deploy step `migrate.js` sets the role's password to it after the migrations. It logs `[migrate] app_runtime password set`, or `[migrate] failed: could not set the app_runtime password (SQLSTATE <code>)` and exits 1, which cancels the deploy. No line holds the password. The service builds its `DATABASE_URL` from `MIGRATION_DATABASE_URL` with the user `app_runtime` and that password.
+
+Another host sets the password once as the database owner and sets `DATABASE_URL` to the same host and database with the user `app_runtime`:
 
 ```sql
 ALTER ROLE app_runtime WITH LOGIN PASSWORD '<a long random password>';
 ```
 
-The password lives only in this step and in `DATABASE_URL`, never in a migration. `MIGRATION_DATABASE_URL` keeps the database owner's connection string. Check the result with `select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user;`, which returns `app_runtime`, `f`, `f`.
+The password lives only in the environment (`APP_RUNTIME_PASSWORD` or `DATABASE_URL`), never in a migration. `MIGRATION_DATABASE_URL` keeps the database owner's connection string. Check the result with `select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user;`, which returns `app_runtime`, `f`, `f`.
 
 CI and local tests: the service under test connects as `app_runtime`. The Postgres service container's superuser migrates in CI. `test/integration/` reads `SUPERUSER_DATABASE_URL` (default `postgres:postgres` on the host of `DATABASE_URL`) for the test that refuses a superuser.
 
@@ -190,7 +193,7 @@ npm run build
 MIGRATION_DATABASE_URL=postgres://app_owner:app_owner@localhost:5432/secretary node dist/bootstrap/migrate.js
 ```
 
-The runner logs `[migrate] applied: <names>` or `[migrate] nothing to apply`. It never logs the database URL. It exits 1 when `MIGRATION_DATABASE_URL` is empty, without connecting. When the database holds a migration this build does not have (after a rollback), it logs `database is ahead of this build (rollback); skipping migrations` and exits 0.
+The runner logs `[migrate] applied: <names>` or `[migrate] nothing to apply`. When `APP_RUNTIME_PASSWORD` is set, it then sets the `app_runtime` password and logs `[migrate] app_runtime password set`. It never logs the database URL or a password. It exits 1 when `MIGRATION_DATABASE_URL` is empty, without connecting. When the database holds a migration this build does not have (after a rollback), it logs `database is ahead of this build (rollback); skipping migrations` and exits 0.
 
 Every schema change is a new file in `src/app/db/migrations/`, named `NNNN_what_it_does.ts` and exporting `up(pgm)`. The builder offers only `sql(statement)` and `noTransaction()` (`src/app/db/migration-builder.ts`).
 
@@ -207,11 +210,40 @@ Rules:
 
 `render.yaml` describes one web service (Docker, Singapore) and one Postgres 17 database (Singapore). After the checks pass on a commit on `main` (`autoDeployTrigger: checksPass`), Render builds the `Dockerfile`, runs `node dist/bootstrap/migrate.js` as the pre-deploy command, and starts `node dist/bootstrap/main.js` only if that exits 0. A failed migration cancels the deploy and the previous release keeps serving. The web process never migrates at startup.
 
-Owner action: in a Render Hobby workspace, allow Render's GitHub app on this repository, then create a Blueprint from `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. Render fills `MIGRATION_DATABASE_URL` from the database's internal connection string. `DATABASE_URL` is entered by hand (see Row-level security). The database has `ipAllowList: []`, so only Render services in the same account and region reach it. An operator who needs external SQL adds their IP in the Render dashboard.
+Owner action, before creating the Blueprint:
 
-Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log starts with a `[migrate]` line.
+1. Create an OpenAI API key.
+2. Create the Cloudflare R2 bucket `secretary-photos` and an access key pair for it. Note its S3 endpoint.
+3. Create the Zalo app. Note its app id and secret key, and the OA secret key.
 
-Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, and set `GIT_COMMIT`.
+Then, in a Render Hobby workspace, allow Render's GitHub app on this repository, choose New, Blueprint, pick the repository and fill the 7 prompts:
+
+| Prompt | Value |
+|---|---|
+| `LLM_API_KEY` | The OpenAI API key. Every chat and reader slot uses it |
+| `S3_ENDPOINT` | The R2 S3 endpoint |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The R2 access key pair |
+| `ZALO_APP_ID`, `ZALO_APP_SECRET` | The Zalo app's id and secret key |
+| `ZALO_OA_SECRET` | The OA secret key |
+
+Click Deploy Blueprint. Render fills `MIGRATION_DATABASE_URL` from the database's internal connection string and generates `APP_RUNTIME_PASSWORD` and `CHANNEL_TOKEN_ENCRYPTION_KEY`. The providers, models, base URLs and the bucket name are fixed values in `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. The database has `ipAllowList: []`, so only Render services in the same account and region reach it. An operator who needs external SQL adds their IP in the Render dashboard.
+
+Never regenerate or edit `APP_RUNTIME_PASSWORD` or `CHANNEL_TOKEN_ENCRYPTION_KEY` in the dashboard. A new encryption key makes the stored Zalo keys unreadable, and `connect-zalo` must run again. A Blueprint sync resets dashboard edits of the fixed values (models, base URLs, providers, the bucket name). Change them in `render.yaml`.
+
+A sync cannot create these. Do them by hand:
+
+- The OpenAI API key.
+- The R2 bucket `secretary-photos`, its S3 endpoint and its access keys.
+- The Zalo app and its link to the OA: the callback URL `<URL>/oauth/zalo/callback`, the webhook URL `<URL>/webhooks/zalo` with `user_send_text` and `user_send_image` on, the OA secret, and the domain verification file if Zalo asks (`ZALO_VERIFIER_FILE_NAME` and `ZALO_VERIFIER_FILE_CONTENT` in the dashboard).
+- The `connect-zalo` run in the service shell, approved in a browser.
+- The `create-workspace` run in the service shell, once per customer.
+- The template approval, then `ZALO_REPORT_READY_TEMPLATE_ID` in the dashboard.
+- An alert webhook, if you want one: `ALERT_PROVIDER=webhook` and `ALERT_WEBHOOK_URL` in the dashboard.
+- Render's GitHub app access, and the Blueprint creation itself.
+
+Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log holds a `[migrate]` line, then `[migrate] app_runtime password set`. The start log has no `database role owns the tables` line.
+
+Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, set `GIT_COMMIT`, and set `DATABASE_URL` (or `APP_RUNTIME_PASSWORD`, so that `migrate.js` sets the password).
 
 ## Evaluate the readers
 
@@ -220,9 +252,9 @@ A manual tool that reads a folder of receipt photos with the cheap reader pair, 
 ```sh
 export READER_PROVIDER=openai-compatible
 export READER_REASONING_EFFORT=low
+export LLM_API_KEY=<your OpenAI key>
 for slot in CHEAP_1 CHEAP_2 STRONG_1 STRONG_2; do
   export READER_${slot}_BASE_URL=https://api.openai.com/v1
-  export READER_${slot}_API_KEY=<your OpenAI key>
 done
 export READER_CHEAP_1_MODEL=gpt-6-luna
 export READER_CHEAP_2_MODEL=gpt-6.1-terra
@@ -243,7 +275,7 @@ Put an `expected.json` next to the photos to also get `amounts correct` and `dat
 | Env var | Default | Meaning |
 |---|---|---|
 | `READER_PROVIDER` | none, required | `openai-compatible` |
-| `READER_<SLOT>_BASE_URL`, `_API_KEY`, `_MODEL` | none, required | One set per slot: `READER_CHEAP_1`, `READER_CHEAP_2`, `READER_STRONG_1`, `READER_STRONG_2` |
+| `READER_<SLOT>_BASE_URL`, `_API_KEY`, `_MODEL` | none, required | One set per slot: `READER_CHEAP_1`, `READER_CHEAP_2`, `READER_STRONG_1`, `READER_STRONG_2`. `READER_<SLOT>_API_KEY` defaults to `LLM_API_KEY`, so one OpenAI key serves all four slots. A slot with its own key keeps it |
 | `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
 | `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
 
