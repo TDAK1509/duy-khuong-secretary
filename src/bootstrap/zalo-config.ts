@@ -52,7 +52,7 @@ export type ZaloConfig = {
 export type ZaloConfigResult = { ok: true; config: ZaloConfig } | { ok: false; missing: string[] };
 
 export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult {
-  const supplied = dropEmptyValues(environment);
+  const supplied = withRenderPublicUrl(dropEmptyValues(environment));
   checkSuppliedValues(supplied);
   const missing = REQUIRED_NAMES.filter((name) => !supplied[name]);
   if (missing.length > 0) return { ok: false, missing };
@@ -101,6 +101,12 @@ function toHexKey(value: string): string {
 function dropEmptyValues(environment: NodeJS.ProcessEnv): Record<string, string> {
   const entries = Object.entries(environment).filter((entry): entry is [string, string] => !!entry[1]);
   return Object.fromEntries(entries);
+}
+
+function withRenderPublicUrl(supplied: Record<string, string>): Record<string, string> {
+  const renderUrl = supplied['RENDER_EXTERNAL_URL'];
+  if (!renderUrl || supplied['PUBLIC_BASE_URL']) return supplied;
+  return { ...supplied, PUBLIC_BASE_URL: renderUrl };
 }
 
 function checkSuppliedValues(supplied: Record<string, string>): void {

@@ -92,6 +92,19 @@ describe('loadZaloConfig', () => {
     expect(() => loadZaloConfig(environment)).toThrow(/CHANNEL_TOKEN_ENCRYPTION_KEY/);
   });
 
+  it('uses the Render URL when PUBLIC_BASE_URL is not set', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      PUBLIC_BASE_URL: undefined,
+      RENDER_EXTERNAL_URL: 'https://duy-khuong-secretary.onrender.com',
+    };
+
+    expect(loadZaloConfig(environment)).toMatchObject({
+      ok: true,
+      config: { publicBaseUrl: 'https://duy-khuong-secretary.onrender.com' },
+    });
+  });
+
   it('refuses a messaging provider other than zalo-oa and names the value', () => {
     expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, MESSAGING_PROVIDER: 'other' })).toThrow(/MESSAGING_PROVIDER/);
   });
