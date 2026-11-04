@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../../src/bootstrap/config.ts';
+import { loadConfig, readRuntimeDatabaseUrl } from '../../src/bootstrap/config.ts';
 
 const DATABASE_URL = 'postgres://app_owner:app_owner@localhost:5432/secretary';
 
 describe('loadConfig', () => {
+  it('starts on the app_runtime URL derived from the migration URL and password', () => {
+    const config = loadConfig({
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a/secretary',
+      APP_RUNTIME_PASSWORD: 'ab+cd/ef==',
+    });
+
+    expect(new URL(config.databaseUrl).username).toBe('app_runtime');
+  });
+
+  it('refuses to start without a way to build the database URL, names it and leaks no password', () => {
+    const start = () => loadConfig({ MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a/secretary' });
+
+    expect(start).toThrow(/DATABASE_URL/);
+    expect(start).not.toThrow(/ownerpw/);
+  });
+
   it('refuses the webhook alert provider without a webhook URL and names the value', () => {
     expect(() => loadConfig({ DATABASE_URL, ALERT_PROVIDER: 'webhook' })).toThrow(/ALERT_WEBHOOK_URL/);
   });
@@ -28,5 +44,42 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({ DATABASE_URL, ZALO_VERIFIER_FILE_NAME: '../health', ZALO_VERIFIER_FILE_CONTENT: 'x' }),
     ).toThrow(/ZALO_VERIFIER_FILE_NAME/);
+  });
+});
+
+describe('readRuntimeDatabaseUrl', () => {
+  const MIGRATION_DATABASE_URL = 'postgresql://secretary:ownerpw@dpg-x-a/secretary';
+  const APP_RUNTIME_PASSWORD = 'ab+cd/ef==';
+
+  it('returns an explicit DATABASE_URL', () => {
+    const url = readRuntimeDatabaseUrl({ DATABASE_URL, MIGRATION_DATABASE_URL, APP_RUNTIME_PASSWORD });
+
+    expect(url).toBe(DATABASE_URL);
+  });
+
+  it('signs in as app_runtime on the migration host when DATABASE_URL is unset', () => {
+    const url = readRuntimeDatabaseUrl({
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a:5432/secretary?sslmode=require',
+      APP_RUNTIME_PASSWORD,
+    });
+
+    const parsed = new URL(url ?? '');
+    expect(parsed.username).toBe('app_runtime');
+    expect(decodeURIComponent(parsed.password)).toBe('ab+cd/ef==');
+    expect(`${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`).toBe(
+      'postgresql://dpg-x-a:5432/secretary?sslmode=require',
+    );
+    expect(url).not.toContain('ownerpw');
+  });
+
+  it('returns null and leaks no password when the migration URL does not parse', () => {
+    const environment = {
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@/secretary',
+      APP_RUNTIME_PASSWORD,
+    };
+
+    expect(readRuntimeDatabaseUrl(environment)).toBeNull();
+    expect(() => loadConfig(environment)).toThrow(/DATABASE_URL/);
+    expect(() => loadConfig(environment)).not.toThrow(/ownerpw/);
   });
 });

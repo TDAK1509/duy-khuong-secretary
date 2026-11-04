@@ -9,12 +9,64 @@ services:
     healthCheckPath: /health
     preDeployCommand: node dist/bootstrap/migrate.js
     envVars:
-      - key: DATABASE_URL
-        sync: false
       - key: MIGRATION_DATABASE_URL
         fromDatabase:
           name: secretary-db
           property: connectionString
+      - key: APP_RUNTIME_PASSWORD
+        generateValue: true
+      - key: CHANNEL_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: MESSAGING_PROVIDER
+        value: zalo-oa
+      - key: ZALO_APP_ID
+        sync: false
+      - key: ZALO_APP_SECRET
+        sync: false
+      - key: ZALO_OA_SECRET
+        sync: false
+      - key: PHOTO_STORAGE
+        value: s3
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        value: secretary-photos
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: CHAT_PROVIDER
+        value: openai-compatible
+      - key: LLM_BASE_URL
+        value: https://api.openai.com/v1
+      - key: LLM_MODEL
+        value: gpt-6-luna
+      - key: LLM_REASONING_EFFORT
+        value: none
+      - key: READER_PROVIDER
+        value: openai-compatible
+      - key: READER_REASONING_EFFORT
+        value: low
+      - key: READER_CHEAP_1_BASE_URL
+        value: https://api.openai.com/v1
+      - key: READER_CHEAP_1_MODEL
+        value: gpt-6-luna
+      - key: READER_CHEAP_2_BASE_URL
+        value: https://api.openai.com/v1
+      - key: READER_CHEAP_2_MODEL
+        value: gpt-6.1-terra
+      - key: READER_STRONG_1_BASE_URL
+        value: https://api.openai.com/v1
+      - key: READER_STRONG_1_MODEL
+        value: gpt-6.1-sol
+      - key: READER_STRONG_2_BASE_URL
+        value: https://api.openai.com/v1
+      - key: READER_STRONG_2_MODEL
+        value: gpt-6-astra
 
 databases:
   - name: secretary-db

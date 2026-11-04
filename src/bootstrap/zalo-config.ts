@@ -14,11 +14,17 @@ const REQUIRED_NAMES = [
   'PUBLIC_BASE_URL',
 ];
 
+const HEX_KEY = /^[0-9a-fA-F]{64}$/;
+const BASE64_KEY_OF_32_BYTES = /^[A-Za-z0-9+/]{43}=$/;
+
 const environmentSchema = z.object({
   MESSAGING_PROVIDER: z.literal('zalo-oa'),
   ZALO_APP_ID: z.string(),
   ZALO_APP_SECRET: z.string(),
-  CHANNEL_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex characters'),
+  CHANNEL_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .refine(isEncryptionKey, 'must be 64 hex characters or base64 of 32 bytes')
+    .transform(toHexKey),
   PUBLIC_BASE_URL: z.url(),
   ZALO_OAUTH_BASE_URL: z.url().default('https://oauth.zaloapp.com'),
   ZALO_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
@@ -46,7 +52,7 @@ export type ZaloConfig = {
 export type ZaloConfigResult = { ok: true; config: ZaloConfig } | { ok: false; missing: string[] };
 
 export function loadZaloConfig(environment: NodeJS.ProcessEnv): ZaloConfigResult {
-  const supplied = dropEmptyValues(environment);
+  const supplied = withRenderPublicUrl(dropEmptyValues(environment));
   checkSuppliedValues(supplied);
   const missing = REQUIRED_NAMES.filter((name) => !supplied[name]);
   if (missing.length > 0) return { ok: false, missing };
@@ -84,9 +90,23 @@ export function loadZaloWebhookConfig(environment: NodeJS.ProcessEnv): ZaloWebho
   return { ok: false, missing };
 }
 
+function isEncryptionKey(value: string): boolean {
+  return HEX_KEY.test(value) || BASE64_KEY_OF_32_BYTES.test(value);
+}
+
+function toHexKey(value: string): string {
+  return HEX_KEY.test(value) ? value : Buffer.from(value, 'base64').toString('hex');
+}
+
 function dropEmptyValues(environment: NodeJS.ProcessEnv): Record<string, string> {
   const entries = Object.entries(environment).filter((entry): entry is [string, string] => !!entry[1]);
   return Object.fromEntries(entries);
+}
+
+function withRenderPublicUrl(supplied: Record<string, string>): Record<string, string> {
+  const renderUrl = supplied['RENDER_EXTERNAL_URL'];
+  if (!renderUrl || supplied['PUBLIC_BASE_URL']) return supplied;
+  return { ...supplied, PUBLIC_BASE_URL: renderUrl };
 }
 
 function checkSuppliedValues(supplied: Record<string, string>): void {

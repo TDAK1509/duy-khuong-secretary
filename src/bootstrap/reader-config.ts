@@ -26,7 +26,8 @@ export type ReaderConfig = {
 
 export type ReaderConfigResult = { ok: true; config: ReaderConfig } | { ok: false; missing: string[] };
 
-export function loadReaderConfig(environment: NodeJS.ProcessEnv): ReaderConfigResult {
+export function loadReaderConfig(suppliedEnvironment: NodeJS.ProcessEnv): ReaderConfigResult {
+  const environment = applySharedApiKey(suppliedEnvironment);
   const missing = REQUIRED_NAMES.filter((name) => !environment[name]);
   if (missing.length > 0) return { ok: false, missing };
   const settings = parseSettings(environment);
@@ -40,6 +41,12 @@ export function loadReaderConfig(environment: NodeJS.ProcessEnv): ReaderConfigRe
       strong: [readSlot(environment, 'READER_STRONG_1'), readSlot(environment, 'READER_STRONG_2')],
     },
   };
+}
+
+function applySharedApiKey(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const sharedKey = environment['LLM_API_KEY'];
+  const slotKeys = SLOT_PREFIXES.map((prefix) => [`${prefix}_API_KEY`, environment[`${prefix}_API_KEY`] || sharedKey]);
+  return { ...environment, ...Object.fromEntries(slotKeys) };
 }
 
 function readSlot(environment: NodeJS.ProcessEnv, prefix: string): ReaderSlotConfig {

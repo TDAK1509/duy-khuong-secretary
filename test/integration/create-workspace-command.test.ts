@@ -27,6 +27,17 @@ describe('the create-workspace command', () => {
     ]);
   });
 
+  it('creates the workspace with only the Render values', async () => {
+    const exitCode = await runCreateWorkspaceCommand(
+      ['Xe tải Duy Khương', 'Duy'],
+      { MIGRATION_DATABASE_URL: database.url, APP_RUNTIME_PASSWORD: 'app_runtime' },
+      { log: () => {} },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(await database.query('SELECT name FROM workspaces')).toEqual([{ name: 'Xe tải Duy Khương' }]);
+  });
+
   it('creates one admin invite for that workspace', async () => {
     await runCommand(['Xe tải Duy Khương', 'Duy']);
 

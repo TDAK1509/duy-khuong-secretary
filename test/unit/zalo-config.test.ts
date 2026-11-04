@@ -74,6 +74,47 @@ describe('loadZaloConfig', () => {
     expect(() => loadZaloConfig(environment)).toThrow(/CHANNEL_TOKEN_ENCRYPTION_KEY/);
   });
 
+  it('accepts a base64 key of 32 bytes and turns it into hex', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      CHANNEL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+    };
+
+    expect(loadZaloConfig(environment)).toMatchObject({ ok: true, config: { encryptionKey: '07'.repeat(32) } });
+  });
+
+  it('refuses a base64 key of another length and names the value', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      CHANNEL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(31).toString('base64'),
+    };
+
+    expect(() => loadZaloConfig(environment)).toThrow(/CHANNEL_TOKEN_ENCRYPTION_KEY/);
+  });
+
+  it('uses the Render URL when PUBLIC_BASE_URL is not set', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      PUBLIC_BASE_URL: undefined,
+      RENDER_EXTERNAL_URL: 'https://duy-khuong-secretary.onrender.com',
+    };
+
+    expect(loadZaloConfig(environment)).toMatchObject({
+      ok: true,
+      config: { publicBaseUrl: 'https://duy-khuong-secretary.onrender.com' },
+    });
+  });
+
+  it('prefers an explicit PUBLIC_BASE_URL over the Render URL', () => {
+    const environment = {
+      ...COMPLETE_ENVIRONMENT,
+      PUBLIC_BASE_URL: 'https://x.test',
+      RENDER_EXTERNAL_URL: 'https://duy-khuong-secretary.onrender.com',
+    };
+
+    expect(loadZaloConfig(environment)).toMatchObject({ ok: true, config: { publicBaseUrl: 'https://x.test' } });
+  });
+
   it('refuses a messaging provider other than zalo-oa and names the value', () => {
     expect(() => loadZaloConfig({ ...COMPLETE_ENVIRONMENT, MESSAGING_PROVIDER: 'other' })).toThrow(/MESSAGING_PROVIDER/);
   });

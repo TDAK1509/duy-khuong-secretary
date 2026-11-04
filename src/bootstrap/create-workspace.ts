@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createWorkspaceWithFirstAdminInvite } from '../app/workspaces/create-workspace.ts';
 import { formatVietnamDateTime } from '../app/workspaces/format-expiry.ts';
+import { readRuntimeDatabaseUrl } from './config.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 
 export type CreateWorkspaceOptions = {
@@ -14,7 +15,7 @@ export async function runCreateWorkspaceCommand(
   options: CreateWorkspaceOptions = {},
 ): Promise<number> {
   const log = options.log ?? console.log;
-  const databaseUrl = z.url().safeParse(environment['DATABASE_URL']);
+  const databaseUrl = z.url().safeParse(readRuntimeDatabaseUrl(environment));
   if (!databaseUrl.success) {
     log('DATABASE_URL must be set to a database URL');
     return 1;
