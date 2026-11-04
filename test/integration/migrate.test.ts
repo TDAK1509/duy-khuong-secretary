@@ -1,8 +1,10 @@
 import { PG_MIGRATE_LOCK_ID } from 'node-pg-migrate';
+import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
 import { listAppliedMigrations } from './list-applied-migrations.ts';
 import { createTemporaryDatabase, type TemporaryDatabase } from './temporary-database.ts';
+import { superuserDatabaseUrl } from './test-database-url.ts';
 
 const fixtures = new URL('./migration-fixtures/', import.meta.url);
 
@@ -131,3 +133,57 @@ describe('the migration runner', () => {
     expect(await database.query("SELECT to_regclass('a') AS found")).toEqual([{ found: null }]);
   });
 });
+
+describe('the runtime password step', () => {
+  let database: TemporaryDatabase;
+  let superuserMigrationUrl: string;
+
+  beforeEach(async () => {
+    database = await createTemporaryDatabase();
+    superuserMigrationUrl = pointAtDatabase(superuserDatabaseUrl, database.url);
+  });
+
+  afterEach(async () => {
+    await database.drop();
+  });
+
+  it('sets the app_runtime password after the migrations', async () => {
+    const passwordHashBefore = await readRuntimePasswordHash();
+    const lines: string[] = [];
+
+    const exitCode = await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: superuserMigrationUrl, APP_RUNTIME_PASSWORD: 'app_runtime' },
+      { directory: new URL('two-tables/', fixtures), log: (line) => lines.push(line) },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(lines.at(-1)).toBe('[migrate] app_runtime password set');
+    expect(await readRuntimePasswordHash()).not.toBe(passwordHashBefore);
+    const runtimeSession = await database.openRuntimeSession();
+    expect((await runtimeSession.query('SELECT current_user')).rows).toEqual([{ current_user: 'app_runtime' }]);
+  });
+
+  function readRuntimePasswordHash(): Promise<string> {
+    return readRolePasswordHash(superuserMigrationUrl, 'app_runtime');
+  }
+});
+
+async function readRolePasswordHash(superuserUrl: string, role: string): Promise<string> {
+  const client = new pg.Client({ connectionString: superuserUrl });
+  await client.connect();
+  try {
+    const result = await client.query<{ rolpassword: string }>(
+      'SELECT rolpassword FROM pg_authid WHERE rolname = $1',
+      [role],
+    );
+    return result.rows[0]?.rolpassword ?? '';
+  } finally {
+    await client.end();
+  }
+}
+
+function pointAtDatabase(baseUrl: string, databaseUrl: string): string {
+  const url = new URL(baseUrl);
+  url.pathname = new URL(databaseUrl).pathname;
+  return url.toString();
+}

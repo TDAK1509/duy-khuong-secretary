@@ -5,6 +5,8 @@ import {
   type MigrationOutcome,
   type RetryPolicy,
 } from '../providers/database/migration-tool.ts';
+import { setRolePassword } from '../providers/database/set-role-password.ts';
+import { RUNTIME_ROLE } from './config.ts';
 
 export type MigrationCommandOptions = {
   directory: URL;
@@ -21,7 +23,10 @@ export async function runMigrationCommand(
   if (!databaseUrl.success) {
     return fail(log, 'MIGRATION_DATABASE_URL must be set to a database URL');
   }
-  return migrateAndLog(databaseUrl.data, options, log);
+  const migrated = await migrateAndLog(databaseUrl.data, options, log);
+  const password = environment['APP_RUNTIME_PASSWORD'];
+  if (migrated !== 0 || !password) return migrated;
+  return setRuntimePassword(databaseUrl.data, password, log);
 }
 
 async function migrateAndLog(
@@ -36,6 +41,24 @@ async function migrateAndLog(
   } catch (error) {
     return fail(log, error instanceof Error ? error.message : String(error));
   }
+}
+
+async function setRuntimePassword(
+  databaseUrl: string,
+  password: string,
+  log: (line: string) => void,
+): Promise<number> {
+  try {
+    await setRolePassword({ databaseUrl, role: RUNTIME_ROLE, password });
+    log(`[migrate] ${RUNTIME_ROLE} password set`);
+    return 0;
+  } catch (error) {
+    return fail(log, `could not set the ${RUNTIME_ROLE} password (SQLSTATE ${readSqlState(error)})`);
+  }
+}
+
+function readSqlState(error: unknown): string {
+  return error instanceof Error && 'code' in error ? String(error.code) : 'unknown';
 }
 
 function fail(log: (line: string) => void, reason: string): number {
