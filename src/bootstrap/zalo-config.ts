@@ -14,11 +14,17 @@ const REQUIRED_NAMES = [
   'PUBLIC_BASE_URL',
 ];
 
+const HEX_KEY = /^[0-9a-fA-F]{64}$/;
+const BASE64_KEY_OF_32_BYTES = /^[A-Za-z0-9+/]{43}=$/;
+
 const environmentSchema = z.object({
   MESSAGING_PROVIDER: z.literal('zalo-oa'),
   ZALO_APP_ID: z.string(),
   ZALO_APP_SECRET: z.string(),
-  CHANNEL_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex characters'),
+  CHANNEL_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .refine(isEncryptionKey, 'must be 64 hex characters or base64 of 32 bytes')
+    .transform(toHexKey),
   PUBLIC_BASE_URL: z.url(),
   ZALO_OAUTH_BASE_URL: z.url().default('https://oauth.zaloapp.com'),
   ZALO_API_BASE_URL: z.url().default('https://openapi.zalo.me'),
@@ -82,6 +88,14 @@ export function loadZaloWebhookConfig(environment: NodeJS.ProcessEnv): ZaloWebho
   }
   const missing = [...(zalo.ok ? [] : zalo.missing), ...(oaSecret ? [] : ['ZALO_OA_SECRET'])];
   return { ok: false, missing };
+}
+
+function isEncryptionKey(value: string): boolean {
+  return HEX_KEY.test(value) || BASE64_KEY_OF_32_BYTES.test(value);
+}
+
+function toHexKey(value: string): string {
+  return HEX_KEY.test(value) ? value : Buffer.from(value, 'base64').toString('hex');
 }
 
 function dropEmptyValues(environment: NodeJS.ProcessEnv): Record<string, string> {
