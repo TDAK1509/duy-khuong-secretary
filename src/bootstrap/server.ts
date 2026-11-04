@@ -2,7 +2,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { pingDatabase } from '../app/db/ping-database.ts';
 import { handleHealth } from '../app/http/health.ts';
-import { respondWithHtml, type HttpResponse } from '../app/http/http-response.ts';
+import { respondWithHtml, respondWithJson, type HttpResponse } from '../app/http/http-response.ts';
 import {
   handleZaloOAuthCallback,
   type OAuthCallbackDependencies,
@@ -53,6 +53,7 @@ function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookD
       const response = await handleZaloWebhook(webhook, { rawBody, headers: readHeaders(request.headers) });
       return sendResponse(reply, response);
     });
+    scope.post('/webhooks/zalo-setup', async (_request, reply) => sendResponse(reply, respondWithJson(200, { ok: true })));
   });
 }
 
