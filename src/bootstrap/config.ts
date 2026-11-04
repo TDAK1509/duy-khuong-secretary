@@ -49,6 +49,10 @@ export function loadConfig(environment: NodeJS.ProcessEnv): Config {
   };
 }
 
+export function readRuntimeDatabaseUrl(environment: NodeJS.ProcessEnv): string | null {
+  return environment['DATABASE_URL'] ?? null;
+}
+
 function readAlertConfig(environment: z.infer<typeof environmentSchema>): AlertConfig {
   if (environment.ALERT_PROVIDER === 'log' || !environment.ALERT_WEBHOOK_URL) return { provider: 'log' };
   return { provider: 'webhook', webhookUrl: environment.ALERT_WEBHOOK_URL };

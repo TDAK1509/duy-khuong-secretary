@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../../src/bootstrap/config.ts';
+import { loadConfig, readRuntimeDatabaseUrl } from '../../src/bootstrap/config.ts';
 
 const DATABASE_URL = 'postgres://app_owner:app_owner@localhost:5432/secretary';
 
@@ -28,5 +28,16 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({ DATABASE_URL, ZALO_VERIFIER_FILE_NAME: '../health', ZALO_VERIFIER_FILE_CONTENT: 'x' }),
     ).toThrow(/ZALO_VERIFIER_FILE_NAME/);
+  });
+});
+
+describe('readRuntimeDatabaseUrl', () => {
+  const MIGRATION_DATABASE_URL = 'postgresql://secretary:ownerpw@dpg-x-a/secretary';
+  const APP_RUNTIME_PASSWORD = 'ab+cd/ef==';
+
+  it('returns an explicit DATABASE_URL', () => {
+    const url = readRuntimeDatabaseUrl({ DATABASE_URL, MIGRATION_DATABASE_URL, APP_RUNTIME_PASSWORD });
+
+    expect(url).toBe(DATABASE_URL);
   });
 });
