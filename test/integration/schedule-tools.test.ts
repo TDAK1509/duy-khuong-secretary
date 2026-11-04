@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
@@ -33,7 +34,7 @@ describe('the scheduling tools', () => {
   });
 
   function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null), guard = new AdminTextGuard(false)): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, guard };
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, invites: new CreatedInvites(), guard };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 

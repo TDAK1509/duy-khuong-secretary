@@ -2,6 +2,7 @@ import type { ChatRequest, ChatService } from '../../services/chat/chat-service.
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { AccessScope } from '../access/access-scope.ts';
+import { CreatedInvites } from '../admin-chat/created-invites.ts';
 import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
 import { runToolLoop } from '../admin-chat/run-tool-loop.ts';
@@ -56,7 +57,7 @@ async function askModel(
   { userTurn, dueRecords }: { userTurn: string; dueRecords: DueRecord[] },
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
-  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(true) };
+  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
   const outcome = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );
