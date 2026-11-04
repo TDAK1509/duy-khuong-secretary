@@ -40,4 +40,19 @@ describe('readRuntimeDatabaseUrl', () => {
 
     expect(url).toBe(DATABASE_URL);
   });
+
+  it('signs in as app_runtime on the migration host when DATABASE_URL is unset', () => {
+    const url = readRuntimeDatabaseUrl({
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a:5432/secretary?sslmode=require',
+      APP_RUNTIME_PASSWORD,
+    });
+
+    const parsed = new URL(url ?? '');
+    expect(parsed.username).toBe('app_runtime');
+    expect(decodeURIComponent(parsed.password)).toBe('ab+cd/ef==');
+    expect(`${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`).toBe(
+      'postgresql://dpg-x-a:5432/secretary?sslmode=require',
+    );
+    expect(url).not.toContain('ownerpw');
+  });
 });

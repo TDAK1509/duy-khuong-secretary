@@ -49,8 +49,22 @@ export function loadConfig(environment: NodeJS.ProcessEnv): Config {
   };
 }
 
+export const RUNTIME_ROLE = 'app_runtime';
+
 export function readRuntimeDatabaseUrl(environment: NodeJS.ProcessEnv): string | null {
-  return environment['DATABASE_URL'] ?? null;
+  const explicitUrl = environment['DATABASE_URL'];
+  if (explicitUrl) return explicitUrl;
+  const migrationUrl = environment['MIGRATION_DATABASE_URL'];
+  const password = environment['APP_RUNTIME_PASSWORD'];
+  if (!migrationUrl || !password) return null;
+  return signInAsRuntimeRole(migrationUrl, password);
+}
+
+function signInAsRuntimeRole(migrationUrl: string, password: string): string {
+  const url = new URL(migrationUrl);
+  url.username = RUNTIME_ROLE;
+  url.password = password;
+  return url.toString();
 }
 
 function readAlertConfig(environment: z.infer<typeof environmentSchema>): AlertConfig {
