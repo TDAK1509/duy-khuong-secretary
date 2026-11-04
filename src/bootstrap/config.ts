@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
+const DATABASE_URL_PROBLEM =
+  'DATABASE_URL must be a database URL, or MIGRATION_DATABASE_URL and APP_RUNTIME_PASSWORD must both be set';
 const PLAIN_FILE_NAME = /^[A-Za-z0-9._-]+$/;
 
 const environmentSchema = z
   .object({
-    DATABASE_URL: z.url(),
     GIT_COMMIT: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -36,13 +37,17 @@ export type Config = {
 export type VerifierFile = { fileName: string; content: string };
 
 export function loadConfig(environment: NodeJS.ProcessEnv): Config {
+  const databaseUrl = z.url().safeParse(readRuntimeDatabaseUrl(environment) ?? '');
+  if (!databaseUrl.success) {
+    throw new Error(`Invalid configuration: ${DATABASE_URL_PROBLEM}`);
+  }
   const parsed = environmentSchema.safeParse(environment);
   if (!parsed.success) {
     throw new Error(`Invalid configuration: ${describeIssues(parsed.error)}`);
   }
   return {
     commit: parsed.data.GIT_COMMIT || parsed.data.RENDER_GIT_COMMIT || null,
-    databaseUrl: parsed.data.DATABASE_URL,
+    databaseUrl: databaseUrl.data,
     port: parsed.data.PORT,
     alert: readAlertConfig(parsed.data),
     verifierFile: readVerifierFile(parsed.data),

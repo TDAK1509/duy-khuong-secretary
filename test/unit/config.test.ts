@@ -4,6 +4,22 @@ import { loadConfig, readRuntimeDatabaseUrl } from '../../src/bootstrap/config.t
 const DATABASE_URL = 'postgres://app_owner:app_owner@localhost:5432/secretary';
 
 describe('loadConfig', () => {
+  it('starts on the app_runtime URL derived from the migration URL and password', () => {
+    const config = loadConfig({
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a/secretary',
+      APP_RUNTIME_PASSWORD: 'ab+cd/ef==',
+    });
+
+    expect(new URL(config.databaseUrl).username).toBe('app_runtime');
+  });
+
+  it('refuses to start without a way to build the database URL, names it and leaks no password', () => {
+    const start = () => loadConfig({ MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@dpg-x-a/secretary' });
+
+    expect(start).toThrow(/DATABASE_URL/);
+    expect(start).not.toThrow(/ownerpw/);
+  });
+
   it('refuses the webhook alert provider without a webhook URL and names the value', () => {
     expect(() => loadConfig({ DATABASE_URL, ALERT_PROVIDER: 'webhook' })).toThrow(/ALERT_WEBHOOK_URL/);
   });
