@@ -7,6 +7,14 @@ type Blueprint = {
   databases: Array<Record<string, unknown>>;
 };
 
+type EnvVar = {
+  key: string;
+  value?: string;
+  sync?: boolean;
+  generateValue?: boolean;
+  fromDatabase?: { name: string; property: string };
+};
+
 const blueprint = parse(
   readFileSync(new URL('../../render.yaml', import.meta.url), 'utf8'),
 ) as Blueprint;
@@ -44,9 +52,24 @@ describe('render.yaml database', () => {
   });
 });
 
-describe('render.yaml runtime database URL', () => {
-  it('is entered by hand, because the owner sets the password of the runtime role', () => {
-    expect(listEnvVars(blueprint.services[0])).toContainEqual({ key: 'DATABASE_URL', sync: false });
+describe('render.yaml prompts', () => {
+  it('asks only for the true secrets', () => {
+    const envVars = listEnvVars(blueprint.services[0]);
+
+    expect(envVars.filter((envVar) => envVar.sync === false).map((envVar) => envVar.key)).toEqual([
+      'ZALO_APP_ID',
+      'ZALO_APP_SECRET',
+      'ZALO_OA_SECRET',
+      'S3_ENDPOINT',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+      'LLM_API_KEY',
+    ]);
+    const fixedSecretKeys = envVars
+      .filter((envVar) => 'value' in envVar)
+      .map((envVar) => envVar.key)
+      .filter((key) => /_(KEY|KEY_ID|SECRET|PASSWORD)$/.test(key));
+    expect(fixedSecretKeys).toEqual([]);
   });
 });
 
@@ -56,18 +79,6 @@ describe('render.yaml database access', () => {
   });
 });
 
-describe('render.yaml other env vars', () => {
-  it('leaves every value that is not the migration URL to be entered by hand', () => {
-    const others = listEnvVars(blueprint.services[0]).filter(
-      (envVar) => !(envVar as Record<string, unknown>)['fromDatabase'],
-    );
-
-    expect(others.every((envVar) => (envVar as Record<string, unknown>)['sync'] === false)).toBe(
-      true,
-    );
-  });
-});
-
-function listEnvVars(service: Record<string, unknown> | undefined): unknown[] {
-  return (service?.['envVars'] as unknown[] | undefined) ?? [];
+function listEnvVars(service: Record<string, unknown> | undefined): EnvVar[] {
+  return (service?.['envVars'] as EnvVar[] | undefined) ?? [];
 }
