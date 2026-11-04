@@ -71,15 +71,13 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 
 `POST /webhooks/zalo` takes every event Zalo sends to the OA. In the Zalo app's webhook settings, set the URL to `<PUBLIC_BASE_URL>/webhooks/zalo` and turn on `user_send_text` and `user_send_image`. Set `ZALO_OA_SECRET` to the OA secret key shown there.
 
-Zalo shows the OA secret key only after it accepts a webhook URL, and `/webhooks/zalo` answers `503` until `ZALO_OA_SECRET` is set. For that first step, save `<PUBLIC_BASE_URL>/webhooks/zalo-setup` as the webhook URL: it answers `200` to every request and stores nothing. Copy the OA secret key into `ZALO_OA_SECRET`, redeploy, then change the webhook URL to `<PUBLIC_BASE_URL>/webhooks/zalo`.
-
 The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of app id, exact raw body, `timestamp` and OA secret key) and that the body's `app_id` is `ZALO_APP_ID`. Answers:
 
 | Status | When | Stored |
 |---|---|---|
 | `200 {"ok":true}` | A text or image message from a connected OA, a resent message, or any other event | One `queued` row in `inbound_events` for a new text or image message |
 | `401 {"ok":false}` | The signature or the `app_id` is wrong | Nothing |
-| `403 {"ok":false}` | The OA is not in `channel_connections` | Nothing |
+| `200 {"ok":true}` | An event for an OA that is not in `channel_connections`, such as Zalo's webhook check, which uses a sample OA id | Nothing; the service logs `[webhook] event for an OA that is not connected: <oa id>` |
 | `500 {"ok":false}` | The connection check or the insert failed | Nothing; the operator gets `[alert] Zalo webhook could not store an event: <error name>.` |
 | `503 {"ok":false}` | The `zalo-webhook` group is off: the `zalo` group plus `ZALO_OA_SECRET` | Nothing |
 

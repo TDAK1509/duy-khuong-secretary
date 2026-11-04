@@ -42,7 +42,7 @@ export async function handleZaloWebhook(
 async function storeEventOfConnectedAccount(transaction: Transaction, event: StorableEvent): Promise<HttpResponse> {
   if (!(await hasConnection(transaction, event.from.channel, event.from.accountId))) {
     console.error('[webhook] event for an OA that is not connected:', event.from.accountId);
-    return respondWithJson(403, { ok: false });
+    return respondWithJson(200, { ok: true });
   }
   await storeInboundEvent(transaction, event);
   return respondWithJson(200, { ok: true });

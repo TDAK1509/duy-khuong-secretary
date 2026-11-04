@@ -81,14 +81,14 @@ describe('POST /webhooks/zalo', () => {
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
-  it('refuses an event for an OA that is not connected and stores nothing', async () => {
+  it('answers 200 to an event for an OA that is not connected and stores nothing', async () => {
     await connectOa('oa-1');
     const { body } = loadSignedFixture('text-event');
 
     const response = await postWebhook(signBody(body.replace('"recipient":{"id":"oa-1"}', '"recipient":{"id":"oa-9"}')));
 
-    expect(response.statusCode).toBe(403);
-    expect(response.json()).toEqual({ ok: false });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true });
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
@@ -235,29 +235,4 @@ describe('POST /webhooks/zalo', () => {
     const server = buildServer(pool, null, { webhook: { channel, database: webhookPool, alerts } });
     return server.inject({ method: 'POST', url: '/webhooks/zalo', headers: fixture.headers, body: fixture.body });
   }
-});
-
-describe('POST /webhooks/zalo-setup', () => {
-  let database: TemporaryDatabase;
-
-  beforeEach(async () => {
-    database = await createMigratedDatabase();
-  });
-
-  afterEach(async () => {
-    await database.drop();
-  });
-
-  it('answers 200 and stores nothing while the OA secret is not set', async () => {
-    const service = assembleService({ ...ZALO_ENVIRONMENT, DATABASE_URL: database.url }, () => undefined);
-    const { body, headers } = loadSignedFixture('text-event');
-
-    const response = await service.server.inject({ method: 'POST', url: '/webhooks/zalo-setup', headers, body });
-
-    await service.server.close();
-    await service.pool.end();
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ ok: true });
-    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
-  });
 });
