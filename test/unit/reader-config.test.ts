@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadReaderConfig } from '../../src/bootstrap/reader-config.ts';
+import { loadReaderConfig, type ReaderConfig } from '../../src/bootstrap/reader-config.ts';
 
 const COMPLETE_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_PROVIDER: 'openai-compatible',
@@ -17,7 +17,21 @@ const COMPLETE_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_STRONG_2_MODEL: 'gpt-6-astra',
 };
 
+const ENVIRONMENT_WITHOUT_SLOT_KEYS: NodeJS.ProcessEnv = {
+  ...COMPLETE_ENVIRONMENT,
+  READER_CHEAP_1_API_KEY: undefined,
+  READER_CHEAP_2_API_KEY: undefined,
+  READER_STRONG_1_API_KEY: undefined,
+  READER_STRONG_2_API_KEY: undefined,
+};
+
 describe('loadReaderConfig', () => {
+  it('gives every slot without its own key the LLM_API_KEY', () => {
+    const result = loadReaderConfig({ ...ENVIRONMENT_WITHOUT_SLOT_KEYS, LLM_API_KEY: 'sk-shared' });
+
+    expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-shared']);
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_STRONG_2_MODEL: '' });
 
@@ -75,3 +89,7 @@ describe('loadReaderConfig', () => {
     expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_TIMEOUT_MS: '0' })).toThrow(/READER_TIMEOUT_MS/);
   });
 });
+
+function readSlotKeys(config: ReaderConfig): string[] {
+  return [...config.cheap, ...config.strong].map((slot) => slot.apiKey);
+}
