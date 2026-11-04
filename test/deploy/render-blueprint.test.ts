@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
+import { loadConfig } from '../../src/bootstrap/config.ts';
+import { loadChatConfig } from '../../src/bootstrap/chat-config.ts';
+import { loadPhotoStorageConfig } from '../../src/bootstrap/photo-storage-config.ts';
+import { loadReaderConfig } from '../../src/bootstrap/reader-config.ts';
+import { loadZaloConfig, loadZaloWebhookConfig } from '../../src/bootstrap/zalo-config.ts';
 
 type Blueprint = {
   services: Array<Record<string, unknown>>;
@@ -85,11 +90,51 @@ describe('render.yaml generated values', () => {
   });
 });
 
+describe('render.yaml environment', () => {
+  it('turns every feature group on once the prompts are filled', () => {
+    const environment = buildBlueprintEnvironment('placeholder');
+
+    const config = loadConfig(environment);
+    const readers = loadReaderConfig(environment);
+    const chat = loadChatConfig(environment);
+
+    expect(new URL(config.databaseUrl).username).toBe('app_runtime');
+    expect(loadZaloConfig(environment).ok).toBe(true);
+    expect(loadZaloWebhookConfig(environment).ok).toBe(true);
+    expect(loadPhotoStorageConfig(environment).ok).toBe(true);
+    expect(readers.ok && readers.config).toMatchObject({
+      reasoningEffort: 'low',
+      cheap: [{ model: 'gpt-6-luna' }, { model: 'gpt-6.1-terra' }],
+      strong: [{ model: 'gpt-6.1-sol' }, { model: 'gpt-6-astra' }],
+    });
+    expect(chat.ok && chat.config).toMatchObject({ model: 'gpt-6-luna', reasoningEffort: 'none' });
+  });
+});
+
 describe('render.yaml database access', () => {
   it('allows no external connection', () => {
     expect(blueprint.databases[0]?.['ipAllowList']).toEqual([]);
   });
 });
+
+function buildBlueprintEnvironment(promptedText: string): NodeJS.ProcessEnv {
+  const entries = listEnvVars(blueprint.services[0]).map((envVar): [string, string] => [
+    envVar.key,
+    readEnvVarValue(envVar, promptedText),
+  ]);
+  return {
+    ...Object.fromEntries(entries),
+    RENDER_EXTERNAL_URL: 'https://duy-khuong-secretary.onrender.com',
+  };
+}
+
+function readEnvVarValue(envVar: EnvVar, promptedText: string): string {
+  if (envVar.value !== undefined) return envVar.value;
+  if (envVar.generateValue) return Buffer.alloc(32, 7).toString('base64');
+  if (envVar.fromDatabase) return 'postgresql://secretary:ownerpw@dpg-x-a/secretary';
+  if (envVar.key === 'S3_ENDPOINT') return promptedText ? 'https://account.r2.test' : '';
+  return promptedText;
+}
 
 function listEnvVars(service: Record<string, unknown> | undefined): EnvVar[] {
   return (service?.['envVars'] as EnvVar[] | undefined) ?? [];
