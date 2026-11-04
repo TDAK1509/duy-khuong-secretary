@@ -61,12 +61,12 @@ export function readRuntimeDatabaseUrl(environment: NodeJS.ProcessEnv): string |
   if (explicitUrl) return explicitUrl;
   const migrationUrl = environment['MIGRATION_DATABASE_URL'];
   const password = environment['APP_RUNTIME_PASSWORD'];
-  if (!migrationUrl || !password) return null;
-  return signInAsRuntimeRole(migrationUrl, password);
+  const url = migrationUrl ? URL.parse(migrationUrl) : null;
+  if (!url || !password) return null;
+  return signInAsRuntimeRole(url, password);
 }
 
-function signInAsRuntimeRole(migrationUrl: string, password: string): string {
-  const url = new URL(migrationUrl);
+function signInAsRuntimeRole(url: URL, password: string): string {
   url.username = RUNTIME_ROLE;
   url.password = password;
   return url.toString();

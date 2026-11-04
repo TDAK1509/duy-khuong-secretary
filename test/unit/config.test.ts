@@ -71,4 +71,15 @@ describe('readRuntimeDatabaseUrl', () => {
     );
     expect(url).not.toContain('ownerpw');
   });
+
+  it('returns null and leaks no password when the migration URL does not parse', () => {
+    const environment = {
+      MIGRATION_DATABASE_URL: 'postgresql://secretary:ownerpw@/secretary',
+      APP_RUNTIME_PASSWORD,
+    };
+
+    expect(readRuntimeDatabaseUrl(environment)).toBeNull();
+    expect(() => loadConfig(environment)).toThrow(/DATABASE_URL/);
+    expect(() => loadConfig(environment)).not.toThrow(/ownerpw/);
+  });
 });
