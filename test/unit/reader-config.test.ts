@@ -42,6 +42,20 @@ describe('loadReaderConfig', () => {
     expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-own']);
   });
 
+  it('reports the four slot keys missing when neither they nor LLM_API_KEY are set', () => {
+    const result = loadReaderConfig(ENVIRONMENT_WITHOUT_SLOT_KEYS);
+
+    expect(result).toEqual({
+      ok: false,
+      missing: [
+        'READER_CHEAP_1_API_KEY',
+        'READER_CHEAP_2_API_KEY',
+        'READER_STRONG_1_API_KEY',
+        'READER_STRONG_2_API_KEY',
+      ],
+    });
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_STRONG_2_MODEL: '' });
 
