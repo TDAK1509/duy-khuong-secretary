@@ -111,6 +111,19 @@ describe('render.yaml environment', () => {
   });
 });
 
+describe('render.yaml with every prompt left blank', () => {
+  it('still starts, with every feature group off', () => {
+    const environment = buildBlueprintEnvironment('');
+
+    expect(() => loadConfig(environment)).not.toThrow();
+    expect(loadZaloConfig(environment).ok).toBe(false);
+    expect(loadZaloWebhookConfig(environment).ok).toBe(false);
+    expect(loadPhotoStorageConfig(environment).ok).toBe(false);
+    expect(loadReaderConfig(environment).ok).toBe(false);
+    expect(loadChatConfig(environment).ok).toBe(false);
+  });
+});
+
 describe('render.yaml database access', () => {
   it('allows no external connection', () => {
     expect(blueprint.databases[0]?.['ipAllowList']).toEqual([]);
