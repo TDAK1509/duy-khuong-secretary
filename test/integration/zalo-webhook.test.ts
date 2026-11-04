@@ -81,14 +81,14 @@ describe('POST /webhooks/zalo', () => {
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
-  it('refuses an event for an OA that is not connected and stores nothing', async () => {
+  it('answers 200 to an event for an OA that is not connected and stores nothing', async () => {
     await connectOa('oa-1');
     const { body } = loadSignedFixture('text-event');
 
     const response = await postWebhook(signBody(body.replace('"recipient":{"id":"oa-1"}', '"recipient":{"id":"oa-9"}')));
 
-    expect(response.statusCode).toBe(403);
-    expect(response.json()).toEqual({ ok: false });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true });
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 

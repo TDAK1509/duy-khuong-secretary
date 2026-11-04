@@ -79,7 +79,7 @@ The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of 
 |---|---|---|
 | `200 {"ok":true}` | A text or image message from a connected OA, a resent message, or any other event | One `queued` row in `inbound_events` for a new text or image message |
 | `401 {"ok":false}` | The signature or the `app_id` is wrong | Nothing |
-| `403 {"ok":false}` | The OA is not in `channel_connections` | Nothing |
+| `200 {"ok":true}` | An event for an OA that is not in `channel_connections`, such as Zalo's webhook check, which uses a sample OA id | Nothing; the service logs `[webhook] event for an OA that is not connected: <oa id>` |
 | `500 {"ok":false}` | The connection check or the insert failed | Nothing; the operator gets `[alert] Zalo webhook could not store an event: <error name>.` |
 | `503 {"ok":false}` | The `zalo-webhook` group is off: the `zalo` group plus `ZALO_OA_SECRET` | Nothing |
 
