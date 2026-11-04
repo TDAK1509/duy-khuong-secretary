@@ -163,6 +163,19 @@ describe('the runtime password step', () => {
     expect((await runtimeSession.query('SELECT current_user')).rows).toEqual([{ current_user: 'app_runtime' }]);
   });
 
+  it('leaves the app_runtime password alone without APP_RUNTIME_PASSWORD', async () => {
+    const passwordHashBefore = await readRuntimePasswordHash();
+    const lines: string[] = [];
+
+    await runMigrationCommand(
+      { MIGRATION_DATABASE_URL: superuserMigrationUrl },
+      { directory: new URL('two-tables/', fixtures), log: (line) => lines.push(line) },
+    );
+
+    expect(await readRuntimePasswordHash()).toBe(passwordHashBefore);
+    expect(lines.some((line) => line.includes('password set'))).toBe(false);
+  });
+
   function readRuntimePasswordHash(): Promise<string> {
     return readRolePasswordHash(superuserMigrationUrl, 'app_runtime');
   }
