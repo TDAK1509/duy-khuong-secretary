@@ -73,6 +73,18 @@ describe('render.yaml prompts', () => {
   });
 });
 
+describe('render.yaml generated values', () => {
+  it('generates the runtime password and the encryption key and does not declare DATABASE_URL', () => {
+    const envVars = listEnvVars(blueprint.services[0]);
+
+    expect(envVars.filter((envVar) => envVar.generateValue === true).map((envVar) => envVar.key)).toEqual([
+      'APP_RUNTIME_PASSWORD',
+      'CHANNEL_TOKEN_ENCRYPTION_KEY',
+    ]);
+    expect(envVars.map((envVar) => envVar.key)).not.toContain('DATABASE_URL');
+  });
+});
+
 describe('render.yaml database access', () => {
   it('allows no external connection', () => {
     expect(blueprint.databases[0]?.['ipAllowList']).toEqual([]);
