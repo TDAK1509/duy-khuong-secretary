@@ -89,6 +89,16 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('leaves the ask text as before when the second reading is weak', async () => {
+    await sendTextSentMinutesAgo('zu-hung', 'cái này', 2);
+
+    await sendPhotoA('zu-hung', makeReadersAnswering(() => UNCLEAR));
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhotoStatus('zmsg-1')).toBe('needs_explanation');
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
@@ -111,6 +121,16 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
        JOIN messages message ON message.id = records.message_id
        JOIN inbound_events event ON event.id = message.inbound_event_id`,
     );
+  }
+
+  async function readPhotoStatus(externalEventId: string): Promise<string> {
+    const [photo] = await harness.database.query<{ status: string }>(
+      `SELECT message.submission_status AS status
+       FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+       WHERE event.external_event_id = '${externalEventId}'`,
+    );
+    if (!photo) throw new Error(`no message for event ${externalEventId}`);
+    return photo.status;
   }
 
   async function readTextsTo(externalUserId: string): Promise<{ text: string; quoteMessageId: string | undefined }[]> {
