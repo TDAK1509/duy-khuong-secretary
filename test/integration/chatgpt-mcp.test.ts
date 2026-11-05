@@ -20,6 +20,8 @@ import { SdkMcpEndpoint } from '../../src/providers/mcp/sdk-mcp-endpoint.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
+import { FakeReader } from '../fakes/fake-reader.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -56,6 +58,7 @@ const ATTACH_PHOTOS_SCHEMA = {
   additionalProperties: false,
 };
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const FUEL_TEXT = 'đổ dầu 1.250.000đ xe 29C-123.45 hôm nay';
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -88,6 +91,7 @@ describe('the MCP address', () => {
   let pool: PostgresPool;
   let clock: FakeClock;
   let photoStorage: FakePhotoStorage;
+  let reader: FakeReader;
   let workspaceId: string;
   let duyUserId: string;
 
@@ -96,6 +100,7 @@ describe('the MCP address', () => {
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
     photoStorage = new FakePhotoStorage();
+    reader = new FakeReader();
     await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens: makeTokenPair({ accessToken: 'a1' }), storedAt: NOW }, ENCRYPTION_KEY);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
@@ -182,10 +187,10 @@ describe('the MCP address', () => {
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
   });
 
-  it('lists the five read tools, attach_photos and the four change tools', async () => {
+  it('lists the five read tools, attach_photos, the four change tools and save_record_from_text', async () => {
     const tools = await listTools();
 
-    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, 'attach_photos', ...CHANGE_TOOL_NAMES]);
+    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, 'attach_photos', ...CHANGE_TOOL_NAMES, 'save_record_from_text']);
   });
 
   it('lists attach_photos with its own description, schema and read-only hints', async () => {
@@ -338,6 +343,16 @@ describe('the MCP address', () => {
     expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${lanUserId}'`)).toHaveLength(1);
   });
 
+  it('saves the work data of a text as a record of the admin', async () => {
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query('SELECT record.workspace_id, record.user_id, message.source FROM records record JOIN messages message ON message.id = record.message_id')).toEqual([
+      { workspace_id: workspaceId, user_id: duyUserId, source: 'mcp' },
+    ]);
+  });
+
   it('creates a schedule with a creation key', async () => {
     await postMcp(callToolRequest('create_scheduled_task', DAILY_REPORT), { token: DUY_ACCESS_TOKEN });
 
@@ -409,7 +424,7 @@ describe('the MCP address', () => {
   }
 
   function makeMcpDependencies(): McpDependencies {
-    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint(), photoStorage };
+    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint(), photoStorage, reader };
   }
 
   function postMcp(body: unknown, { token, mcp }: { token?: string; mcp?: McpDependencies | null } = {}) {
