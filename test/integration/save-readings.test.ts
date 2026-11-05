@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Reading } from '../../src/app/reading/reading.ts';
+import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -44,6 +44,14 @@ describe('saving what two readers agree on', () => {
         read_by: 'cheap_pair',
       },
     ]);
+  });
+
+  it('saves a category outside the old list', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ category: 'phiếu cân' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT category FROM records')).toEqual([{ category: 'phiếu cân' }]);
   });
 
   it('replies to one saved item with what was saved', async () => {
@@ -443,8 +451,14 @@ describe('saving what two readers agree on', () => {
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
   });
 
-  function makeFuelItem() {
-    return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+  function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
+    return makeItem({
+      category: 'fuel',
+      amount_vnd: 1250000,
+      occurred_on: '2026-10-30',
+      document_number: '0001234',
+      ...overrides,
+    });
   }
 
   function sentTexts(): string[][] {
