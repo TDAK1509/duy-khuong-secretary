@@ -39,7 +39,7 @@ describe('POST /oauth/token', () => {
         userId: duyUserId,
         authorizationCode: 'C1',
         codeChallenge: CODE_CHALLENGE,
-        expiresAt: new Date(NOW.getTime() + 5 * ONE_MINUTE_MS),
+        expiresAt: new Date(NOW.getTime() + 10 * ONE_MINUTE_MS),
       });
     });
 
@@ -82,6 +82,15 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
       expect(await database.query('SELECT id FROM chatgpt_connections')).toEqual([]);
+    });
+
+    it('refuses a code from a sign-in created 11 minutes ago', async () => {
+      clock.advanceBy(11 * ONE_MINUTE_MS);
+
+      const response = await requestToken(makeCodeRequest());
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
   });
 
