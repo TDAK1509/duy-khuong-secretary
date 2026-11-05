@@ -60,6 +60,7 @@ const ATTACH_PHOTOS_SCHEMA = {
 };
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const FUEL_TEXT = 'đổ dầu 1.250.000đ xe 29C-123.45 hôm nay';
+const UNCLEAR_TEXT = 'Chưa lưu vì nội dung chưa đủ rõ. Hãy gửi lại đầy đủ việc gì, cho xe nào, ngày nào và số tiền nếu có.';
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -362,6 +363,15 @@ describe('the MCP address', () => {
 
     expect(response.json().result.content[0].text).toBe(DUPLICATE_TEXT);
     expect(await database.query('SELECT id FROM records')).toHaveLength(1);
+  });
+
+  it('saves nothing for a maintenance text without a plate', async () => {
+    reader.answerWith(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'dầu máy', amount_vnd: 850000, vehicle_plate: null })]));
+
+    const response = await postMcp(callToolRequest('save_record_from_text', { text: 'thay dầu máy 850.000đ' }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.content[0].text).toBe(UNCLEAR_TEXT);
+    expect(await database.query('SELECT id FROM records')).toEqual([]);
   });
 
   it('creates a schedule with a creation key', async () => {
