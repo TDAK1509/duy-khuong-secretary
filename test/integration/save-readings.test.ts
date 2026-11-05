@@ -62,6 +62,19 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
+  it('saves the fuel item of a text for the sender', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
+
+    expect(
+      await database.query(
+        `SELECT user_id, category, amount_vnd::int AS amount_vnd, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on
+         FROM records`,
+      ),
+    ).toEqual([{ user_id: hungUserId, category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30' }]);
+  });
+
   it('saves a category outside the old list', async () => {
     harness.reader.answerWith(makeReading([makeFuelItem({ category: 'phiếu cân' })]));
 
