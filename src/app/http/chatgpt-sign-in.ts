@@ -12,7 +12,11 @@ import { respondWithHtml, respondWithText, type HttpResponse } from './http-resp
 
 const BROWSER_KEY_COOKIE = '__Host-chatgpt-sign-in';
 const ZALO_OFF_TEXT = 'Zalo is not configured.';
-const CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'";
+const SIGN_IN_HEADERS = {
+  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'",
+  'cache-control': 'no-store',
+  'referrer-policy': 'no-referrer',
+};
 
 export type SignInDependencies = {
   database: Database;
@@ -57,7 +61,7 @@ async function confirmSubmission(dependencies: SignInDependencies, submission: S
 }
 
 function addSignInHeaders(response: HttpResponse): HttpResponse {
-  return { ...response, headers: { ...response.headers, 'content-security-policy': CONTENT_SECURITY_POLICY, 'cache-control': 'no-store' } };
+  return { ...response, headers: { ...response.headers, ...SIGN_IN_HEADERS } };
 }
 
 async function respondToOutcome(dependencies: SignInDependencies, outcome: SignInOutcome): Promise<HttpResponse> {

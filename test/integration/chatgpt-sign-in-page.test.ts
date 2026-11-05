@@ -160,6 +160,12 @@ describe('GET /oauth/authorize', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
+  it('sends no referrer', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
