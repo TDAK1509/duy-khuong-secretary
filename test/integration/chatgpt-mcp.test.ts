@@ -111,6 +111,35 @@ describe('the MCP address', () => {
     expect(response.statusCode).toBe(503);
   });
 
+  it('refuses an expired access token', async () => {
+    await insertConnection(database, {
+      userId: duyUserId,
+      accessToken: 'expired-access-token',
+      refreshToken: 'expired-refresh-token',
+      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+      accessExpiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS),
+    });
+
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'expired-access-token' });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('refuses a token tied to a member', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await insertConnection(database, {
+      userId: hungUserId,
+      accessToken: 'hung-access-token',
+      refreshToken: 'hung-refresh-token',
+      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+      accessExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+    });
+
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'hung-access-token' });
+
+    expect(response.statusCode).toBe(401);
+  });
+
   it('returns the server instructions when a signed-in admin initializes', async () => {
     const response = await postMcp(INITIALIZE_REQUEST, { token: DUY_ACCESS_TOKEN });
 
@@ -213,35 +242,6 @@ describe('the MCP address', () => {
     const response = await buildTestServer().inject({ method, url: '/mcp', headers: { authorization: `Bearer ${DUY_ACCESS_TOKEN}` } });
 
     expect(response.statusCode).toBe(405);
-  });
-
-  it('refuses an expired access token', async () => {
-    await insertConnection(database, {
-      userId: duyUserId,
-      accessToken: 'expired-access-token',
-      refreshToken: 'expired-refresh-token',
-      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
-      accessExpiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS),
-    });
-
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'expired-access-token' });
-
-    expect(response.statusCode).toBe(401);
-  });
-
-  it('refuses a token tied to a member', async () => {
-    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
-    await insertConnection(database, {
-      userId: hungUserId,
-      accessToken: 'hung-access-token',
-      refreshToken: 'hung-refresh-token',
-      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
-      accessExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
-    });
-
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'hung-access-token' });
-
-    expect(response.statusCode).toBe(401);
   });
 
   function buildTestServer(mcp: McpDependencies | null = makeMcpDependencies()) {
