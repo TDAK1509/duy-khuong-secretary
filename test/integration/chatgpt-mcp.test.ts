@@ -183,6 +183,16 @@ describe('the MCP address', () => {
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
   });
 
+  it('cannot call a change tool yet', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
+
+    const response = await postMcp(callToolRequest('remove_member', { member_id: hung?.id }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().error).toBeDefined();
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
