@@ -1,4 +1,4 @@
-import type { ReadingDecision } from '../reading/decide-reading.ts';
+import { isReaderOutage, type ReadingDecision } from '../reading/decide-reading.ts';
 import { saveAgreedReading } from '../reading/save-agreed-reading.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
@@ -35,9 +35,13 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
-export type AnswerPlan = { reply: ReplyPlan; photoAfter: 'same_as_reply' | 'asked_again' | 'unresolved' };
+export type AnswerPlan = {
+  reply: ReplyPlan;
+  photoAfter: 'same_as_reply' | 'asked_again' | 'unresolved' | 'unchanged';
+};
 
 export function planAnswer(decision: ReadingDecision, asked: AskedPhoto): AnswerPlan {
+  if (isReaderOutage(decision)) return { reply: planUnresolvedReply(), photoAfter: 'unchanged' };
   const reply = planReply(decision);
   if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
   if (asked.status === 'asked_again') return { reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };

@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, ASK_LATER_TEXT, STILL_UNCLEAR_TEXT } from '../../src/app/intake/intake-texts.ts';
+import {
+  ASK_AGAIN_TEXT,
+  ASK_EXPLANATION_TEXT,
+  ASK_LATER_TEXT,
+  STILL_UNCLEAR_TEXT,
+  UNRESOLVED_TEXT,
+} from '../../src/app/intake/intake-texts.ts';
+import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
+import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
@@ -134,6 +142,19 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
   });
 
+  it('does not count a reader outage on an answer as a try', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+    await harness.receiveText('zu-hung', 'cái này');
+
+    await harness.receiveText('zu-hung', 'Lốp dự phòng để trong kho', { readers: makeTimingOutReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UNRESOLVED_TEXT);
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
+  });
+
   function readersReturn(reading: unknown): void {
     for (const reader of harness.readers.cheap) reader.answerWith(reading);
   }
@@ -160,3 +181,8 @@ describe('asking what an unclear photo is for', () => {
     return photo;
   }
 });
+
+function makeTimingOutReaders(): ReaderSlots {
+  const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));
+  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+}

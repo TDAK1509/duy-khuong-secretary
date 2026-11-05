@@ -10,7 +10,7 @@ import { planAnswer, type AnswerPlan, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './reply-to-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
-import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
+import { setSubmissionStatus, storeBotReply, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
 export type Explanation = { id: string; text: string };
@@ -39,10 +39,19 @@ async function saveAnswer(
 ): Promise<void> {
   const reply = await rejectDuplicates(transaction, context.sender.workspaceId, answer.reply);
   await saveReplyToExplanation(transaction, context, answered, reply);
-  const photoStatus = answer.photoAfter === 'same_as_reply' ? reply.status : answer.photoAfter;
-  await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
+  const photoStatus = findPhotoStatus(answer, reply);
+  if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
   await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);
-  if (photoStatus !== 'asked_again') await endWait(transaction, context, answered.asked, reply.replyText);
+  if (endsWait(answer)) await endWait(transaction, context, answered.asked, reply.replyText);
+}
+
+function findPhotoStatus({ photoAfter }: AnswerPlan, reply: ReplyPlan): SubmissionStatus | null {
+  if (photoAfter === 'unchanged') return null;
+  return photoAfter === 'same_as_reply' ? reply.status : photoAfter;
+}
+
+function endsWait({ photoAfter }: AnswerPlan): boolean {
+  return photoAfter === 'same_as_reply' || photoAfter === 'unresolved';
 }
 
 async function saveReplyToExplanation(
