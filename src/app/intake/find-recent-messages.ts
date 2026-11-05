@@ -1,0 +1,46 @@
+import type { Database } from '../db/transaction.ts';
+import type { IntakeSender } from './find-intake-sender.ts';
+
+const RECENT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_RECENT_TEXTS = 10;
+
+const SELECT_RECENT_MESSAGES = `
+  WITH current_message AS (SELECT created_at, id FROM messages WHERE id = $3)
+  SELECT message.id, message.text, message.image_key, event.kind
+  FROM messages message
+  JOIN inbound_events event ON event.id = message.inbound_event_id
+  WHERE message.workspace_id = $1 AND message.user_id = $2 AND message.author = 'user'
+    AND (message.created_at, message.id) < (SELECT created_at, id FROM current_message)
+    AND (event.payload ->> 'sent_at')::timestamptz >= $4
+    AND ((event.kind = 'text' AND message.submission_status IN ('accepted', 'unresolved'))
+      OR (event.kind = 'images' AND message.submission_status IN ('unresolved', 'needs_explanation', 'asked_again')))
+    AND NOT EXISTS (
+       SELECT 1 FROM messages saved
+       WHERE saved.workspace_id = $1 AND saved.user_id = $2 AND saved.author = 'user'
+         AND (saved.submission_status = 'duplicate'
+           OR EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = saved.id AND reply.reply_kind = 'saved'))
+         AND (saved.created_at, saved.id) >= (message.created_at, message.id)
+         AND (saved.created_at, saved.id) < (SELECT created_at, id FROM current_message))
+  ORDER BY message.created_at, message.id`;
+
+export type RecentPhoto = { id: string; imageKey: string };
+
+export type RecentMessages = { texts: string[]; photo: RecentPhoto | null };
+
+export type CurrentMessage = { id: string; sentAt: Date };
+
+type RecentRow = { id: string; text: string | null; image_key: string | null; kind: 'text' | 'images' };
+
+export async function findRecentMessages(database: Database, sender: IntakeSender, current: CurrentMessage): Promise<RecentMessages> {
+  const since = new Date(current.sentAt.getTime() - RECENT_WINDOW_MS);
+  const { rows } = await database.query<RecentRow>(SELECT_RECENT_MESSAGES, [sender.workspaceId, sender.userId, current.id, since]);
+  return { texts: rows.flatMap(pickText).slice(-MAX_RECENT_TEXTS), photo: rows.reduce<RecentPhoto | null>(pickLatestPhoto, null) };
+}
+
+function pickText({ kind, text }: RecentRow): string[] {
+  return kind === 'text' && text !== null ? [text] : [];
+}
+
+function pickLatestPhoto(latest: RecentPhoto | null, { id, kind, image_key }: RecentRow): RecentPhoto | null {
+  return kind === 'images' && image_key !== null ? { id, imageKey: image_key } : latest;
+}

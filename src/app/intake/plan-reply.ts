@@ -26,15 +26,8 @@ export type ReplyPlan = {
   saved: SavedRecords | null;
   situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'refused';
   asksQuestion: boolean;
+  isUnclear: boolean;
 };
-
-export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
-  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply();
-  const reading = saveAgreedReading(...decision.agreed);
-  if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
-  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
-  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
-}
 
 export type ReplyAnswer = {
   kind: 'reply';
@@ -57,6 +50,20 @@ function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
   return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
 }
 
+export function asksOnlyAQuestion({ agreed, outcome }: ReadingDecision): boolean {
+  if (agreed === null || outcome === 'unresolved') return false;
+  const reading = saveAgreedReading(...agreed);
+  return reading.has_question && reading.items.length === 0;
+}
+
+export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
+  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply(!isReaderOutage(decision));
+  const reading = saveAgreedReading(...decision.agreed);
+  if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
+  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
+  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
+}
+
 export function planUnreadAnswer(): AnswerPlan {
   return { kind: 'reply', reply: planUnresolvedReply(), photoAfter: 'unchanged' };
 }
@@ -70,6 +77,7 @@ function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: bo
     saved: { readBy, records },
     situation: 'saved',
     asksQuestion,
+    isUnclear: false,
   };
 }
 
@@ -82,15 +90,15 @@ export function planDuplicateReply(): ReplyPlan {
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {
-  return planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT);
+  return { ...planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT), isUnclear: true };
 }
 
-function planUnresolvedReply(): ReplyPlan {
-  return planRefusal(UNRESOLVED_TEXT);
+function planUnresolvedReply(isUnclear = false): ReplyPlan {
+  return { ...planRefusal(UNRESOLVED_TEXT), isUnclear };
 }
 
 function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {
-  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false };
+  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false, isUnclear: false };
 }
 
 function planExplanationRequest(): ReplyPlan {
@@ -101,10 +109,11 @@ function planExplanationRequest(): ReplyPlan {
     saved: null,
     situation: 'needs_explanation',
     asksQuestion: false,
+    isUnclear: true,
   };
 }
 
-function planUploadOnlyReply(): ReplyPlan {
+function planUploadOnlyReply(isUnclear: boolean): ReplyPlan {
   return {
     replyText: UPLOAD_ONLY_TEXT,
     replyKind: 'answer',
@@ -112,5 +121,6 @@ function planUploadOnlyReply(): ReplyPlan {
     saved: null,
     situation: 'no_work_data',
     asksQuestion: false,
+    isUnclear,
   };
 }

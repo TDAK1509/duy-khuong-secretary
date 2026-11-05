@@ -26,6 +26,78 @@ describe('planReply', () => {
   });
 });
 
+describe('planReply unclear readings', () => {
+  const tireOfPlate = (plate: string) => makeReading([makeItem({ maintenance_item: 'lốp', vehicle_plate: plate })]);
+
+  it('is unclear when the readers disagree and every reader answered', () => {
+    const [first, second] = [tireOfPlate('29C-123.45'), tireOfPlate('29C-123.46')];
+    const decision: ReadingDecision = {
+      outcome: 'unresolved',
+      cheap: [succeed(first), succeed(second)],
+      strong: [succeed(first), succeed(second)],
+      agreed: null,
+    };
+
+    const plan = planReply(decision, false);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+
+  it('is not unclear when a reader did not answer', () => {
+    const reading = tireOfPlate('29C-123.45');
+    const decision: ReadingDecision = {
+      outcome: 'unresolved',
+      cheap: [succeed(reading), succeed(tireOfPlate('29C-123.46'))],
+      strong: [succeed(reading), { ok: false, reason: 'timeout' }],
+      agreed: null,
+    };
+
+    const plan = planReply(decision, false);
+
+    expect(plan.isUnclear).toBe(false);
+  });
+});
+
+describe('planReply text that needs an explanation', () => {
+  it('is unclear and keeps the upload-only reply when the readers agree it needs an explanation', () => {
+    const reading = makeReading([], { has_work_data: false, needs_explanation: true });
+
+    const plan = planReply(agreeOn(reading), false);
+
+    expect(plan).toMatchObject({ isUnclear: true, replyText: UPLOAD_ONLY_TEXT });
+  });
+});
+
+describe('planReply maintenance without a plate', () => {
+  it('is unclear', () => {
+    const reading = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: null })]);
+
+    const plan = planReply(agreeOn(reading), false);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+});
+
+describe('planReply photo that needs an explanation', () => {
+  it('is unclear when the readers agree the photo needs an explanation', () => {
+    const reading = makeReading([], { has_work_data: false, needs_explanation: true });
+
+    const plan = planReply(agreeOn(reading), true);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+});
+
+describe('planReply no work data', () => {
+  it('is not unclear when the readers agree there is no work data', () => {
+    const reading = makeReading([], { has_work_data: false, needs_explanation: false });
+
+    const plan = planReply(agreeOn(reading), false);
+
+    expect(plan.isUnclear).toBe(false);
+  });
+});
+
 describe('planAnswer', () => {
   const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
   const question = makeReading([], { has_work_data: false, has_question: true });

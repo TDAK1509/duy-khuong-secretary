@@ -47,6 +47,10 @@ export function wrapExplanation(explanation: string): string {
   return `Lời giải thích của người gửi cho ảnh này:\n${explanation}`;
 }
 
+export function wrapRecentMessages(messages: string[]): string {
+  return ['Các tin nhắn gần đây của người gửi, từ cũ đến mới:', ...messages.map((message) => `- ${message}`)].join('\n');
+}
+
 export function chooseAskText(role: 'admin' | 'member'): string {
   return role === 'admin' ? ASK_ADMIN_EXPLANATION_TEXT : ASK_EXPLANATION_TEXT;
 }
