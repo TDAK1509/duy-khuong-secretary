@@ -166,6 +166,15 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
+  it('gives the outage reply when the reader is unavailable', async () => {
+    harness.reader.failWith('unavailable');
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
+  });
+
   it('marks an unresolved message as unresolved', async () => {
     harness.reader.failWith('timeout');
 
