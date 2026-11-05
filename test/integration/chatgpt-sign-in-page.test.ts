@@ -166,6 +166,31 @@ describe('GET /oauth/authorize', () => {
     expect(response.headers['referrer-policy']).toBe('no-referrer');
   });
 
+  it('shows the steps and the notes in the verbatim words', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(textLinesOf(response.body)).toEqual([
+      'Kết nối ChatGPT với Trợ lý',
+      'ChatGPT muốn đọc và thay đổi dữ liệu của nhóm bạn quản lý.',
+      '1. Mở khung chat với Trợ lý trong Zalo. Trên điện thoại, bấm "Mở Zalo". Trên máy tính, mở Zalo trên điện thoại và quét mã QR bên dưới. Nếu Zalo mở trang của Trợ lý, bấm "Nhắn tin".',
+      'Mở Zalo',
+      'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.',
+      '2. Nhắn: đăng nhập',
+      '3. Trợ lý gửi mã trong một tin nhắn riêng. Nhấn giữ tin nhắn đó để sao chép, rồi dán vào ô dưới đây. Bạn cũng có thể gõ mã.',
+      '4. Bấm "Tiếp tục".',
+      'Mã kết nối',
+      'Tiếp tục',
+      'Trợ lý kết nối nhóm bạn đang dùng trong Zalo. Muốn dùng nhóm khác, nhắn "đổi nhóm" cho Trợ lý trước khi nhắn "đăng nhập".',
+      'Chỉ nhập mã trên trang bạn tự mở từ ChatGPT của mình.',
+    ]);
+  });
+
+  function textLinesOf(html: string): string[] {
+    const body = html.slice(html.indexOf('<body>'));
+    const withoutSvg = body.replace(/<svg[\s\S]*?<\/svg>/g, '');
+    return withoutSvg.split(/<[^>]*>/).map((line) => line.trim()).filter((line) => line !== '');
+  }
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
