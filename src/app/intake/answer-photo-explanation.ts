@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import { insertRecords } from '../records/insert-records.ts';
+import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
@@ -45,4 +46,5 @@ async function saveAnswer(
   await setSubmissionStatus(transaction, asked.id, plan.status);
   await enqueueReplyToMessage(transaction, context, asked.id, plan.replyText);
   await notifyAdminsOfPhoto(transaction, context, asked.id, plan.replyText);
+  await askNextWaitingPhoto(transaction, context);
 }

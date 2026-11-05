@@ -1,16 +1,19 @@
-import type { Database, Transaction } from '../db/transaction.ts';
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
 export type AskedPhoto = { id: string; imageKey: string };
 
-export async function findAskedPhoto(database: Database, sender: IntakeSender): Promise<AskedPhoto | null> {
-  const { rows } = await database.query<{ id: string; image_key: string }>(
+export function findAskedPhoto(database: Database, sender: IntakeSender): Promise<AskedPhoto | null> {
+  return runInTransaction(database, (transaction) => findOldestWaitingPhoto(transaction, sender));
+}
+
+export async function findOldestWaitingPhoto(transaction: Transaction, sender: IntakeSender): Promise<AskedPhoto | null> {
+  const [row] = await transaction.query<{ id: string; image_key: string }>(
     `SELECT id, image_key FROM messages
      WHERE workspace_id = $1 AND user_id = $2 AND submission_status IN ('needs_explanation', 'asked_again')
      ORDER BY created_at, id LIMIT 1`,
     [sender.workspaceId, sender.userId],
   );
-  const [row] = rows;
   return row ? { id: row.id, imageKey: row.image_key } : null;
 }
 

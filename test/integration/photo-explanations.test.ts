@@ -92,6 +92,22 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
   });
 
+  it('asks about the next waiting photo after a good answer', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).slice(-2)).toEqual([
+      { text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' },
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
+    ]);
+    expect(await readPhoto('zmsg-2')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+  });
+
   function readersReturn(reading: unknown): void {
     for (const reader of harness.readers.cheap) reader.answerWith(reading);
   }
