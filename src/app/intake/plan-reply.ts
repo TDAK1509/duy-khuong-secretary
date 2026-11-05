@@ -3,6 +3,7 @@ import { saveAgreedReading } from '../reading/save-agreed-reading.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
 import {
+  ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   DUPLICATE_TEXT,
   MAINTENANCE_WITHOUT_PLATE_TEXT,
@@ -30,6 +31,14 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
   if (reading.needs_explanation) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
+}
+
+export type AnswerPlan = { reply: ReplyPlan; photoAfter: 'same_as_reply' | 'asked_again' };
+
+export function planAnswer(decision: ReadingDecision): AnswerPlan {
+  const reply = planReply(decision);
+  if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
+  return { reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
 
 function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: boolean): ReplyPlan {

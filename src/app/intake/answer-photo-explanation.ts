@@ -6,7 +6,7 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
-import { planReply, type ReplyPlan } from './plan-reply.ts';
+import { planAnswer, type AnswerPlan } from './plan-reply.ts';
 import { readMessage } from './reply-to-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
@@ -24,7 +24,7 @@ export async function answerPhotoExplanation(
   const decision = await readMessage(context, { text: wrapExplanation(explanation.text), photo });
   await context.stages.runStage({
     isDone: (transaction) => isReplied(transaction, explanation.id),
-    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, planReply(decision)),
+    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, planAnswer(decision)),
   });
   return { kind: 'replied' };
 }
@@ -35,7 +35,7 @@ async function saveAnswer(
   transaction: Transaction,
   context: IntakeContext,
   { explanation, asked }: Answered,
-  plannedReply: ReplyPlan,
+  { reply: plannedReply, photoAfter }: AnswerPlan,
 ): Promise<void> {
   const { sender } = context;
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
@@ -43,8 +43,9 @@ async function saveAnswer(
   if (plan.saved) await insertRecords(transaction, photo, plan.saved.readBy, plan.saved.records);
   await storeBotReply(transaction, explanation.id, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, explanation.id, plan.status);
-  await setSubmissionStatus(transaction, asked.id, plan.status);
+  await setSubmissionStatus(transaction, asked.id, photoAfter === 'same_as_reply' ? plan.status : photoAfter);
   await enqueueReplyToMessage(transaction, context, asked.id, plan.replyText);
+  if (photoAfter === 'asked_again') return;
   await notifyAdminsOfPhoto(transaction, context, asked.id, plan.replyText);
   await askNextWaitingPhoto(transaction, context);
 }

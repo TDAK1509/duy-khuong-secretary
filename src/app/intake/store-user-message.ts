@@ -4,7 +4,7 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 
-export type SubmissionStatus = 'accepted' | 'unresolved' | 'duplicate' | 'needs_explanation';
+export type SubmissionStatus = 'accepted' | 'unresolved' | 'duplicate' | 'needs_explanation' | 'asked_again';
 
 export type NewUserMessage = { id: string; text: string | null; imageKey: string | null; partIndex: number };
 
