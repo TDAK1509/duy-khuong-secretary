@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -21,6 +22,7 @@ describe('POST /oauth/authorize', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let workspaceId: string;
   let duyUserId: string;
   let browserCookie: string;
 
@@ -30,7 +32,7 @@ describe('POST /oauth/authorize', () => {
     clock = new FakeClock(NOW);
     const tokens = makeTokenPair({ accessToken: 'a1' });
     await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens, storedAt: NOW }, ENCRYPTION_KEY);
-    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     browserCookie = await openSignIn();
     await insertLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() + FIVE_MINUTES_MS) });
@@ -99,6 +101,17 @@ describe('POST /oauth/authorize', () => {
   it('refuses a login code created 11 minutes ago', async () => {
     await database.query('DELETE FROM chatgpt_login_codes');
     await insertLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS) });
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.body).toContain('Mã không đúng hoặc đã hết hạn.');
+    expect(await database.query('SELECT authorization_code_hash FROM chatgpt_sign_ins')).toEqual([{ authorization_code_hash: null }]);
+  });
+
+  it('refuses the code of an admin who was removed', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
 
     const response = await submitCode('K7M2-QX4P');
 
