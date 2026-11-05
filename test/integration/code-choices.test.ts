@@ -62,6 +62,16 @@ describe('choosing the right code when the readers disagree only on the code', (
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('does not save the waiting code photo through a re-read when an unclear text is not a code', async () => {
+    await sendWaitingCodePhoto();
+    const readers = makeReadersThatSeeOnlyTheTextAsUnclear();
+
+    await harness.receiveText('zu-hung', 'Lốp mới thay', { readers });
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+    expect([...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests).filter((request) => request.image !== null)).toEqual([]);
+  });
+
   async function sendWaitingCodePhoto(): Promise<void> {
     await sendPhoto('zu-hung', 'zmsg-1', TIRE_EXPLANATION, makeCodeSplitReaders());
     await harness.sendAllQueuedTexts();
@@ -102,6 +112,18 @@ function makeCodeSplitReaders(): FakeReaderSlots {
   return {
     cheap: [makeReaderOfCode('cheap-1', FIRST_CODE), makeReaderOfCode('cheap-2', SECOND_CODE)],
     strong: [makeReaderOfCode('strong-1', FIRST_CODE), makeReaderOfCode('strong-2', SECOND_CODE)],
+  };
+}
+
+function makeReadersThatSeeOnlyTheTextAsUnclear(): FakeReaderSlots {
+  const makeReader = (label: string, amount: number) =>
+    new FakeReader(label, (request): ReaderResult => ({
+      ok: true,
+      json: request.image === null ? makeReading([makeItem({ amount_vnd: amount })]) : makeTireWithCode(FIRST_CODE),
+    }));
+  return {
+    cheap: [makeReader('cheap-1', 100000), makeReader('cheap-2', 200000)],
+    strong: [makeReader('strong-1', 100000), makeReader('strong-2', 200000)],
   };
 }
 

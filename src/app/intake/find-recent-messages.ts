@@ -13,7 +13,8 @@ const SELECT_RECENT_MESSAGES = `
     AND (message.created_at, message.id) < (SELECT created_at, id FROM current_message)
     AND (event.payload ->> 'sent_at')::timestamptz >= $4
     AND ((event.kind = 'text' AND message.submission_status IN ('accepted', 'unresolved'))
-      OR (event.kind = 'images' AND message.submission_status IN ('unresolved', 'needs_explanation', 'asked_again')))
+      OR (event.kind = 'images' AND (message.submission_status = 'unresolved'
+        OR (message.submission_status IN ('needs_explanation', 'asked_again') AND message.code_choice IS NULL))))
     AND NOT EXISTS (
        SELECT 1 FROM messages saved
        WHERE saved.workspace_id = $1 AND saved.user_id = $2 AND saved.author = 'user'
