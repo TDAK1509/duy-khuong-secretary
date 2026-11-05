@@ -17,10 +17,6 @@ export function exchangeAuthorizationCode(database: Database, exchange: CodeExch
   });
 }
 
-function isGrantedTo(signIn: SignInRow, exchange: CodeExchange): boolean {
-  return signIn.redirect_uri === exchange.redirectUri && signIn.code_challenge === computeCodeChallenge(exchange.codeVerifier);
-}
-
 async function lockConfirmedSignIn(transaction: Transaction, { code, now }: CodeExchange): Promise<SignInRow | null> {
   const [signIn] = await transaction.query<SignInRow>(
     `SELECT id, membership_id, client_id, code_challenge, redirect_uri FROM chatgpt_sign_ins
@@ -28,6 +24,10 @@ async function lockConfirmedSignIn(transaction: Transaction, { code, now }: Code
     [hashSecretToken(code), now],
   );
   return signIn ?? null;
+}
+
+function isGrantedTo(signIn: SignInRow, exchange: CodeExchange): boolean {
+  return signIn.redirect_uri === exchange.redirectUri && signIn.code_challenge === computeCodeChallenge(exchange.codeVerifier);
 }
 
 async function connectSignIn(transaction: Transaction, signIn: SignInRow, now: Date): Promise<TokenOutcome> {
