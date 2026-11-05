@@ -107,6 +107,21 @@ describe('the MCP address', () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it('refuses a token tied to a member', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await insertConnection(database, {
+      userId: hungUserId,
+      accessToken: 'hung-access-token',
+      refreshToken: 'hung-refresh-token',
+      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+      accessExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+    });
+
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'hung-access-token' });
+
+    expect(response.statusCode).toBe(401);
+  });
+
   function buildTestServer(mcp: McpDependencies | null = makeMcpDependencies()) {
     return buildServer(pool, null, { chatgptMcp: mcp });
   }
