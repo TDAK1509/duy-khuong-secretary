@@ -259,6 +259,23 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-2')).toEqual({ status: 'needs_explanation', hasBotReply: true });
   });
 
+  it('says it will ask later once when the event of the waiting photo is processed again after a crash', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_B_URL], externalEventId: 'zmsg-2' });
+    await harness.runInbound({
+      beforeFinish: async () => {
+        throw new Error('the worker crashed before finishing');
+      },
+    });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text === ASK_LATER_TEXT)).toHaveLength(1);
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
