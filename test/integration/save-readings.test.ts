@@ -6,6 +6,8 @@ import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } fro
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
+const OUTAGE_REPLY =
+  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
 const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
 
 describe('saving what the reader returns', () => {
@@ -143,6 +145,15 @@ describe('saving what the reader returns', () => {
     expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
       { submission_status: 'accepted' },
     ]);
+  });
+
+  it('gives the outage reply when the reader times out', async () => {
+    harness.reader.failWith('timeout');
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
   });
 
   it('marks an unresolved message as unresolved', async () => {
