@@ -132,6 +132,19 @@ describe('areAgreeing', () => {
     expect(areAgreeing(first, second)).toBe(false);
   });
 
+  it('agrees on items that differ only by plate when the readers name them in the opposite way', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ vehicle_plate: '29C12345', category: 'phiếu cân' }),
+      makeFuelItemX({ vehicle_plate: '51D67890', category: 'biên lai' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ vehicle_plate: '29C12345', category: 'biên lai' }),
+      makeFuelItemX({ vehicle_plate: '51D67890', category: 'phiếu cân' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
+
   it('disagrees when the question flag differs', () => {
     const first = succeed(makeReading([makeItem()], { has_question: true }));
     const second = succeed(makeReading([makeItem()], { has_question: false }));

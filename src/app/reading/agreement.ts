@@ -60,6 +60,7 @@ function buildSortKey(item: ReadingItem): string {
     comparable.amount_vnd,
     comparable.document_number,
     comparable.identifiers.join(','),
+    comparable.vehicle_plate,
     toAccentFreeForm(item.category),
     toAccentFreeForm(item.document_title),
   ]);
