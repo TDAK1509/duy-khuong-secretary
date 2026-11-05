@@ -110,6 +110,17 @@ describe('replies that quote the photo they answer', () => {
       expect(harness.channel.texts.find((text) => text.text === SAVED_REPLY)?.quoteMessageId).toBe('zmsg-1');
     });
 
+    it('quotes the photo in the refusal for a photo that is too large, with no fallback photo', async () => {
+      harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
+      await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });
+
+      await harness.runInbound();
+
+      expect(await harness.database.query(`SELECT body, quote_message_id, fallback_photo_key FROM outbound_messages WHERE external_user_id = 'zu-hung'`)).toEqual([
+        { body: 'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.', quote_message_id: 'zmsg-1', fallback_photo_key: null },
+      ]);
+    });
+
     it('quotes each photo in the replies to two photos sent one after the other', async () => {
       harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
       await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });

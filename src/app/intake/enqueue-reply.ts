@@ -27,6 +27,21 @@ export async function enqueueReply(
   });
 }
 
+export async function enqueueRefusal(transaction: Transaction, context: IntakeContext, text: string): Promise<void> {
+  if (hasSeveralPhotos(context.event)) return enqueueReply(transaction, context, text);
+  const messageId = await findExternalEventId(transaction, context.event.id);
+  return enqueueReply(transaction, context, text, { quote: { messageId } });
+}
+
+async function findExternalEventId(transaction: Transaction, eventId: string): Promise<string> {
+  const [event] = await transaction.query<{ external_event_id: string }>(
+    'SELECT external_event_id FROM inbound_events WHERE id = $1',
+    [eventId],
+  );
+  if (!event) throw new Error(`inbound event ${eventId} not found`);
+  return event.external_event_id;
+}
+
 export async function enqueueReplyToMessage(
   transaction: Transaction,
   context: IntakeContext,
