@@ -97,6 +97,41 @@ describe('areAgreeing', () => {
     expect(areAgreeing(first, second)).toBe(true);
   });
 
+  it('disagrees when items with the same fixed fields have categories the readers do not share', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ category: 'đổ xăng dầu' }),
+      makeFuelItemX({ category: 'phí cầu đường' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ category: 'đổ xăng dầu' }),
+      makeFuelItemX({ category: 'rửa xe' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
+
+  it('agrees on items with the same fixed fields when the readers share every category', () => {
+    const fuel = makeFuelItemX({ category: 'đổ xăng dầu' });
+    const toll = makeFuelItemX({ category: 'phí cầu đường' });
+
+    const agree = areAgreeing(succeed(makeReading([fuel, toll])), succeed(makeReading([toll, fuel])));
+
+    expect(agree).toBe(true);
+  });
+
+  it('disagrees when items with the same fixed fields have titles the readers do not share', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ document_title: 'Hóa đơn bán lẻ xăng dầu' }),
+      makeFuelItemX({ document_title: 'Biên lai thu phí' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ document_title: 'Hóa đơn bán lẻ xăng dầu' }),
+      makeFuelItemX({ document_title: 'Phiếu thu phí' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
+
   it('disagrees when the question flag differs', () => {
     const first = succeed(makeReading([makeItem()], { has_question: true }));
     const second = succeed(makeReading([makeItem()], { has_question: false }));
