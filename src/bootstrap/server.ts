@@ -8,6 +8,7 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
+import { handleSignInPage, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
@@ -18,6 +19,7 @@ export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
+  signIn?: SignInDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -36,12 +38,19 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
+  registerSignInRoutes(server, options.signIn ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
       sendResponse(reply, respondWithHtml(verifierFile.content)),
     );
   }
+}
+
+function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencies | null): void {
+  server.get('/oauth/authorize', async (request, reply) =>
+    sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
+  );
 }
 
 function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {
