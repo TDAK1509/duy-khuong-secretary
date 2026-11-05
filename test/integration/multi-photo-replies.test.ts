@@ -49,6 +49,16 @@ describe('replies that come back as their photo', () => {
     ]);
   });
 
+  it('sends the reply to a one-photo event as a text', async () => {
+    harness.channel.attachments.set(FIRST_PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL] });
+
+    await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: FIRST_REPLY }]);
+  });
+
   it('sends each photo of a two-photo event back with its own reply', async () => {
     harness.channel.attachments.set(FIRST_PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
     harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
