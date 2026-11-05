@@ -571,6 +571,15 @@ describe('asking what an unclear photo is for', () => {
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('reads a second answer that is good alone once', async () => {
+    await askAgainAfterAnswer('zu-hung', 'cái này', 2);
+    const readers = makeReadersAnswering(() => TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
@@ -663,11 +672,11 @@ async function crashBeforeFinishing(): Promise<void> {
 }
 
 function makeTwoLineReaders(): FakeReaderSlots {
-  const readsBothLines = (request: ReaderRequest): ReaderResult => ({
-    ok: true,
-    json: request.text?.includes(FIRST_LINE) && request.text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK,
-  });
-  const makeReader = (label: string) => new FakeReader(label, readsBothLines);
+  return makeReadersAnswering(({ text }) => (text?.includes(FIRST_LINE) && text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK));
+}
+
+function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
+  const makeReader = (label: string) => new FakeReader(label, (request): ReaderResult => ({ ok: true, json: respond(request) }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }
 
