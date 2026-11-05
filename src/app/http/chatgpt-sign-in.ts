@@ -21,7 +21,7 @@ export type SignInQuery = Record<string, string | undefined>;
 
 export async function handleSignInPage(dependencies: SignInDependencies | null, query: SignInQuery): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
-  const request = readSignInRequest(query);
+  const request = readSignInRequest(query, dependencies.publicBaseUrl);
   if (request === null) return respondWithHtml(renderMessagePage(INVALID_REQUEST_TEXT), 400);
   return respondWithSignInForm(dependencies, request);
 }
