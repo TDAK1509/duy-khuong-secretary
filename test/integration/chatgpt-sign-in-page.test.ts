@@ -7,7 +7,7 @@ import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertLoginCode } from './chatgpt-login-code-rows.ts';
 import { insertSignIns } from './chatgpt-sign-in-rows.ts';
-import { makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { makeSignInQuery, MAX_TEXT_LENGTH, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -192,7 +192,7 @@ describe('GET /oauth/authorize', () => {
   }
 
   function requestSignInPage(query: Record<string, string>) {
-    const server = buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+    const server = buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
   }
 });
