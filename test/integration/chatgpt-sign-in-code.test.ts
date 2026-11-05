@@ -77,6 +77,15 @@ describe('POST /oauth/authorize', () => {
     expect(await database.query('SELECT failed_attempts FROM chatgpt_sign_ins')).toEqual([{ failed_attempts: 1 }]);
   });
 
+  it('counts no attempt for a pasted text that is not a code', async () => {
+    const response = await submitCode(
+      'Mã kết nối ChatGPT của bạn ở tin nhắn tiếp theo. Nhấn giữ tin nhắn đó để sao chép, rồi dán vào trang kết nối ChatGPT của chính bạn.',
+    );
+
+    expect(response.body).toContain('Mã không đúng hoặc đã hết hạn.');
+    expect(await database.query('SELECT failed_attempts FROM chatgpt_sign_ins')).toEqual([{ failed_attempts: 0 }]);
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';

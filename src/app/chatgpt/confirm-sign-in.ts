@@ -1,5 +1,5 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
-import { hashLoginCode } from './login-code.ts';
+import { hashLoginCode, isLoginCodeShape } from './login-code.ts';
 import { generateSecretToken, hashSecretToken } from './secret-token.ts';
 
 export type SignInConfirmation = { browserKey: string; typedCode: string; now: Date };
@@ -17,6 +17,7 @@ export function confirmSignIn(database: Database, confirmation: SignInConfirmati
       [hashSecretToken(confirmation.browserKey)],
     );
     if (!signIn) throw new Error('no sign-in matches the browser key');
+    if (!isLoginCodeShape(confirmation.typedCode)) return { kind: 'wrong_code' };
     const membershipId = await useUpLoginCode(transaction, confirmation.typedCode);
     if (membershipId === null) return countFailedAttempt(transaction, signIn.id);
     const authorizationCode = generateSecretToken();
