@@ -21,6 +21,9 @@ export const ASK_LATER_TEXT =
 export const ASK_AGAIN_TEXT =
   'Trợ lý vẫn chưa rõ ảnh này nên chưa lưu. Bạn nhắn rõ hơn: đây là việc gì, cho xe nào, bao nhiêu tiền nếu có.';
 
+export const STILL_UNCLEAR_TEXT =
+  'Trợ lý vẫn chưa rõ ảnh này nên chưa lưu. Bạn gửi ảnh hóa đơn hoặc giấy tờ của việc này nhé.';
+
 export const PHOTO_TOO_LARGE_TEXT = 'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.';
 
 export const PHOTO_NOT_JPEG_OR_PNG_TEXT = 'Trợ lý chỉ nhận ảnh dạng JPEG hoặc PNG. Bạn chụp lại rồi gửi nhé.';

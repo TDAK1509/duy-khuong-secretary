@@ -7,10 +7,12 @@ import {
   ASK_EXPLANATION_TEXT,
   DUPLICATE_TEXT,
   MAINTENANCE_WITHOUT_PLATE_TEXT,
+  STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
+import type { AskedPhoto } from './waiting-photos.ts';
 
 type ReadBy = 'cheap_pair' | 'expensive_pair';
 
@@ -33,11 +35,12 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
-export type AnswerPlan = { reply: ReplyPlan; photoAfter: 'same_as_reply' | 'asked_again' };
+export type AnswerPlan = { reply: ReplyPlan; photoAfter: 'same_as_reply' | 'asked_again' | 'unresolved' };
 
-export function planAnswer(decision: ReadingDecision): AnswerPlan {
+export function planAnswer(decision: ReadingDecision, asked: AskedPhoto): AnswerPlan {
   const reply = planReply(decision);
   if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
+  if (asked.status === 'asked_again') return { reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, ASK_LATER_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, ASK_LATER_TEXT, STILL_UNCLEAR_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
@@ -119,6 +119,19 @@ describe('asking what an unclear photo is for', () => {
 
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: ASK_AGAIN_TEXT, quoteMessageId: 'zmsg-1' });
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
+  });
+
+  it('ends the wait after a second weak answer', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+    await harness.receiveText('zu-hung', 'cái này');
+
+    await harness.receiveText('zu-hung', 'không biết');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: STILL_UNCLEAR_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
   });
 
   function readersReturn(reading: unknown): void {
