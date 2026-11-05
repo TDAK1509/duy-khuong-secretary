@@ -29,7 +29,7 @@ export function handleAuthorizationServerMetadata(dependencies: TokenDependencie
 }
 
 export async function handleTokenRequest(dependencies: TokenDependencies | null, body: unknown): Promise<HttpResponse> {
-  if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
+  if (dependencies === null) return forbidCaching(respondWithText(503, ZALO_OFF_TEXT));
   return forbidCaching(await respondToGrant(dependencies, body));
 }
 

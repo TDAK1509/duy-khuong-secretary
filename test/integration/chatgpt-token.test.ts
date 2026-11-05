@@ -213,7 +213,7 @@ describe('POST /oauth/token', () => {
     expect(response.json()).toEqual({ error: 'unsupported_grant_type' });
   });
 
-  it('answers 503 on the token endpoint while Zalo is off', async () => {
+  it('forbids caching the 503 reply of the token endpoint while Zalo is off', async () => {
     const response = await buildServer(pool, null).inject({
       method: 'POST',
       url: '/oauth/token',
@@ -222,6 +222,7 @@ describe('POST /oauth/token', () => {
     });
 
     expect(response.statusCode).toBe(503);
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 
   it.each([
