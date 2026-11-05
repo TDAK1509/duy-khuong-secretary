@@ -180,4 +180,13 @@ describe('listDisagreements', () => {
 
     expect(listDisagreements(first, second)).toEqual(['has_work_data', 'needs_explanation', 'items']);
   });
+
+  it('names the category when items with the same fixed fields pair by name', () => {
+    const first = makeReading([makeFuelItemX({ category: 'đổ xăng dầu' }), makeFuelItemX({ category: 'phí cầu đường' })]);
+    const second = makeReading([makeFuelItemX({ category: 'đổ xăng dầu' }), makeFuelItemX({ category: 'rửa xe' })], {
+      has_question: true,
+    });
+
+    expect(listDisagreements(first, second)).toEqual(['has_question', 'category or title']);
+  });
 });

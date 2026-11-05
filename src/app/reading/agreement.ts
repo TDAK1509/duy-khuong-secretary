@@ -23,16 +23,18 @@ function listItemDisagreements(first: Reading, second: Reading): string[] {
   const firstItems = sortItemsForComparison(first);
   const secondItems = sortItemsForComparison(second);
   if (firstItems.length !== secondItems.length) return ['items'];
-  const fields = firstItems.flatMap((item, index) => listFieldDisagreements(item, secondItems[index]));
+  const fields = firstItems.flatMap((item, index) => listFieldDisagreements(item, secondItems[index], firstItems));
   return [...new Set(fields)];
 }
 
-function listFieldDisagreements(item: ReadingItem, partner: ReadingItem | undefined): string[] {
+function listFieldDisagreements(item: ReadingItem, partner: ReadingItem | undefined, readingItems: ReadingItem[]): string[] {
   if (partner === undefined) return ['items'];
   const comparable = toComparableItem(item);
   const partnerComparable = toComparableItem(partner);
   const keys = Object.keys(comparable) as (keyof typeof comparable)[];
-  return keys.filter((key) => !isDeepStrictEqual(comparable[key], partnerComparable[key]));
+  const fields: string[] = keys.filter((key) => !isDeepStrictEqual(comparable[key], partnerComparable[key]));
+  const isNamingCompared = !isUniqueByFixedFields(item, readingItems);
+  return isNamingCompared && !haveSameNaming(item, partner) ? [...fields, 'category or title'] : fields;
 }
 
 function haveAgreeingItems(first: Reading, second: Reading): boolean {

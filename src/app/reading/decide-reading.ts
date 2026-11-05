@@ -28,9 +28,7 @@ export async function decideReading(slots: ReaderSlots, request: ReaderRequest):
 
 function logDisagreement(pairName: 'cheap' | 'strong', [first, second]: AttemptPair): void {
   if (!first.ok || !second.ok) return;
-  const fields = listDisagreements(first.reading, second.reading);
-  const named = fields.length > 0 ? fields.join(', ') : 'category or title of matching items';
-  console.warn(`[reading] ${pairName} readers disagree on: ${named}`);
+  console.warn(`[reading] ${pairName} readers disagree on: ${listDisagreements(first.reading, second.reading).join(', ')}`);
 }
 
 export function isReaderOutage(decision: ReadingDecision): boolean {
