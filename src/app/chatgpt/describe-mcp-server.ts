@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ToolSpec } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
-import type { McpServerDefinition, McpTool, McpToolResult } from '../../services/mcp/mcp-endpoint.ts';
+import type { McpServerDefinition, McpTool, McpToolAnnotations, McpToolResult } from '../../services/mcp/mcp-endpoint.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import { CreatedInvites } from '../admin-chat/created-invites.ts';
 import { CreatedTasks } from '../admin-chat/created-tasks.ts';
@@ -11,31 +11,39 @@ import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
 import { runAdminTool } from '../admin-chat/tools/run-admin-tool.ts';
 import type { AdminToolDependencies } from '../admin-chat/tools/tool-dependencies.ts';
 import {
+  CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
+  CREATE_INVITE_SPEC,
+  CREATE_SCHEDULED_TASK_SPEC,
   LIST_MEMBERS_SPEC,
   LIST_SCHEDULED_TASKS_SPEC,
   MAINTENANCE_STATUS_SPEC,
+  REMOVE_MEMBER_SPEC,
   SEARCH_RECORDS_SPEC,
 } from '../admin-chat/tools/tool-specs.ts';
 import type { Database } from '../db/transaction.ts';
 import { MCP_SERVER_IDENTITY } from './mcp-server-identity.ts';
 
 const READ_ONLY_ANNOTATIONS = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+const CHANGE_ANNOTATIONS = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
 const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
+const CHANGE_TOOL_SPECS = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC];
 const failedOutputSchema = z.object({ ok: z.literal(false) });
 
 export type McpRuntime = { database: Database; clock: Clock };
 
 export function describeMcpServer(runtime: McpRuntime, scope: AccessScope): McpServerDefinition {
-  return { ...MCP_SERVER_IDENTITY, tools: READ_TOOL_SPECS.map((spec) => describeReadTool(runtime, scope, spec)) };
+  const readTools = READ_TOOL_SPECS.map((spec) => describeTool(runtime, scope, spec, READ_ONLY_ANNOTATIONS));
+  const changeTools = CHANGE_TOOL_SPECS.map((spec) => describeTool(runtime, scope, spec, CHANGE_ANNOTATIONS));
+  return { ...MCP_SERVER_IDENTITY, tools: [...readTools, ...changeTools] };
 }
 
-function describeReadTool(runtime: McpRuntime, scope: AccessScope, { name, description, parameters }: ToolSpec): McpTool {
+function describeTool(runtime: McpRuntime, scope: AccessScope, { name, description, parameters }: ToolSpec, annotations: McpToolAnnotations): McpTool {
   return {
     name,
     description,
     inputSchema: parameters,
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations,
     securitySchemes: [{ type: 'oauth2' }],
     call: (args) => callAdminTool(runtime, scope, name, args),
   };

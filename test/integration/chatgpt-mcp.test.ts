@@ -1,10 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
+  CREATE_INVITE_SPEC,
+  CREATE_SCHEDULED_TASK_SPEC,
   LIST_MEMBERS_SPEC,
   LIST_SCHEDULED_TASKS_SPEC,
   MAINTENANCE_STATUS_SPEC,
+  REMOVE_MEMBER_SPEC,
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
@@ -25,9 +29,11 @@ const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
 const DUY_ACCESS_TOKEN = 'duy-access-token';
 const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
+const READ_TOOL_NAMES = READ_TOOL_SPECS.map(({ name }) => name);
+const CHANGE_TOOL_NAMES = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC].map(({ name }) => name);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
-type ListedTool = { name: string; description: string; inputSchema: unknown };
+type ListedTool = { name: string; description: string; inputSchema: unknown; annotations: unknown; _meta: unknown };
 
 const INITIALIZE_REQUEST = {
   jsonrpc: '2.0',
@@ -147,37 +153,29 @@ describe('the MCP address', () => {
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
   });
 
-  it('lists exactly the five read tools', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+  it('lists the five read tools and the four change tools', async () => {
+    const tools = await listTools();
 
-    expect(response.json().result.tools.map((tool: { name: string }) => tool.name)).toEqual([
-      'search_records',
-      'count_records',
-      'list_members',
-      'maintenance_status',
-      'list_scheduled_tasks',
-    ]);
+    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, ...CHANGE_TOOL_NAMES]);
   });
 
   it('keeps the admin chat descriptions and schemas of the read tools', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const listed = response.json().result.tools.map(({ name, description, inputSchema }: ListedTool) => ({ name, description, inputSchema }));
+    const listed = tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
     expect(listed).toEqual(READ_TOOL_SPECS.map(({ name, description, parameters }) => ({ name, description, inputSchema: parameters })));
   });
 
   it('marks each read tool as read-only', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const annotations = response.json().result.tools.map((tool: { annotations: unknown }) => tool.annotations);
-    expect(annotations).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
+    expect(tools.map((tool) => tool.annotations)).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
   });
 
   it('declares the OAuth security scheme on each read tool', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const metas = response.json().result.tools.map((tool: { _meta: unknown }) => tool._meta);
-    expect(metas).toEqual(READ_TOOL_SPECS.map(() => ({ securitySchemes: [{ type: 'oauth2' }] })));
+    expect(tools.map((tool) => tool._meta)).toEqual(READ_TOOL_SPECS.map(() => ({ securitySchemes: [{ type: 'oauth2' }] })));
   });
 
   it('searches only the workspace of the token', async () => {
@@ -219,16 +217,6 @@ describe('the MCP address', () => {
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
   });
 
-  it('cannot call a change tool yet', async () => {
-    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
-    const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
-
-    const response = await postMcp(callToolRequest('remove_member', { member_id: hung?.id }), { token: DUY_ACCESS_TOKEN });
-
-    expect(response.json().error).toBeDefined();
-    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
-  });
-
   it('refuses the 61st request of a connection in one minute', async () => {
     const server = buildTestServer();
     for (let count = 0; count < 60; count += 1) await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
@@ -243,6 +231,15 @@ describe('the MCP address', () => {
 
     expect(response.statusCode).toBe(405);
   });
+
+  async function listTools(): Promise<ListedTool[]> {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    return response.json().result.tools;
+  }
+
+  async function listReadTools(): Promise<ListedTool[]> {
+    return (await listTools()).filter((tool) => READ_TOOL_NAMES.includes(tool.name));
+  }
 
   function buildTestServer(mcp: McpDependencies | null = makeMcpDependencies()) {
     return buildServer(pool, null, { chatgptMcp: mcp });
