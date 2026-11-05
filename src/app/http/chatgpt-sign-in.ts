@@ -4,7 +4,7 @@ import type { QrCodeService } from '../../services/qr-code/qr-code.ts';
 import { findConnectedAccountId } from '../channel-auth/find-connected-account.ts';
 import { confirmSignIn, type SignInOutcome } from '../chatgpt/confirm-sign-in.ts';
 import { readSignInRequest } from '../chatgpt/read-sign-in-request.ts';
-import { EXPIRED_TEXT, INVALID_REQUEST_TEXT, QR_CAPTION, TOO_MANY_ATTEMPTS_TEXT, WRONG_CODE_TEXT } from '../chatgpt/sign-in-texts.ts';
+import { BUSY_TEXT, EXPIRED_TEXT, INVALID_REQUEST_TEXT, QR_CAPTION, TOO_MANY_ATTEMPTS_TEXT, WRONG_CODE_TEXT } from '../chatgpt/sign-in-texts.ts';
 import { renderMessagePage, renderSignInPage } from '../chatgpt/sign-in-page.ts';
 import { startSignIn } from '../chatgpt/start-sign-in.ts';
 import type { Database } from '../db/transaction.ts';
@@ -29,6 +29,7 @@ export async function handleSignInPage(dependencies: SignInDependencies | null, 
   if (request === null) return respondWithHtml(renderMessagePage(INVALID_REQUEST_TEXT), 400);
   const page = respondWithHtml(await renderForm(dependencies, null));
   const browserKey = await startSignIn(dependencies.database, request, dependencies.clock.now());
+  if (browserKey === null) return respondWithHtml(renderMessagePage(BUSY_TEXT), 429);
   return { ...page, headers: { ...page.headers, 'set-cookie': `${BROWSER_KEY_COOKIE}=${browserKey}; Path=/; Secure; HttpOnly; SameSite=Lax` } };
 }
 

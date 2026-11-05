@@ -1,6 +1,6 @@
-import type { Database } from '../db/transaction.ts';
-import { SIGN_IN_VALID_FOR_MS } from './sign-in-limits.ts';
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { generateSecretToken, hashSecretToken } from './secret-token.ts';
+import { MAX_OPEN_SIGN_INS, SIGN_IN_VALID_FOR_MS } from './sign-in-limits.ts';
 
 export type SignInRequest = {
   clientId: string;
@@ -9,9 +9,25 @@ export type SignInRequest = {
   codeChallenge: string;
 };
 
-export async function startSignIn(database: Database, request: SignInRequest, now: Date): Promise<string> {
+export function startSignIn(database: Database, request: SignInRequest, now: Date): Promise<string | null> {
+  return runInTransaction(database, async (transaction) => {
+    await transaction.query(`SELECT pg_advisory_xact_lock(hashtextextended('chatgpt_sign_ins', 0))`);
+    if ((await countOpenSignIns(transaction, now)) >= MAX_OPEN_SIGN_INS) return null;
+    return insertSignIn(transaction, request, now);
+  });
+}
+
+async function countOpenSignIns(transaction: Transaction, now: Date): Promise<number> {
+  const [open] = await transaction.query<{ count: number }>(
+    'SELECT count(*)::int AS count FROM chatgpt_sign_ins WHERE expires_at > $1',
+    [now],
+  );
+  return open?.count ?? 0;
+}
+
+async function insertSignIn(transaction: Transaction, request: SignInRequest, now: Date): Promise<string> {
   const browserKey = generateSecretToken();
-  await database.query(
+  await transaction.query(
     `INSERT INTO chatgpt_sign_ins (browser_key_hash, client_id, redirect_uri, state, code_challenge, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [

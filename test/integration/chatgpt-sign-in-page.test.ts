@@ -5,12 +5,14 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertSignIns } from './chatgpt-sign-in-rows.ts';
 import { makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
+const ONE_MINUTE_MS = 60 * 1000;
 const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
 
 describe('GET /oauth/authorize', () => {
@@ -103,6 +105,16 @@ describe('GET /oauth/authorize', () => {
 
     expect(response.statusCode).toBe(400);
     expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('stops at 200 open sign-ins', async () => {
+    await insertSignIns(database, { count: 200, expiresAt: new Date(NOW.getTime() + ONE_MINUTE_MS) });
+
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.statusCode).toBe(429);
+    expect(response.body).toContain('Đang có quá nhiều lượt kết nối. Thử lại sau vài phút.');
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toHaveLength(200);
   });
 
   function requestSignInPage(query: Record<string, string>) {
