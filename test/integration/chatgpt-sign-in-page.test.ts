@@ -140,6 +140,14 @@ describe('GET /oauth/authorize', () => {
     expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
   });
 
+  it('keeps the strict content security policy', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['content-security-policy']).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'",
+    );
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });

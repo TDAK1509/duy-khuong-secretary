@@ -11,6 +11,8 @@ import type { Database } from '../db/transaction.ts';
 import { respondWithHtml, respondWithText, type HttpResponse } from './http-response.ts';
 
 const BROWSER_KEY_COOKIE = '__Host-chatgpt-sign-in';
+const ZALO_OFF_TEXT = 'Zalo is not configured.';
+const CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'";
 
 export type SignInDependencies = {
   database: Database;
@@ -24,7 +26,11 @@ export type SignInQuery = Record<string, string | undefined>;
 export type SignInSubmission = { cookieHeader: string | undefined; body: unknown };
 
 export async function handleSignInPage(dependencies: SignInDependencies | null, query: SignInQuery): Promise<HttpResponse> {
-  if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
+  if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
+  return addSignInHeaders(await startSignInPage(dependencies, query));
+}
+
+async function startSignInPage(dependencies: SignInDependencies, query: SignInQuery): Promise<HttpResponse> {
   const request = readSignInRequest(query, dependencies.publicBaseUrl);
   if (request === null) return respondWithHtml(renderMessagePage(INVALID_REQUEST_TEXT), 400);
   const page = respondWithHtml(await renderForm(dependencies, null));
@@ -37,13 +43,21 @@ export async function handleSignInSubmission(
   dependencies: SignInDependencies | null,
   submission: SignInSubmission,
 ): Promise<HttpResponse> {
-  if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
+  if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
+  return addSignInHeaders(await confirmSubmission(dependencies, submission));
+}
+
+async function confirmSubmission(dependencies: SignInDependencies, submission: SignInSubmission): Promise<HttpResponse> {
   const outcome = await confirmSignIn(dependencies.database, {
     browserKey: readBrowserKey(submission.cookieHeader),
     typedCode: readTypedCode(submission.body),
     now: dependencies.clock.now(),
   });
   return respondToOutcome(dependencies, outcome);
+}
+
+function addSignInHeaders(response: HttpResponse): HttpResponse {
+  return { ...response, headers: { ...response.headers, 'content-security-policy': CONTENT_SECURITY_POLICY } };
 }
 
 async function respondToOutcome(dependencies: SignInDependencies, outcome: SignInOutcome): Promise<HttpResponse> {
