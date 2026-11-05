@@ -36,6 +36,16 @@ describe('loadReaderConfig', () => {
     expect(result).toMatchObject({ ok: true, config: { model: 'gpt-6.1-sol' } });
   });
 
+  it('ignores an old slot value', () => {
+    const result = loadReaderConfig({
+      READER_PROVIDER: 'openai-compatible',
+      LLM_API_KEY: 'sk-shared',
+      READER_STRONG_2_MODEL: 'gpt-6-astra',
+    });
+
+    expect(result).toMatchObject({ ok: true, config: { model: 'gpt-6.1-sol' } });
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_API_KEY: '' });
 
