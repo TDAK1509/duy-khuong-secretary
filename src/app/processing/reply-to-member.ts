@@ -1,6 +1,8 @@
 import type { Reply } from '../delivery/reply.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
+import { answerLoginCommand } from '../chatgpt/answer-login-command.ts';
+import { isLoginCommand } from '../chatgpt/login-code.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
 import { NO_PENDING_CHOICE_TEXT } from './conversation-texts.ts';
 import { answerSwitchCommand, isSwitchCommand, pickWorkspace } from '../workspaces/switch-workspace.ts';
@@ -16,6 +18,7 @@ export async function replyToMember(transaction: Transaction, message: MemberMes
   const { userId, workspaceId, text } = message;
   if (text === null) return null;
   if (isBareNumber(text)) return answerBareNumber(transaction, message, Number(text.trim()));
+  if (isLoginCommand(text)) return answerLoginCommand(transaction, workspaceId);
   if (isSwitchCommand(text)) return answerSwitchCommand(transaction, userId, workspaceId);
   return null;
 }

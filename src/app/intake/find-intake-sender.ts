@@ -1,3 +1,4 @@
+import { isLoginCommand } from '../chatgpt/login-code.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -38,5 +39,5 @@ async function findMembership(transaction: Transaction, userId: string, workspac
 }
 
 function isIntakeText(text: string): boolean {
-  return !isInviteCodeMessage(text) && !isBareNumber(text) && !isSwitchCommand(text);
+  return !isInviteCodeMessage(text) && !isBareNumber(text) && !isSwitchCommand(text) && !isLoginCommand(text);
 }
