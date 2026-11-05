@@ -1,9 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { JsonSchema } from '../reading/reader-service.ts';
+import type { Photo } from '../storage/photo-storage.ts';
 
 export type McpToolAnnotations = { readOnlyHint: boolean; destructiveHint: boolean; openWorldHint: boolean };
 
-export type McpToolResult = { text: string; isError: boolean };
+export type McpToolResult = { text: string; isError: boolean; images?: Photo[] };
 
 export type McpTool = {
   name: string;
