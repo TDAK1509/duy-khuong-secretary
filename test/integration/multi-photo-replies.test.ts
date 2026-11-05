@@ -90,6 +90,19 @@ describe('replies that come back as their photo', () => {
 
     expect(harness.channel.sends.map((sent) => sent.kind)).toEqual(['image', 'image']);
   });
+
+  it('sends every part of a long reply with the same photo', async () => {
+    harness.channel.attachments.set(FIRST_PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
+    harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL, SECOND_PHOTO_URL] });
+
+    await harness.runInbound({ readers: readManyFuelItems() });
+    await harness.sendAllQueuedTexts();
+
+    const sends = harness.channel.sends.filter((sent) => sent.kind === 'image' && sent.photo.bytes.length === FIRST_PHOTO_SIZE);
+    expect(sends.length).toBeGreaterThan(1);
+    expect(sends.every((sent) => sent.kind === 'image' && (sent.text?.length ?? 0) <= harness.channel.maxTextLength)).toBe(true);
+  });
 });
 
 function readFuelItemByPhotoSize(): ReaderSlots {
@@ -102,4 +115,12 @@ function makeFuelItemFor(photoSize: number | undefined) {
   return photoSize === SECOND_PHOTO_SIZE
     ? makeItem({ category: 'fuel', amount_vnd: 850000, occurred_on: '2026-10-30', document_number: '0005678' })
     : makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+}
+
+function readManyFuelItems(): ReaderSlots {
+  const items = Array.from({ length: 45 }, (_, index) =>
+    makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: String(index).padStart(7, '0') }),
+  );
+  const makeReader = (label: string) => new FakeReader(label, () => ({ ok: true, json: makeReading(items) }));
+  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }
