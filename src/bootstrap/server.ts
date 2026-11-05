@@ -8,6 +8,7 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
+import { handleAuthorizationServerMetadata } from '../app/http/chatgpt-token.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -53,6 +54,9 @@ function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencie
     sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
   );
   registerSignInSubmitRoute(server, signIn);
+  server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
+    sendResponse(reply, handleAuthorizationServerMetadata(signIn)),
+  );
 }
 
 function registerSignInSubmitRoute(server: FastifyInstance, signIn: SignInDependencies | null): void {
