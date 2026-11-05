@@ -11,4 +11,8 @@ describe('matchCodeAnswer', () => {
   it('does not take a Vietnamese phrase for a code', () => {
     expect(matchCodeAnswer('cảm ơn', CANDIDATES)).toBeNull();
   });
+
+  it('takes a typed code that matches no candidate', () => {
+    expect(matchCodeAnswer('8936012045678', CANDIDATES)).toBe('8936012045678');
+  });
 });
