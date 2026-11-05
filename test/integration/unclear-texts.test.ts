@@ -69,8 +69,21 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UPLOAD_ONLY_TEXT);
   });
 
+  it('does not use a photo whose readings agreed on no work data', async () => {
+    await sendPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    const readers = makeContextReaders();
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
   async function sendUnresolvedPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {
     for (const reader of harness.readers.cheap) reader.answerWith(TIRE_WITHOUT_PLATE);
+    await sendPhotoSentMinutesAgo(externalUserId, externalEventId, minutesAgo);
+  }
+
+  async function sendPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, kind: 'images', imageUrls: [PHOTO_A_URL], externalEventId, sentAt });
     await harness.runInbound();

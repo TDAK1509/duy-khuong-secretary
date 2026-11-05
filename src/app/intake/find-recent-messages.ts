@@ -19,6 +19,8 @@ export async function findRecentMessages(database: Database, sender: IntakeSende
      WHERE message.workspace_id = $1 AND message.user_id = $2 AND message.author = 'user'
        AND (message.created_at, message.id) < (SELECT created_at, id FROM messages WHERE id = $3)
        AND (event.payload ->> 'sent_at')::timestamptz >= $4
+       AND ((event.kind = 'text' AND message.submission_status IN ('accepted', 'unresolved'))
+         OR (event.kind = 'images' AND message.submission_status IN ('unresolved', 'needs_explanation', 'asked_again')))
      ORDER BY message.created_at, message.id`,
     [sender.workspaceId, sender.userId, current.id, new Date(current.sentAt.getTime() - RECENT_WINDOW_MS)],
   );
