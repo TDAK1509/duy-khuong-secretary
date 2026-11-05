@@ -87,6 +87,17 @@ describe('ending ChatGPT connections from Zalo', () => {
     expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-duy', 'Bạn chưa kết nối ChatGPT.']]);
   });
 
+  it('never reaches the reader or the admin chat', async () => {
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertConnectionOf(duyUserId, { workspaceId, token: '1' });
+
+    await receiveText('zu-duy', 'ngắt ChatGPT');
+
+    expect(reader.requests).toEqual([]);
+    expect(chat.requests).toEqual([]);
+  });
+
   async function insertConnectionOf(userId: string, { workspaceId, token }: { workspaceId: string; token: string }): Promise<void> {
     await insertConnection(database, {
       userId,
