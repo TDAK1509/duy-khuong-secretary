@@ -12,14 +12,16 @@ export type SignInRequest = {
 export function startSignIn(database: Database, request: SignInRequest, now: Date): Promise<string | null> {
   return runInTransaction(database, async (transaction) => {
     await transaction.query(`SELECT pg_advisory_xact_lock(hashtextextended('chatgpt_sign_ins', 0))`);
-    await deleteLongExpiredSignIns(transaction, now);
+    await deleteLongExpired(transaction, now);
     if ((await countOpenSignIns(transaction, now)) >= MAX_OPEN_SIGN_INS) return null;
     return insertSignIn(transaction, request, now);
   });
 }
 
-async function deleteLongExpiredSignIns(transaction: Transaction, now: Date): Promise<void> {
-  await transaction.query('DELETE FROM chatgpt_sign_ins WHERE expires_at < $1', [new Date(now.getTime() - KEEP_EXPIRED_FOR_MS)]);
+async function deleteLongExpired(transaction: Transaction, now: Date): Promise<void> {
+  const cutoff = new Date(now.getTime() - KEEP_EXPIRED_FOR_MS);
+  await transaction.query('DELETE FROM chatgpt_sign_ins WHERE expires_at < $1', [cutoff]);
+  await transaction.query('DELETE FROM chatgpt_login_codes WHERE expires_at < $1', [cutoff]);
 }
 
 async function countOpenSignIns(transaction: Transaction, now: Date): Promise<number> {

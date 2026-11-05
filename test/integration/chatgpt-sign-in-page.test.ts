@@ -5,10 +5,12 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertLoginCode } from './chatgpt-login-code-rows.ts';
 import { insertSignIns } from './chatgpt-sign-in-rows.ts';
 import { makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -126,6 +128,16 @@ describe('GET /oauth/authorize', () => {
     const rows = await database.query<{ browser_key_hash: string }>('SELECT browser_key_hash FROM chatgpt_sign_ins');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.browser_key_hash).not.toBe('key-1');
+  });
+
+  it('deletes login codes that expired more than a day ago', async () => {
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertLoginCode(database, { userId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - 2 * ONE_DAY_MS) });
+
+    await requestSignInPage(makeSignInQuery());
+
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
   });
 
   function requestSignInPage(query: Record<string, string>) {
