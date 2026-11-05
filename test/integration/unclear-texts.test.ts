@@ -113,6 +113,16 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('reads a clear text once', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    const readers = makeReadersAnswering(() => TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', `Lốp mới thay cho ${SECOND_LINE}`, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(await readRecordedTexts()).toEqual([{ text: `Lốp mới thay cho ${SECOND_LINE}` }]);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
