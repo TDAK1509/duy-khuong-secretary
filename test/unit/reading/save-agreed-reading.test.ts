@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { saveAgreedReading } from '../../../src/app/reading/save-agreed-reading.ts';
-import { makeItem, makeReading } from './make-reading.ts';
+import { makeFuelItemX, makeItem, makeReading } from './make-reading.ts';
 
 describe('saveAgreedReading', () => {
   it('keeps a detail both readers returned, ignoring case and accents', () => {
@@ -28,5 +28,23 @@ describe('saveAgreedReading', () => {
     const saved = saveAgreedReading(makeReading([toll, fuel]), makeReading([fuel, toll]));
 
     expect(saved.items.map((item) => item.category)).toEqual(['toll', 'fuel']);
+  });
+
+  it('saves the category as khác when the readers word it differently', () => {
+    const first = makeReading([makeFuelItemX({ category: 'đổ xăng dầu' })]);
+    const second = makeReading([makeFuelItemX({ category: 'đổ dầu' })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.category).toBe('khác');
+  });
+
+  it('saves the category as khác when both readers leave it blank', () => {
+    const first = makeReading([makeFuelItemX({ category: '  ' })]);
+    const second = makeReading([makeFuelItemX({ category: '' })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.category).toBe('khác');
   });
 });
