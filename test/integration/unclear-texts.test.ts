@@ -156,6 +156,22 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
   });
 
+  it('saves an admin text with work data and a question first, then lets the chat answer', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
+    const question = 'Lốp 3.500.000đ, xe 29C-123.45 đã thay chưa?';
+    const readers = makeReadersAnswering(({ text }) =>
+      text?.startsWith(RECENT_MESSAGES_HEADER) ? { ...TIRE_ITEM, has_question: true } : { ...TIRE_WITHOUT_PLATE, has_question: true },
+    );
+    harness.chat.replyWith('Đã lưu lốp cho xe 29C-123.45.');
+
+    await harness.receiveText('zu-duy', question, { readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
+    expect(lastTurn).toMatchObject({ role: 'user', text: expect.stringContaining('Hệ thống đã lưu:') });
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
