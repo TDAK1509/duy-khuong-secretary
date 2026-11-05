@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ASK_EXPLANATION_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { ASK_EXPLANATION_TEXT, ASK_LATER_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const PHOTO_A_URL = 'https://z.test/a.jpg';
+const PHOTO_B_URL = 'https://z.test/b.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 
@@ -24,6 +25,7 @@ describe('asking what an unclear photo is for', () => {
       lastInboundAt: DUY_LAST_WROTE_AT,
     });
     harness.channel.attachments.set(PHOTO_A_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.channel.attachments.set(PHOTO_B_URL, { ok: true, bytes: makeJpeg(2000) });
   });
 
   afterEach(async () => {
@@ -39,6 +41,20 @@ describe('asking what an unclear photo is for', () => {
     expect(await readTextsTo('zu-hung')).toEqual([{ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
+  it('says it will ask later about a second unclear photo, which waits its turn', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-hung')).toEqual([
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
+      { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
+    ]);
+    expect(await readPhoto('zmsg-2')).toEqual({ status: 'needs_explanation', hasBotReply: false });
   });
 
   function readersReturn(reading: unknown): void {

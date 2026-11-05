@@ -48,7 +48,7 @@ function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOu
 async function receiveText(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
   if (existing?.questionPending) return answerOwedQuestion(context, { id: existing.id, text: part.text, photo: null });
-  if (existing?.hasReply) return { kind: 'replied' };
+  if (existing?.isReplied) return { kind: 'replied' };
   const stored = await runStoreStage(context, { id: randomUUID(), text: part.text, imageKey: null, partIndex: part.index });
   return replyToMessage(context, { id: stored.id, text: part.text, photo: null });
 }

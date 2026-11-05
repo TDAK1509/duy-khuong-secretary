@@ -5,18 +5,23 @@ import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
+import { placeUnclearPhoto } from './place-unclear-photo.ts';
 import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
 export async function runReplyStage(context: IntakeContext, messageId: string, plan: ReplyPlan): Promise<void> {
   await context.stages.runStage({
-    isDone: (transaction) => hasReply(transaction, messageId),
+    isDone: (transaction) => isReplied(transaction, messageId),
     write: (transaction) => saveReply(transaction, context, messageId, plan),
   });
 }
 
-async function hasReply(transaction: Transaction, messageId: string): Promise<boolean> {
-  const rows = await transaction.query('SELECT 1 FROM messages WHERE reply_to = $1', [messageId]);
+async function isReplied(transaction: Transaction, messageId: string): Promise<boolean> {
+  const rows = await transaction.query(
+    `SELECT 1 FROM messages
+     WHERE id = $1 AND (submission_status <> 'pending' OR EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = $1))`,
+    [messageId],
+  );
   return rows.length > 0;
 }
 
@@ -26,6 +31,7 @@ async function saveReply(
   messageId: string,
   plannedReply: ReplyPlan,
 ): Promise<void> {
+  if (plannedReply.situation === 'needs_explanation') return placeUnclearPhoto(transaction, context, messageId, plannedReply);
   const { sender } = context;
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };

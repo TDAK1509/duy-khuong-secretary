@@ -19,7 +19,7 @@ export type PhotoPart = IntakePart & { imageUrl: string };
 
 export async function receivePhoto(context: IntakeContext, part: PhotoPart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
-  if (existing?.hasReply && !existing.questionPending) return { kind: 'replied' };
+  if (existing?.isReplied && !existing.questionPending) return { kind: 'replied' };
   const keptPhoto = existing && (await loadKeptPhoto(context, existing));
   if (existing?.questionPending) return answerOwedQuestion(context, { id: existing.id, text: part.text, photo: keptPhoto });
   if (existing && keptPhoto) return replyToMessage(context, { id: existing.id, text: part.text, photo: keptPhoto });

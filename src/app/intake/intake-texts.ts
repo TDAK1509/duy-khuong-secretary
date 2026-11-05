@@ -15,6 +15,9 @@ export const DUPLICATE_TEXT =
 export const ASK_EXPLANATION_TEXT =
   'Trợ lý chưa biết ảnh này dùng để làm gì nên chưa lưu. Bạn nhắn một tin giải thích, ví dụ: "Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ". Trợ lý sẽ lưu ảnh cùng lời giải thích.';
 
+export const ASK_LATER_TEXT =
+  'Trợ lý đã nhận ảnh này nhưng chưa lưu. Trợ lý sẽ hỏi về ảnh này sau khi bạn trả lời câu hỏi về ảnh trước.';
+
 export const PHOTO_TOO_LARGE_TEXT = 'Ảnh này lớn hơn 5 MB nên Trợ lý chưa nhận. Bạn gửi lại ảnh nhỏ hơn nhé.';
 
 export const PHOTO_NOT_JPEG_OR_PNG_TEXT = 'Trợ lý chỉ nhận ảnh dạng JPEG hoặc PNG. Bạn chụp lại rồi gửi nhé.';
