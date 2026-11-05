@@ -70,6 +70,13 @@ describe('GET /oauth/authorize', () => {
     expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
   });
 
+  it('refuses a different redirect address', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ redirect_uri: 'https://evil.example/cb' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });

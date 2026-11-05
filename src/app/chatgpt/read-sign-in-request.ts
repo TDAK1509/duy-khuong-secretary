@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import type { SignInRequest } from './start-sign-in.ts';
 
+export const CHATGPT_REDIRECT_URI = 'https://chatgpt.com/connector_platform_oauth_redirect';
 export const CHATGPT_CLIENT_ID = 'https://chatgpt.com/oauth/client.json';
 
 const signInQuerySchema = z.object({
   client_id: z.literal(CHATGPT_CLIENT_ID),
-  redirect_uri: z.string(),
+  redirect_uri: z.literal(CHATGPT_REDIRECT_URI),
   code_challenge: z.string(),
   state: z.string().optional(),
 });
