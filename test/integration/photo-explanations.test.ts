@@ -277,6 +277,24 @@ describe('asking what an unclear photo is for', () => {
     expect(await readImageKeyOf(QUESTION_ABOUT_TIRE)).toBe(await readImageKeyOfEvent('zmsg-1'));
   });
 
+  it('asks an admin about the next waiting photo after the chat answers a question', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-duy', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-duy')).toEqual([
+      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
+      { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: 'Lốp này chưa lắp cho xe nào.', quoteMessageId: undefined },
+    ]);
+  });
+
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
     readersReturn(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
