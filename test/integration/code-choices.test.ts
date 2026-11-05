@@ -126,6 +126,19 @@ describe('choosing the right code when the readers disagree only on the code', (
     ]);
   });
 
+  it('saves once and replies once when the code answer is processed again after a crash', async () => {
+    await sendWaitingCodePhoto();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: SECOND_CODE });
+    await harness.runInbound({ beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
@@ -218,4 +231,8 @@ function makeTireWithCode(code: string): unknown {
       identifiers: [code],
     }),
   ]);
+}
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
 }
