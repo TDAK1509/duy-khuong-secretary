@@ -9,8 +9,14 @@ import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 
 const codeGrantSchema = z
-  .object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string(), client_id: z.literal(CHATGPT_CLIENT_ID) })
-  .transform(({ code, code_verifier, redirect_uri }) => ({ code, codeVerifier: code_verifier, redirectUri: redirect_uri }));
+  .object({
+    code: z.string(),
+    code_verifier: z.string(),
+    redirect_uri: z.string(),
+    resource: z.string().optional(),
+    client_id: z.literal(CHATGPT_CLIENT_ID),
+  })
+  .transform(({ code, code_verifier, redirect_uri, resource }) => ({ code, codeVerifier: code_verifier, redirectUri: redirect_uri, resource }));
 const refreshGrantSchema = z
   .object({ refresh_token: z.string(), client_id: z.literal(CHATGPT_CLIENT_ID) })
   .transform(({ refresh_token }) => ({ refreshToken: refresh_token }));
@@ -44,7 +50,9 @@ function readGrantType(body: unknown): string | undefined {
 async function respondToCodeGrant(dependencies: TokenDependencies, body: unknown): Promise<HttpResponse> {
   const grant = codeGrantSchema.safeParse(body);
   if (!grant.success) return respondWithError('invalid_request');
-  return respondToOutcome(await exchangeAuthorizationCode(dependencies.database, { ...grant.data, now: dependencies.clock.now() }));
+  const { resource, ...exchange } = grant.data;
+  if (resource !== undefined && resource !== `${dependencies.publicBaseUrl}/mcp`) return respondWithError('invalid_grant');
+  return respondToOutcome(await exchangeAuthorizationCode(dependencies.database, { ...exchange, now: dependencies.clock.now() }));
 }
 
 async function respondToRefreshGrant(dependencies: TokenDependencies, body: unknown): Promise<HttpResponse> {

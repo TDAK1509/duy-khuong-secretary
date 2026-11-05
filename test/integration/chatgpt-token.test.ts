@@ -104,6 +104,13 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
+
+    it('refuses a resource other than the MCP address of the service', async () => {
+      const response = await requestToken(makeCodeRequest({ resource: 'https://evil.example/mcp' }));
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
   });
 
   describe('with a refresh token', () => {
