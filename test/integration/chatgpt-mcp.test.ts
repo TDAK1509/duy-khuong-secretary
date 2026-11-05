@@ -33,6 +33,16 @@ const DUY_ACCESS_TOKEN = 'duy-access-token';
 const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
 const READ_TOOL_NAMES = READ_TOOL_SPECS.map(({ name }) => name);
 const CHANGE_TOOL_NAMES = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC].map(({ name }) => name);
+const DAILY_REPORT = {
+  title: 'Báo cáo hằng ngày',
+  instruction: 'Lập báo cáo.',
+  repeat: 'daily',
+  run_once_at: null,
+  time_of_day: '18:00',
+  weekday: null,
+  day_of_month: null,
+  maintenance_rules: [],
+};
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -251,6 +261,15 @@ describe('the MCP address', () => {
 
     expect(JSON.parse(response.json().result.content[0].text).ok).not.toBe(true);
     expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${lanUserId}'`)).toHaveLength(1);
+  });
+
+  it('creates a schedule with a creation key', async () => {
+    await postMcp(callToolRequest('create_scheduled_task', DAILY_REPORT), { token: DUY_ACCESS_TOKEN });
+
+    const tasks = await database.query<{ created_by: string; status: string; creation_key: string | null }>(
+      'SELECT created_by, status, creation_key FROM scheduled_tasks',
+    );
+    expect(tasks).toEqual([{ created_by: duyUserId, status: 'active', creation_key: expect.any(String) }]);
   });
 
   it('refuses the 61st request of a connection in one minute', async () => {
