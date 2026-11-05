@@ -7,8 +7,10 @@ import { refreshTokens } from '../chatgpt/refresh-tokens.ts';
 import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 
-const codeGrantSchema = z.object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string() });
-const refreshGrantSchema = z.object({ refresh_token: z.string() });
+const codeGrantSchema = z
+  .object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string() })
+  .transform(({ code, code_verifier, redirect_uri }) => ({ code, codeVerifier: code_verifier, redirectUri: redirect_uri }));
+const refreshGrantSchema = z.object({ refresh_token: z.string() }).transform(({ refresh_token }) => ({ refreshToken: refresh_token }));
 
 export type TokenDependencies = { database: Database; clock: Clock; publicBaseUrl: string };
 
@@ -19,17 +21,20 @@ export function handleAuthorizationServerMetadata(dependencies: TokenDependencie
 
 export async function handleTokenRequest(dependencies: TokenDependencies | null, body: unknown): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
-  return respondToOutcome(await requestTokens(dependencies, body));
+  const now = dependencies.clock.now();
+  switch (readGrantType(body)) {
+    case 'authorization_code':
+      return respondToOutcome(await exchangeAuthorizationCode(dependencies.database, { ...codeGrantSchema.parse(body), now }));
+    case 'refresh_token':
+      return respondToOutcome(await refreshTokens(dependencies.database, { ...refreshGrantSchema.parse(body), now }));
+    default:
+      return respondWithJson(400, { error: 'unsupported_grant_type' });
+  }
 }
 
-function requestTokens(dependencies: TokenDependencies, body: unknown): Promise<TokenOutcome> {
-  const now = dependencies.clock.now();
-  if (z.object({ grant_type: z.literal('refresh_token') }).safeParse(body).success) {
-    const { refresh_token: refreshToken } = refreshGrantSchema.parse(body);
-    return refreshTokens(dependencies.database, { refreshToken, now });
-  }
-  const { code, code_verifier: codeVerifier, redirect_uri: redirectUri } = codeGrantSchema.parse(body);
-  return exchangeAuthorizationCode(dependencies.database, { code, codeVerifier, redirectUri, now });
+function readGrantType(body: unknown): string {
+  const parsed = z.object({ grant_type: z.string() }).safeParse(body);
+  return parsed.success ? parsed.data.grant_type : '';
 }
 
 function respondToOutcome(outcome: TokenOutcome): HttpResponse {

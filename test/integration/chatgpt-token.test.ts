@@ -159,6 +159,13 @@ describe('POST /oauth/token', () => {
     });
   });
 
+  it('refuses an unknown grant type', async () => {
+    const response = await requestToken({ grant_type: 'client_credentials' });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'unsupported_grant_type' });
+  });
+
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
     return {
       grant_type: 'authorization_code',
