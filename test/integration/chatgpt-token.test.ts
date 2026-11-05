@@ -210,6 +210,18 @@ describe('POST /oauth/token', () => {
     expect(response.json()).toEqual({ error: 'invalid_request' });
   });
 
+  it.each([
+    ['an unknown grant type', { grant_type: 'client_credentials' }],
+    ['a missing grant type', {}],
+    ['an unknown code', makeCodeRequest()],
+    ['an unknown refresh token', makeRefreshRequest()],
+  ])('forbids caching the reply to %s', async (_kind, fields) => {
+    const response = await requestToken(fields);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
   function makeFieldsWithout(fields: Record<string, string>, name: string): Record<string, string> {
     return Object.fromEntries(Object.entries(fields).filter(([field]) => field !== name));
   }
