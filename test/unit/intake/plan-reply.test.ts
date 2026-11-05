@@ -42,6 +42,20 @@ describe('planReply unclear readings', () => {
 
     expect(plan.isUnclear).toBe(true);
   });
+
+  it('is not unclear when a reader did not answer', () => {
+    const reading = tireOfPlate('29C-123.45');
+    const decision: ReadingDecision = {
+      outcome: 'unresolved',
+      cheap: [succeed(reading), succeed(tireOfPlate('29C-123.46'))],
+      strong: [succeed(reading), { ok: false, reason: 'timeout' }],
+      agreed: null,
+    };
+
+    const plan = planReply(decision, false);
+
+    expect(plan.isUnclear).toBe(false);
+  });
 });
 
 describe('planAnswer', () => {
