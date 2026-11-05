@@ -24,7 +24,7 @@ function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
   const fields = {
     category: item.category,
     documentTitle: item.document_title,
-    maintenanceItem: item.category === 'maintenance' ? normalizeMaintenanceItem(item.maintenance_item) : null,
+    maintenanceItem: normalizeMaintenanceItem(item.maintenance_item),
     vehiclePlate: normalizeCode(item.vehicle_plate),
     documentNumber: normalizeCode(item.document_number),
     identifiers: normalizeCodeSet(item.identifiers),

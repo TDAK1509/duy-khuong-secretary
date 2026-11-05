@@ -430,25 +430,42 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
-  it('asks the sender to send again when a maintenance item has no name', async () => {
-    const unnamed = makeItem({ category: 'maintenance', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem(), unnamed]));
+  it('saves a record whose maintenance item is blank, without an item', async () => {
+    const blankItem = makeItem({ category: 'bảo dưỡng', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([blankItem]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
-    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
-    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
-      { submission_status: 'unresolved' },
+    expect(await database.query('SELECT category, maintenance_item FROM records')).toEqual([
+      { category: 'bảo dưỡng', maintenance_item: null },
     ]);
   });
 
-  it('drops a maintenance item that an agreed non-maintenance item carries', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', maintenance_item: 'dầu máy' })]));
+  it('keeps the maintenance item of a record whatever its category', async () => {
+    const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'Lốp', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([tireChange]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: null }]);
+    expect(await database.query('SELECT category, maintenance_item FROM records')).toEqual([
+      { category: 'thay phụ tùng', maintenance_item: 'lốp' },
+    ]);
+  });
+
+  it('asks for the plate when a record of any category has a maintenance item and no plate', async () => {
+    const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'lốp', vehicle_plate: null });
+    answerPair(harness.readers.cheap, makeReading([tireChange]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.',
+      ],
+    ]);
   });
 
   it('gives the upload-only reply when work data has no item', async () => {
