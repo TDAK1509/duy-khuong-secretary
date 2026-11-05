@@ -51,10 +51,6 @@ services:
         value: openai-compatible
       - key: READER_REASONING_EFFORT
         value: medium
-      - key: READER_BASE_URL
-        value: https://api.openai.com/v1
-      - key: READER_MODEL
-        value: gpt-6.1-sol
 
 databases:
   - name: secretary-db
