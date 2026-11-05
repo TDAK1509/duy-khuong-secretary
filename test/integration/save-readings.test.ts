@@ -7,6 +7,8 @@ import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } fro
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
+const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
+
 describe('saving what two readers agree on', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
@@ -52,6 +54,27 @@ describe('saving what two readers agree on', () => {
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT category FROM records')).toEqual([{ category: 'phiếu cân' }]);
+  });
+
+  it('names the printed title of a certificate in the reply', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      ['zu-hung', `Đã lưu: ${INSPECTION_TITLE}, xe 29C12345.`],
+    ]);
+  });
+
+  it('stores the printed title of a certificate', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT category, document_title FROM records')).toEqual([
+      { category: 'kiểm định xe', document_title: INSPECTION_TITLE },
+    ]);
   });
 
   it('replies to one saved item with what was saved', async () => {
@@ -450,6 +473,16 @@ describe('saving what two readers agree on', () => {
     expect(harness.readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
   });
+
+  function makeInspectionCertificate() {
+    return makeItem({
+      category: 'kiểm định xe',
+      document_title: INSPECTION_TITLE,
+      vehicle_plate: '29C-123.45',
+      amount_vnd: null,
+      occurred_on: null,
+    });
+  }
 
   function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
     return makeItem({
