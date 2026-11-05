@@ -25,22 +25,38 @@ describe('the records table', () => {
     await database.drop();
   });
 
-  it('refuses a maintenance record without a maintenance item', async () => {
-    await expect(insertRecord({ category: 'maintenance', maintenanceItem: null, vehiclePlate: '29C12345' })).rejects.toMatchObject({
+  it('accepts a category outside the old list', async () => {
+    await expect(insertRecord({ category: 'phiếu cân', maintenanceItem: null, vehiclePlate: null })).resolves.toBeDefined();
+  });
+
+  it('refuses a blank category', async () => {
+    await expect(insertRecord({ category: '  ', maintenanceItem: null, vehiclePlate: null })).rejects.toMatchObject({
       code: CHECK_VIOLATION,
     });
   });
 
-  it('refuses a fuel record with a maintenance item', async () => {
-    await expect(insertRecord({ category: 'fuel', maintenanceItem: 'dầu máy', vehiclePlate: null })).rejects.toMatchObject({
+  it('accepts a maintenance item whatever the category', async () => {
+    await expect(
+      insertRecord({ category: 'thay phụ tùng', maintenanceItem: 'lốp', vehiclePlate: '29C12345' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('refuses a blank maintenance item', async () => {
+    await expect(insertRecord({ category: 'bảo dưỡng', maintenanceItem: ' ', vehiclePlate: '29C12345' })).rejects.toMatchObject({
       code: CHECK_VIOLATION,
     });
   });
 
-  it('refuses a maintenance record without a plate', async () => {
-    await expect(insertRecord({ category: 'maintenance', maintenanceItem: 'lốp', vehiclePlate: null })).rejects.toMatchObject({
+  it('refuses a maintenance item without a plate', async () => {
+    await expect(insertRecord({ category: 'sửa chữa xe', maintenanceItem: 'lốp', vehiclePlate: null })).rejects.toMatchObject({
       code: CHECK_VIOLATION,
     });
+  });
+
+  it('refuses a blank document title', async () => {
+    await expect(
+      insertRecord({ category: 'kiểm định xe', maintenanceItem: null, vehiclePlate: null, documentTitle: '  ' }),
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION });
   });
 
   it('refuses a record whose workspace differs from its message', async () => {
@@ -73,6 +89,7 @@ describe('the records table', () => {
     category: string;
     maintenanceItem: string | null;
     vehiclePlate: string | null;
+    documentTitle?: string | null;
     workspaceId?: string;
     itemIndex?: number;
   };
@@ -81,9 +98,10 @@ describe('the records table', () => {
     const quote = (value: string | null) => (value === null ? 'NULL' : `'${value}'`);
     return database.query(
       `INSERT INTO records (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item,
-         vehicle_plate, summary, read_by)
+         vehicle_plate, document_title, summary, read_by)
        VALUES ('${record.workspaceId ?? workspaceId}', '${userId}', '${messageId}', ${record.itemIndex ?? 0}, 'Hùng',
-         '${record.category}', ${quote(record.maintenanceItem)}, ${quote(record.vehiclePlate)}, 'x', 'cheap_pair')`,
+         '${record.category}', ${quote(record.maintenanceItem)}, ${quote(record.vehiclePlate)},
+         ${quote(record.documentTitle ?? null)}, 'x', 'cheap_pair')`,
     );
   }
 });
