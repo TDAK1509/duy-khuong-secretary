@@ -20,7 +20,7 @@ async function confirmInTransaction(transaction: Transaction, confirmation: Sign
   const signIn = await lockSignIn(transaction, confirmation.browserKey);
   if (signIn.failed_attempts >= MAX_FAILED_ATTEMPTS) return { kind: 'too_many_attempts' };
   if (!isLoginCodeShape(confirmation.typedCode)) return { kind: 'wrong_code' };
-  const membershipId = await useUpLoginCode(transaction, confirmation.typedCode);
+  const membershipId = await useUpLoginCode(transaction, confirmation);
   if (membershipId === null) return countFailedAttempt(transaction, signIn.id);
   return bindSignIn(transaction, signIn, membershipId);
 }
@@ -34,10 +34,10 @@ async function lockSignIn(transaction: Transaction, browserKey: string): Promise
   return signIn;
 }
 
-async function useUpLoginCode(transaction: Transaction, typedCode: string): Promise<string | null> {
+async function useUpLoginCode(transaction: Transaction, { typedCode, now }: SignInConfirmation): Promise<string | null> {
   const [loginCode] = await transaction.query<{ membership_id: string }>(
-    'DELETE FROM chatgpt_login_codes WHERE code_hash = $1 RETURNING membership_id',
-    [hashLoginCode(typedCode)],
+    'DELETE FROM chatgpt_login_codes WHERE code_hash = $1 AND expires_at > $2 RETURNING membership_id',
+    [hashLoginCode(typedCode), now],
   );
   return loginCode?.membership_id ?? null;
 }

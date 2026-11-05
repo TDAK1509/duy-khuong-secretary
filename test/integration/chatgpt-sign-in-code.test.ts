@@ -14,7 +14,8 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
+const FIVE_MINUTES_MS = 5 * ONE_MINUTE_MS;
 
 describe('POST /oauth/authorize', () => {
   let database: TemporaryDatabase;
@@ -92,6 +93,16 @@ describe('POST /oauth/authorize', () => {
     const response = await submitCode('K7M2-QX4P');
 
     expect(response.body).toContain('Bạn đã nhập sai quá nhiều lần. Hãy bắt đầu lại từ ChatGPT.');
+    expect(await database.query('SELECT authorization_code_hash FROM chatgpt_sign_ins')).toEqual([{ authorization_code_hash: null }]);
+  });
+
+  it('refuses a login code created 11 minutes ago', async () => {
+    await database.query('DELETE FROM chatgpt_login_codes');
+    await insertLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS) });
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.body).toContain('Mã không đúng hoặc đã hết hạn.');
     expect(await database.query('SELECT authorization_code_hash FROM chatgpt_sign_ins')).toEqual([{ authorization_code_hash: null }]);
   });
 
