@@ -117,6 +117,12 @@ describe('POST /oauth/token', () => {
 
       expect(response.statusCode).toBe(200);
     });
+
+    it('forbids caching the reply that holds the tokens', async () => {
+      const response = await requestToken(makeCodeRequest());
+
+      expect(response.headers['cache-control']).toBe('no-store');
+    });
   });
 
   describe('with a refresh token', () => {

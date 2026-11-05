@@ -30,6 +30,10 @@ export function handleAuthorizationServerMetadata(dependencies: TokenDependencie
 
 export async function handleTokenRequest(dependencies: TokenDependencies | null, body: unknown): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
+  return forbidCaching(await respondToGrant(dependencies, body));
+}
+
+async function respondToGrant(dependencies: TokenDependencies, body: unknown): Promise<HttpResponse> {
   switch (readGrantType(body)) {
     case undefined:
       return respondWithError('invalid_request');
@@ -40,6 +44,10 @@ export async function handleTokenRequest(dependencies: TokenDependencies | null,
     default:
       return respondWithError('unsupported_grant_type');
   }
+}
+
+function forbidCaching(response: HttpResponse): HttpResponse {
+  return { ...response, headers: { ...response.headers, 'cache-control': 'no-store' } };
 }
 
 function readGrantType(body: unknown): string | undefined {
