@@ -148,6 +148,12 @@ describe('GET /oauth/authorize', () => {
     );
   });
 
+  it('loads nothing from any address', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.body).not.toMatch(/<(img|script|link|iframe)[\s>]/i);
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
