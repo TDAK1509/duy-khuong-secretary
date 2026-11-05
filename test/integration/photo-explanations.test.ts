@@ -9,6 +9,7 @@ import {
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -348,6 +349,25 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'duplicate', hasBotReply: true });
     expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
+
+  it('does not call the readers or save anything when the stored photo is missing', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+    const readsBefore = countReaderRequests();
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { photoStorage: new FakePhotoStorage() });
+    await harness.sendAllQueuedTexts();
+
+    expect(countReaderRequests()).toBe(readsBefore);
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
+  });
+
+  function countReaderRequests(): number {
+    return [...harness.readers.cheap, ...harness.readers.strong].reduce((total, reader) => total + reader.requests.length, 0);
+  }
 
   function formatNotice(replyText: string): string {
     return `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${replyText}`;

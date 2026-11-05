@@ -6,7 +6,7 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
-import { planAnswer, type AnswerPlan, type ReplyPlan } from './plan-reply.ts';
+import { planAnswer, planUnreadAnswer, type AnswerPlan, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './reply-to-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
@@ -22,13 +22,18 @@ export async function answerPhotoExplanation(
   explanation: Explanation,
   asked: AskedPhoto,
 ): Promise<IntakeOutcome> {
-  const photo = await requirePhotoStorage(context).get(asked.imageKey);
-  const decision = await readMessage(context, { text: wrapExplanation(explanation.text), photo });
+  const answer = await readAnswer(context, explanation, asked);
   await context.stages.runStage({
     isDone: (transaction) => isReplied(transaction, explanation.id),
-    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, planAnswer(decision, asked)),
+    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, answer),
   });
   return { kind: 'replied' };
+}
+
+async function readAnswer(context: IntakeContext, explanation: Explanation, asked: AskedPhoto): Promise<AnswerPlan> {
+  const photo = await requirePhotoStorage(context).get(asked.imageKey);
+  if (photo === null) return planUnreadAnswer();
+  return planAnswer(await readMessage(context, { text: wrapExplanation(explanation.text), photo }), asked);
 }
 
 async function saveAnswer(

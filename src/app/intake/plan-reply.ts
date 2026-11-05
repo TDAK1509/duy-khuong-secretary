@@ -41,11 +41,15 @@ export type AnswerPlan = {
 };
 
 export function planAnswer(decision: ReadingDecision, asked: AskedPhoto): AnswerPlan {
-  if (isReaderOutage(decision)) return { reply: planUnresolvedReply(), photoAfter: 'unchanged' };
+  if (isReaderOutage(decision)) return planUnreadAnswer();
   const reply = planReply(decision, true);
   if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
   if (asked.status === 'asked_again') return { reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
+}
+
+export function planUnreadAnswer(): AnswerPlan {
+  return { reply: planUnresolvedReply(), photoAfter: 'unchanged' };
 }
 
 function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: boolean): ReplyPlan {
