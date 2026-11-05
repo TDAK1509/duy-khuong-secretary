@@ -246,6 +246,19 @@ describe('asking what an unclear photo is for', () => {
     ]);
   });
 
+  it('asks about a new unclear photo at once when the earlier question is older than 24 hours', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await backdateQuestion('zmsg-1', 25);
+
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
+    expect(await readPhoto('zmsg-2')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}

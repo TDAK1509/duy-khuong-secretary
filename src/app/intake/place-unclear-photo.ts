@@ -5,7 +5,7 @@ import { ASK_LATER_TEXT } from './intake-texts.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 import { setSubmissionStatus, storeBotReply } from './store-user-message.ts';
-import { hasOtherWaitingPhoto } from './waiting-photos.ts';
+import { endExpiredWaits, hasOtherWaitingPhoto } from './waiting-photos.ts';
 
 export async function placeUnclearPhoto(
   transaction: Transaction,
@@ -13,6 +13,7 @@ export async function placeUnclearPhoto(
   photoId: string,
   askPlan: ReplyPlan,
 ): Promise<void> {
+  await endExpiredWaits(transaction, context.sender, context.dependencies.clock.now());
   const isWaitingForItsTurn = await hasOtherWaitingPhoto(transaction, context.sender, photoId);
   const replyText = isWaitingForItsTurn ? ASK_LATER_TEXT : askPlan.replyText;
   if (!isWaitingForItsTurn) await storeBotReply(transaction, photoId, { text: replyText, kind: askPlan.replyKind });
