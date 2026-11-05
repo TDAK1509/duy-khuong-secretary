@@ -599,6 +599,23 @@ describe('asking what an unclear photo is for', () => {
     expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('does not read a text sent before the question about the photo again', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(TIRE_ITEM);
+    await sendTextSentMinutesAgo('zu-hung', TIRE_EXPLANATION, 5);
+    readersReturn(WEAK);
+    await sendTextSentMinutesAgo('zu-hung', 'cái này', 3);
+    const readers = makeReadersAnswering(() => WEAK);
+
+    await harness.receiveText('zu-hung', 'không biết', { readers });
+
+    const texts = [...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests.map(({ text }) => text));
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts.filter((text) => text?.includes(TIRE_EXPLANATION))).toEqual([]);
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
