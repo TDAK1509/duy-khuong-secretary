@@ -29,14 +29,6 @@ export type ReplyPlan = {
   isUnclear: boolean;
 };
 
-export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
-  if (decision.agreed === null || decision.outcome === 'unresolved') return { ...planUnresolvedReply(), isUnclear: !isReaderOutage(decision) };
-  const reading = saveAgreedReading(...decision.agreed);
-  if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
-  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
-  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
-}
-
 export type ReplyAnswer = {
   kind: 'reply';
   reply: ReplyPlan;
@@ -62,6 +54,14 @@ export function asksOnlyAQuestion({ agreed, outcome }: ReadingDecision): boolean
 
 function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
   return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
+}
+
+export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
+  if (decision.agreed === null || decision.outcome === 'unresolved') return { ...planUnresolvedReply(), isUnclear: !isReaderOutage(decision) };
+  const reading = saveAgreedReading(...decision.agreed);
+  if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
+  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
+  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
 export function planUnreadAnswer(): AnswerPlan {
