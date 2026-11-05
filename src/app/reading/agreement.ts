@@ -23,7 +23,6 @@ function listComparableItems(reading: Reading): ComparableItem[] {
 
 function toComparableItem(item: ReadingItem) {
   return {
-    category: item.category,
     maintenance_item: toAccentFreeForm(item.maintenance_item),
     occurred_on: item.occurred_on,
     amount_vnd: item.amount_vnd,
@@ -39,7 +38,6 @@ function compareBySortKey(first: ComparableItem, second: ComparableItem): number
 
 function buildSortKey(item: ComparableItem): string {
   return JSON.stringify([
-    item.category,
     item.maintenance_item,
     item.occurred_on,
     item.amount_vnd,

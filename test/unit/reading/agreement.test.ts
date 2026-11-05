@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReadAttempt } from '../../../src/app/reading/reading.ts';
 import { areAgreeing } from '../../../src/app/reading/agreement.ts';
-import { makeItem, makeReading, succeed } from './make-reading.ts';
+import { makeFuelItemX, makeItem, makeReading, succeed } from './make-reading.ts';
 
 describe('areAgreeing', () => {
   it('agrees on two identical readings', () => {
@@ -88,6 +88,13 @@ describe('areAgreeing', () => {
     const reading = makeReading([makeItem({ document_number: null })]);
 
     expect(areAgreeing(succeed(reading), succeed(reading))).toBe(true);
+  });
+
+  it('agrees when the readers word the category of a unique item differently', () => {
+    const first = succeed(makeReading([makeFuelItemX({ category: 'đổ xăng dầu' })]));
+    const second = succeed(makeReading([makeFuelItemX({ category: 'đổ dầu' })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
   });
 
   it('disagrees when the question flag differs', () => {
