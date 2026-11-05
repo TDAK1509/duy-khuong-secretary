@@ -1,3 +1,4 @@
+import { isIntakeText } from '../intake/find-intake-sender.ts';
 import { areAgreeing } from './agreement.ts';
 import type { ReadingDecision } from './decide-reading.ts';
 import { normalizeCode } from './normalize.ts';
@@ -19,10 +20,16 @@ function splitCodes(first: Reading, second: Reading): CodeSplit | null {
   const firstShared = keepSharedCodes(first, secondItem);
   const secondShared = keepSharedCodes(second, firstItem);
   if (!areAgreeing({ ok: true, reading: firstShared }, { ok: true, reading: secondShared })) return null;
-  const firstExtras = listExtraCodes(firstItem, secondItem);
-  const secondExtras = listExtraCodes(secondItem, firstItem);
+  const codes = listCandidates(firstItem, secondItem);
+  return codes === null ? null : { reading: saveAgreedReading(firstShared, secondShared), codes };
+}
+
+function listCandidates(first: ReadingItem, second: ReadingItem): string[] | null {
+  const firstExtras = listExtraCodes(first, second);
+  const secondExtras = listExtraCodes(second, first);
   if (firstExtras.length > 1 || secondExtras.length > 1) return null;
-  return { reading: saveAgreedReading(firstShared, secondShared), codes: [...firstExtras, ...secondExtras] };
+  const codes = [...firstExtras, ...secondExtras];
+  return codes.every(isIntakeText) ? codes : null;
 }
 
 function findOnlyItem({ items }: Reading): ReadingItem | null {

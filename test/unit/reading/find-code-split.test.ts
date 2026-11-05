@@ -75,6 +75,15 @@ describe('findCodeSplit', () => {
 
     expect(findCodeSplit(decision)).toBeNull();
   });
+
+  it('gives no code choice when a candidate is a text that intake stops', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['12'] })]),
+      makeReading([makeTire({ identifiers: ['13'] })]),
+    );
+
+    expect(findCodeSplit(decision)).toBeNull();
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {
