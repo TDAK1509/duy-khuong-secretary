@@ -50,6 +50,16 @@ describe('findCodeSplit', () => {
 
     expect(findCodeSplit(decision)).toBeNull();
   });
+
+  it('gives no code choice for a reading with two items', () => {
+    const fuel = makeItem({ amount_vnd: 500000 });
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['A1234'] }), fuel]),
+      makeReading([makeTire({ identifiers: ['B1234'] }), fuel]),
+    );
+
+    expect(findCodeSplit(decision)).toBeNull();
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {

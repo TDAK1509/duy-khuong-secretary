@@ -13,14 +13,19 @@ export function findCodeSplit(decision: ReadingDecision): CodeSplit | null {
 }
 
 function splitCodes(first: Reading, second: Reading): CodeSplit | null {
-  const [firstItem] = first.items;
-  const [secondItem] = second.items;
-  if (!firstItem || !secondItem) return null;
+  const firstItem = findOnlyItem(first);
+  const secondItem = findOnlyItem(second);
+  if (firstItem === null || secondItem === null) return null;
   const firstShared = keepSharedCodes(first, secondItem);
   const secondShared = keepSharedCodes(second, firstItem);
   if (!areAgreeing({ ok: true, reading: firstShared }, { ok: true, reading: secondShared })) return null;
   const codes = [findExtraCode(firstItem, secondItem), findExtraCode(secondItem, firstItem)].filter((code) => code !== undefined);
   return { reading: saveAgreedReading(firstShared, secondShared), codes };
+}
+
+function findOnlyItem({ items }: Reading): ReadingItem | null {
+  const [item] = items;
+  return item !== undefined && items.length === 1 ? item : null;
 }
 
 function findExtraCode(item: ReadingItem, other: ReadingItem): string | undefined {
