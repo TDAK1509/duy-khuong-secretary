@@ -286,6 +286,24 @@ describe('the MCP address', () => {
     expect(response.json().result.content).toEqual([{ type: 'text', text: '{"attached":0}' }]);
   });
 
+  it('refuses five record ids and returns no photo', async () => {
+    const recordIds = await insertPhotoRecords(5);
+
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: recordIds }), { token: DUY_ACCESS_TOKEN });
+
+    const result = response.json().result;
+    expect(result.isError).toBe(true);
+    expect(result.content.filter((item: { type: string }) => item.type === 'image')).toEqual([]);
+  });
+
+  it('returns the four photos of four record ids', async () => {
+    const recordIds = await insertPhotoRecords(4);
+
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: recordIds }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.content.filter((item: { type: string }) => item.type === 'image')).toHaveLength(4);
+  });
+
   it('creates an invite in the workspace of the token', async () => {
     const response = await postMcp(callToolRequest('create_invite', { display_name: 'Nam', role: 'member' }), { token: DUY_ACCESS_TOKEN });
 
@@ -352,6 +370,16 @@ describe('the MCP address', () => {
 
     expect(response.statusCode).toBe(405);
   });
+
+  async function insertPhotoRecords(count: number): Promise<string[]> {
+    const recordIds: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const imageKey = `workspace-a/photo-${index}.png`;
+      await photoStorage.put(imageKey, { bytes: PNG_BYTES, contentType: 'image/png' });
+      recordIds.push(await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Hùng', imageKey }));
+    }
+    return recordIds;
+  }
 
   async function findMembershipId(userId: string): Promise<string> {
     const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
