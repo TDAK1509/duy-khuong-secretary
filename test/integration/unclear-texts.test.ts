@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { UPLOAD_ONLY_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
@@ -55,6 +56,17 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
+  });
+
+  it('does not use a photo sent more than 10 minutes before', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 11);
+    const readers = makeContextReaders();
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UPLOAD_ONLY_TEXT);
   });
 
   async function sendUnresolvedPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {

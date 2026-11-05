@@ -1,11 +1,13 @@
 import type { Database } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
+const RECENT_WINDOW_MS = 10 * 60 * 1000;
+
 export type RecentPhoto = { id: string; imageKey: string };
 
 export type RecentMessages = { texts: string[]; photo: RecentPhoto | null };
 
-export type CurrentMessage = { id: string };
+export type CurrentMessage = { id: string; sentAt: Date };
 
 type RecentRow = { id: string; text: string | null; image_key: string | null; kind: 'text' | 'images' };
 
@@ -16,8 +18,9 @@ export async function findRecentMessages(database: Database, sender: IntakeSende
      JOIN inbound_events event ON event.id = message.inbound_event_id
      WHERE message.workspace_id = $1 AND message.user_id = $2 AND message.author = 'user'
        AND (message.created_at, message.id) < (SELECT created_at, id FROM messages WHERE id = $3)
+       AND (event.payload ->> 'sent_at')::timestamptz >= $4
      ORDER BY message.created_at, message.id`,
-    [sender.workspaceId, sender.userId, current.id],
+    [sender.workspaceId, sender.userId, current.id, new Date(current.sentAt.getTime() - RECENT_WINDOW_MS)],
   );
   return { texts: rows.flatMap(pickText), photo: rows.reduce<RecentPhoto | null>(pickLatestPhoto, null) };
 }

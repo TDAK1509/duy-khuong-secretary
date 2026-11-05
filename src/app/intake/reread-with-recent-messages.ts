@@ -1,4 +1,5 @@
 import type { Photo } from '../../services/storage/photo-storage.ts';
+import { readSentAt } from '../processing/claimed-event.ts';
 import { findRecentMessages, type RecentPhoto } from './find-recent-messages.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { wrapRecentMessages } from './intake-texts.ts';
@@ -11,7 +12,7 @@ export type RereadPhoto = RecentPhoto & { content: Photo };
 export type Reread = { plan: ReplyPlan; photo: RereadPhoto | null };
 
 export async function rereadWithRecentMessages(context: IntakeContext, message: { id: string; text: string }): Promise<Reread | null> {
-  const recent = await findRecentMessages(context.dependencies.database, context.sender, message);
+  const recent = await findRecentMessages(context.dependencies.database, context.sender, { id: message.id, sentAt: readSentAt(context.event) });
   if (recent.texts.length === 0 && recent.photo === null) return null;
   const photo = await loadRecentPhoto(context, recent.photo);
   const text = wrapRecentMessages([...recent.texts, message.text]);
