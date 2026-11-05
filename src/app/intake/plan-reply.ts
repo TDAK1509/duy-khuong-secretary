@@ -1,10 +1,13 @@
+import type { CodeChoice } from '../reading/code-choice.ts';
 import { isReaderOutage, type ReadingDecision } from '../reading/decide-reading.ts';
-import { saveAgreedReading } from '../reading/save-agreed-reading.ts';
+import { findCodeSplit, type CodeSplit } from '../reading/find-code-split.ts';
+import { saveAgreedReading, type SavedReading } from '../reading/save-agreed-reading.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
 import {
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
+  CODE_CHOICE_TEXT,
   DUPLICATE_TEXT,
   MAINTENANCE_WITHOUT_PLATE_TEXT,
   STILL_UNCLEAR_TEXT,
@@ -24,9 +27,10 @@ export type ReplyPlan = {
   replyKind: 'saved' | 'answer';
   status: SubmissionStatus;
   saved: SavedRecords | null;
-  situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'refused';
+  situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'code_choice' | 'refused';
   asksQuestion: boolean;
   isUnclear: boolean;
+  codeChoice: CodeChoice | null;
 };
 
 export type ReplyAnswer = {
@@ -57,11 +61,38 @@ export function asksOnlyAQuestion({ agreed, outcome }: ReadingDecision): boolean
 }
 
 export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
-  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply(!isReaderOutage(decision));
-  const reading = saveAgreedReading(...decision.agreed);
+  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnagreedReply(decision, hasPhoto);
+  return planAgreedReply(saveAgreedReading(...decision.agreed), decision.outcome, hasPhoto);
+}
+
+function planUnagreedReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
+  const split = hasPhoto ? findCodeSplit(decision) : null;
+  return split === null ? planUnresolvedReply(!isReaderOutage(decision)) : planCodeSplitReply(split);
+}
+
+function planCodeSplitReply({ reading, codes }: CodeSplit): ReplyPlan {
+  const plan = planAgreedReply(reading, 'expensive_pair', true);
+  const [item] = reading.items;
+  return plan.situation === 'saved' && item !== undefined ? planCodeQuestion({ item, codes }) : plan;
+}
+
+function planCodeQuestion(codeChoice: CodeChoice): ReplyPlan {
+  return {
+    replyText: CODE_CHOICE_TEXT,
+    replyKind: 'answer',
+    status: 'needs_explanation',
+    saved: null,
+    situation: 'code_choice',
+    asksQuestion: false,
+    isUnclear: false,
+    codeChoice,
+  };
+}
+
+function planAgreedReply(reading: SavedReading, readBy: ReadBy, hasPhoto: boolean): ReplyPlan {
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
-  return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
+  return planRecordsReply(buildNewRecords(reading.items), readBy, reading.has_question);
 }
 
 export function planUnreadAnswer(): AnswerPlan {
@@ -78,6 +109,7 @@ function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: bo
     situation: 'saved',
     asksQuestion,
     isUnclear: false,
+    codeChoice: null,
   };
 }
 
@@ -98,7 +130,16 @@ function planUnresolvedReply(isUnclear = false): ReplyPlan {
 }
 
 function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {
-  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false, isUnclear: false };
+  return {
+    replyText,
+    replyKind: 'answer',
+    status,
+    saved: null,
+    situation: 'refused',
+    asksQuestion: false,
+    isUnclear: false,
+    codeChoice: null,
+  };
 }
 
 function planExplanationRequest(): ReplyPlan {
@@ -110,6 +151,7 @@ function planExplanationRequest(): ReplyPlan {
     situation: 'needs_explanation',
     asksQuestion: false,
     isUnclear: true,
+    codeChoice: null,
   };
 }
 
@@ -122,5 +164,6 @@ function planUploadOnlyReply(isUnclear: boolean): ReplyPlan {
     situation: 'no_work_data',
     asksQuestion: false,
     isUnclear,
+    codeChoice: null,
   };
 }

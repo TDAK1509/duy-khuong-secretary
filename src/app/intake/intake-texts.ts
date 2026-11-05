@@ -24,6 +24,9 @@ export const ASK_LATER_TEXT =
 export const ASK_AGAIN_TEXT =
   'Trợ lý vẫn chưa rõ ảnh này nên chưa lưu. Bạn nhắn rõ hơn: đây là việc gì, cho xe nào, bao nhiêu tiền nếu có.';
 
+export const CODE_CHOICE_TEXT =
+  'Trợ lý chưa đọc chắc mã trên ảnh này nên chưa lưu. Mã Trợ lý đọc được nằm ở tin nhắn bên dưới. Bạn chép và gửi lại đúng mã, hoặc chụp lại ảnh rõ hơn. Nếu mã chưa đúng, bạn nhắn mã đúng.';
+
 export const STILL_UNCLEAR_TEXT =
   'Trợ lý vẫn chưa rõ ảnh này nên chưa lưu. Bạn gửi ảnh hóa đơn hoặc giấy tờ của việc này nhé.';
 
