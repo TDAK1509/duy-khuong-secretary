@@ -207,6 +207,17 @@ describe('POST /oauth/token', () => {
     expect(response.json()).toEqual({ error: 'unsupported_grant_type' });
   });
 
+  it('answers 503 on the token endpoint while Zalo is off', async () => {
+    const response = await buildServer(pool, null).inject({
+      method: 'POST',
+      url: '/oauth/token',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(makeRefreshRequest()).toString(),
+    });
+
+    expect(response.statusCode).toBe(503);
+  });
+
   it.each([
     ['grant_type', makeFieldsWithout(makeCodeRequest(), 'grant_type')],
     ['code', makeFieldsWithout(makeCodeRequest(), 'code')],
