@@ -108,6 +108,17 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('saves an admin photo with no caption with his earlier text, without asking the chat', async () => {
+    await sendTextSentMinutesAgo('zu-duy', PLATE_TEXT, 2);
+    const chatRequestsBefore = harness.chat.requests.length;
+
+    await sendPhotoA('zu-duy', makeContextReaders());
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect(harness.chat.requests).toHaveLength(chatRequestsBefore);
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
