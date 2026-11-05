@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertConnection } from './chatgpt-connection-rows.ts';
 import { insertConfirmedSignIn } from './chatgpt-sign-in-rows.ts';
 import { CHATGPT_CLIENT_ID, CHATGPT_REDIRECT_URI, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -11,6 +13,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_MINUTE_MS = 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * ONE_MINUTE_MS;
 const CODE_CHALLENGE = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
 const CODE_VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
 
@@ -101,6 +104,29 @@ describe('POST /oauth/token', () => {
     });
   });
 
+  describe('with a refresh token', () => {
+    beforeEach(async () => {
+      await insertConnection(database, {
+        userId: duyUserId,
+        accessToken: 'A1',
+        refreshToken: 'R1',
+        refreshExpiresAt: new Date(NOW.getTime() + 30 * ONE_DAY_MS),
+      });
+    });
+
+    it('returns a new access token and a new refresh token', async () => {
+      const response = await requestToken(makeRefreshRequest());
+
+      const { access_token: accessToken, refresh_token: refreshToken } = response.json();
+      expect(response.statusCode).toBe(200);
+      expect([accessToken, refreshToken]).not.toContain('A1');
+      expect([accessToken, refreshToken]).not.toContain('R1');
+      expect(await database.query('SELECT access_token_hash, refresh_token_hash FROM chatgpt_connections')).toEqual([
+        { access_token_hash: hashSecretToken(accessToken), refresh_token_hash: hashSecretToken(refreshToken) },
+      ]);
+    });
+  });
+
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
     return {
       grant_type: 'authorization_code',
@@ -111,6 +137,10 @@ describe('POST /oauth/token', () => {
       resource: `${PUBLIC_BASE_URL}/mcp`,
       ...overrides,
     };
+  }
+
+  function makeRefreshRequest(overrides: Record<string, string> = {}): Record<string, string> {
+    return { grant_type: 'refresh_token', refresh_token: 'R1', client_id: CHATGPT_CLIENT_ID, ...overrides };
   }
 
   function requestToken(fields: Record<string, string>) {
