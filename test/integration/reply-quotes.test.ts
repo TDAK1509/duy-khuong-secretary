@@ -55,4 +55,20 @@ describe('replies that quote the photo they answer', () => {
     expect(await harness.database.query(`SELECT status FROM outbound_messages WHERE id = '${id}'`)).toEqual([{ status: 'sent' }]);
     expect(harness.channel.texts.map((text) => text.quoteMessageId)).toEqual(['msg-1', undefined]);
   });
+
+  it('keeps a quoted text that got no answer as it is', async () => {
+    const id = await insertOutboundMessage(harness.database, {
+      externalUserId: 'zu-hung',
+      body: SAVED_REPLY,
+      quoteMessageId: 'msg-1',
+      fallbackPhotoKey: PHOTO_KEY,
+    });
+    harness.channel.nextTextResult = { ok: false, reason: 'no_answer' };
+
+    await harness.sendQueuedTexts();
+
+    expect(await harness.database.query(`SELECT status, kind FROM outbound_messages WHERE id = '${id}'`)).toEqual([
+      { status: 'unknown', kind: 'text' },
+    ]);
+  });
 });
