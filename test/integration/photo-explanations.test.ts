@@ -210,6 +210,17 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('sends an unclear photo of an admin to the chat', async () => {
+    readersReturn(UNCLEAR);
+    harness.chat.replyWith('Ảnh này là lốp xe.');
+
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này là lốp xe.', quoteMessageId: undefined }]);
+    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
