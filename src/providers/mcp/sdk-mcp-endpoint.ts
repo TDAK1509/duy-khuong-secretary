@@ -1,5 +1,6 @@
 import { NodeStreamableHTTPServerTransport } from '@modelcontextprotocol/node';
 import { fromJsonSchema, McpServer } from '@modelcontextprotocol/server';
+import type { Photo } from '../../services/storage/photo-storage.ts';
 import type { McpEndpoint, McpExchange, McpServerDefinition, McpTool } from '../../services/mcp/mcp-endpoint.ts';
 
 export class SdkMcpEndpoint implements McpEndpoint {
@@ -16,7 +17,11 @@ export class SdkMcpEndpoint implements McpEndpoint {
 function registerTool(server: McpServer, { name, description, inputSchema, annotations, securitySchemes, call }: McpTool): void {
   const config = { description, inputSchema: fromJsonSchema(inputSchema), annotations, _meta: { securitySchemes } };
   server.registerTool(name, config, async (args) => {
-    const { text, isError } = await call(args);
-    return { content: [{ type: 'text', text }], isError };
+    const { text, isError, images = [] } = await call(args);
+    return { content: [{ type: 'text', text }, ...images.map(toImageContent)], isError };
   });
+}
+
+function toImageContent({ bytes, contentType }: Photo) {
+  return { type: 'image' as const, data: Buffer.from(bytes).toString('base64'), mimeType: contentType };
 }

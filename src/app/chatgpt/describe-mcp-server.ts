@@ -22,7 +22,7 @@ import {
   SEARCH_RECORDS_SPEC,
 } from '../admin-chat/tools/tool-specs.ts';
 import type { Database } from '../db/transaction.ts';
-import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
+import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { ATTACH_PHOTOS_MCP_SPEC } from './attach-photos-mcp-spec.ts';
 import { MCP_SERVER_IDENTITY } from './mcp-server-identity.ts';
 
@@ -54,15 +54,23 @@ function describeTool(runtime: McpRuntime, scope: AccessScope, { name, descripti
 
 async function callAdminTool(runtime: McpRuntime, scope: AccessScope, name: string, args: unknown): Promise<McpToolResult> {
   const call = { id: randomUUID(), name, argumentsJson: JSON.stringify(args) };
-  const text = await runAdminTool(buildAdminToolDependencies(runtime), scope, call);
-  return { text, isError: failedOutputSchema.safeParse(JSON.parse(text)).success };
+  const attachments = new PhotoAttachments();
+  const text = await runAdminTool(buildAdminToolDependencies(runtime, attachments), scope, call);
+  const images = await readAttachedPhotos(runtime.photoStorage, attachments);
+  return { text, isError: failedOutputSchema.safeParse(JSON.parse(text)).success, images };
 }
 
-function buildAdminToolDependencies({ database, clock }: McpRuntime): AdminToolDependencies {
+async function readAttachedPhotos(photoStorage: PhotoStorage | null, attachments: PhotoAttachments): Promise<Photo[]> {
+  if (photoStorage === null) return [];
+  const photos = await Promise.all(attachments.list().map(({ imageKey }) => photoStorage.get(imageKey)));
+  return photos.filter((photo) => photo !== null);
+}
+
+function buildAdminToolDependencies({ database, clock }: McpRuntime, attachments: PhotoAttachments): AdminToolDependencies {
   return {
     database,
     clock,
-    attachments: new PhotoAttachments(),
+    attachments,
     created: new CreatedTasks(randomUUID()),
     invites: new CreatedInvites(),
     guard: new AdminTextGuard(false),

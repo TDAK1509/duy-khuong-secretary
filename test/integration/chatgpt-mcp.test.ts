@@ -55,6 +55,7 @@ const ATTACH_PHOTOS_SCHEMA = {
   required: ['record_ids'],
   additionalProperties: false,
 };
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -262,6 +263,16 @@ describe('the MCP address', () => {
 
     expect(response.json().error).toBeDefined();
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
+  });
+
+  it('returns the original photo of a record', async () => {
+    await photoStorage.put('workspace-a/fuel.png', { bytes: PNG_BYTES, contentType: 'image/png' });
+    const recordId = await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Hùng', imageKey: 'workspace-a/fuel.png' });
+
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN });
+
+    const content = response.json().result.content;
+    expect(content.slice(1)).toEqual([{ type: 'image', data: Buffer.from(PNG_BYTES).toString('base64'), mimeType: 'image/png' }]);
   });
 
   it('creates an invite in the workspace of the token', async () => {
