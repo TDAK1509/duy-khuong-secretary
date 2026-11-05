@@ -9,7 +9,7 @@ import {
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
-import { authorizeMcpRequest, handleProtectedResourceMetadata, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
+import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -63,8 +63,9 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
 }
 
 function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
+  const rateLimit = createMcpRateLimit();
   server.post('/mcp', async (request, reply) => {
-    const access = await authorizeMcpRequest(chatgptMcp, request.headers.authorization);
+    const access = await authorizeMcpRequest(chatgptMcp, rateLimit, request.headers.authorization);
     if (access.kind === 'refused') return sendResponse(reply, access.response);
     reply.hijack();
     return access.serve({ request: request.raw, response: reply.raw, body: request.body });

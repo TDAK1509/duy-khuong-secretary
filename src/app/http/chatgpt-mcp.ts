@@ -1,11 +1,15 @@
 import type { Clock } from '../../services/clock/clock.ts';
 import type { McpEndpoint, McpExchange } from '../../services/mcp/mcp-endpoint.ts';
-import type { AccessScope } from '../access/access-scope.ts';
 import { describeProtectedResource } from '../chatgpt/describe-protected-resource.ts';
 import { describeMcpServer } from '../chatgpt/describe-mcp-server.ts';
-import { findAdminScope } from '../chatgpt/find-admin-scope.ts';
+import { findAdminConnection, type AdminConnection } from '../chatgpt/find-admin-connection.ts';
+import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
 import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
+
+const MAX_REQUESTS_PER_MINUTE = 60;
+const ONE_MINUTE_MS = 60 * 1000;
+const TOO_MANY_REQUESTS_TEXT = 'Too many requests.';
 
 export type McpDependencies = { database: Database; clock: Clock; publicBaseUrl: string; endpoint: McpEndpoint };
 
@@ -18,17 +22,26 @@ export function handleProtectedResourceMetadata(dependencies: McpDependencies | 
   return respondWithJson(200, describeProtectedResource(dependencies.publicBaseUrl));
 }
 
-export async function authorizeMcpRequest(dependencies: McpDependencies | null, authorization: string | undefined): Promise<McpAccess> {
-  if (dependencies === null) return refuse(respondWithText(503, ZALO_OFF_TEXT));
-  const scope = await findCallerScope(dependencies, authorization);
-  if (scope === null) return refuse(respondWithSignInChallenge(dependencies.publicBaseUrl));
-  return { kind: 'granted', serve: (exchange) => dependencies.endpoint.serve(describeMcpServer(dependencies, scope), exchange) };
+export function createMcpRateLimit(): RequestRateLimit {
+  return new RequestRateLimit(MAX_REQUESTS_PER_MINUTE, ONE_MINUTE_MS);
 }
 
-async function findCallerScope(dependencies: McpDependencies, authorization: string | undefined): Promise<AccessScope | null> {
+export async function authorizeMcpRequest(
+  dependencies: McpDependencies | null,
+  rateLimit: RequestRateLimit,
+  authorization: string | undefined,
+): Promise<McpAccess> {
+  if (dependencies === null) return refuse(respondWithText(503, ZALO_OFF_TEXT));
+  const connection = await findCallerConnection(dependencies, authorization);
+  if (connection === null) return refuse(respondWithSignInChallenge(dependencies.publicBaseUrl));
+  if (!rateLimit.allows(connection.id, dependencies.clock.now())) return refuse(respondWithText(429, TOO_MANY_REQUESTS_TEXT));
+  return { kind: 'granted', serve: (exchange) => dependencies.endpoint.serve(describeMcpServer(dependencies, connection.scope), exchange) };
+}
+
+async function findCallerConnection(dependencies: McpDependencies, authorization: string | undefined): Promise<AdminConnection | null> {
   const accessToken = readBearerToken(authorization);
   if (accessToken === null) return null;
-  return findAdminScope(dependencies.database, accessToken, dependencies.clock.now());
+  return findAdminConnection(dependencies.database, accessToken, dependencies.clock.now());
 }
 
 function refuse(response: HttpResponse): McpAccess {

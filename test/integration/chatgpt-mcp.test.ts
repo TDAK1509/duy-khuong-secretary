@@ -1,3 +1,4 @@
+import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   COUNT_RECORDS_SPEC,
@@ -193,6 +194,15 @@ describe('the MCP address', () => {
     expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
   });
 
+  it('refuses the 61st request of a connection in one minute', async () => {
+    const server = buildTestServer();
+    for (let count = 0; count < 60; count += 1) await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
+
+    const response = await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
+
+    expect(response.statusCode).toBe(429);
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
@@ -231,7 +241,11 @@ describe('the MCP address', () => {
   }
 
   function postMcp(body: unknown, { token, mcp }: { token?: string; mcp?: McpDependencies | null } = {}) {
+    return injectMcp(buildTestServer(mcp), body, token);
+  }
+
+  function injectMcp(server: FastifyInstance, body: unknown, token?: string) {
     const headers = token === undefined ? MCP_HEADERS : { ...MCP_HEADERS, authorization: `Bearer ${token}` };
-    return buildTestServer(mcp).inject({ method: 'POST', url: '/mcp', headers, payload: JSON.stringify(body) });
+    return server.inject({ method: 'POST', url: '/mcp', headers, payload: JSON.stringify(body) });
   }
 });
