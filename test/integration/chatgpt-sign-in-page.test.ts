@@ -48,6 +48,12 @@ describe('GET /oauth/authorize', () => {
     expect(expectedSvg).toContain('role="img"');
   });
 
+  it('opens the Trợ lý chat with the Mở Zalo button', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.body).toMatch(/<a [^>]*href="https:\/\/zalo\.me\/1234567890"[^>]*>Mở Zalo<\/a>/);
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });

@@ -22,7 +22,7 @@ export async function handleSignInPage(dependencies: SignInDependencies | null, 
   if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
   const chatUrl = `https://zalo.me/${await findConnectedAccountId(dependencies.database, 'zalo-oa')}`;
   const browserKey = await startSignIn(dependencies.database, readSignInRequest(query), dependencies.clock.now());
-  const page = respondWithHtml(renderSignInPage(dependencies.qrCode.renderSvg(chatUrl, QR_CAPTION)));
+  const page = respondWithHtml(renderSignInPage({ chatUrl, qrSvg: dependencies.qrCode.renderSvg(chatUrl, QR_CAPTION) }));
   return { ...page, headers: { ...page.headers, 'set-cookie': `${BROWSER_KEY_COOKIE}=${browserKey}; Path=/; Secure; HttpOnly; SameSite=Lax` } };
 }
 
