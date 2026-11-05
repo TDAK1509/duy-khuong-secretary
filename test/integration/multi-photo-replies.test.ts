@@ -27,4 +27,15 @@ describe('replies that come back as their photo', () => {
       { status: 'queued', kind: 'text', photo_key: null, body: SAVED_REPLY, last_error: 'image_rejected' },
     ]);
   });
+
+  it('still fails a refused photo that has no text', async () => {
+    const id = await insertOutboundMessage(harness.database, { externalUserId: 'zu-hung', photoKey: PHOTO_KEY });
+    harness.channel.nextImageResult = { ok: false, reason: 'rejected' };
+
+    await harness.sendQueuedTexts();
+
+    expect(await harness.database.query(`SELECT status, kind, last_error FROM outbound_messages WHERE id = '${id}'`)).toEqual([
+      { status: 'failed', kind: 'image', last_error: 'rejected' },
+    ]);
+  });
 });
