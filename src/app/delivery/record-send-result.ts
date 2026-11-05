@@ -83,8 +83,10 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
     `UPDATE outbound_messages
      SET status = $3, available_at = COALESCE($4, available_at), sent_at = COALESCE($5, sent_at),
          last_error = $6, locked_until = NULL,
-         kind = CASE WHEN $7 THEN 'text' ELSE kind END,
-         photo_key = CASE WHEN $7 THEN NULL ELSE photo_key END
+         kind = CASE $7::text WHEN 'plain_text' THEN 'text' WHEN 'photo_with_text' THEN 'image' ELSE kind END,
+         photo_key = CASE $7::text WHEN 'plain_text' THEN NULL WHEN 'photo_with_text' THEN fallback_photo_key ELSE photo_key END,
+         quote_message_id = CASE WHEN $7::text IS NULL THEN quote_message_id END,
+         fallback_photo_key = CASE WHEN $7::text IS NULL THEN fallback_photo_key END
      WHERE id = $1 AND status = 'sending' AND attempts = $2
      RETURNING id`,
     [
@@ -94,7 +96,7 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
       settlement.availableAt ?? null,
       settlement.sentAt ?? null,
       settlement.lastError ?? null,
-      settlement.asPlainText ?? false,
+      settlement.rewrite ?? null,
     ],
   );
   return settled.length !== 0;
