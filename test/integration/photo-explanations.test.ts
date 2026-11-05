@@ -221,6 +221,31 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
   });
 
+  it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    await harness.sendAllQueuedTexts();
+    const textsBefore = (await readTextsTo('zu-hung')).length;
+    readersReturn(TIRE_ITEM);
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: TIRE_EXPLANATION });
+    await harness.runInbound({
+      beforeFinish: async () => {
+        throw new Error('the worker crashed before finishing');
+      },
+    });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).slice(textsBefore)).toEqual([
+      { text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' },
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
+    ]);
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
