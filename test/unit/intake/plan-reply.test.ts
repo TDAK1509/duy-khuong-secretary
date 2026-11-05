@@ -68,6 +68,16 @@ describe('planReply text that needs an explanation', () => {
   });
 });
 
+describe('planReply maintenance without a plate', () => {
+  it('is unclear', () => {
+    const reading = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: null })]);
+
+    const plan = planReply(agreeOn(reading), false);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+});
+
 describe('planAnswer', () => {
   const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
   const question = makeReading([], { has_work_data: false, has_question: true });

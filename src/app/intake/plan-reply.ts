@@ -84,7 +84,7 @@ export function planDuplicateReply(): ReplyPlan {
 }
 
 function planMaintenanceWithoutPlateReply(): ReplyPlan {
-  return planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT);
+  return { ...planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT), isUnclear: true };
 }
 
 function planUnresolvedReply(): ReplyPlan {
