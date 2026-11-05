@@ -551,6 +551,16 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
   });
 
+  it('ends the wait when the second reading with the earlier answer is weak too', async () => {
+    await askAgainAfterAnswer('zu-hung', 'cái này', 2);
+
+    await harness.receiveText('zu-hung', 'không biết');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: STILL_UNCLEAR_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
