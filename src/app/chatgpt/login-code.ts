@@ -1,12 +1,13 @@
 import { randomInt } from 'node:crypto';
+import { toAccentFreeForm } from '../reading/normalize.ts';
 import { hashSecretToken } from './secret-token.ts';
 import { CODE_ALPHABET } from '../workspaces/invite-code.ts';
 
 const GROUP_LENGTH = 4;
-const LOGIN_COMMAND = 'đăng nhập';
+const LOGIN_COMMAND = 'dang nhap';
 
 export function isLoginCommand(text: string): boolean {
-  return text.trim() === LOGIN_COMMAND;
+  return toAccentFreeForm(text) === LOGIN_COMMAND;
 }
 
 export function generateLoginCode(): string {

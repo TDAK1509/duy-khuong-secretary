@@ -71,6 +71,14 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     ]);
   });
 
+  it('understands the login command without accents and in capitals', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'Dang nhap');
+
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([{ user_id: userId }]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
