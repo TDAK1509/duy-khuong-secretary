@@ -9,7 +9,9 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
+import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
 import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
@@ -321,6 +323,32 @@ describe('asking what an unclear photo is for', () => {
 
     expect(harness.chat.requests).toHaveLength(1);
     expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
+  });
+
+  it('keeps the photo for the chat when an admin question is processed again before the chat answered', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    const inviteCall = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return callNumber === 2 ? replyWithToolCalls(inviteCall) : replyWithText('Lốp này chưa lắp cho xe nào.');
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
+    expect(retriedTurn?.role === 'user' ? retriedTurn.image?.bytes : null).toEqual(makeJpeg(1000));
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toContainEqual({
+      text: `Lốp này chưa lắp cho xe nào.\n\n${CHANGE_REFUSED_NOTICE}`,
+      quoteMessageId: undefined,
+    });
+    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text.includes('Lốp này chưa lắp'))).toHaveLength(1);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
