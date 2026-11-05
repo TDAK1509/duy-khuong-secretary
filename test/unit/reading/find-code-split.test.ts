@@ -30,6 +30,17 @@ describe('findCodeSplit', () => {
     expect(split?.codes).toEqual(['A1', 'B1']);
     expect(split?.reading.items.map((item) => item.identifiers)).toEqual([['SN-001']]);
   });
+
+  it('gives one candidate when only one strong reader read a code', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['A1234'] })]),
+      makeReading([makeTire({ identifiers: [] })]),
+    );
+
+    const split = findCodeSplit(decision);
+
+    expect(split?.codes).toEqual(['A1234']);
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {
