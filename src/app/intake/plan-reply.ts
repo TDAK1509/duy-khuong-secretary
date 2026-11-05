@@ -27,10 +27,10 @@ export type ReplyPlan = {
   asksQuestion: boolean;
 };
 
-export function planReply(decision: ReadingDecision): ReplyPlan {
+export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
   if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply();
   const reading = saveAgreedReading(...decision.agreed);
-  if (reading.needs_explanation) return planExplanationRequest();
+  if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
@@ -42,7 +42,7 @@ export type AnswerPlan = {
 
 export function planAnswer(decision: ReadingDecision, asked: AskedPhoto): AnswerPlan {
   if (isReaderOutage(decision)) return { reply: planUnresolvedReply(), photoAfter: 'unchanged' };
-  const reply = planReply(decision);
+  const reply = planReply(decision, true);
   if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
   if (asked.status === 'asked_again') return { reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };

@@ -22,7 +22,7 @@ export function readMessage(context: IntakeContext, message: Pick<MessageToRead,
 }
 
 export async function replyToMessage(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
-  const plan = planReply(await readMessage(context, message));
+  const plan = planReply(await readMessage(context, message), message.photo !== null);
   if (context.sender.role === 'admin' && isWithoutWorkData(plan)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
