@@ -54,6 +54,18 @@ describe('POST /oauth/token', () => {
         refresh_token: expect.any(String),
       });
     });
+
+    it('stores only hashes of the tokens, for the membership of the admin', async () => {
+      const response = await requestToken(makeCodeRequest());
+
+      const { access_token: accessToken, refresh_token: refreshToken } = response.json();
+      const [connection] = await database.query(
+        `SELECT * FROM chatgpt_connections WHERE membership_id = (SELECT id FROM memberships WHERE user_id = '${duyUserId}')`,
+      );
+      expect(await database.query('SELECT id FROM chatgpt_connections')).toHaveLength(1);
+      expect(Object.values(connection ?? {})).not.toContain(accessToken);
+      expect(Object.values(connection ?? {})).not.toContain(refreshToken);
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
