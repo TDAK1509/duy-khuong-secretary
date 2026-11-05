@@ -14,6 +14,8 @@ import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
+import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
+import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, type IntakeHarness } from './intake-harness.ts';
@@ -35,6 +37,9 @@ const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
 const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
+const FIRST_LINE = 'Lốp mới thay';
+const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
+const MINUTE_IN_MS = 60 * 1000;
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -525,6 +530,30 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
   });
 
+  it('reads the second answer again together with the earlier answer', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    const request = readers.cheap[0].requests.at(-1);
+    expect(request?.image?.bytes).toEqual(makeJpeg(1000));
+    expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${FIRST_LINE}\n${SECOND_LINE}`);
+  });
+
+  async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
+    readersReturn(UNCLEAR);
+    await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+    await sendTextSentMinutesAgo(externalUserId, answer, minutesAgo);
+  }
+
+  async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number): Promise<void> {
+    const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
+    await harness.runInbound();
+  }
+
   async function readRecordedEvents(): Promise<{ event: string }[]> {
     return harness.database.query<{ event: string }>(
       `SELECT event.external_event_id AS event FROM records
@@ -601,6 +630,15 @@ describe('asking what an unclear photo is for', () => {
 
 async function crashBeforeFinishing(): Promise<void> {
   throw new Error('the worker crashed before finishing');
+}
+
+function makeTwoLineReaders(): FakeReaderSlots {
+  const readsBothLines = (request: ReaderRequest): ReaderResult => ({
+    ok: true,
+    json: request.text?.includes(FIRST_LINE) && request.text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK,
+  });
+  const makeReader = (label: string) => new FakeReader(label, readsBothLines);
+  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }
 
 function makeTimingOutReaders(): ReaderSlots {
