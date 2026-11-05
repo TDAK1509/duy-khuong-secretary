@@ -8,6 +8,7 @@ const signInQuerySchema = z.object({
   client_id: z.literal(CHATGPT_CLIENT_ID),
   redirect_uri: z.literal(CHATGPT_REDIRECT_URI),
   code_challenge: z.string(),
+  code_challenge_method: z.literal('S256'),
   state: z.string().optional(),
 });
 
