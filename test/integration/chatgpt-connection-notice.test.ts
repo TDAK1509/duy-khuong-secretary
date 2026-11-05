@@ -11,6 +11,7 @@ import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { CHATGPT_CLIENT_ID, CHATGPT_REDIRECT_URI, MAX_TEXT_LENGTH, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { insertConnection } from './chatgpt-connection-rows.ts';
 import { insertConfirmedSignIn } from './chatgpt-sign-in-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -18,6 +19,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_MINUTE_MS = 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * ONE_MINUTE_MS;
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const CODE_CHALLENGE = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
 const CODE_VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
@@ -66,6 +68,20 @@ describe('announcing a ChatGPT connection in Zalo', () => {
     expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
       ['zu-duy', 'ChatGPT vừa được kết nối với nhóm "Xe tải Duy Khương". Nếu không phải bạn, nhắn "ngắt ChatGPT" ngay.'],
     ]);
+  });
+
+  it('says nothing when a connection refreshes its tokens', async () => {
+    await insertConnection(database, {
+      userId: duyUserId,
+      accessToken: 'A1',
+      refreshToken: 'R1',
+      refreshExpiresAt: new Date(NOW.getTime() + 30 * ONE_DAY_MS),
+    });
+
+    await requestToken({ grant_type: 'refresh_token', refresh_token: 'R1', client_id: CHATGPT_CLIENT_ID });
+    await sendAllQueuedTexts();
+
+    expect(channel.texts).toEqual([]);
   });
 
   async function requestToken(fields: Record<string, string>): Promise<void> {
