@@ -11,6 +11,7 @@ import {
   REMOVE_MEMBER_SPEC,
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
+import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
@@ -384,6 +385,23 @@ describe('the MCP address', () => {
     expect(await database.query('SELECT id FROM messages')).toEqual([]);
   });
 
+  it('saves nothing when the admin is removed while the reader works', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    const slowReader = makeSlowReader(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+    const call = postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), {
+      token: DUY_ACCESS_TOKEN,
+      mcp: { ...makeMcpDependencies(), reader: slowReader.reader },
+    });
+    await slowReader.started;
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: await findMembershipId(duyUserId) });
+
+    slowReader.finish();
+    const response = await call;
+
+    expect(response.json().result).toMatchObject({ isError: true, content: [{ type: 'text', text: 'Không có quyền.' }] });
+    expect(await database.query('SELECT id FROM records')).toEqual([]);
+  });
+
   it('creates a schedule with a creation key', async () => {
     await postMcp(callToolRequest('create_scheduled_task', DAILY_REPORT), { token: DUY_ACCESS_TOKEN });
 
@@ -433,6 +451,21 @@ describe('the MCP address', () => {
       recordIds.push(await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Hùng', imageKey }));
     }
     return recordIds;
+  }
+
+  function makeSlowReader(reading: unknown): { reader: ReaderService; started: Promise<void>; finish: () => void } {
+    let markStarted: () => void = () => {};
+    let finish: () => void = () => {};
+    const started = new Promise<void>((resolve) => (markStarted = resolve));
+    const finished = new Promise<void>((resolve) => (finish = resolve));
+    const reader: ReaderService = {
+      read: async () => {
+        markStarted();
+        await finished;
+        return { ok: true, json: reading };
+      },
+    };
+    return { reader, started, finish };
   }
 
   async function findMembershipId(userId: string): Promise<string> {
