@@ -40,7 +40,7 @@ describe('saving what two readers agree on', () => {
       {
         workspace_id: workspaceId,
         user_id: hungUserId,
-        category: 'fuel',
+        category: 'đổ xăng dầu',
         amount_vnd: 1250000,
         occurred_on: '2026-10-30',
         read_by: 'cheap_pair',
@@ -147,7 +147,7 @@ describe('saving what two readers agree on', () => {
 
   it('replies to two saved items with one line for each', async () => {
     const toll = (documentNumber: string, amount: number) =>
-      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+      makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
 
     await harness.receivePhoto('zu-hung');
@@ -266,7 +266,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the maintenance item trimmed and lowercased', async () => {
-    const oilChange = makeItem({ category: 'maintenance', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
+    const oilChange = makeItem({ category: 'bảo dưỡng', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
     answerPair(harness.readers.cheap, makeReading([oilChange]));
 
     await harness.receivePhoto('zu-hung');
@@ -275,7 +275,7 @@ describe('saving what two readers agree on', () => {
   });
 
   function makePlatelessMaintenanceItem() {
-    return makeItem({ category: 'maintenance', maintenance_item: 'dầu máy', vehicle_plate: null });
+    return makeItem({ category: 'bảo dưỡng', maintenance_item: 'dầu máy', vehicle_plate: null });
   }
 
   it('saves nothing for a maintenance item without a plate', async () => {
@@ -320,7 +320,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves a fuel item without a plate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', vehicle_plate: null })]));
+    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: null })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -358,7 +358,7 @@ describe('saving what two readers agree on', () => {
 
   it('builds the summary from the agreed fields', async () => {
     const tyre = makeItem({
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenance_item: 'lốp',
       vehicle_plate: '29C-123.45',
       identifiers: ['DT2024-889'],
@@ -503,7 +503,7 @@ describe('saving what two readers agree on', () => {
 
   function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
     return makeItem({
-      category: 'fuel',
+      category: 'đổ xăng dầu',
       amount_vnd: 1250000,
       occurred_on: '2026-10-30',
       document_number: '0001234',

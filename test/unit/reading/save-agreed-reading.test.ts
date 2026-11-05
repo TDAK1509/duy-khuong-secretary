@@ -22,12 +22,12 @@ describe('saveAgreedReading', () => {
   });
 
   it('keeps the item order of the first reader', () => {
-    const toll = makeItem({ category: 'toll', document_number: 'A1' });
-    const fuel = makeItem({ category: 'fuel', document_number: 'B2' });
+    const toll = makeItem({ category: 'phí cầu đường', document_number: 'A1' });
+    const fuel = makeItem({ category: 'đổ xăng dầu', document_number: 'B2' });
 
     const saved = saveAgreedReading(makeReading([toll, fuel]), makeReading([fuel, toll]));
 
-    expect(saved.items.map((item) => item.category)).toEqual(['toll', 'fuel']);
+    expect(saved.items.map((item) => item.category)).toEqual(['phí cầu đường', 'đổ xăng dầu']);
   });
 
   it('saves the category as khác when the readers word it differently', () => {

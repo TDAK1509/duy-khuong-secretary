@@ -102,7 +102,7 @@ describe('rejecting duplicate papers', () => {
 
   it('rejects the whole message when one of its items is a duplicate', async () => {
     const toll = (documentNumber: string, amount: number) =>
-      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+      makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000)]));
     await harness.receivePhoto('zu-hung');
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
@@ -156,7 +156,7 @@ describe('rejecting duplicate papers', () => {
 
   function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
     return makeItem({
-      category: 'fuel',
+      category: 'đổ xăng dầu',
       amount_vnd: 1250000,
       occurred_on: '2026-10-30',
       document_number: '0001234',

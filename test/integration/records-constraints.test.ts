@@ -63,14 +63,14 @@ describe('the records table', () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
 
     await expect(
-      insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null, workspaceId: otherWorkspaceId }),
+      insertRecord({ category: 'đổ xăng dầu', maintenanceItem: null, vehiclePlate: null, workspaceId: otherWorkspaceId }),
     ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
   });
 
   it('refuses two records with one item index', async () => {
-    await insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null });
+    await insertRecord({ category: 'đổ xăng dầu', maintenanceItem: null, vehiclePlate: null });
 
-    await expect(insertRecord({ category: 'fuel', maintenanceItem: null, vehiclePlate: null })).rejects.toMatchObject({
+    await expect(insertRecord({ category: 'đổ xăng dầu', maintenanceItem: null, vehiclePlate: null })).rejects.toMatchObject({
       code: UNIQUE_VIOLATION,
     });
   });

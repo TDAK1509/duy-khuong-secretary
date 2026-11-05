@@ -36,8 +36,8 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
     imageKey: row.imageKey ?? (row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null),
     createdAt,
   }));
-  const category = row.category ?? 'fuel';
-  const maintenanceItem = row.maintenanceItem ?? (category === 'maintenance' ? 'lốp' : null);
+  const category = row.category ?? 'đổ xăng dầu';
+  const maintenanceItem = row.maintenanceItem ?? (category === 'bảo dưỡng' ? 'lốp' : null);
   const vehiclePlate = row.vehiclePlate ?? (maintenanceItem === null ? null : '29C12345');
   const [inserted] = await database.query<{ id: string }>(
     `INSERT INTO records

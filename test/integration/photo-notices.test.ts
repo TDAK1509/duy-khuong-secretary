@@ -55,7 +55,7 @@ describe('notices to admins about a member photo', () => {
   }
 
   function makeFuelItem() {
-    return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+    return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
   }
 
   function describeSend(sent: RecordedSend): string | number {

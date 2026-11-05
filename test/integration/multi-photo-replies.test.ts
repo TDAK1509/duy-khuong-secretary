@@ -113,13 +113,13 @@ function readFuelItemByPhotoSize(): ReaderSlots {
 
 function makeFuelItemFor(photoSize: number | undefined) {
   return photoSize === SECOND_PHOTO_SIZE
-    ? makeItem({ category: 'fuel', amount_vnd: 850000, occurred_on: '2026-10-30', document_number: '0005678' })
-    : makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+    ? makeItem({ category: 'đổ xăng dầu', amount_vnd: 850000, occurred_on: '2026-10-30', document_number: '0005678' })
+    : makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
 }
 
 function readManyFuelItems(): ReaderSlots {
   const items = Array.from({ length: 45 }, (_, index) =>
-    makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: String(index).padStart(7, '0') }),
+    makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: String(index).padStart(7, '0') }),
   );
   const makeReader = (label: string) => new FakeReader(label, () => ({ ok: true, json: makeReading(items) }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };

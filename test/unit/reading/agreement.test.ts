@@ -27,15 +27,15 @@ describe('areAgreeing', () => {
   });
 
   it('agrees when maintenance items differ only in accents and case', () => {
-    const first = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'Dầu máy' })]));
-    const second = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'dau may' })]));
+    const first = succeed(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'Dầu máy' })]));
+    const second = succeed(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'dau may' })]));
 
     expect(areAgreeing(first, second)).toBe(true);
   });
 
   it('agrees on the same items in a different order', () => {
-    const toll = makeItem({ category: 'toll', amount_vnd: 90000 });
-    const fuel = makeItem({ category: 'fuel', amount_vnd: 1250000 });
+    const toll = makeItem({ category: 'phí cầu đường', amount_vnd: 90000 });
+    const fuel = makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000 });
 
     const agree = areAgreeing(succeed(makeReading([toll, fuel])), succeed(makeReading([fuel, toll])));
 

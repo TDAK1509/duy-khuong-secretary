@@ -346,15 +346,15 @@ describe('the data tools of an admin', () => {
     });
 
     it('sums the amounts per category', async () => {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'fuel', amountVnd: 1000000 });
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'fuel', amountVnd: 1500000 });
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'toll', amountVnd: 35000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'đổ xăng dầu', amountVnd: 1000000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'đổ xăng dầu', amountVnd: 1500000 });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'phí cầu đường', amountVnd: 35000 });
 
       const result = await runCount();
 
       expect(result.members.find((row) => row.member === 'Hùng')?.by_category).toEqual([
-        { category: 'fuel', count: 2, amount_vnd: 2500000 },
-        { category: 'toll', count: 1, amount_vnd: 35000 },
+        { category: 'đổ xăng dầu', count: 2, amount_vnd: 2500000 },
+        { category: 'phí cầu đường', count: 1, amount_vnd: 35000 },
       ]);
     });
 
@@ -378,7 +378,7 @@ describe('the data tools of an admin', () => {
       const result = await runCount();
 
       expect(result.members.filter((row) => row.member === 'Hùng')).toEqual([
-        { member: 'Hùng', total_count: 2, by_category: [{ category: 'fuel', count: 2, amount_vnd: 1500000 }] },
+        { member: 'Hùng', total_count: 2, by_category: [{ category: 'đổ xăng dầu', count: 2, amount_vnd: 1500000 }] },
       ]);
       expect(result.members).toHaveLength(3);
     });

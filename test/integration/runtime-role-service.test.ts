@@ -28,7 +28,7 @@ describe('the service connected as the runtime role', () => {
     });
 
     it('still sees the record of another driver in the duplicate check', async () => {
-      const fuel = makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+      const fuel = makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
       for (const reader of [...harness.readers.cheap]) reader.answerWith(makeReading([fuel]));
       await harness.receivePhoto('zu-hung');
       await harness.sendQueuedTexts();

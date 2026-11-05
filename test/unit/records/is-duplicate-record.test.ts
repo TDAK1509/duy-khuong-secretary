@@ -3,7 +3,7 @@ import { isDuplicateRecord, type DuplicateFields } from '../../../src/app/record
 
 function makeFields(overrides: Partial<DuplicateFields> = {}): DuplicateFields {
   return {
-    category: 'fuel',
+    category: 'đổ xăng dầu',
     documentTitle: null,
     maintenanceItem: null,
     vehiclePlate: null,
@@ -33,7 +33,7 @@ describe('isDuplicateRecord', () => {
 
   it('finds an item with another plate not a duplicate', () => {
     const oilChange = makeFields({
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
       documentNumber: null,
@@ -73,13 +73,13 @@ describe('isDuplicateRecord', () => {
   });
 
   it('finds two tolls without a document number and otherwise equal a duplicate', () => {
-    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+    const toll = makeFields({ category: 'phí cầu đường', documentNumber: null, amountVnd: 35000 });
 
     expect(isDuplicateRecord(toll, { ...toll })).toBe(true);
   });
 
   it('finds an item with a document number on one side only not a duplicate', () => {
-    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+    const toll = makeFields({ category: 'phí cầu đường', documentNumber: null, amountVnd: 35000 });
 
     expect(isDuplicateRecord(toll, { ...toll, documentNumber: '0012345' })).toBe(false);
   });
@@ -113,13 +113,13 @@ describe('isDuplicateRecord', () => {
   });
 
   it('finds an item whose maintenance item differs only in accents a duplicate', () => {
-    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+    const oilChange = makeFields({ category: 'bảo dưỡng', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
 
     expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'dau may' })).toBe(true);
   });
 
   it('finds an item with another maintenance item not a duplicate', () => {
-    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+    const oilChange = makeFields({ category: 'bảo dưỡng', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
 
     expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'lốp' })).toBe(false);
   });

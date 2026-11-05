@@ -3,7 +3,7 @@ import { validateReading } from '../../../src/app/reading/reading.ts';
 
 function makeFuelJson(overrides: Record<string, unknown> = {}): unknown {
   const item = {
-    category: 'fuel',
+    category: 'đổ xăng dầu',
     document_title: null,
     maintenance_item: null,
     occurred_on: '2026-10-30',
@@ -23,7 +23,7 @@ describe('validateReading', () => {
 
     expect(attempt).toMatchObject({
       ok: true,
-      reading: { items: [{ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30' }] },
+      reading: { items: [{ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30' }] },
     });
   });
 

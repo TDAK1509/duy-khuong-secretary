@@ -29,4 +29,10 @@ describe('summarizeRecord', () => {
 
     expect(summarizeRecord(fields)).toBe('Đổ xăng dầu, số 0001234');
   });
+
+  it('capitalizes the category the reader wrote and translates nothing', () => {
+    const fields = makeFields({ category: 'fuel', documentNumber: '0001234' });
+
+    expect(summarizeRecord(fields)).toBe('Fuel, số 0001234');
+  });
 });
