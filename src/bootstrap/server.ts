@@ -9,6 +9,7 @@ import {
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
+import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -22,6 +23,7 @@ export type ServerOptions = {
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
   chatgptOAuth?: SignInDependencies | null;
+  chatgptMcp?: McpDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -41,6 +43,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
   registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
+  registerMcpRoutes(server, options.chatgptMcp ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
@@ -57,6 +60,24 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
   server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
     sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
   );
+}
+
+function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
+  registerMcpPostRoute(server, chatgptMcp);
+  server.route({ method: ['GET', 'DELETE'], url: '/mcp', handler: async (_request, reply) => sendResponse(reply, refuseMcpMethod()) });
+  server.get('/.well-known/oauth-protected-resource', async (_request, reply) =>
+    sendResponse(reply, handleProtectedResourceMetadata(chatgptMcp)),
+  );
+}
+
+function registerMcpPostRoute(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
+  const rateLimit = createMcpRateLimit();
+  server.post('/mcp', async (request, reply) => {
+    const access = await authorizeMcpRequest(chatgptMcp, rateLimit, request.headers.authorization);
+    if (access.kind === 'refused') return sendResponse(reply, access.response);
+    reply.hijack();
+    return access.serve({ request: request.raw, response: reply.raw, body: request.body });
+  });
 }
 
 function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
