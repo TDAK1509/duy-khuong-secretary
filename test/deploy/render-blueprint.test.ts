@@ -103,7 +103,7 @@ describe('render.yaml environment', () => {
     expect(loadZaloWebhookConfig(environment).ok).toBe(true);
     expect(loadPhotoStorageConfig(environment).ok).toBe(true);
     expect(readers.ok && readers.config).toMatchObject({
-      reasoningEffort: 'low',
+      reasoningEffort: 'medium',
       cheap: [{ model: 'gpt-6-luna' }, { model: 'gpt-6.1-terra' }],
       strong: [{ model: 'gpt-6.1-sol' }, { model: 'gpt-6-astra' }],
     });
