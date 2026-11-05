@@ -11,6 +11,7 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
+import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
 import { QrCodeGeneratorRenderer } from '../providers/qr-code/qrcode-generator-renderer.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
@@ -94,6 +95,7 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
   return {
     oauthCallback: connection,
     chatgptOAuth: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, qrCode: new QrCodeGeneratorRenderer() },
+    chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint() },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     verifierFile: config.verifierFile,
   };
