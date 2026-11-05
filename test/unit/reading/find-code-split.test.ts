@@ -69,6 +69,12 @@ describe('findCodeSplit', () => {
 
     expect(findCodeSplit(decision)).toBeNull();
   });
+
+  it('gives no code choice when a strong reader timed out', () => {
+    const decision = decideOnStrong(makeReading([makeTire({ identifiers: ['A1234'] })]), { ok: false, reason: 'timeout' });
+
+    expect(findCodeSplit(decision)).toBeNull();
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {
