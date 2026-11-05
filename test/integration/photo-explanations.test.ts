@@ -3,6 +3,7 @@ import {
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
+  DUPLICATE_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
@@ -12,6 +13,7 @@ import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, type IntakeHarness } from './intake-harness.ts';
+import { insertRecordRow } from './record-rows.ts';
 import { timestamp } from './sql-literals.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -323,6 +325,28 @@ describe('asking what an unclear photo is for', () => {
       formatNotice(ASK_LATER_TEXT),
       formatNotice(TIRE_SAVED_REPLY),
     ]);
+  });
+
+  it('tells the member the paper is already saved when the answer repeats a saved record', async () => {
+    await insertRecordRow(harness.database, {
+      workspaceId: harness.workspaceId,
+      userId: harness.hungUserId,
+      senderName: 'Hùng',
+      category: 'bảo dưỡng',
+      maintenanceItem: 'lốp',
+      vehiclePlate: '29C12345',
+      amountVnd: 3500000,
+    });
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: DUPLICATE_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'duplicate', hasBotReply: true });
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
 
   function formatNotice(replyText: string): string {
