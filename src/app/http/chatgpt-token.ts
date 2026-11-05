@@ -15,8 +15,8 @@ export function handleAuthorizationServerMetadata(dependencies: TokenDependencie
 
 export async function handleTokenRequest(dependencies: TokenDependencies | null, body: unknown): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
-  const { code } = z.object({ code: z.string() }).parse(body);
-  const outcome = await exchangeAuthorizationCode(dependencies.database, { code, now: dependencies.clock.now() });
+  const { code, code_verifier: codeVerifier } = z.object({ code: z.string(), code_verifier: z.string() }).parse(body);
+  const outcome = await exchangeAuthorizationCode(dependencies.database, { code, codeVerifier, now: dependencies.clock.now() });
   return respondToOutcome(outcome);
 }
 

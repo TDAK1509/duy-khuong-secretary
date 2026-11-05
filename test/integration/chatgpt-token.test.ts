@@ -75,6 +75,14 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
+
+    it('refuses a wrong code verifier and creates no connection', async () => {
+      const response = await requestToken(makeCodeRequest({ code_verifier: 'wrong-verifier-0000000000000000000000000000' }));
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+      expect(await database.query('SELECT id FROM chatgpt_connections')).toEqual([]);
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
