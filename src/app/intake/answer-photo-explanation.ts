@@ -12,7 +12,7 @@ import { planAnswer, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type R
 import { readMessage } from './reply-to-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
-import { markQuestionAboutPhoto, setSubmissionStatus, storeBotReply, type SubmissionStatus } from './store-user-message.ts';
+import { isQuestionPending, markQuestionAboutPhoto, setSubmissionStatus, storeBotReply, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
 type Explanation = { id: string; text: string };
@@ -30,7 +30,9 @@ export async function answerPhotoExplanation(
     isDone: (transaction) => isReplied(transaction, explanation.id),
     write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, answer),
   });
-  if (answer.kind === 'question') await answerWithChat(context, { ...explanation, photo });
+  if (await isQuestionPending(context.dependencies.database, explanation.id)) {
+    await answerWithChat(context, { ...explanation, photo });
+  }
   return { kind: 'replied' };
 }
 
@@ -53,6 +55,9 @@ async function saveAnswer(
   if (answer.kind === 'question') return saveQuestion(transaction, context, answered);
   const reply = await rejectDuplicates(transaction, context.sender.workspaceId, answer.reply);
   await saveRecordsAndReply(transaction, context, answered, reply);
+  if (reply.saved && reply.asksQuestion && context.sender.role === 'admin') {
+    await markQuestionAboutPhoto(transaction, answered.explanation.id, answered.asked.imageKey);
+  }
   const photoStatus = findPhotoStatus(answer, reply);
   if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
   await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);

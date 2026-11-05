@@ -15,7 +15,12 @@ export async function buildUserTurn(database: Database, message: MessageToRead):
 async function buildSystemNote(database: Database, messageId: string): Promise<string | null> {
   const { rows } = await database.query<SavedRecordRow>(
     `SELECT summary, amount_vnd::float8 AS amount_vnd, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on
-     FROM records WHERE message_id = $1 ORDER BY item_index`,
+     FROM records
+     WHERE message_id IN (
+       SELECT holder.id FROM messages current
+       JOIN messages holder ON holder.id = current.id OR holder.image_key = current.image_key
+       WHERE current.id = $1)
+     ORDER BY item_index`,
     [messageId],
   );
   if (rows.length === 0) return null;

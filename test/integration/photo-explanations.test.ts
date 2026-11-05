@@ -34,6 +34,7 @@ const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true 
 const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
+const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -349,6 +350,27 @@ describe('asking what an unclear photo is for', () => {
       quoteMessageId: undefined,
     });
     expect((await readTextsTo('zu-duy')).filter((sent) => sent.text.includes('Lốp này chưa lắp'))).toHaveLength(1);
+  });
+
+  it('saves the records on the photo and gives the chat the saved records when an admin explains and asks', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_AND_QUESTION);
+    harness.chat.replyWith('Đã lưu lốp cho xe 29C-123.45.');
+
+    await harness.receiveText('zu-duy', `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?`);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    const sent = await readTextsTo('zu-duy');
+    expect(sent.at(-2)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(sent.at(-1)).toEqual({ text: 'Đã lưu lốp cho xe 29C-123.45.', quoteMessageId: undefined });
+    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
+    expect(lastTurn).toMatchObject({
+      role: 'user',
+      text: expect.stringContaining('Hệ thống đã lưu:\n- Bảo dưỡng: lốp, xe 29C12345 · 3.500.000đ'),
+    });
+    expect(harness.chat.requests).toHaveLength(1);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
