@@ -199,6 +199,17 @@ describe('asking what an unclear photo is for', () => {
     expect(recordedOn).toEqual([{ event: 'zmsg-2' }]);
   });
 
+  it('does not answer a photo of another member', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+
+    await harness.receiveText('zu-lan', TIRE_EXPLANATION);
+
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
