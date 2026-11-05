@@ -13,7 +13,10 @@ export class SdkMcpEndpoint implements McpEndpoint {
   }
 }
 
-function registerTool(server: McpServer, { name, description, inputSchema, annotations, securitySchemes }: McpTool): void {
+function registerTool(server: McpServer, { name, description, inputSchema, annotations, securitySchemes, call }: McpTool): void {
   const config = { description, inputSchema: fromJsonSchema(inputSchema), annotations, _meta: { securitySchemes } };
-  server.registerTool(name, config, async () => ({ content: [] }));
+  server.registerTool(name, config, async (args) => {
+    const { text, isError } = await call(args);
+    return { content: [{ type: 'text', text }], isError };
+  });
 }

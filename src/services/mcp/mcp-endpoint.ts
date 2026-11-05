@@ -3,12 +3,15 @@ import type { JsonSchema } from '../reading/reader-service.ts';
 
 export type McpToolAnnotations = { readOnlyHint: boolean; destructiveHint: boolean; openWorldHint: boolean };
 
+export type McpToolResult = { text: string; isError: boolean };
+
 export type McpTool = {
   name: string;
   description: string;
   inputSchema: JsonSchema;
   annotations: McpToolAnnotations;
   securitySchemes: { type: 'oauth2' }[];
+  call(args: unknown): Promise<McpToolResult>;
 };
 
 export type McpServerDefinition = { name: string; version: string; instructions: string; tools: McpTool[] };
