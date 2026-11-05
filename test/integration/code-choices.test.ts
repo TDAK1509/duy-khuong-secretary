@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CODE_CHOICE_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { CODE_CHOICE_TEXT, UPLOAD_ONLY_TEXT } from '../../src/app/intake/intake-texts.ts';
 import type { ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
-import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
+import { createFakeReaderSlots, type FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
@@ -49,6 +49,17 @@ describe('choosing the right code when the readers disagree only on the code', (
       { text: `Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã ${SECOND_CODE}, 3.500.000đ.`, quoteMessageId: 'zmsg-1' },
     ]);
     expect([...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests)).toEqual([]);
+  });
+
+  it('gives a text that is not a code the usual reply and keeps the photo waiting', async () => {
+    await sendWaitingCodePhoto();
+
+    await harness.receiveText('zu-hung', 'cảm ơn', { readers: createFakeReaderSlots() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-hung')).toEqual([{ text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined }]);
+    expect(await readPhotoStatus('zmsg-1')).toBe('needs_explanation');
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
   async function sendWaitingCodePhoto(): Promise<void> {

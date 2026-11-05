@@ -66,15 +66,16 @@ async function replyToStoredText(context: IntakeContext, message: MessageToRead)
     write: (transaction) => endExpiredWaits(transaction, sender, dependencies.clock.now()),
   });
   const asked = await findAskedPhoto(dependencies.database, sender);
-  if (asked !== null && message.text !== null) return answerAskedPhoto(context, { id: message.id, text: message.text }, asked);
+  if (asked !== null && message.text !== null) return answerAskedPhoto(context, { ...message, text: message.text }, asked);
   return replyToMessage(context, message);
 }
 
-function answerAskedPhoto(context: IntakeContext, explanation: { id: string; text: string }, asked: AskedPhoto): Promise<IntakeOutcome> {
+function answerAskedPhoto(context: IntakeContext, message: MessageToRead & { text: string }, asked: AskedPhoto): Promise<IntakeOutcome> {
   const { codeChoice } = asked;
+  const explanation = { id: message.id, text: message.text };
   if (codeChoice === null) return answerPhotoExplanation(context, explanation, asked);
-  const code = matchCodeAnswer(explanation.text, codeChoice.codes);
-  if (code === null) return answerPhotoExplanation(context, explanation, asked);
+  const code = matchCodeAnswer(message.text, codeChoice.codes);
+  if (code === null) return replyToMessage(context, message);
   return answerPhotoCode(context, explanation, asked, { codeChoice, code });
 }
 
