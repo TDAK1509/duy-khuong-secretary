@@ -1,0 +1,42 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildServer } from '../../src/bootstrap/server.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+
+const INITIALIZE_REQUEST = {
+  jsonrpc: '2.0',
+  id: 1,
+  method: 'initialize',
+  params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'chatgpt', version: '1.0.0' } },
+};
+
+describe('the MCP address', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('challenges a request without a token to sign in', async () => {
+    const response = await postMcp(INITIALIZE_REQUEST);
+
+    expect(response.statusCode).toBe(401);
+    expect(response.headers['www-authenticate']).toBe(
+      'Bearer resource_metadata="https://generator-24.com/.well-known/oauth-protected-resource"',
+    );
+  });
+
+  function postMcp(body: unknown) {
+    const server = buildServer(pool, null, { chatgptMcp: { publicBaseUrl: PUBLIC_BASE_URL } });
+    return server.inject({ method: 'POST', url: '/mcp', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(body) });
+  }
+});
