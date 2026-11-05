@@ -44,7 +44,11 @@ async function rereadUnclearPhoto(
 ): Promise<Reread | null> {
   if (!plan.isUnclear || isSentToChat(context, plan, message.text)) return null;
   const reread = await rereadPhotoWithRecentTexts(context, message);
-  return reread?.plan.situation === 'saved' ? reread : null;
+  return reread && isSavedOrCodeQuestion(reread.plan) ? reread : null;
+}
+
+function isSavedOrCodeQuestion({ situation }: ReplyPlan): boolean {
+  return situation === 'saved' || situation === 'code_choice';
 }
 
 async function rereadUnclearText(context: IntakeContext, message: MessageToRead, first: FirstReading): Promise<Reread | null> {
