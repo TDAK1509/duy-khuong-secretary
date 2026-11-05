@@ -18,7 +18,7 @@ export function confirmSignIn(database: Database, confirmation: SignInConfirmati
 }
 
 async function confirmInTransaction(transaction: Transaction, confirmation: SignInConfirmation): Promise<SignInOutcome> {
-  const signIn = await lockSignIn(transaction, confirmation.browserKey);
+  const signIn = await lockSignIn(transaction, confirmation);
   if (signIn === null) return { kind: 'expired' };
   if (signIn.failed_attempts >= MAX_FAILED_ATTEMPTS) return { kind: 'too_many_attempts' };
   if (!isLoginCodeShape(confirmation.typedCode)) return { kind: 'wrong_code' };
@@ -27,10 +27,11 @@ async function confirmInTransaction(transaction: Transaction, confirmation: Sign
   return bindSignIn(transaction, signIn, membershipId);
 }
 
-async function lockSignIn(transaction: Transaction, browserKey: string): Promise<SignInRow | null> {
+async function lockSignIn(transaction: Transaction, { browserKey, now }: SignInConfirmation): Promise<SignInRow | null> {
   const [signIn] = await transaction.query<SignInRow>(
-    'SELECT id, redirect_uri, state, failed_attempts FROM chatgpt_sign_ins WHERE browser_key_hash = $1 FOR UPDATE',
-    [hashSecretToken(browserKey)],
+    `SELECT id, redirect_uri, state, failed_attempts FROM chatgpt_sign_ins
+     WHERE browser_key_hash = $1 AND expires_at > $2 FOR UPDATE`,
+    [hashSecretToken(browserKey), now],
   );
   return signIn ?? null;
 }

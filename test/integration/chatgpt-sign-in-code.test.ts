@@ -127,6 +127,17 @@ describe('POST /oauth/authorize', () => {
     expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toHaveLength(1);
   });
 
+  it('cannot finish a sign-in older than 10 minutes', async () => {
+    clock.advanceBy(11 * ONE_MINUTE_MS);
+    await database.query('DELETE FROM chatgpt_login_codes');
+    await insertLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(clock.now().getTime() + FIVE_MINUTES_MS) });
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain('Lượt kết nối này đã hết hạn.');
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';
