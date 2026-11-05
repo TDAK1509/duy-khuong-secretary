@@ -2,6 +2,7 @@ import type { Database } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
 const RECENT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_RECENT_TEXTS = 10;
 
 const SELECT_RECENT_MESSAGES = `
   WITH current_message AS (SELECT created_at, id FROM messages WHERE id = $3)
@@ -33,7 +34,7 @@ type RecentRow = { id: string; text: string | null; image_key: string | null; ki
 export async function findRecentMessages(database: Database, sender: IntakeSender, current: CurrentMessage): Promise<RecentMessages> {
   const since = new Date(current.sentAt.getTime() - RECENT_WINDOW_MS);
   const { rows } = await database.query<RecentRow>(SELECT_RECENT_MESSAGES, [sender.workspaceId, sender.userId, current.id, since]);
-  return { texts: rows.flatMap(pickText), photo: rows.reduce<RecentPhoto | null>(pickLatestPhoto, null) };
+  return { texts: rows.flatMap(pickText).slice(-MAX_RECENT_TEXTS), photo: rows.reduce<RecentPhoto | null>(pickLatestPhoto, null) };
 }
 
 function pickText({ kind, text }: RecentRow): string[] {

@@ -217,6 +217,19 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('reads an unclear text with only the newest 10 earlier texts', async () => {
+    const unclearReaders = makeReadersAnswering(() => UNCLEAR);
+    const earlierTexts = Array.from({ length: 12 }, (_, index) => `Tin ${index + 1}`);
+    for (const text of earlierTexts) await sendTextSentMinutesAgo('zu-hung', text, 5, unclearReaders);
+    const readers = makeReadersAnswering(() => UNCLEAR);
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+
+    const newestTen = earlierTexts.slice(2);
+    const lines = [...newestTen, PLATE_AND_AMOUNT].map((text) => `- ${text}`);
+    expect(readers.cheap[0].requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n${lines.join('\n')}`);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
