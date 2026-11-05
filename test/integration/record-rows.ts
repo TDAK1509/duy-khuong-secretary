@@ -36,8 +36,8 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
     createdAt,
   }));
   const category = row.category ?? 'fuel';
-  const maintenanceItem = category === 'maintenance' ? (row.maintenanceItem ?? 'lốp') : null;
-  const vehiclePlate = category === 'maintenance' ? (row.vehiclePlate ?? '29C12345') : (row.vehiclePlate ?? null);
+  const maintenanceItem = row.maintenanceItem ?? (category === 'maintenance' ? 'lốp' : null);
+  const vehiclePlate = row.vehiclePlate ?? (maintenanceItem === null ? null : '29C12345');
   const [inserted] = await database.query<{ id: string }>(
     `INSERT INTO records
        (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item, vehicle_plate,

@@ -47,7 +47,7 @@ export async function findLatestMaintenance(
 function buildWhere(scope: AccessScope, filters: MaintenanceFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
-  where.require(`record.category = 'maintenance'`);
+  where.require('record.maintenance_item IS NOT NULL');
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.maintenanceItem !== null) where.require(buildItemCondition(where, filters.maintenanceItem));
   if (filters.cursor !== null) {

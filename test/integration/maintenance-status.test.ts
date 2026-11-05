@@ -76,6 +76,21 @@ describe('the maintenance status tool of an admin', () => {
     expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'dầu máy']]);
   });
 
+  it('finds a record by its maintenance item, whatever its category', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'thay phụ tùng',
+      maintenanceItem: 'lốp',
+      vehiclePlate: '29C12345',
+    });
+
+    const result = await runStatus({ plate: '29C12345' });
+
+    expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'lốp']]);
+  });
+
   it('keeps the newest record of a truck, whoever sent it', async () => {
     const maintenance = { workspaceId, category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' };
     await insertRecordRow(database, { ...maintenance, userId: hungUserId, senderName: 'Hùng', createdAt: new Date('2026-09-01T10:00:00+07:00') });
