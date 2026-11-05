@@ -16,6 +16,17 @@ describe('the admin tool list', () => {
     expect(tool?.description).toBe('Liệt kê mọi người trong nhóm: id, tên trong nhóm, vai trò, ngày vào nhóm.');
   });
 
+  it('offers search_records with a free category and no fixed list', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'search_records');
+    const category = (tool?.parameters['properties'] as Record<string, unknown>)['category'];
+
+    expect(category).toEqual({
+      type: ['string', 'null'],
+      description:
+        'Tên loại đã lưu, ví dụ "đổ xăng dầu", "kiểm định xe". Không có danh sách loại cố định. null để tìm mọi loại. Nếu chưa biết đúng tên loại, để null và dùng text.',
+    });
+  });
+
   it('offers no propose_scheduled_task', () => {
     expect(ADMIN_TOOLS.map((tool) => tool.name)).not.toContain('propose_scheduled_task');
   });

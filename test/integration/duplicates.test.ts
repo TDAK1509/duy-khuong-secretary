@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Reading } from '../../src/app/reading/reading.ts';
+import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -64,6 +64,28 @@ describe('rejecting duplicate papers', () => {
     ).toEqual([{ submission_status: 'duplicate' }]);
   });
 
+  it('saves a paper whose printed title differs from the title of a saved paper', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
+    await harness.receivePhoto('zu-hung');
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Phiếu xuất kho' })]));
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT document_title FROM records ORDER BY created_at')).toEqual([
+      { document_title: 'Hóa đơn bán lẻ xăng dầu' },
+      { document_title: 'Phiếu xuất kho' },
+    ]);
+  });
+
+  it('does not save the copy of a saved paper that has the same printed title', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
+    await harness.receivePhoto('zu-hung');
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
   it('saves the same paper in another workspace', async () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
     await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy' });
@@ -80,7 +102,7 @@ describe('rejecting duplicate papers', () => {
 
   it('rejects the whole message when one of its items is a duplicate', async () => {
     const toll = (documentNumber: string, amount: number) =>
-      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+      makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000)]));
     await harness.receivePhoto('zu-hung');
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
@@ -132,8 +154,14 @@ describe('rejecting duplicate papers', () => {
     await Promise.all([harness.runInbound(), harness.runInbound()]);
   }
 
-  function makeFuelItem() {
-    return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+  function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
+    return makeItem({
+      category: 'đổ xăng dầu',
+      amount_vnd: 1250000,
+      occurred_on: '2026-10-30',
+      document_number: '0001234',
+      ...overrides,
+    });
   }
 
   function answerPair(pair: readonly [FakeReader, FakeReader], reading: Reading): void {

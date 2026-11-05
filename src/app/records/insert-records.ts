@@ -20,17 +20,18 @@ async function insertRecord(
 ): Promise<void> {
   await transaction.query(
     `INSERT INTO records
-       (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item, vehicle_plate,
-        document_number, occurred_on, amount_vnd, identifiers, summary, details, read_by)
+       (workspace_id, user_id, message_id, item_index, sender_name, category, document_title, maintenance_item,
+        vehicle_plate, document_number, occurred_on, amount_vnd, identifiers, summary, details, read_by)
      VALUES ($1, $2, $3, $4,
        (SELECT display_name FROM memberships WHERE workspace_id = $1 AND user_id = $2),
-       $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14)`,
+       $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15)`,
     [
       message.workspaceId,
       message.userId,
       message.id,
       record.itemIndex,
       record.category,
+      record.documentTitle,
       record.maintenanceItem,
       record.vehiclePlate,
       record.documentNumber,

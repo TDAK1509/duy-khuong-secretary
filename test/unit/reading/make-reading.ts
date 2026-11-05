@@ -2,7 +2,8 @@ import type { ReadAttempt, Reading, ReadingItem } from '../../../src/app/reading
 
 export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
   return {
-    category: 'fuel',
+    category: 'đổ xăng dầu',
+    document_title: null,
     maintenance_item: null,
     occurred_on: '2026-10-30',
     amount_vnd: 1250000,
@@ -12,6 +13,10 @@ export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
     details: [],
     ...overrides,
   };
+}
+
+export function makeFuelItemX(overrides: Partial<ReadingItem> = {}): ReadingItem {
+  return makeItem({ amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234', ...overrides });
 }
 
 export function makeReading(items: ReadingItem[] = [makeItem()], overrides: Partial<Reading> = {}): Reading {

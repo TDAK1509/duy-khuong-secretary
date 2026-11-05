@@ -343,7 +343,7 @@ describe('an admin asks the bot', () => {
         workspaceId,
         userId: hungUserId,
         senderName: 'Hùng',
-        category: 'maintenance',
+        category: 'bảo dưỡng',
         maintenanceItem: 'lốp',
         identifiers: ['DT2024889'],
         summary: 'Bảo dưỡng: lốp, xe 29C12345, mã DT2024889',
@@ -372,7 +372,7 @@ describe('an admin asks the bot', () => {
     });
 
     function makeFuelItem() {
-      return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+      return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
     }
 
     it('commits the data before the chat model runs', async () => {

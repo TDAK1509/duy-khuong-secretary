@@ -8,7 +8,8 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
   "has_question":{"type":"boolean"},
   "items":{"type":"array","items":{"type":"object","additionalProperties":false,
    "properties":{
-    "category":{"type":"string","enum":["fuel","toll","delivery_pickup","delivery_dropoff","maintenance","certificate","other"]},
+    "category":{"type":"string"},
+    "document_title":{"type":["string","null"]},
     "maintenance_item":{"type":["string","null"]},
     "occurred_on":{"type":["string","null"]},
     "amount_vnd":{"type":["integer","null"]},
@@ -17,5 +18,5 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
     "document_number":{"type":["string","null"]},
     "details":{"type":"array","items":{"type":"object","additionalProperties":false,
       "properties":{"label":{"type":"string"},"value":{"type":"string"}},"required":["label","value"]}}},
-   "required":["category","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","details"]}}},
+   "required":["category","document_title","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","details"]}}},
  "required":["has_work_data","has_question","items"]};

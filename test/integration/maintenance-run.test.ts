@@ -45,7 +45,7 @@ describe('the daily maintenance reminder run', () => {
       workspaceId,
       userId,
       senderName,
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: plate,
       createdAt: new Date(`${sentOn}T10:00:00+07:00`),
@@ -61,6 +61,23 @@ describe('the daily maintenance reminder run', () => {
     const userTurn = harness.chat.requests[0]?.turns[0];
     expect(userTurn).toMatchObject({ role: 'user', text: expect.stringContaining('Hồ sơ bảo dưỡng đến hạn:') });
     expect(userTurn).toMatchObject({ text: expect.stringContaining('29C12345') });
+  });
+
+  it('finds a due record by its maintenance item, whatever its category', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'sửa chữa xe',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      createdAt: new Date('2026-07-23T10:00:00+07:00'),
+    });
+    await insertReminderTask({ maintenanceRules: [{ maintenance_item: 'dầu máy', age_days: 90 }] });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.turns[0]).toMatchObject({ text: expect.stringContaining('29C12345') });
   });
 
   it('writes each due record in the shape of the plan', async () => {
@@ -173,7 +190,7 @@ describe('the daily maintenance reminder run', () => {
       workspaceId,
       userId: lanUserId,
       senderName: 'Lan',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'lốp',
       vehiclePlate: '29C12345',
       createdAt: new Date('2026-04-14T10:00:00+07:00'),
@@ -203,7 +220,7 @@ describe('the daily maintenance reminder run', () => {
       workspaceId: otherWorkspaceId,
       userId: vyUserId,
       senderName: 'Vy',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '30A99999',
       createdAt: new Date('2026-09-21T10:00:00+07:00'),
@@ -220,7 +237,7 @@ describe('the daily maintenance reminder run', () => {
       workspaceId,
       userId: lanUserId,
       senderName: 'Lan',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
       createdAt: new Date('2026-10-01T10:00:00+07:00'),
@@ -238,7 +255,7 @@ describe('the daily maintenance reminder run', () => {
       workspaceId,
       userId: lanUserId,
       senderName: 'Lan',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
       createdAt: new Date('2026-10-01T00:30:00+07:00'),

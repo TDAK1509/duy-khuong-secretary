@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Reading } from '../../src/app/reading/reading.ts';
+import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
 import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
+
+const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
 
 describe('saving what two readers agree on', () => {
   let harness: IntakeHarness;
@@ -38,11 +40,40 @@ describe('saving what two readers agree on', () => {
       {
         workspace_id: workspaceId,
         user_id: hungUserId,
-        category: 'fuel',
+        category: 'đổ xăng dầu',
         amount_vnd: 1250000,
         occurred_on: '2026-10-30',
         read_by: 'cheap_pair',
       },
+    ]);
+  });
+
+  it('saves a category outside the old list', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ category: 'phiếu cân' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT category FROM records')).toEqual([{ category: 'phiếu cân' }]);
+  });
+
+  it('names the printed title of a certificate in the reply', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(sentTexts()).toEqual([
+      ['zu-hung', `Đã lưu: ${INSPECTION_TITLE}, xe 29C12345.`],
+    ]);
+  });
+
+  it('stores the printed title of a certificate', async () => {
+    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT category, document_title FROM records')).toEqual([
+      { category: 'kiểm định xe', document_title: INSPECTION_TITLE },
     ]);
   });
 
@@ -116,7 +147,7 @@ describe('saving what two readers agree on', () => {
 
   it('replies to two saved items with one line for each', async () => {
     const toll = (documentNumber: string, amount: number) =>
-      makeItem({ category: 'toll', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
+      makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
     answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
 
     await harness.receivePhoto('zu-hung');
@@ -235,7 +266,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the maintenance item trimmed and lowercased', async () => {
-    const oilChange = makeItem({ category: 'maintenance', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
+    const oilChange = makeItem({ category: 'bảo dưỡng', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
     answerPair(harness.readers.cheap, makeReading([oilChange]));
 
     await harness.receivePhoto('zu-hung');
@@ -244,7 +275,7 @@ describe('saving what two readers agree on', () => {
   });
 
   function makePlatelessMaintenanceItem() {
-    return makeItem({ category: 'maintenance', maintenance_item: 'dầu máy', vehicle_plate: null });
+    return makeItem({ category: 'bảo dưỡng', maintenance_item: 'dầu máy', vehicle_plate: null });
   }
 
   it('saves nothing for a maintenance item without a plate', async () => {
@@ -289,7 +320,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves a fuel item without a plate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', vehicle_plate: null })]));
+    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: null })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -327,7 +358,7 @@ describe('saving what two readers agree on', () => {
 
   it('builds the summary from the agreed fields', async () => {
     const tyre = makeItem({
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenance_item: 'lốp',
       vehicle_plate: '29C-123.45',
       identifiers: ['DT2024-889'],
@@ -399,25 +430,42 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
-  it('asks the sender to send again when a maintenance item has no name', async () => {
-    const unnamed = makeItem({ category: 'maintenance', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem(), unnamed]));
+  it('saves a record whose maintenance item is blank, without an item', async () => {
+    const blankItem = makeItem({ category: 'bảo dưỡng', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([blankItem]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
-    expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
-    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
-      { submission_status: 'unresolved' },
+    expect(await database.query('SELECT category, maintenance_item FROM records')).toEqual([
+      { category: 'bảo dưỡng', maintenance_item: null },
     ]);
   });
 
-  it('drops a maintenance item that an agreed non-maintenance item carries', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'fuel', maintenance_item: 'dầu máy' })]));
+  it('keeps the maintenance item of a record whatever its category', async () => {
+    const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'Lốp', vehicle_plate: '29C-123.45' });
+    answerPair(harness.readers.cheap, makeReading([tireChange]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT maintenance_item FROM records')).toEqual([{ maintenance_item: null }]);
+    expect(await database.query('SELECT category, maintenance_item FROM records')).toEqual([
+      { category: 'thay phụ tùng', maintenance_item: 'lốp' },
+    ]);
+  });
+
+  it('asks for the plate when a record of any category has a maintenance item and no plate', async () => {
+    const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'lốp', vehicle_plate: null });
+    answerPair(harness.readers.cheap, makeReading([tireChange]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.',
+      ],
+    ]);
   });
 
   it('gives the upload-only reply when work data has no item', async () => {
@@ -443,8 +491,24 @@ describe('saving what two readers agree on', () => {
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
   });
 
-  function makeFuelItem() {
-    return makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+  function makeInspectionCertificate() {
+    return makeItem({
+      category: 'kiểm định xe',
+      document_title: INSPECTION_TITLE,
+      vehicle_plate: '29C-123.45',
+      amount_vnd: null,
+      occurred_on: null,
+    });
+  }
+
+  function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
+    return makeItem({
+      category: 'đổ xăng dầu',
+      amount_vnd: 1250000,
+      occurred_on: '2026-10-30',
+      document_number: '0001234',
+      ...overrides,
+    });
   }
 
   function sentTexts(): string[][] {

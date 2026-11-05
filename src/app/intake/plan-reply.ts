@@ -25,7 +25,6 @@ export function planReply(decision: ReadingDecision): ReplyPlan {
 }
 
 function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: boolean): ReplyPlan {
-  if (records.some(isMaintenanceWithoutName)) return planUnresolvedReply();
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
   return {
     replyText: formatSavedReply(records),
@@ -37,12 +36,8 @@ function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: bo
   };
 }
 
-function isMaintenanceWithoutName(record: NewRecord): boolean {
-  return record.category === 'maintenance' && record.maintenanceItem === null;
-}
-
 function isMaintenanceWithoutPlate(record: NewRecord): boolean {
-  return record.category === 'maintenance' && record.vehiclePlate === null;
+  return record.maintenanceItem !== null && record.vehiclePlate === null;
 }
 
 export function planDuplicateReply(): ReplyPlan {

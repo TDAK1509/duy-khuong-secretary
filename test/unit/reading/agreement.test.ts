@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReadAttempt } from '../../../src/app/reading/reading.ts';
 import { areAgreeing } from '../../../src/app/reading/agreement.ts';
-import { makeItem, makeReading, succeed } from './make-reading.ts';
+import { makeFuelItemX, makeItem, makeReading, succeed } from './make-reading.ts';
 
 describe('areAgreeing', () => {
   it('agrees on two identical readings', () => {
@@ -27,15 +27,15 @@ describe('areAgreeing', () => {
   });
 
   it('agrees when maintenance items differ only in accents and case', () => {
-    const first = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'Dầu máy' })]));
-    const second = succeed(makeReading([makeItem({ category: 'maintenance', maintenance_item: 'dau may' })]));
+    const first = succeed(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'Dầu máy' })]));
+    const second = succeed(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'dau may' })]));
 
     expect(areAgreeing(first, second)).toBe(true);
   });
 
   it('agrees on the same items in a different order', () => {
-    const toll = makeItem({ category: 'toll', amount_vnd: 90000 });
-    const fuel = makeItem({ category: 'fuel', amount_vnd: 1250000 });
+    const toll = makeItem({ category: 'phí cầu đường', amount_vnd: 90000 });
+    const fuel = makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000 });
 
     const agree = areAgreeing(succeed(makeReading([toll, fuel])), succeed(makeReading([fuel, toll])));
 
@@ -88,6 +88,61 @@ describe('areAgreeing', () => {
     const reading = makeReading([makeItem({ document_number: null })]);
 
     expect(areAgreeing(succeed(reading), succeed(reading))).toBe(true);
+  });
+
+  it('agrees when the readers word the category of a unique item differently', () => {
+    const first = succeed(makeReading([makeFuelItemX({ category: 'đổ xăng dầu' })]));
+    const second = succeed(makeReading([makeFuelItemX({ category: 'đổ dầu' })]));
+
+    expect(areAgreeing(first, second)).toBe(true);
+  });
+
+  it('disagrees when items with the same fixed fields have categories the readers do not share', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ category: 'đổ xăng dầu' }),
+      makeFuelItemX({ category: 'phí cầu đường' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ category: 'đổ xăng dầu' }),
+      makeFuelItemX({ category: 'rửa xe' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
+
+  it('agrees on items with the same fixed fields when the readers share every category', () => {
+    const fuel = makeFuelItemX({ category: 'đổ xăng dầu' });
+    const toll = makeFuelItemX({ category: 'phí cầu đường' });
+
+    const agree = areAgreeing(succeed(makeReading([fuel, toll])), succeed(makeReading([toll, fuel])));
+
+    expect(agree).toBe(true);
+  });
+
+  it('disagrees when items with the same fixed fields have titles the readers do not share', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ document_title: 'Hóa đơn bán lẻ xăng dầu' }),
+      makeFuelItemX({ document_title: 'Biên lai thu phí' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ document_title: 'Hóa đơn bán lẻ xăng dầu' }),
+      makeFuelItemX({ document_title: 'Phiếu thu phí' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
+
+  it('agrees on items that differ only by plate when the readers name them in the opposite way', () => {
+    const first = succeed(makeReading([
+      makeFuelItemX({ vehicle_plate: '29C12345', category: 'phiếu cân' }),
+      makeFuelItemX({ vehicle_plate: '51D67890', category: 'biên lai' }),
+    ]));
+    const second = succeed(makeReading([
+      makeFuelItemX({ vehicle_plate: '29C12345', category: 'biên lai' }),
+      makeFuelItemX({ vehicle_plate: '51D67890', category: 'phiếu cân' }),
+    ]));
+
+    expect(areAgreeing(first, second)).toBe(true);
   });
 
   it('disagrees when the question flag differs', () => {

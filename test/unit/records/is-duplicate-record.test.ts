@@ -3,7 +3,8 @@ import { isDuplicateRecord, type DuplicateFields } from '../../../src/app/record
 
 function makeFields(overrides: Partial<DuplicateFields> = {}): DuplicateFields {
   return {
-    category: 'fuel',
+    category: 'đổ xăng dầu',
+    documentTitle: null,
     maintenanceItem: null,
     vehiclePlate: null,
     documentNumber: '0001234',
@@ -32,7 +33,7 @@ describe('isDuplicateRecord', () => {
 
   it('finds an item with another plate not a duplicate', () => {
     const oilChange = makeFields({
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
       documentNumber: null,
@@ -72,15 +73,33 @@ describe('isDuplicateRecord', () => {
   });
 
   it('finds two tolls without a document number and otherwise equal a duplicate', () => {
-    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+    const toll = makeFields({ category: 'phí cầu đường', documentNumber: null, amountVnd: 35000 });
 
     expect(isDuplicateRecord(toll, { ...toll })).toBe(true);
   });
 
   it('finds an item with a document number on one side only not a duplicate', () => {
-    const toll = makeFields({ category: 'toll', documentNumber: null, amountVnd: 35000 });
+    const toll = makeFields({ category: 'phí cầu đường', documentNumber: null, amountVnd: 35000 });
 
     expect(isDuplicateRecord(toll, { ...toll, documentNumber: '0012345' })).toBe(false);
+  });
+
+  it('finds two records whose titles differ not a duplicate', () => {
+    const existing = makeFields({ documentTitle: 'Hóa đơn bán lẻ xăng dầu' });
+
+    expect(isDuplicateRecord(existing, makeFields({ documentTitle: 'Biên lai thu phí' }))).toBe(false);
+  });
+
+  it('finds two records with a title on one side only not a duplicate', () => {
+    const existing = makeFields({ documentTitle: 'Hóa đơn bán lẻ xăng dầu' });
+
+    expect(isDuplicateRecord(existing, makeFields({ documentTitle: null }))).toBe(false);
+  });
+
+  it('finds two records with the same title a duplicate', () => {
+    const existing = makeFields({ documentTitle: 'Hóa đơn bán lẻ xăng dầu' });
+
+    expect(isDuplicateRecord(existing, { ...existing })).toBe(true);
   });
 
   it('finds an item with another date not a duplicate', () => {
@@ -94,13 +113,13 @@ describe('isDuplicateRecord', () => {
   });
 
   it('finds an item whose maintenance item differs only in accents a duplicate', () => {
-    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+    const oilChange = makeFields({ category: 'bảo dưỡng', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
 
     expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'dau may' })).toBe(true);
   });
 
   it('finds an item with another maintenance item not a duplicate', () => {
-    const oilChange = makeFields({ category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
+    const oilChange = makeFields({ category: 'bảo dưỡng', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' });
 
     expect(isDuplicateRecord(oilChange, { ...oilChange, maintenanceItem: 'lốp' })).toBe(false);
   });

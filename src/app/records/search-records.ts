@@ -21,6 +21,7 @@ export type FoundRecord = {
   id: string;
   member: string;
   category: string;
+  document_title: string | null;
   maintenance_item: string | null;
   plate: string | null;
   document_number: string | null;
@@ -37,7 +38,7 @@ export type SearchPage = { items: FoundRecord[]; nextCursor: string | null };
 
 type FoundRow = FoundRecord & { created_at_utc: string };
 
-const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
+const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, record.category, record.document_title, record.maintenance_item,
     record.vehicle_plate AS plate, record.document_number,
     to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
     record.summary, record.identifiers, record.details,
@@ -61,9 +62,9 @@ function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
-  if (filters.member !== null) where.require(buildMemberCondition(where, filters.member));
+  if (filters.member !== null) where.require(buildAccentFreeEquals(where, 'record.sender_name', filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
-  if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
+  if (filters.category !== null) where.require(buildAccentFreeEquals(where, 'record.category', filters.category));
   addDateConditions(where, filters);
   if (filters.cursor !== null) {
     where.require(`(record.created_at, record.id) < (${where.bind(filters.cursor.createdAt)}::timestamptz, ${where.bind(filters.cursor.id)}::uuid)`);
@@ -94,9 +95,9 @@ function buildCodeCondition(where: WhereClause, text: string): string {
     OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
 }
 
-function buildMemberCondition(where: WhereClause, member: string): string {
-  const bound = where.bind(toAccentFreeForm(member) ?? '');
-  return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
+function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
+  const bound = where.bind(toAccentFreeForm(text) ?? '');
+  return `regexp_replace(trim(lower(unaccent(${column}))), '\\s+', ' ', 'g') = ${bound}`;
 }
 
 function toPage(rows: FoundRow[]): SearchPage {
@@ -114,6 +115,7 @@ function toFoundRecord(row: FoundRow): FoundRecord {
     id: row.id,
     member: row.member,
     category: row.category,
+    document_title: row.document_title,
     maintenance_item: row.maintenance_item,
     plate: row.plate,
     document_number: row.document_number,

@@ -61,12 +61,12 @@ describe('the maintenance status tool of an admin', () => {
   }
 
   it('reads only maintenance records', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'fuel', vehiclePlate: '29C12345' });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'đổ xăng dầu', vehiclePlate: '29C12345' });
     await insertRecordRow(database, {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
     });
@@ -76,8 +76,23 @@ describe('the maintenance status tool of an admin', () => {
     expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'dầu máy']]);
   });
 
+  it('finds a record by its maintenance item, whatever its category', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'thay phụ tùng',
+      maintenanceItem: 'lốp',
+      vehiclePlate: '29C12345',
+    });
+
+    const result = await runStatus({ plate: '29C12345' });
+
+    expect(result.items.map((row) => [row.plate, row.maintenance_item])).toEqual([['29C12345', 'lốp']]);
+  });
+
   it('keeps the newest record of a truck, whoever sent it', async () => {
-    const maintenance = { workspaceId, category: 'maintenance', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' };
+    const maintenance = { workspaceId, category: 'bảo dưỡng', maintenanceItem: 'dầu máy', vehiclePlate: '29C12345' };
     await insertRecordRow(database, { ...maintenance, userId: hungUserId, senderName: 'Hùng', createdAt: new Date('2026-09-01T10:00:00+07:00') });
     await insertRecordRow(database, { ...maintenance, userId: lanUserId, senderName: 'Lan', createdAt: new Date('2026-10-01T10:00:00+07:00') });
 
@@ -87,7 +102,7 @@ describe('the maintenance status tool of an admin', () => {
   });
 
   it('gives one row per truck', async () => {
-    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', maintenanceItem: 'dầu máy' };
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'bảo dưỡng', maintenanceItem: 'dầu máy' };
     await insertRecordRow(database, { ...maintenance, vehiclePlate: '29C12345' });
     await insertRecordRow(database, { ...maintenance, vehiclePlate: '51D67890' });
 
@@ -97,7 +112,7 @@ describe('the maintenance status tool of an admin', () => {
   });
 
   it('gives one row per part of a truck', async () => {
-    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', vehiclePlate: '29C12345' };
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'bảo dưỡng', vehiclePlate: '29C12345' };
     await insertRecordRow(database, { ...maintenance, maintenanceItem: 'dầu máy' });
     await insertRecordRow(database, { ...maintenance, maintenanceItem: 'lốp' });
 
@@ -107,7 +122,7 @@ describe('the maintenance status tool of an admin', () => {
   });
 
   it('filters by plate, ignoring punctuation and case', async () => {
-    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', maintenanceItem: 'dầu máy' };
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'bảo dưỡng', maintenanceItem: 'dầu máy' };
     await insertRecordRow(database, { ...maintenance, vehiclePlate: '29C12345' });
     await insertRecordRow(database, { ...maintenance, vehiclePlate: '51D67890' });
 
@@ -117,7 +132,7 @@ describe('the maintenance status tool of an admin', () => {
   });
 
   it('filters by part, ignoring accents and case', async () => {
-    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'maintenance', vehiclePlate: '29C12345' };
+    const maintenance = { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'bảo dưỡng', vehiclePlate: '29C12345' };
     await insertRecordRow(database, { ...maintenance, maintenanceItem: 'dầu máy' });
     await insertRecordRow(database, { ...maintenance, maintenanceItem: 'lốp' });
 
@@ -132,7 +147,7 @@ describe('the maintenance status tool of an admin', () => {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       createdAt: new Date('2026-10-01T23:30:00+07:00'),
     });
@@ -148,7 +163,7 @@ describe('the maintenance status tool of an admin', () => {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       createdAt: new Date('2026-10-01T10:00:00+07:00'),
       savedAt: new Date('2026-10-31T07:00:00+07:00'),
@@ -166,7 +181,7 @@ describe('the maintenance status tool of an admin', () => {
       workspaceId: otherWorkspaceId,
       userId: vyUserId,
       senderName: 'Vy',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
     });
@@ -184,7 +199,7 @@ describe('the maintenance status tool of an admin', () => {
           workspaceId,
           userId: hungUserId,
           senderName: 'Hùng',
-          category: 'maintenance',
+          category: 'bảo dưỡng',
           maintenanceItem: 'dầu máy',
           vehiclePlate,
         });
@@ -210,7 +225,7 @@ describe('the maintenance status tool of an admin', () => {
         workspaceId,
         userId: hungUserId,
         senderName: 'Hùng',
-        category: 'maintenance',
+        category: 'bảo dưỡng',
         maintenanceItem: 'dầu|máy',
         vehiclePlate: `29C|${String(10000 + number)}`,
       });
@@ -235,7 +250,7 @@ describe('the maintenance status tool of an admin', () => {
       workspaceId,
       userId: lanUserId,
       senderName: 'Lan',
-      category: 'maintenance',
+      category: 'bảo dưỡng',
       maintenanceItem: 'dầu máy',
       vehiclePlate: '29C12345',
       occurredOn: '2026-09-30',

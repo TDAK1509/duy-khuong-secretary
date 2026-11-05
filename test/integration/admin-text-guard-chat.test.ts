@@ -157,7 +157,7 @@ describe('the text an admin wrote is the only text that changes anything', () =>
   });
 
   it('still changes things in a text message that also holds work data', async () => {
-    const reading = makeReading([makeItem({ category: 'fuel', amount_vnd: 1250000, occurred_on: '2026-10-30' })], { has_question: true });
+    const reading = makeReading([makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30' })], { has_question: true });
     harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
     followRounds(replyWithToolCalls(callTool('create_scheduled_task', DAILY_REPORT)), replyWithText('Đã đặt lịch.'));
 
