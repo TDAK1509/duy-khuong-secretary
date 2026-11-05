@@ -129,6 +129,13 @@ describe('the MCP address', () => {
     expect(annotations).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
   });
 
+  it('declares the OAuth security scheme on each read tool', async () => {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+
+    const metas = response.json().result.tools.map((tool: { _meta: unknown }) => tool._meta);
+    expect(metas).toEqual(READ_TOOL_SPECS.map(() => ({ securitySchemes: [{ type: 'oauth2' }] })));
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
