@@ -61,6 +61,15 @@ describe('findCodeSplit', () => {
     expect(findCodeSplit(decision)).toBeNull();
   });
 
+  it('does not count a blank identifier as an extra code', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['', 'A1234'] })]),
+      makeReading([makeTire({ identifiers: ['B1234'] })]),
+    );
+
+    expect(findCodeSplit(decision)?.codes).toEqual(['A1234', 'B1234']);
+  });
+
   it('gives no code choice when a strong reader has two extra codes', () => {
     const decision = decideOnStrong(
       makeReading([makeTire({ identifiers: ['A1234', 'B1234'] })]),

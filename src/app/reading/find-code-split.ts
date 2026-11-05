@@ -38,7 +38,7 @@ function findOnlyItem({ items }: Reading): ReadingItem | null {
 }
 
 function listExtraCodes(item: ReadingItem, other: ReadingItem): string[] {
-  const extras = item.identifiers.filter((code) => !hasCode(other, code));
+  const extras = item.identifiers.filter((code) => normalizeCode(code) !== null && !hasCode(other, code));
   return extras.filter((code, index) => extras.findIndex((same) => normalizeCode(same) === normalizeCode(code)) === index);
 }
 
