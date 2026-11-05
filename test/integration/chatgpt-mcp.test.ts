@@ -155,6 +155,14 @@ describe('the MCP address', () => {
     expect(JSON.parse(result.content[0].text).items.map((item: { summary: string }) => item.summary)).toEqual(['Đổ dầu 500.000đ']);
   });
 
+  it('marks a tool result as an error when the tool reports ok false', async () => {
+    const response = await postMcp(callToolRequest('search_records', { ...NO_SEARCH_FILTERS, added_from: 'not-a-date' }), { token: DUY_ACCESS_TOKEN });
+
+    const result = response.json().result;
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0].text)).toEqual({ ok: false, error: 'Ngày không hợp lệ.' });
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
