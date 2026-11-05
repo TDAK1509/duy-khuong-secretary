@@ -44,19 +44,6 @@ export function renderSignInPage({ chatUrl, qrSvg, message }: ChatEntrance): str
   );
 }
 
-function renderDocument(content: string): string {
-  return [
-    '<!doctype html>',
-    '<html lang="vi">',
-    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${SIGN_IN_TITLE}</title><style>${PAGE_STYLE}</style></head>`,
-    `<body><main>${content}</main></body></html>`,
-  ].join('\n');
-}
-
-export function renderMessagePage(message: string): string {
-  return renderDocument(`<p>${message}</p>`);
-}
-
 function renderCodeForm(): string {
   return [
     '<form method="post" action="/oauth/authorize">',
@@ -64,5 +51,18 @@ function renderCodeForm(): string {
     '<input id="code" name="code" type="text" required autocomplete="one-time-code" autocapitalize="characters" spellcheck="false">',
     `<button type="submit">${CONTINUE_BUTTON_LABEL}</button>`,
     '</form>',
+  ].join('\n');
+}
+
+export function renderMessagePage(message: string): string {
+  return renderDocument(`<p>${message}</p>`);
+}
+
+function renderDocument(content: string): string {
+  return [
+    '<!doctype html>',
+    '<html lang="vi">',
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${SIGN_IN_TITLE}</title><style>${PAGE_STYLE}</style></head>`,
+    `<body><main>${content}</main></body></html>`,
   ].join('\n');
 }

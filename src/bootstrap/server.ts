@@ -52,6 +52,10 @@ function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencie
   server.get('/oauth/authorize', async (request, reply) =>
     sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
   );
+  registerSignInSubmitRoute(server, signIn);
+}
+
+function registerSignInSubmitRoute(server: FastifyInstance, signIn: SignInDependencies | null): void {
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: SIGN_IN_FORM_LIMIT_BYTES }, (_request, body, done) =>

@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { toAccentFreeForm } from '../reading/normalize.ts';
-import { hashSecretToken } from './secret-token.ts';
 import { CODE_ALPHABET } from '../workspaces/invite-code.ts';
+import { hashSecretToken } from './secret-token.ts';
 
 const GROUP_LENGTH = 4;
 const LOGIN_CODE_LENGTH = GROUP_LENGTH * 2;
