@@ -51,6 +51,15 @@ describe('assembling the service', () => {
     ]);
   });
 
+  it('answers 503 on the sign-in page while Zalo is off', async () => {
+    service = assembleService({ DATABASE_URL: testDatabaseUrl }, () => {});
+
+    const response = await service.server.inject({ method: 'GET', url: '/oauth/authorize' });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('Zalo is not configured.');
+  });
+
   it('names the two missing reader values when no reader value is set', async () => {
     const lines: string[] = [];
 
