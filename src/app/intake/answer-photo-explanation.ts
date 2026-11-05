@@ -13,7 +13,7 @@ import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
 import { setSubmissionStatus, storeBotReply, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
-export type Explanation = { id: string; text: string };
+type Explanation = { id: string; text: string };
 
 type Answered = { explanation: Explanation; asked: AskedPhoto };
 
@@ -38,23 +38,14 @@ async function saveAnswer(
   answer: AnswerPlan,
 ): Promise<void> {
   const reply = await rejectDuplicates(transaction, context.sender.workspaceId, answer.reply);
-  await saveReplyToExplanation(transaction, context, answered, reply);
+  await saveRecordsAndReply(transaction, context, answered, reply);
   const photoStatus = findPhotoStatus(answer, reply);
   if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
   await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);
   if (endsWait(answer)) await endWait(transaction, context, answered.asked, reply.replyText);
 }
 
-function findPhotoStatus({ photoAfter }: AnswerPlan, reply: ReplyPlan): SubmissionStatus | null {
-  if (photoAfter === 'unchanged') return null;
-  return photoAfter === 'same_as_reply' ? reply.status : photoAfter;
-}
-
-function endsWait({ photoAfter }: AnswerPlan): boolean {
-  return photoAfter === 'same_as_reply' || photoAfter === 'unresolved';
-}
-
-async function saveReplyToExplanation(
+async function saveRecordsAndReply(
   transaction: Transaction,
   { sender }: IntakeContext,
   { explanation, asked }: Answered,
@@ -64,6 +55,15 @@ async function saveReplyToExplanation(
   if (reply.saved) await insertRecords(transaction, photo, reply.saved.readBy, reply.saved.records);
   await storeBotReply(transaction, explanation.id, { text: reply.replyText, kind: reply.replyKind });
   await setSubmissionStatus(transaction, explanation.id, reply.status);
+}
+
+function findPhotoStatus({ photoAfter }: AnswerPlan, reply: ReplyPlan): SubmissionStatus | null {
+  if (photoAfter === 'unchanged') return null;
+  return photoAfter === 'same_as_reply' ? reply.status : photoAfter;
+}
+
+function endsWait({ photoAfter }: AnswerPlan): boolean {
+  return photoAfter === 'same_as_reply' || photoAfter === 'unresolved';
 }
 
 async function endWait(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, replyText: string): Promise<void> {
