@@ -22,7 +22,7 @@ const DUE_RECORDS_SQL = `WITH newest AS (
          record.id, record.vehicle_plate, record.maintenance_item, record.sender_name, record.occurred_on,
          message.created_at AS sent_at
        FROM records record JOIN messages message ON message.id = record.message_id
-       WHERE record.workspace_id = $4 AND record.category = 'maintenance'
+       WHERE record.workspace_id = $4 AND record.maintenance_item IS NOT NULL
        ORDER BY record.vehicle_plate, record.maintenance_item, message.created_at DESC, record.id DESC
      )
      SELECT record.id AS record_id, record.vehicle_plate AS plate, record.maintenance_item, record.sender_name AS sent_by,

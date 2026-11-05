@@ -63,6 +63,23 @@ describe('the daily maintenance reminder run', () => {
     expect(userTurn).toMatchObject({ text: expect.stringContaining('29C12345') });
   });
 
+  it('finds a due record by its maintenance item, whatever its category', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: lanUserId,
+      senderName: 'Lan',
+      category: 'sửa chữa xe',
+      maintenanceItem: 'dầu máy',
+      vehiclePlate: '29C12345',
+      createdAt: new Date('2026-07-23T10:00:00+07:00'),
+    });
+    await insertReminderTask({ maintenanceRules: [{ maintenance_item: 'dầu máy', age_days: 90 }] });
+
+    await harness.runTick();
+
+    expect(harness.chat.requests[0]?.turns[0]).toMatchObject({ text: expect.stringContaining('29C12345') });
+  });
+
   it('writes each due record in the shape of the plan', async () => {
     await insertOilChange('2026-10-01');
     await insertReminderTask({ instruction: 'Nhắc tôi.' });
