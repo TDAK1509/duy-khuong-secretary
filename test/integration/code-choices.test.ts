@@ -93,6 +93,23 @@ describe('choosing the right code when the readers disagree only on the code', (
     expect(harness.chat.requests).toEqual([]);
   });
 
+  it('asks about a code-split photo that waited its turn once the photo before it is answered', async () => {
+    await sendPhoto('zu-hung', 'zmsg-1', null, makeReadersAnswering(UNCLEAR));
+    await sendPhoto('zu-hung', 'zmsg-2', null, makeCodeSplitReaders());
+    await harness.sendAllQueuedTexts();
+    harness.channel.texts.length = 0;
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { readers: makeReadersAnswering(makeTireWithCode(FIRST_CODE)) });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-hung')).toEqual([
+      { text: `Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã ${FIRST_CODE}, 3.500.000đ.`, quoteMessageId: 'zmsg-1' },
+      { text: CODE_CHOICE_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: FIRST_CODE, quoteMessageId: undefined },
+      { text: SECOND_CODE, quoteMessageId: undefined },
+    ]);
+  });
+
   async function sendWaitingCodePhoto(): Promise<void> {
     await sendPhoto('zu-hung', 'zmsg-1', TIRE_EXPLANATION, makeCodeSplitReaders());
     await harness.sendAllQueuedTexts();
