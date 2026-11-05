@@ -65,6 +65,17 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(readers.cheap[0].requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n- ${PLATE_TEXT}\n- thay lốp`);
   });
 
+  it('does not use a text sent more than 10 minutes before', async () => {
+    await sendTextSentMinutesAgo('zu-hung', PLATE_TEXT, 11);
+    const readers = makeContextReaders();
+
+    await sendPhotoA('zu-hung', readers);
+    await harness.sendAllQueuedTexts();
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' });
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
