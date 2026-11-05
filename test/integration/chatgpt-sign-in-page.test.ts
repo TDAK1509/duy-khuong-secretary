@@ -54,6 +54,14 @@ describe('GET /oauth/authorize', () => {
     expect(response.body).toMatch(/<a [^>]*href="https:\/\/zalo\.me\/1234567890"[^>]*>Mở Zalo<\/a>/);
   });
 
+  it('does not cut a pasted code in the code field', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    const codeField = response.body.match(/<input[^>]*>/)?.[0];
+    expect(codeField).toContain('name="code"');
+    expect(codeField).not.toMatch(/maxlength/i);
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
