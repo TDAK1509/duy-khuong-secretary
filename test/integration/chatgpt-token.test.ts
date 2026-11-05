@@ -66,6 +66,15 @@ describe('POST /oauth/token', () => {
       expect(Object.values(connection ?? {})).not.toContain(accessToken);
       expect(Object.values(connection ?? {})).not.toContain(refreshToken);
     });
+
+    it('refuses a code that was already exchanged', async () => {
+      await requestToken(makeCodeRequest());
+
+      const response = await requestToken(makeCodeRequest());
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
