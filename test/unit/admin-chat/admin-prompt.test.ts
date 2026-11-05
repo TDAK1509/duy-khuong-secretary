@@ -17,6 +17,24 @@ describe('the scheduling section of the admin prompt', () => {
   });
 });
 
+describe('the rules about free record categories in the admin prompt', () => {
+  const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00') });
+
+  it.each([
+    '- Loại hồ sơ không có danh sách cố định. Khi chưa biết đúng tên loại đã lưu, tìm bằng text và để category là null.',
+    '- Dùng tiêu đề giấy tờ và các chi tiết đã lưu để trả lời. Không suy ra ngày hết hạn từ ngày gửi hoặc ngày trên giấy tờ.',
+  ])('holds the line %s', (line) => {
+    expect(prompt.split('\n')).toContain(line);
+  });
+
+  it('puts the category rules in the admin block, before the scheduling section', () => {
+    const rule = prompt.indexOf('- Loại hồ sơ không có danh sách cố định.');
+
+    expect(rule).toBeGreaterThan(prompt.indexOf('Người này là quản lý.'));
+    expect(rule).toBeLessThan(prompt.indexOf('Lịch tự động:'));
+  });
+});
+
 describe('the rules about who may change things in the admin prompt', () => {
   const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00') });
 
