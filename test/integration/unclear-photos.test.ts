@@ -56,6 +56,15 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(texts.map(({ text }) => text)).not.toContain(ASK_EXPLANATION_TEXT);
   });
 
+  it('puts the caption last in the second reading', async () => {
+    await sendTextSentMinutesAgo('zu-hung', PLATE_TEXT, 2);
+    const readers = makeContextReaders();
+
+    await sendPhotoA('zu-hung', readers, 'thay lốp');
+
+    expect(readers.cheap[0].requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n- ${PLATE_TEXT}\n- thay lốp`);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
