@@ -18,17 +18,7 @@ export const SEARCH_RECORDS_SPEC: ToolSpec = {
           "string",
           "null"
         ],
-        "enum": [
-          "fuel",
-          "toll",
-          "delivery_pickup",
-          "delivery_dropoff",
-          "maintenance",
-          "certificate",
-          "other",
-          null
-        ],
-        "description": "Loại mục cần tìm. null để tìm mọi loại."
+        "description": "Tên loại đã lưu, ví dụ \"đổ xăng dầu\", \"kiểm định xe\". Không có danh sách loại cố định. null để tìm mọi loại. Nếu chưa biết đúng tên loại, để null và dùng text."
       },
       "member": {
         "type": [
