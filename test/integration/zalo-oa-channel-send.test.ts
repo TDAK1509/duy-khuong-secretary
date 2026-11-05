@@ -59,6 +59,15 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(result).toEqual({ ok: false, reason: 'rejected' });
   });
 
+  it('logs the error code of a rejected send', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const server = await startStubServer(replyWithJson({ error: -213, message: 'User has not interacted' }));
+
+    await sendFromChannel(server.baseUrl, 'chào', 'a1');
+
+    expect(errors).toHaveBeenCalledWith('[zalo] send rejected: error -213');
+  });
+
   it('turns a refused connection into unavailable', async () => {
     const refusal = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed', { cause: refusal }));

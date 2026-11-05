@@ -365,7 +365,9 @@ async function readUploadResult(response: Response): Promise<UploadResult> {
 
 function toFailedSend(error: number): FailedSend {
   if (error === RATE_LIMIT_ERROR) return { ok: false, reason: 'rate_limited' };
-  return { ok: false, reason: error === WINDOW_CLOSED_ERROR ? 'window_closed' : 'rejected' };
+  if (error === WINDOW_CLOSED_ERROR) return { ok: false, reason: 'window_closed' };
+  console.error(`[zalo] send rejected: error ${error}`);
+  return { ok: false, reason: 'rejected' };
 }
 
 function wasNeverSent(error: unknown): boolean {
