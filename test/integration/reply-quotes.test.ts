@@ -121,6 +121,17 @@ describe('replies that quote the photo they answer', () => {
       expect(toHung.every((text) => text.quoteMessageId === undefined)).toBe(true);
     });
 
+    it('quotes nothing in the photo notice to an admin', async () => {
+      await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });
+
+      await harness.runInbound();
+      await harness.sendAllQueuedTexts();
+
+      const toDuy = harness.channel.texts.filter((text) => text.to.externalUserId === 'zu-duy');
+      expect(toDuy.length).toBeGreaterThan(0);
+      expect(toDuy.every((text) => text.quoteMessageId === undefined)).toBe(true);
+    });
+
     it('quotes the photo in the refusal for a photo that is too large, with no fallback photo', async () => {
       harness.channel.attachments.set(PHOTO_URL, { ok: false, reason: 'too_large' });
       await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });
