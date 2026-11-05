@@ -36,6 +36,14 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(request?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"Đã lưu: …","quote_message_id":"msg-1"}}');
   });
 
+  it('posts no quote field for a text without a quote', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0 }));
+
+    await sendFromChannel(server.baseUrl, 'Chào anh', 'a1');
+
+    expect(server.requests[0]?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"Chào anh"}}');
+  });
+
   it('turns a success answer into ok', async () => {
     const server = await startStubServer(replyWithJson({ error: 0 }));
 
