@@ -82,7 +82,9 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
   const settled = await transaction.query(
     `UPDATE outbound_messages
      SET status = $3, available_at = COALESCE($4, available_at), sent_at = COALESCE($5, sent_at),
-         last_error = $6, locked_until = NULL
+         last_error = $6, locked_until = NULL,
+         kind = CASE WHEN $7 THEN 'text' ELSE kind END,
+         photo_key = CASE WHEN $7 THEN NULL ELSE photo_key END
      WHERE id = $1 AND status = 'sending' AND attempts = $2
      RETURNING id`,
     [
@@ -92,6 +94,7 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
       settlement.availableAt ?? null,
       settlement.sentAt ?? null,
       settlement.lastError ?? null,
+      settlement.asPlainText ?? false,
     ],
   );
   return settled.length !== 0;

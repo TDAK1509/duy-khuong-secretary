@@ -80,7 +80,7 @@ function describeClaim(row: ClaimedRow): ClaimedMessage {
 }
 
 function describeContent(row: ClaimedRow): MessageContent {
-  if (row.kind === 'image' && row.photo_key !== null) return { kind: 'image', photoKey: row.photo_key };
+  if (row.kind === 'image' && row.photo_key !== null) return { kind: 'image', photoKey: row.photo_key, text: row.body ?? undefined };
   if (row.kind === 'text' && row.body !== null) return { kind: 'text', body: row.body };
   if (row.kind === 'template' && row.template_id !== null) {
     return { kind: 'template', templateId: row.template_id, params: row.template_params ?? {} };

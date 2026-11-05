@@ -14,7 +14,7 @@ export type RecordedTemplate = { to: ChannelRecipient; templateId: string; param
 
 export type RecordedSend =
   | { kind: 'text'; to: string; text: string }
-  | { kind: 'image'; to: string; photo: Photo }
+  | { kind: 'image'; to: string; photo: Photo; text?: string }
   | { kind: 'template'; to: string; templateId: string };
 
 export class FakeMessagingChannel implements MessagingChannel {
@@ -29,6 +29,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly attachments = new Map<string, DownloadResult>();
   nextTextResult: SendResult = { ok: true };
   whileSendingText: () => Promise<void> = async () => {};
+  nextImageResult: SendResult = { ok: true };
   nextTemplateResult: SendResult = { ok: true };
 
   verifyWebhook(): boolean {
@@ -46,9 +47,9 @@ export class FakeMessagingChannel implements MessagingChannel {
     return this.nextTextResult;
   }
 
-  async sendImage(to: ChannelRecipient, photo: Photo): Promise<SendResult> {
-    this.sends.push({ kind: 'image', to: to.externalUserId, photo });
-    return { ok: true };
+  async sendImage(to: ChannelRecipient, photo: Photo, _credential: string, text?: string): Promise<SendResult> {
+    this.sends.push({ kind: 'image', to: to.externalUserId, photo, ...(text !== undefined && { text }) });
+    return this.nextImageResult;
   }
 
   async sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult> {

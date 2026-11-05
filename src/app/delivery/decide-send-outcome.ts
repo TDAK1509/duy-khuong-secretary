@@ -7,6 +7,7 @@ export type Settlement = {
   availableAt?: Date;
   sentAt?: Date;
   lastError?: string;
+  asPlainText?: boolean;
   recheck?: { lastInboundAt: Date | null };
 };
 
@@ -14,6 +15,7 @@ export type SendOutcome = { settlement: Settlement; alert?: string };
 
 type FailedSend = Extract<SendResult, { ok: false }>;
 
+const IMAGE_REJECTED = 'image_rejected';
 const RATE_LIMIT_WAIT_MS = 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 10;
 const UNREACHABLE_FIRST_WAIT_MS = 30_000;
@@ -55,8 +57,16 @@ function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: 
     case 'window_closed':
       return mayBeHeld(message) ? { settlement: { status: 'held', lastError: result.reason } } : failSend(result);
     case 'rejected':
-      return failSend(result);
+      return hasImageText(message) ? requeueAsPlainText() : failSend(result);
   }
+}
+
+function hasImageText(message: ClaimedMessage): boolean {
+  return message.content.kind === 'image' && message.content.text !== undefined;
+}
+
+function requeueAsPlainText(): SendOutcome {
+  return { settlement: { status: 'queued', lastError: IMAGE_REJECTED, asPlainText: true } };
 }
 
 function failSend(result: FailedSend): SendOutcome {
