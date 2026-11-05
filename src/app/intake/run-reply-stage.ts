@@ -2,7 +2,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { hasDuplicateRecord } from '../records/has-duplicate-record.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import { enqueueReply } from './enqueue-reply.ts';
+import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
@@ -32,7 +32,7 @@ async function saveReply(
   if (plan.saved) await insertRecords(transaction, message, plan.saved.readBy, plan.saved.records);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
-  await enqueueReply(transaction, context, plan.replyText);
+  await enqueueReplyToMessage(transaction, context, messageId, plan.replyText);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan.replyText);
   if (plan.saved && plan.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, messageId);
 }
