@@ -16,7 +16,7 @@ export async function loadHistoryTurns(
 ): Promise<ChatTurn[]> {
   const { rows } = await database.query<HistoryRow>(
     `SELECT author, text, image_key FROM messages
-     WHERE workspace_id = $1 AND user_id = $2 AND created_at >= $3
+     WHERE workspace_id = $1 AND user_id = $2 AND created_at >= $3 AND source <> 'mcp'
        AND id <> $4 AND reply_to IS DISTINCT FROM $4
      ORDER BY created_at DESC, id DESC
      LIMIT $5`,
