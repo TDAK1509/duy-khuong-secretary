@@ -15,6 +15,9 @@ export const DUPLICATE_TEXT =
 export const ASK_EXPLANATION_TEXT =
   'Trợ lý chưa biết ảnh này dùng để làm gì nên chưa lưu. Bạn nhắn một tin giải thích, ví dụ: "Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ". Trợ lý sẽ lưu ảnh cùng lời giải thích.';
 
+export const ASK_ADMIN_EXPLANATION_TEXT =
+  'Ảnh này để lưu hay để hỏi? Nếu để lưu, bạn nhắn việc gì, cho xe nào, bao nhiêu tiền nếu có. Nếu để hỏi, bạn nhắn câu hỏi về ảnh này.';
+
 export const ASK_LATER_TEXT =
   'Trợ lý đã nhận ảnh này nhưng chưa lưu. Trợ lý sẽ hỏi về ảnh này sau khi bạn trả lời câu hỏi về ảnh trước.';
 
@@ -42,4 +45,8 @@ export function formatPhotoNotice({ senderName, workspaceName, sentAt, replyText
 
 export function wrapExplanation(explanation: string): string {
   return `Lời giải thích của người gửi cho ảnh này:\n${explanation}`;
+}
+
+export function chooseAskText(role: 'admin' | 'member'): string {
+  return role === 'admin' ? ASK_ADMIN_EXPLANATION_TEXT : ASK_EXPLANATION_TEXT;
 }

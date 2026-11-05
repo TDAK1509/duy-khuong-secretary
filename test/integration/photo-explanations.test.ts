@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ASK_ADMIN_EXPLANATION_TEXT,
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
@@ -213,15 +214,15 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
-  it('sends an unclear photo of an admin to the chat', async () => {
+  it('asks an admin whether an unclear photo with no caption is for saving or for asking', async () => {
     readersReturn(UNCLEAR);
-    harness.chat.replyWith('Ảnh này là lốp xe.');
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này là lốp xe.', quoteMessageId: undefined }]);
-    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+    expect(harness.chat.requests).toEqual([]);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
