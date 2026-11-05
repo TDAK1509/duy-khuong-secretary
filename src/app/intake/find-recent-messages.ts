@@ -9,7 +9,7 @@ const SELECT_RECENT_MESSAGES = `
   SELECT message.id, message.text, message.image_key, event.kind
   FROM messages message
   JOIN inbound_events event ON event.id = message.inbound_event_id
-  WHERE message.workspace_id = $1 AND message.user_id = $2 AND message.author = 'user'
+  WHERE message.workspace_id = $1 AND message.user_id = $2 AND message.author = 'user' AND message.source <> 'mcp'
     AND (message.created_at, message.id) < (SELECT created_at, id FROM current_message)
     AND (event.payload ->> 'sent_at')::timestamptz >= $4
     AND ((event.kind = 'text' AND message.submission_status IN ('accepted', 'unresolved'))
