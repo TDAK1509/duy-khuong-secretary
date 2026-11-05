@@ -77,6 +77,16 @@ describe('ending ChatGPT connections from Zalo', () => {
       JOIN memberships membership ON membership.id = connection.membership_id`)).toEqual([{ user_id: lanUserId }]);
   });
 
+  it('says so when the sender has no connection, in lower case', async () => {
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'ngắt chatgpt');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([['zu-duy', 'Bạn chưa kết nối ChatGPT.']]);
+  });
+
   async function insertConnectionOf(userId: string, { workspaceId, token }: { workspaceId: string; token: string }): Promise<void> {
     await insertConnection(database, {
       userId,
