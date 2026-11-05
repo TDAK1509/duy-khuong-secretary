@@ -156,6 +156,16 @@ describe('saving what the reader returns', () => {
     expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
   });
 
+  it('marks a text as unresolved when the reader times out', async () => {
+    harness.reader.failWith('timeout');
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+
+    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
+      { submission_status: 'unresolved' },
+    ]);
+  });
+
   it('marks an unresolved message as unresolved', async () => {
     harness.reader.failWith('timeout');
 
