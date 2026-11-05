@@ -13,3 +13,4 @@ export const CODE_FIELD_LABEL = 'Mã kết nối';
 export const CONTINUE_BUTTON_LABEL = 'Tiếp tục';
 export const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
 export const OPEN_ZALO_BUTTON_LABEL = 'Mở Zalo';
+export const INVALID_REQUEST_TEXT = 'Yêu cầu kết nối không hợp lệ.';

@@ -62,6 +62,14 @@ describe('GET /oauth/authorize', () => {
     expect(codeField).not.toMatch(/maxlength/i);
   });
 
+  it('refuses an unknown client without a redirect', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ client_id: 'https://evil.example/client.json' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('Yêu cầu kết nối không hợp lệ.');
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });

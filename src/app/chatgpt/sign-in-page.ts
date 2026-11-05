@@ -26,23 +26,34 @@ const PAGE_STYLE = `
 export type ChatEntrance = { chatUrl: string; qrSvg: string };
 
 export function renderSignInPage({ chatUrl, qrSvg }: ChatEntrance): string {
+  return renderDocument(
+    [
+      `<h1>${SIGN_IN_TITLE}</h1>`,
+      `<p>${SIGN_IN_INTRO}</p>`,
+      `<p>${SIGN_IN_STEP_OPEN_CHAT}</p>`,
+      `<a class="button" href="${escapeHtml(chatUrl)}">${OPEN_ZALO_BUTTON_LABEL}</a>`,
+      `<figure>${qrSvg}<figcaption>${QR_CAPTION}</figcaption></figure>`,
+      `<p>${SIGN_IN_STEP_SEND_COMMAND}</p>`,
+      `<p>${SIGN_IN_STEP_COPY_CODE}</p>`,
+      `<p>${SIGN_IN_STEP_CONTINUE}</p>`,
+      renderCodeForm(),
+      `<p>${SIGN_IN_WORKSPACE_NOTE}</p>`,
+      `<p>${SIGN_IN_PHISHING_NOTE}</p>`,
+    ].join('\n'),
+  );
+}
+
+function renderDocument(content: string): string {
   return [
     '<!doctype html>',
     '<html lang="vi">',
     `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${SIGN_IN_TITLE}</title><style>${PAGE_STYLE}</style></head>`,
-    `<body><main><h1>${SIGN_IN_TITLE}</h1>`,
-    `<p>${SIGN_IN_INTRO}</p>`,
-    `<p>${SIGN_IN_STEP_OPEN_CHAT}</p>`,
-    `<a class="button" href="${escapeHtml(chatUrl)}">${OPEN_ZALO_BUTTON_LABEL}</a>`,
-    `<figure>${qrSvg}<figcaption>${QR_CAPTION}</figcaption></figure>`,
-    `<p>${SIGN_IN_STEP_SEND_COMMAND}</p>`,
-    `<p>${SIGN_IN_STEP_COPY_CODE}</p>`,
-    `<p>${SIGN_IN_STEP_CONTINUE}</p>`,
-    renderCodeForm(),
-    `<p>${SIGN_IN_WORKSPACE_NOTE}</p>`,
-    `<p>${SIGN_IN_PHISHING_NOTE}</p>`,
-    '</main></body></html>',
+    `<body><main>${content}</main></body></html>`,
   ].join('\n');
+}
+
+export function renderMessagePage(message: string): string {
+  return renderDocument(`<p>${escapeHtml(message)}</p>`);
 }
 
 function renderCodeForm(): string {
