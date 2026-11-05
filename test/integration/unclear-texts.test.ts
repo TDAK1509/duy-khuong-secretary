@@ -9,6 +9,7 @@ import { createIntakeHarness, makeJpeg, NOW, type IntakeHarness } from './intake
 import { insertMember } from './workspace-rows.ts';
 
 const PHOTO_A_URL = 'https://z.test/a.jpg';
+const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const MINUTE_IN_MS = 60 * 1000;
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
 const FIRST_LINE = 'Lốp mới thay';
@@ -19,6 +20,7 @@ const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true 
 const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
+const UNCLEAR_QUESTION = { ...UNCLEAR, has_question: true };
 const FUEL_ITEM = makeReading([
   makeItem({ category: 'đổ xăng dầu', vehicle_plate: '29C-123.45', amount_vnd: 500000, occurred_on: null }),
 ]);
@@ -33,7 +35,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     harness = await createIntakeHarness();
     const { database, workspaceId } = harness;
     await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
-    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin', lastInboundAt: DUY_LAST_WROTE_AT });
     harness.channel.attachments.set(PHOTO_A_URL, { ok: true, bytes: makeJpeg(1000) });
   });
 
@@ -140,6 +142,18 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
     expect(harness.chat.requests).toEqual([]);
+  });
+
+  it('sends an admin question with no items to the chat without a second reading', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
+    const readers = makeReadersAnswering(() => UNCLEAR_QUESTION);
+    harness.chat.replyWith('Ảnh này là lốp xe.');
+
+    await harness.receiveText('zu-duy', 'Lốp này của xe nào?', { readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
   });
 
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {

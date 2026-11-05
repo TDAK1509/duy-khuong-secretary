@@ -54,6 +54,12 @@ export function planAnswer(decision: ReadingDecision, asked: AskedPhoto, role: I
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
 
+export function asksOnlyAQuestion({ agreed, outcome }: ReadingDecision): boolean {
+  if (agreed === null || outcome === 'unresolved') return false;
+  const reading = saveAgreedReading(...agreed);
+  return reading.has_question && reading.items.length === 0;
+}
+
 function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
   return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
 }
