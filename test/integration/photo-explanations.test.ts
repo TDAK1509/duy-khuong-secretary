@@ -616,6 +616,16 @@ describe('asking what an unclear photo is for', () => {
     expect(texts.filter((text) => text?.includes(TIRE_EXPLANATION))).toEqual([]);
   });
 
+  it('reads the second answer of an admin again with his earlier answer', async () => {
+    await askAgainAfterAnswer('zu-duy', FIRST_LINE, 2);
+
+    await harness.receiveText('zu-duy', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect(harness.chat.requests).toEqual([]);
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
