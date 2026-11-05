@@ -15,6 +15,10 @@ export function generateLoginCode(): string {
   return `${characters.slice(0, GROUP_LENGTH).join('')}-${characters.slice(GROUP_LENGTH).join('')}`;
 }
 
+export function normalizeLoginCode(text: string): string {
+  return text.trim().toUpperCase().replaceAll(/[ -]/g, '');
+}
+
 export function hashLoginCode(code: string): string {
-  return hashSecretToken(code.replaceAll('-', ''));
+  return hashSecretToken(normalizeLoginCode(code));
 }

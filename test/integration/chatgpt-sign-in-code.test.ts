@@ -1,0 +1,70 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { buildServer } from '../../src/bootstrap/server.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertLoginCode } from './chatgpt-login-code-rows.ts';
+import { CHATGPT_REDIRECT_URI, makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
+
+const NOW = new Date('2026-11-02T10:00:00+07:00');
+const ENCRYPTION_KEY = 'a'.repeat(64);
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+describe('POST /oauth/authorize', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let clock: FakeClock;
+  let duyUserId: string;
+  let browserCookie: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    clock = new FakeClock(NOW);
+    const tokens = makeTokenPair({ accessToken: 'a1' });
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens, storedAt: NOW }, ENCRYPTION_KEY);
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    browserCookie = await openSignIn();
+    await insertLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() + FIVE_MINUTES_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('sends the browser back to ChatGPT after a code typed with a space and in lower case', async () => {
+    const response = await submitCode('k7m2 qx4p');
+
+    expect(response.statusCode).toBe(303);
+    const location = new URL(String(response.headers['location']));
+    expect(`${location.origin}${location.pathname}`).toBe(CHATGPT_REDIRECT_URI);
+    expect(location.searchParams.get('code')).toBeTruthy();
+    expect(location.searchParams.get('state')).toBe('test1');
+    expect(location.searchParams.get('iss')).toBe(PUBLIC_BASE_URL);
+  });
+
+  async function openSignIn(): Promise<string> {
+    const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
+    return String(response.headers['set-cookie']).split(';')[0] ?? '';
+  }
+
+  function submitCode(code: string, cookie: string | null = browserCookie) {
+    return buildSignInServer().inject({
+      method: 'POST',
+      url: '/oauth/authorize',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...(cookie !== null && { cookie }) },
+      payload: new URLSearchParams({ code }).toString(),
+    });
+  }
+
+  function buildSignInServer() {
+    return buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+  }
+});

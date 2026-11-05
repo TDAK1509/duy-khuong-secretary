@@ -8,12 +8,13 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleSignInPage, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
+import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
 
 const WEBHOOK_BODY_LIMIT_BYTES = 1024 * 1024;
+const SIGN_IN_FORM_LIMIT_BYTES = 8 * 1024;
 
 export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
@@ -51,6 +52,15 @@ function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencie
   server.get('/oauth/authorize', async (request, reply) =>
     sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
   );
+  void server.register(async (scope) => {
+    scope.removeAllContentTypeParsers();
+    scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: SIGN_IN_FORM_LIMIT_BYTES }, (_request, body, done) =>
+      done(null, Object.fromEntries(new URLSearchParams(String(body)))),
+    );
+    scope.post('/oauth/authorize', async (request, reply) =>
+      sendResponse(reply, await handleSignInSubmission(signIn, { cookieHeader: request.headers.cookie, body: request.body })),
+    );
+  });
 }
 
 function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {
