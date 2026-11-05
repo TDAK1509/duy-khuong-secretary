@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -48,6 +49,17 @@ describe('POST /oauth/authorize', () => {
     expect(location.searchParams.get('code')).toBeTruthy();
     expect(location.searchParams.get('state')).toBe('test1');
     expect(location.searchParams.get('iss')).toBe(PUBLIC_BASE_URL);
+  });
+
+  it('binds the sign-in to the admin and uses up the login code', async () => {
+    const response = await submitCode('K7M2-QX4P');
+
+    const authorizationCode = new URL(String(response.headers['location'])).searchParams.get('code') ?? '';
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+    expect(await database.query('SELECT membership_id, authorization_code_hash FROM chatgpt_sign_ins')).toEqual([
+      { membership_id: membership?.id, authorization_code_hash: hashSecretToken(authorizationCode) },
+    ]);
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
   });
 
   async function openSignIn(): Promise<string> {
