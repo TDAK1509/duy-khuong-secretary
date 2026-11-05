@@ -17,6 +17,9 @@ const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true 
 const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
+const FUEL_ITEM = makeReading([
+  makeItem({ category: 'đổ xăng dầu', vehicle_plate: '29C-123.45', amount_vnd: 500000, occurred_on: null }),
+]);
 const TIRE_WITHOUT_PLATE = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: null, amount_vnd: 3500000, occurred_on: null }),
 ]);
@@ -77,6 +80,22 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
+
+  it('does not use the messages before a saved message', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    await sendTextSentMinutesAgo('zu-hung', 'Đổ dầu 500.000đ xe 29C-123.45', 2, makeReadersAnswering(() => FUEL_ITEM));
+    const readers = makeContextReaders();
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
+  async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
+    const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
+    await harness.runInbound({ readers });
+  }
 
   async function sendUnresolvedPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {
     for (const reader of harness.readers.cheap) reader.answerWith(TIRE_WITHOUT_PLATE);
