@@ -104,6 +104,19 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
   });
 
+  it('replaces the first code when the admin asks again', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await receiveText('zu-duy', 'đăng nhập');
+    await sendAllQueuedTexts();
+    const firstCode = channel.texts[1]?.text ?? '';
+
+    await receiveText('zu-duy', 'đăng nhập');
+
+    const rows = await database.query<{ code_hash: string }>('SELECT code_hash FROM chatgpt_login_codes');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.code_hash).not.toBe(hashLoginCode(firstCode));
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

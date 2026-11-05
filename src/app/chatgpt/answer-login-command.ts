@@ -26,7 +26,9 @@ type NewLoginCode = LoginCommand & { membershipId: string; code: string };
 
 async function storeLoginCode(transaction: Transaction, { userId, membershipId, code, now }: NewLoginCode): Promise<void> {
   await transaction.query(
-    'INSERT INTO chatgpt_login_codes (user_id, membership_id, code_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    `INSERT INTO chatgpt_login_codes (user_id, membership_id, code_hash, expires_at) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id) DO UPDATE
+     SET membership_id = EXCLUDED.membership_id, code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, created_at = now()`,
     [userId, membershipId, hashLoginCode(code), new Date(now.getTime() + SIGN_IN_VALID_FOR_MS)],
   );
 }
