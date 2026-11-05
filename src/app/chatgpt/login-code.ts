@@ -16,7 +16,7 @@ export function generateLoginCode(): string {
 }
 
 export function normalizeLoginCode(text: string): string {
-  return text.trim().toUpperCase().replaceAll(/[ -]/g, '');
+  return text.toUpperCase().replaceAll(/[\s\p{Dash}]/gu, '');
 }
 
 export function hashLoginCode(code: string): string {

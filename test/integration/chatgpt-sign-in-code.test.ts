@@ -62,6 +62,13 @@ describe('POST /oauth/authorize', () => {
     expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
   });
 
+  it('accepts a pasted code with a line break and spaces around it', async () => {
+    const response = await submitCode(' K7M2\nQX4P ');
+
+    expect(response.statusCode).toBe(303);
+    expect(String(response.headers['location'])).toContain(CHATGPT_REDIRECT_URI);
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';
