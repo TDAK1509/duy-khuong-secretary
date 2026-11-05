@@ -119,6 +119,18 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(harness.chat.requests).toHaveLength(chatRequestsBefore);
   });
 
+  it('sends an admin photo that needs an explanation and has a caption to the chat without a second reading', async () => {
+    await sendTextSentMinutesAgo('zu-duy', PLATE_TEXT, 2);
+    harness.chat.replyWith('Ảnh này là lốp xe.');
+    const readers = makeContextReaders();
+
+    await sendPhotoA('zu-duy', readers, 'Lốp này của xe nào?');
+    await harness.sendAllQueuedTexts();
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
