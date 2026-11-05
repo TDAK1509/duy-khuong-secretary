@@ -140,6 +140,20 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
   });
 
+  it('saves once when the photo is processed again after a crash', async () => {
+    await sendTextSentMinutesAgo('zu-hung', PLATE_TEXT, 2);
+    const readers = makeContextReaders();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_A_URL], externalEventId: 'zmsg-1' });
+    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound({ readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
@@ -201,4 +215,8 @@ function makeTireWithPlate(plate: string): unknown {
 function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, (request): ReaderResult => ({ ok: true, json: respond(request) }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+}
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
 }
