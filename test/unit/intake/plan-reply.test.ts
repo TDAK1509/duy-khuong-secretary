@@ -127,7 +127,7 @@ describe('planReply strong readers that differ only in the code', () => {
 });
 
 describe('planAnswer', () => {
-  const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
+  const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation', codeChoice: null };
   const question = makeReading([], { has_work_data: false, has_question: true });
   const tireAndQuestion = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45' })], {
     has_question: true,

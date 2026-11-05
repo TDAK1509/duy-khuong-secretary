@@ -37,6 +37,34 @@ describe('choosing the right code when the readers disagree only on the code', (
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('saves the record with the copied code, without a reading', async () => {
+    await sendWaitingCodePhoto();
+    const readers = makeCodeSplitReaders();
+
+    await harness.receiveText('zu-hung', SECOND_CODE, { readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedIdentifiers()).toEqual([{ event: 'zmsg-1', identifiers: [SECOND_CODE] }]);
+    expect(await readTextsTo('zu-hung')).toEqual([
+      { text: `Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã ${SECOND_CODE}, 3.500.000đ.`, quoteMessageId: 'zmsg-1' },
+    ]);
+    expect([...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests)).toEqual([]);
+  });
+
+  async function sendWaitingCodePhoto(): Promise<void> {
+    await sendPhoto('zu-hung', 'zmsg-1', TIRE_EXPLANATION, makeCodeSplitReaders());
+    await harness.sendAllQueuedTexts();
+    harness.channel.texts.length = 0;
+  }
+
+  async function readRecordedIdentifiers(): Promise<{ event: string; identifiers: string[] }[]> {
+    return harness.database.query<{ event: string; identifiers: string[] }>(
+      `SELECT event.external_event_id AS event, records.identifiers FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+  }
+
   async function sendPhoto(externalUserId: string, externalEventId: string, caption: string | null, readers: FakeReaderSlots): Promise<void> {
     await insertInboundEvent(harness.database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], externalEventId, caption });
     await harness.runInbound({ readers });

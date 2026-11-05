@@ -21,7 +21,7 @@ type Explanation = { id: string; text: string };
 
 type PhotoToRead = { asked: AskedPhoto; photo: Photo };
 
-type Answered = { explanation: Explanation; asked: AskedPhoto };
+export type Answered = { explanation: Explanation; asked: AskedPhoto };
 
 export async function answerPhotoExplanation(
   context: IntakeContext,
@@ -30,14 +30,18 @@ export async function answerPhotoExplanation(
 ): Promise<IntakeOutcome> {
   const photo = await requirePhotoStorage(context).get(asked.imageKey);
   const answer = await readAnswer(context, explanation, asked, photo);
-  await context.stages.runStage({
-    isDone: (transaction) => isReplied(transaction, explanation.id),
-    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, answer),
-  });
+  await runAnswerStage(context, { explanation, asked }, answer);
   if (await isQuestionPending(context.dependencies.database, explanation.id)) {
     await answerWithChat(context, { ...explanation, photo });
   }
   return { kind: 'replied' };
+}
+
+export async function runAnswerStage(context: IntakeContext, answered: Answered, answer: AnswerPlan): Promise<void> {
+  await context.stages.runStage({
+    isDone: (transaction) => isReplied(transaction, answered.explanation.id),
+    write: (transaction) => saveAnswer(transaction, context, answered, answer),
+  });
 }
 
 async function readAnswer(

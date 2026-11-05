@@ -50,6 +50,11 @@ export function planAnswer(decision: ReadingDecision, asked: AskedPhoto, role: I
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
 
+export function planCodeAnswer({ item }: CodeChoice, code: string): ReplyAnswer {
+  const records = buildNewRecords([{ ...item, identifiers: [...item.identifiers, code] }]);
+  return { kind: 'reply', reply: planRecordsReply(records, 'expensive_pair', false), photoAfter: 'same_as_reply' };
+}
+
 function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
   return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
 }
