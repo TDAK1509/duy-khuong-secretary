@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-export type McpServerDefinition = { name: string; version: string; instructions: string };
+export type McpTool = { name: string };
+
+export type McpServerDefinition = { name: string; version: string; instructions: string; tools: McpTool[] };
 
 export type McpExchange = { request: IncomingMessage; response: ServerResponse; body: unknown };
 

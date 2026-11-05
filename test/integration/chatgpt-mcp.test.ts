@@ -93,6 +93,18 @@ describe('the MCP address', () => {
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
   });
 
+  it('lists exactly the five read tools', async () => {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.tools.map((tool: { name: string }) => tool.name)).toEqual([
+      'search_records',
+      'count_records',
+      'list_members',
+      'maintenance_status',
+      'list_scheduled_tasks',
+    ]);
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
