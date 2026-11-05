@@ -1,6 +1,6 @@
 import { FakeReader } from './fake-reader.ts';
 
-export const NO_WORK_DATA = { has_work_data: false, has_question: false, items: [] };
+export const NO_WORK_DATA = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
 
 export type FakeReaderSlots = {
   cheap: readonly [FakeReader, FakeReader];

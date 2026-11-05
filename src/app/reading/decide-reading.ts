@@ -24,6 +24,10 @@ export async function decideReading(slots: ReaderSlots, request: ReaderRequest):
   return { outcome: 'unresolved', cheap, strong, agreed: null };
 }
 
+export function isReaderOutage(decision: ReadingDecision): boolean {
+  return decision.outcome === 'unresolved' && (decision.strong?.some((attempt) => !attempt.ok) ?? false);
+}
+
 async function readWithPair(pair: ReaderPair, request: ReaderRequest): Promise<AttemptPair> {
   const [first, second] = pair;
   return Promise.all([readOnce(first, request), readOnce(second, request)]);

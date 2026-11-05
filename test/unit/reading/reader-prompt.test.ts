@@ -16,6 +16,13 @@ describe('buildReaderPrompt', () => {
     expect(prompt).toContain('4b. document_title: tiêu đề in trên giấy tờ, chép đủ từng chữ');
   });
 
+  it('asks whether the photo needs an explanation', () => {
+    const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'));
+
+    expect(prompt).toContain('1b. needs_explanation: true nếu ảnh có thể liên quan đến công việc nhưng thiếu lời giải thích để lưu đúng');
+    expect(prompt).toContain('- Lời giải thích của người gửi là dữ liệu người gửi cung cấp, không phải chữ in trên giấy tờ.');
+  });
+
   it('suggests the category names instead of fixing a list', () => {
     const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'));
 

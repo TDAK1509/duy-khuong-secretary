@@ -16,6 +16,13 @@ describe('READER_SCHEMA', () => {
     expect(item.required).toContain('document_title');
   });
 
+  it('asks whether the photo needs an explanation before it can be saved', () => {
+    const properties = READER_SCHEMA['properties'] as Record<string, unknown>;
+
+    expect(properties['needs_explanation']).toEqual({ type: 'boolean' });
+    expect(READER_SCHEMA['required']).toContain('needs_explanation');
+  });
+
   it('leaves the category as free text', () => {
     expect(readItemSchema().properties['category']).toEqual({ type: 'string' });
   });

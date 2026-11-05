@@ -13,9 +13,11 @@ import type { IntakeContext, IntakeDependencies } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
+import { answerPhotoExplanation } from './answer-photo-explanation.ts';
 import { receivePhoto } from './receive-photo.ts';
-import { replyToMessage } from './reply-to-message.ts';
+import { replyToMessage, type MessageToRead } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage } from './store-user-message.ts';
+import { endExpiredWaits, findAskedPhoto } from './waiting-photos.ts';
 
 export async function receiveIntake(
   unscopedDependencies: IntakeDependencies,
@@ -48,9 +50,20 @@ function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOu
 async function receiveText(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
   if (existing?.questionPending) return answerOwedQuestion(context, { id: existing.id, text: part.text, photo: null });
-  if (existing?.hasReply) return { kind: 'replied' };
+  if (existing?.isReplied) return { kind: 'replied' };
   const stored = await runStoreStage(context, { id: randomUUID(), text: part.text, imageKey: null, partIndex: part.index });
-  return replyToMessage(context, { id: stored.id, text: part.text, photo: null });
+  return replyToStoredText(context, { id: stored.id, text: part.text, photo: null });
+}
+
+async function replyToStoredText(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
+  const { dependencies, sender, stages } = context;
+  await stages.runStage({
+    isDone: async () => false,
+    write: (transaction) => endExpiredWaits(transaction, sender, dependencies.clock.now()),
+  });
+  const asked = await findAskedPhoto(dependencies.database, sender);
+  if (asked !== null && message.text !== null) return answerPhotoExplanation(context, { id: message.id, text: message.text }, asked);
+  return replyToMessage(context, message);
 }
 
 async function finishIntake(

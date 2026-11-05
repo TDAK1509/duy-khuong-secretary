@@ -4,9 +4,11 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 
+export type SubmissionStatus = 'accepted' | 'unresolved' | 'duplicate' | 'needs_explanation' | 'asked_again';
+
 export type NewUserMessage = { id: string; text: string | null; imageKey: string | null; partIndex: number };
 
-export type StoredUserMessage = { id: string; imageKey: string | null; hasReply: boolean; questionPending: boolean };
+export type StoredUserMessage = { id: string; imageKey: string | null; isReplied: boolean; questionPending: boolean };
 
 export async function runStoreStage(context: IntakeContext, message: NewUserMessage): Promise<StoredUserMessage> {
   const { dependencies, stages, event, sender } = context;
@@ -49,17 +51,17 @@ export async function findUserMessage(
   const { rows } = await database.query<{
     id: string;
     image_key: string | null;
-    has_reply: boolean;
+    is_replied: boolean;
     question_pending: boolean;
   }>(
     `SELECT id, image_key, question_pending,
-       EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = messages.id) AS has_reply
+       (submission_status <> 'pending' OR EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = messages.id)) AS is_replied
      FROM messages WHERE inbound_event_id = $1 AND event_part = $2`,
     [event.id, partIndex],
   );
   const [row] = rows;
   return row
-    ? { id: row.id, imageKey: row.image_key, hasReply: row.has_reply, questionPending: row.question_pending }
+    ? { id: row.id, imageKey: row.image_key, isReplied: row.is_replied, questionPending: row.question_pending }
     : null;
 }
 
@@ -94,7 +96,7 @@ export async function storeReplyPhotos(
 export async function setSubmissionStatus(
   transaction: Transaction,
   userMessageId: string,
-  status: 'accepted' | 'unresolved' | 'duplicate',
+  status: SubmissionStatus,
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
 }

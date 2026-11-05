@@ -14,7 +14,7 @@ function makeFuelJson(overrides: Record<string, unknown> = {}): unknown {
     details: [],
     ...overrides,
   };
-  return { has_work_data: true, has_question: false, items: [item] };
+  return { has_work_data: true, needs_explanation: false, has_question: false, items: [item] };
 }
 
 describe('validateReading', () => {

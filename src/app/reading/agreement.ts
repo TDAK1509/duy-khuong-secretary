@@ -6,6 +6,7 @@ export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
   if (!first.ok || !second.ok) return false;
   return (
     first.reading.has_work_data === second.reading.has_work_data &&
+    first.reading.needs_explanation === second.reading.needs_explanation &&
     first.reading.has_question === second.reading.has_question &&
     haveAgreeingItems(first.reading, second.reading)
   );
