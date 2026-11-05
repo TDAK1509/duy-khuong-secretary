@@ -281,6 +281,15 @@ describe('the MCP address', () => {
     expect(await database.query(`SELECT status FROM scheduled_tasks WHERE id = '${taskId}'`)).toEqual([{ status: 'cancelled' }]);
   });
 
+  it('does not refuse a change after a search on the same connection', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await postMcp(callToolRequest('search_records', NO_SEARCH_FILTERS), { token: DUY_ACCESS_TOKEN });
+
+    await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(hungUserId) }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toEqual([]);
+  });
+
   it('refuses the 61st request of a connection in one minute', async () => {
     const server = buildTestServer();
     for (let count = 0; count < 60; count += 1) await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
