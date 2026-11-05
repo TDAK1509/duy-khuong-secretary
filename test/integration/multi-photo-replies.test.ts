@@ -72,6 +72,24 @@ describe('replies that come back as their photo', () => {
       { kind: 'image', to: 'zu-hung', photo: { bytes: makeJpeg(SECOND_PHOTO_SIZE), contentType: 'image/jpeg' }, text: SECOND_REPLY },
     ]);
   });
+
+  it('sends each reply of a two-photo event once when the event is processed again', async () => {
+    harness.channel.attachments.set(FIRST_PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
+    harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL, SECOND_PHOTO_URL] });
+    await harness.runInbound({
+      readers: readFuelItemByPhotoSize(),
+      beforeFinish: async () => {
+        throw new Error('the worker crashed before finishing');
+      },
+    });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends.map((sent) => sent.kind)).toEqual(['image', 'image']);
+  });
 });
 
 function readFuelItemByPhotoSize(): ReaderSlots {
