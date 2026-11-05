@@ -11,6 +11,7 @@ import {
   REMOVE_MEMBER_SPEC,
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
+import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { removeMember } from '../../src/app/workspaces/remove-member.ts';
@@ -351,6 +352,16 @@ describe('the MCP address', () => {
     expect(await database.query('SELECT record.workspace_id, record.user_id, message.source FROM records record JOIN messages message ON message.id = record.message_id')).toEqual([
       { workspace_id: workspaceId, user_id: duyUserId, source: 'mcp' },
     ]);
+  });
+
+  it('saves the same text twice as one record', async () => {
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    const response = await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.content[0].text).toBe(DUPLICATE_TEXT);
+    expect(await database.query('SELECT id FROM records')).toHaveLength(1);
   });
 
   it('creates a schedule with a creation key', async () => {
