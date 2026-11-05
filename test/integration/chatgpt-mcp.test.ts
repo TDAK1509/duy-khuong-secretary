@@ -304,6 +304,14 @@ describe('the MCP address', () => {
     expect(response.json().result.content.filter((item: { type: string }) => item.type === 'image')).toHaveLength(4);
   });
 
+  it('sends nothing to Zalo when it returns a photo', async () => {
+    const [recordId] = await insertPhotoRecords(1);
+
+    await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
+  });
+
   it('creates an invite in the workspace of the token', async () => {
     const response = await postMcp(callToolRequest('create_invite', { display_name: 'Nam', role: 'member' }), { token: DUY_ACCESS_TOKEN });
 
