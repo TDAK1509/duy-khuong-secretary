@@ -157,6 +157,18 @@ describe('POST /oauth/token', () => {
       ]);
     });
 
+    it('lets the new tokens last as long as the first ones, from the moment of the refresh', async () => {
+      clock.advanceBy(10 * ONE_DAY_MS);
+
+      await requestToken(makeRefreshRequest());
+
+      const [connection] = await database.query<{ access_expires_at: Date; refresh_expires_at: Date }>(
+        'SELECT access_expires_at, refresh_expires_at FROM chatgpt_connections',
+      );
+      expect(connection?.access_expires_at).toEqual(new Date(clock.now().getTime() + 60 * ONE_MINUTE_MS));
+      expect(connection?.refresh_expires_at).toEqual(new Date(clock.now().getTime() + 30 * ONE_DAY_MS));
+    });
+
     it('refuses a refresh token that was already used', async () => {
       await requestToken(makeRefreshRequest());
 
