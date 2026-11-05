@@ -178,6 +178,35 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('counts the 24 hours of a waiting photo from the moment it is asked', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(WEAK);
+    await harness.receiveText('zu-hung', 'cái này');
+    await harness.receiveText('zu-hung', 'không biết');
+    await backdatePhoto('zmsg-2', 30);
+    await backdateQuestion('zmsg-2', 2);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+
+    const recordedOn = await harness.database.query<{ event: string }>(
+      `SELECT event.external_event_id AS event FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+    expect(recordedOn).toEqual([{ event: 'zmsg-2' }]);
+  });
+
+  async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
+    await harness.database.query(
+      `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
+       WHERE id = (SELECT message.id FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+                   WHERE event.external_event_id = '${externalEventId}')`,
+    );
+  }
+
   async function backdateQuestion(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
