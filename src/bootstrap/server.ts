@@ -9,7 +9,7 @@ import {
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
-import { handleMcpRequest, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
+import { handleMcpRequest, handleProtectedResourceMetadata, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -64,6 +64,9 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
 
 function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
   server.post('/mcp', async (_request, reply) => sendResponse(reply, handleMcpRequest(chatgptMcp)));
+  server.get('/.well-known/oauth-protected-resource', async (_request, reply) =>
+    sendResponse(reply, handleProtectedResourceMetadata(chatgptMcp)),
+  );
 }
 
 function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {

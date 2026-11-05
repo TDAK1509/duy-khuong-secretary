@@ -42,6 +42,20 @@ describe('the MCP address', () => {
     expect(response.statusCode).toBe(503);
   });
 
+  it('publishes the protected resource metadata', async () => {
+    const server = buildServer(pool, null, { chatgptMcp: { publicBaseUrl: PUBLIC_BASE_URL } });
+
+    const response = await server.inject({ method: 'GET', url: '/.well-known/oauth-protected-resource' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      resource: 'https://generator-24.com/mcp',
+      authorization_servers: ['https://generator-24.com'],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Trợ lý',
+    });
+  });
+
   function postMcp(body: unknown, chatgptMcp: McpDependencies | null = { publicBaseUrl: PUBLIC_BASE_URL }) {
     const server = buildServer(pool, null, { chatgptMcp });
     return server.inject({ method: 'POST', url: '/mcp', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(body) });
