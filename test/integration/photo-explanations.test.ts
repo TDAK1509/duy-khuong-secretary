@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ASK_ADMIN_EXPLANATION_TEXT,
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
@@ -8,7 +9,9 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
+import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
 import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
@@ -24,11 +27,14 @@ const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const HOURS_IN_MS = 60 * 60 * 1000;
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const QUESTION_ABOUT_TIRE = 'Lốp này đã lắp cho xe nào chưa?';
+const QUESTION = makeReading([], { has_work_data: false, has_question: true });
 const WEAK = makeReading([], { has_work_data: false });
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
+const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -213,14 +219,168 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
-  it('sends an unclear photo of an admin to the chat', async () => {
+  it('asks an admin whether an unclear photo with no caption is for saving or for asking', async () => {
     readersReturn(UNCLEAR);
-    harness.chat.replyWith('Ảnh này là lốp xe.');
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
+    expect(harness.chat.requests).toEqual([]);
+  });
+
+  it('sends an unclear photo of an admin with a caption to the chat', async () => {
+    readersReturn(UNCLEAR);
+    harness.chat.replyWith('Ảnh này là lốp xe.');
+    await insertInboundEvent(harness.database, {
+      externalUserId: 'zu-duy',
+      kind: 'images',
+      imageUrls: [PHOTO_A_URL],
+      externalEventId: 'zmsg-1',
+      caption: 'Lốp này của xe nào?',
+    });
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
     expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này là lốp xe.', quoteMessageId: undefined }]);
+    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+  });
+
+  it('saves the record on the photo and quotes the photo when an admin explains it', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-duy', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
+    expect(harness.chat.requests).toEqual([]);
+  });
+
+  it('sends the photo and the question of an admin to the chat and accepts the photo', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+    await harness.sendAllQueuedTexts();
+
+    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
+    expect(lastTurn).toMatchObject({ role: 'user', text: QUESTION_ABOUT_TIRE });
+    expect(lastTurn?.role === 'user' ? lastTurn.image?.bytes : null).toEqual(makeJpeg(1000));
+    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Lốp này chưa lắp cho xe nào.');
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'accepted' });
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await readImageKeyOf(QUESTION_ABOUT_TIRE)).toBe(await readImageKeyOfEvent('zmsg-1'));
+  });
+
+  it('asks an admin about the next waiting photo after the chat answers a question', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-duy', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-duy')).toEqual([
+      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
+      { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: 'Lốp này chưa lắp cho xe nào.', quoteMessageId: undefined },
+    ]);
+  });
+
+  it('asks an admin once more after a first weak answer', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+
+    await harness.receiveText('zu-duy', 'cái này');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: ASK_AGAIN_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
+  });
+
+  it('answers an admin question once when it is processed again after the chat answer was published', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
+    await harness.runInbound({ beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.chat.requests).toHaveLength(1);
+    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
+  });
+
+  it('keeps the photo for the chat when an admin question is processed again before the chat answered', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    const inviteCall = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return callNumber === 2 ? replyWithToolCalls(inviteCall) : replyWithText('Lốp này chưa lắp cho xe nào.');
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
+    expect(retriedTurn?.role === 'user' ? retriedTurn.image?.bytes : null).toEqual(makeJpeg(1000));
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toContainEqual({
+      text: `Lốp này chưa lắp cho xe nào.\n\n${CHANGE_REFUSED_NOTICE}`,
+      quoteMessageId: undefined,
+    });
+    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text.includes('Lốp này chưa lắp'))).toHaveLength(1);
+  });
+
+  it('saves the records on the photo and gives the chat the saved records when an admin explains and asks', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_AND_QUESTION);
+    harness.chat.replyWith('Đã lưu lốp cho xe 29C-123.45.');
+
+    await harness.receiveText('zu-duy', `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?`);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    const sent = await readTextsTo('zu-duy');
+    expect(sent.at(-2)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(sent.at(-1)).toEqual({ text: 'Đã lưu lốp cho xe 29C-123.45.', quoteMessageId: undefined });
+    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
+    expect(lastTurn).toMatchObject({
+      role: 'user',
+      text: expect.stringContaining('Hệ thống đã lưu:\n- Bảo dưỡng: lốp, xe 29C12345 · 3.500.000đ'),
+    });
+    expect(harness.chat.requests).toHaveLength(1);
+  });
+
+  it('sends a photo of an admin that has no work data and no caption to the chat', async () => {
+    readersReturn(WEAK);
+    harness.chat.replyWith('Ảnh này không có thông tin công việc.');
+
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này không có thông tin công việc.', quoteMessageId: undefined }]);
     expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
   });
 
@@ -365,6 +525,29 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
   });
 
+  async function readRecordedEvents(): Promise<{ event: string }[]> {
+    return harness.database.query<{ event: string }>(
+      `SELECT event.external_event_id AS event FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+  }
+
+  async function readImageKeyOf(text: string): Promise<string | null> {
+    const [row] = await harness.database.query<{ imageKey: string | null }>(
+      `SELECT image_key AS "imageKey" FROM messages WHERE author = 'user' AND text = '${text}'`,
+    );
+    return row?.imageKey ?? null;
+  }
+
+  async function readImageKeyOfEvent(externalEventId: string): Promise<string | null> {
+    const [row] = await harness.database.query<{ imageKey: string | null }>(
+      `SELECT message.image_key AS "imageKey" FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+       WHERE event.external_event_id = '${externalEventId}'`,
+    );
+    return row?.imageKey ?? null;
+  }
+
   function countReaderRequests(): number {
     return [...harness.readers.cheap, ...harness.readers.strong].reduce((total, reader) => total + reader.requests.length, 0);
   }
@@ -415,6 +598,10 @@ describe('asking what an unclear photo is for', () => {
     return photo;
   }
 });
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
+}
 
 function makeTimingOutReaders(): ReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));

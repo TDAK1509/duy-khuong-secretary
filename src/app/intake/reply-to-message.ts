@@ -23,7 +23,7 @@ export function readMessage(context: IntakeContext, message: Pick<MessageToRead,
 
 export async function replyToMessage(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
   const plan = planReply(await readMessage(context, message), message.photo !== null);
-  if (context.sender.role === 'admin' && isWithoutWorkData(plan)) {
+  if (context.sender.role === 'admin' && isForChat(plan, message.text)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
   }
@@ -32,6 +32,6 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
   return { kind: 'replied' };
 }
 
-function isWithoutWorkData({ situation }: ReplyPlan): boolean {
-  return situation === 'no_work_data' || situation === 'needs_explanation';
+function isForChat({ situation }: ReplyPlan, text: string | null): boolean {
+  return situation === 'no_work_data' || (situation === 'needs_explanation' && text !== null);
 }
