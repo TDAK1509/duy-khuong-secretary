@@ -73,7 +73,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, text, sender.membershipId);
+  await enqueueReply(transaction, context, text, { adminMembershipId: sender.membershipId });
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
 }
 
