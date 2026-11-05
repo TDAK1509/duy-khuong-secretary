@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const itemSchema = z.strictObject({
+export const itemSchema = z.strictObject({
   category: z.string(),
   document_title: z.string().nullable(),
   maintenance_item: z.string().nullable(),

@@ -2,6 +2,7 @@ import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { readSentAt } from '../processing/claimed-event.ts';
+import type { CodeChoice } from '../reading/code-choice.ts';
 import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { findEarlierAnswers } from './find-earlier-answers.ts';
@@ -9,19 +10,20 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
+import { enqueueCandidates } from './photo-question.ts';
 import { planAnswer, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied } from './run-reply-stage.ts';
 import { saveReplyOnPhoto } from './save-on-photo.ts';
-import { isQuestionPending, markQuestionAboutPhoto, setSubmissionStatus, type SubmissionStatus } from './store-user-message.ts';
+import { isQuestionPending, markQuestionAboutPhoto, setSubmissionStatus, storeCodeChoice, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
 type Explanation = { id: string; text: string };
 
 type PhotoToRead = { asked: AskedPhoto; photo: Photo };
 
-type Answered = { explanation: Explanation; asked: AskedPhoto };
+export type Answered = { explanation: Explanation; asked: AskedPhoto };
 
 export async function answerPhotoExplanation(
   context: IntakeContext,
@@ -30,14 +32,18 @@ export async function answerPhotoExplanation(
 ): Promise<IntakeOutcome> {
   const photo = await requirePhotoStorage(context).get(asked.imageKey);
   const answer = await readAnswer(context, explanation, asked, photo);
-  await context.stages.runStage({
-    isDone: (transaction) => isReplied(transaction, explanation.id),
-    write: (transaction) => saveAnswer(transaction, context, { explanation, asked }, answer),
-  });
+  await runAnswerStage(context, { explanation, asked }, answer);
   if (await isQuestionPending(context.dependencies.database, explanation.id)) {
     await answerWithChat(context, { ...explanation, photo });
   }
   return { kind: 'replied' };
+}
+
+export async function runAnswerStage(context: IntakeContext, answered: Answered, answer: AnswerPlan): Promise<void> {
+  await context.stages.runStage({
+    isDone: (transaction) => isReplied(transaction, answered.explanation.id),
+    write: (transaction) => saveAnswer(transaction, context, answered, answer),
+  });
 }
 
 async function readAnswer(
@@ -91,7 +97,13 @@ async function saveAnswer(
   const photoStatus = findPhotoStatus(answer, reply);
   if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
   await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);
+  if (reply.codeChoice !== null) await storeCodeQuestion(transaction, context, answered.asked, reply.codeChoice);
   if (endsWait(answer)) await endWait(transaction, context, answered.asked, reply.replyText);
+}
+
+async function storeCodeQuestion(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, codeChoice: CodeChoice): Promise<void> {
+  await storeCodeChoice(transaction, asked.id, codeChoice);
+  await enqueueCandidates(transaction, context, codeChoice.codes);
 }
 
 async function saveQuestion(transaction: Transaction, context: IntakeContext, { explanation, asked }: Answered): Promise<void> {

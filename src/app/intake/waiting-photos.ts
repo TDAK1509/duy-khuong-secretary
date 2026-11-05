@@ -1,22 +1,25 @@
+import { readStoredCodeChoice, type CodeChoice } from '../reading/code-choice.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
 const QUESTION_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
-export type AskedPhoto = { id: string; imageKey: string; status: 'needs_explanation' | 'asked_again' };
+export type AskedPhoto = { id: string; imageKey: string; status: 'needs_explanation' | 'asked_again'; codeChoice: CodeChoice | null };
 
 export function findAskedPhoto(database: Database, sender: IntakeSender): Promise<AskedPhoto | null> {
   return runInTransaction(database, (transaction) => findOldestWaitingPhoto(transaction, sender));
 }
 
 export async function findOldestWaitingPhoto(transaction: Transaction, sender: IntakeSender): Promise<AskedPhoto | null> {
-  const [row] = await transaction.query<{ id: string; image_key: string; submission_status: AskedPhoto['status'] }>(
-    `SELECT id, image_key, submission_status FROM messages
+  const [row] = await transaction.query<{ id: string; image_key: string; submission_status: AskedPhoto['status']; code_choice: unknown }>(
+    `SELECT id, image_key, submission_status, code_choice FROM messages
      WHERE workspace_id = $1 AND user_id = $2 AND submission_status IN ('needs_explanation', 'asked_again')
      ORDER BY created_at, id LIMIT 1`,
     [sender.workspaceId, sender.userId],
   );
-  return row ? { id: row.id, imageKey: row.image_key, status: row.submission_status } : null;
+  return row
+    ? { id: row.id, imageKey: row.image_key, status: row.submission_status, codeChoice: readStoredCodeChoice(row.code_choice) }
+    : null;
 }
 
 export async function hasOtherWaitingPhoto(transaction: Transaction, sender: IntakeSender, photoId: string): Promise<boolean> {

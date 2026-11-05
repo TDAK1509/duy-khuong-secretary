@@ -13,11 +13,13 @@ import type { IntakeContext, IntakeDependencies } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
+import { answerPhotoCode } from './answer-photo-code.ts';
 import { answerPhotoExplanation } from './answer-photo-explanation.ts';
+import { matchCodeAnswer } from './match-code-answer.ts';
 import { loadKeptPhoto, receivePhoto } from './receive-photo.ts';
 import { replyToMessage, type MessageToRead } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage } from './store-user-message.ts';
-import { endExpiredWaits, findAskedPhoto } from './waiting-photos.ts';
+import { endExpiredWaits, findAskedPhoto, type AskedPhoto } from './waiting-photos.ts';
 
 export async function receiveIntake(
   unscopedDependencies: IntakeDependencies,
@@ -64,8 +66,17 @@ async function replyToStoredText(context: IntakeContext, message: MessageToRead)
     write: (transaction) => endExpiredWaits(transaction, sender, dependencies.clock.now()),
   });
   const asked = await findAskedPhoto(dependencies.database, sender);
-  if (asked !== null && message.text !== null) return answerPhotoExplanation(context, { id: message.id, text: message.text }, asked);
+  if (asked !== null && message.text !== null) return answerAskedPhoto(context, { ...message, text: message.text }, asked);
   return replyToMessage(context, message);
+}
+
+function answerAskedPhoto(context: IntakeContext, message: MessageToRead & { text: string }, asked: AskedPhoto): Promise<IntakeOutcome> {
+  const { codeChoice } = asked;
+  const explanation = { id: message.id, text: message.text };
+  if (codeChoice === null) return answerPhotoExplanation(context, explanation, asked);
+  const code = matchCodeAnswer(message.text, codeChoice.codes);
+  if (code === null) return replyToMessage(context, message);
+  return answerPhotoCode(context, explanation, asked, { codeChoice, code });
 }
 
 async function finishIntake(

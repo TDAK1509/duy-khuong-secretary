@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
+import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, CODE_CHOICE_TEXT, UNRESOLVED_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import type { ReadingDecision } from '../../../src/app/reading/decide-reading.ts';
@@ -98,8 +98,36 @@ describe('planReply no work data', () => {
   });
 });
 
+describe('planReply strong readers that differ only in the code', () => {
+  const tireWithCode = (code: string) =>
+    makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', identifiers: [code] })]);
+  const codeSplit: ReadingDecision = {
+    outcome: 'unresolved',
+    cheap: [succeed(tireWithCode('1111')), succeed(tireWithCode('2222'))],
+    strong: [succeed(tireWithCode('8936012345678')), succeed(tireWithCode('8936012845678'))],
+    agreed: null,
+  };
+
+  it('asks which code is right and saves nothing for a photo', () => {
+    const plan = planReply(codeSplit, true);
+
+    expect(plan).toMatchObject({
+      saved: null,
+      status: 'needs_explanation',
+      replyText: CODE_CHOICE_TEXT,
+      codeChoice: { item: { maintenance_item: 'lốp', identifiers: [] }, codes: ['8936012345678', '8936012845678'] },
+    });
+  });
+
+  it('keeps the unresolved reply for a message without a photo', () => {
+    const plan = planReply(codeSplit, false);
+
+    expect(plan).toMatchObject({ saved: null, replyText: UNRESOLVED_TEXT });
+  });
+});
+
 describe('planAnswer', () => {
-  const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
+  const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation', codeChoice: null };
   const question = makeReading([], { has_work_data: false, has_question: true });
   const tireAndQuestion = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45' })], {
     has_question: true,
