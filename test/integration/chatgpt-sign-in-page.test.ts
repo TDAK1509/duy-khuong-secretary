@@ -192,7 +192,7 @@ describe('GET /oauth/authorize', () => {
   }
 
   function requestSignInPage(query: Record<string, string>) {
-    const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+    const server = buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
   }
 });

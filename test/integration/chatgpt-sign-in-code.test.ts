@@ -153,6 +153,6 @@ describe('POST /oauth/authorize', () => {
   }
 
   function buildSignInServer() {
-    return buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+    return buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
   }
 });

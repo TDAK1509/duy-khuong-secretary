@@ -4,6 +4,8 @@ export type HttpResponse = {
   body: string;
 };
 
+export const ZALO_OFF_TEXT = 'Zalo is not configured.';
+
 export function respondWithJson(status: number, body: unknown): HttpResponse {
   return {
     status,

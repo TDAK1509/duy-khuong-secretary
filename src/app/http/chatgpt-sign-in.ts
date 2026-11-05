@@ -8,10 +8,9 @@ import { BUSY_TEXT, EXPIRED_TEXT, INVALID_REQUEST_TEXT, QR_CAPTION, TOO_MANY_ATT
 import { renderMessagePage, renderSignInPage } from '../chatgpt/sign-in-page.ts';
 import { startSignIn } from '../chatgpt/start-sign-in.ts';
 import type { Database } from '../db/transaction.ts';
-import { respondWithHtml, respondWithText, type HttpResponse } from './http-response.ts';
+import { respondWithHtml, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 
 const BROWSER_KEY_COOKIE = '__Host-chatgpt-sign-in';
-const ZALO_OFF_TEXT = 'Zalo is not configured.';
 const SIGN_IN_HEADERS = {
   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'",
   'cache-control': 'no-store',
