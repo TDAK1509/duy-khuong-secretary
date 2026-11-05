@@ -19,8 +19,10 @@ function splitCodes(first: Reading, second: Reading): CodeSplit | null {
   const firstShared = keepSharedCodes(first, secondItem);
   const secondShared = keepSharedCodes(second, firstItem);
   if (!areAgreeing({ ok: true, reading: firstShared }, { ok: true, reading: secondShared })) return null;
-  const codes = [findExtraCode(firstItem, secondItem), findExtraCode(secondItem, firstItem)].filter((code) => code !== undefined);
-  return { reading: saveAgreedReading(firstShared, secondShared), codes };
+  const firstExtras = listExtraCodes(firstItem, secondItem);
+  const secondExtras = listExtraCodes(secondItem, firstItem);
+  if (firstExtras.length > 1 || secondExtras.length > 1) return null;
+  return { reading: saveAgreedReading(firstShared, secondShared), codes: [...firstExtras, ...secondExtras] };
 }
 
 function findOnlyItem({ items }: Reading): ReadingItem | null {
@@ -28,8 +30,9 @@ function findOnlyItem({ items }: Reading): ReadingItem | null {
   return item !== undefined && items.length === 1 ? item : null;
 }
 
-function findExtraCode(item: ReadingItem, other: ReadingItem): string | undefined {
-  return item.identifiers.find((code) => !hasCode(other, code));
+function listExtraCodes(item: ReadingItem, other: ReadingItem): string[] {
+  const extras = item.identifiers.filter((code) => !hasCode(other, code));
+  return extras.filter((code, index) => extras.findIndex((same) => normalizeCode(same) === normalizeCode(code)) === index);
 }
 
 function keepSharedCodes(reading: Reading, other: ReadingItem): Reading {

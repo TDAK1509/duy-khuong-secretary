@@ -60,6 +60,15 @@ describe('findCodeSplit', () => {
 
     expect(findCodeSplit(decision)).toBeNull();
   });
+
+  it('gives no code choice when a strong reader has two extra codes', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['A1234', 'B1234'] })]),
+      makeReading([makeTire({ identifiers: ['C1234'] })]),
+    );
+
+    expect(findCodeSplit(decision)).toBeNull();
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {
