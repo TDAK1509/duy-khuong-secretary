@@ -86,6 +86,15 @@ describe('POST /oauth/authorize', () => {
     expect(await database.query('SELECT failed_attempts FROM chatgpt_sign_ins')).toEqual([{ failed_attempts: 0 }]);
   });
 
+  it('refuses a correct code after five wrong ones', async () => {
+    await database.query('UPDATE chatgpt_sign_ins SET failed_attempts = 5');
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.body).toContain('Bạn đã nhập sai quá nhiều lần. Hãy bắt đầu lại từ ChatGPT.');
+    expect(await database.query('SELECT authorization_code_hash FROM chatgpt_sign_ins')).toEqual([{ authorization_code_hash: null }]);
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';

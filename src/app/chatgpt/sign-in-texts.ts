@@ -15,3 +15,4 @@ export const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở kh
 export const OPEN_ZALO_BUTTON_LABEL = 'Mở Zalo';
 export const INVALID_REQUEST_TEXT = 'Yêu cầu kết nối không hợp lệ.';
 export const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập" cho Trợ lý để lấy mã mới.';
+export const TOO_MANY_ATTEMPTS_TEXT = 'Bạn đã nhập sai quá nhiều lần. Hãy bắt đầu lại từ ChatGPT.';

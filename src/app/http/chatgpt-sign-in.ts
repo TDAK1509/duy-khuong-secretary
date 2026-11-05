@@ -4,7 +4,7 @@ import type { QrCodeService } from '../../services/qr-code/qr-code.ts';
 import { findConnectedAccountId } from '../channel-auth/find-connected-account.ts';
 import { confirmSignIn, type SignInOutcome } from '../chatgpt/confirm-sign-in.ts';
 import { readSignInRequest } from '../chatgpt/read-sign-in-request.ts';
-import { INVALID_REQUEST_TEXT, QR_CAPTION, WRONG_CODE_TEXT } from '../chatgpt/sign-in-texts.ts';
+import { INVALID_REQUEST_TEXT, QR_CAPTION, TOO_MANY_ATTEMPTS_TEXT, WRONG_CODE_TEXT } from '../chatgpt/sign-in-texts.ts';
 import { renderMessagePage, renderSignInPage } from '../chatgpt/sign-in-page.ts';
 import { startSignIn } from '../chatgpt/start-sign-in.ts';
 import type { Database } from '../db/transaction.ts';
@@ -47,6 +47,7 @@ export async function handleSignInSubmission(
 
 async function respondToOutcome(dependencies: SignInDependencies, outcome: SignInOutcome): Promise<HttpResponse> {
   if (outcome.kind === 'wrong_code') return respondWithHtml(await renderForm(dependencies, WRONG_CODE_TEXT));
+  if (outcome.kind === 'too_many_attempts') return respondWithHtml(await renderForm(dependencies, TOO_MANY_ATTEMPTS_TEXT));
   const redirect = new URL(outcome.redirectUri);
   redirect.searchParams.set('code', outcome.authorizationCode);
   if (outcome.state !== null) redirect.searchParams.set('state', outcome.state);
