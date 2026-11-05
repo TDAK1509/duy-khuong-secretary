@@ -128,8 +128,9 @@ export class ZaloOaChannel implements MessagingChannel {
     return event === null ? IGNORED_EVENT : toInboundEvent(event);
   }
 
-  async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
-    return guardSend(() => this.postMessage(to, { text }, credential));
+  async sendText(to: ChannelRecipient, text: string, credential: string, quoteMessageId?: string): Promise<SendResult> {
+    const message = { text, ...(quoteMessageId !== undefined && { quote_message_id: quoteMessageId }) };
+    return guardSend(() => this.postMessage(to, message, credential));
   }
 
   async sendImage(to: ChannelRecipient, photo: Photo, credential: string, text?: string): Promise<SendResult> {
