@@ -191,6 +191,20 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: DUPLICATE_TEXT, quoteMessageId: 'zmsg-1' });
   });
 
+  it('saves once when the text is processed again after a crash', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    const readers = makeContextReaders();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: PLATE_AND_AMOUNT });
+    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound({ readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
@@ -252,4 +266,8 @@ function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): Fak
 function makeTimingOutReaders(): FakeReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, (): ReaderResult => ({ ok: false, reason: 'timeout' }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+}
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
 }
