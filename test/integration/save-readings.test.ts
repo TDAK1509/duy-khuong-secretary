@@ -104,6 +104,28 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
+  it('saves a tire photo with its barcode and sends nothing else', async () => {
+    harness.reader.answerWith(makeReading([makeTireItem()]));
+    await insertInboundEvent(database, {
+      externalUserId: 'zu-hung',
+      kind: 'images',
+      imageUrls: [PHOTO_URL],
+      caption: 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ',
+      externalEventId: 'zmsg-1',
+    });
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.texts.map(({ to, text, quoteMessageId }) => ({ to: to.externalUserId, text, quoteMessageId }))).toEqual([
+      {
+        to: 'zu-hung',
+        text: 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã 8936012845678, 3.500.000đ.',
+        quoteMessageId: 'zmsg-1',
+      },
+    ]);
+  });
+
   it('replies to one saved item with what was saved', async () => {
     harness.reader.answerWith(makeReading([makeFuelItem()]));
 
