@@ -23,4 +23,10 @@ describe('summarizeRecord', () => {
 
     expect(summarizeRecord(fields)).toBe('Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới, xe 29C12345');
   });
+
+  it('starts with the category when there is no title', () => {
+    const fields = makeFields({ category: 'đổ xăng dầu', documentNumber: '0001234' });
+
+    expect(summarizeRecord(fields)).toBe('Đổ xăng dầu, số 0001234');
+  });
 });
