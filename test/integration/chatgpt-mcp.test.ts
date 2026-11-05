@@ -24,6 +24,7 @@ import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
+import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -270,6 +271,14 @@ describe('the MCP address', () => {
       'SELECT created_by, status, creation_key FROM scheduled_tasks',
     );
     expect(tasks).toEqual([{ created_by: duyUserId, status: 'active', creation_key: expect.any(String) }]);
+  });
+
+  it('cancels a schedule', async () => {
+    const taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', nextRunAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+
+    await postMcp(callToolRequest('cancel_scheduled_task', { task_id: taskId }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query(`SELECT status FROM scheduled_tasks WHERE id = '${taskId}'`)).toEqual([{ status: 'cancelled' }]);
   });
 
   it('refuses the 61st request of a connection in one minute', async () => {
