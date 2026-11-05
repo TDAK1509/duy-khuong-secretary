@@ -15,6 +15,7 @@ import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
+import { CreatedInvites } from './created-invites.ts';
 import { CreatedTasks } from './created-tasks.ts';
 import { AdminTextGuard } from './tools/admin-text-guard.ts';
 import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
@@ -30,17 +31,23 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[]; changeRefused: boolean };
+type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[]; inviteCodes: string[]; changeRefused: boolean };
 
 async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
   const request = await buildChatRequest(context, message, profile);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const guard = new AdminTextGuard(message.photo !== null);
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), guard };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
-  const { attachments, created } = dependencies;
-  return { text: outcome.text, photos: attachments.list(), createdTaskIds: created.listTaskIds(), changeRefused: guard.hasRefused() };
+  const { attachments, created, invites } = dependencies;
+  return {
+    text: outcome.text,
+    photos: attachments.list(),
+    createdTaskIds: created.listTaskIds(),
+    inviteCodes: invites.listCodes(),
+    changeRefused: guard.hasRefused(),
+  };
 }
 
 async function buildChatRequest(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<ChatRequest> {
@@ -74,6 +81,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueReply(transaction, context, text, { adminMembershipId: sender.membershipId });
+  for (const code of answer.inviteCodes) await enqueueReply(transaction, context, code, { adminMembershipId: sender.membershipId });
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
 }
 

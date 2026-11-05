@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -41,7 +42,7 @@ describe('the data tools of an admin', () => {
 
   async function runSearch(filters: SearchFilters = {}, scope: AccessScope = duy): Promise<SearchResult> {
     const args = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null, ...filters };
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(args) });
     return JSON.parse(output) as SearchResult;
   }
 
@@ -189,7 +190,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an invalid date', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: '2026-02-30', added_to: null, cursor: null }),
@@ -263,7 +264,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses an unreadable cursor', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: 'xyz' }),
@@ -279,7 +280,7 @@ describe('the data tools of an admin', () => {
     const first = await runSearch();
     await database.query(`DELETE FROM memberships WHERE display_name = 'Duy'`);
 
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: first.next_cursor }),
@@ -312,12 +313,12 @@ describe('the data tools of an admin', () => {
     };
 
     async function runCount(scope: AccessScope = duy, range = { added_from: '2026-10-31', added_to: '2026-10-31' }): Promise<CountResult> {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'count_records', argumentsJson: JSON.stringify(range) });
       return JSON.parse(output) as CountResult;
     }
 
     it('refuses a range whose end is not a real date', async () => {
-      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+      const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
         id: 'call_1',
         name: 'count_records',
         argumentsJson: JSON.stringify({ added_from: '2026-10-31', added_to: '2026-02-30' }),
@@ -392,7 +393,7 @@ describe('the data tools of an admin', () => {
     }
 
     async function runListMembersOutput(scope: AccessScope = duy): Promise<string> {
-      return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
+      return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
     }
 
     it('lists only the caller\'s workspace', async () => {
@@ -431,7 +432,7 @@ describe('the data tools of an admin', () => {
   it('refuses a tool called with a member\'s scope', async () => {
     const memberScope: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
 
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, memberScope, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, memberScope, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -441,7 +442,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('names the argument that has the wrong type', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: 5, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -451,7 +452,7 @@ describe('the data tools of an admin', () => {
   });
 
   it('refuses a category that is not text', async () => {
-    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
       argumentsJson: JSON.stringify({ text: null, category: 5, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
@@ -461,7 +462,7 @@ describe('the data tools of an admin', () => {
   });
 
   async function runCall(name: string, argumentsJson: string): Promise<string> {
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, duy, { id: 'call_1', name, argumentsJson });
   }
 
@@ -486,7 +487,7 @@ describe('the data tools of an admin', () => {
   it('lets an unexpected error of a tool reach the caller', async () => {
     const connectionLost = new Error('connection lost');
     const database = { query: pool.query.bind(pool), connect: () => Promise.reject(connectionLost) };
-    const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) };
+    const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
 
     const running = runAdminTool(dependencies, duy, { id: 'call_1', name: 'list_members', argumentsJson: '{}' });
 
@@ -495,7 +496,7 @@ describe('the data tools of an admin', () => {
 
   it('refuses a change after a search and writes nothing', async () => {
     const guard = new AdminTextGuard(false);
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard };
     const searchArguments = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
     await runAdminTool(dependencies, duy, { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(searchArguments) });
     const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);

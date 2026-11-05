@@ -24,12 +24,13 @@ export async function runCreateInvite(
 type InviteRequest = { displayName: string; role: 'admin' | 'member' };
 
 async function storeInvite(
-  { database, clock }: AdminToolDependencies,
+  { database, clock, invites }: AdminToolDependencies,
   scope: AccessScope,
   { displayName, role }: InviteRequest,
 ): Promise<string> {
   const expiresAt = new Date(clock.now().getTime() + INVITE_VALID_FOR_MS);
   const code = await createInvite(database, { workspaceId: scope.workspaceId, createdBy: scope.userId, displayName, role, expiresAt });
+  invites.record(code);
   return JSON.stringify({
     ok: true,
     code,

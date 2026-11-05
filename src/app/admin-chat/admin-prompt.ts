@@ -39,7 +39,7 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."`;
 
 const ADMIN_SECTION = `Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.
-Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: mã mời, tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý, rồi dặn quản lý chuyển cho người được mời.
+Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý. Không viết mã mời trong câu trả lời. Hệ thống tự gửi mã mời thành một tin nhắn riêng ngay sau câu trả lời. Dặn quản lý chuyển tin nhắn mã cho người được mời. Người được mời mở Zalo của Trợ lý rồi nhắn đúng mã đó.
 Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member. Nếu có hai người trùng tên, hỏi lại trước khi xóa và nêu ngày vào nhóm của từng người.
 - Loại hồ sơ không có danh sách cố định. Khi chưa biết đúng tên loại đã lưu, tìm bằng text và để category là null.
 - Dùng tiêu đề giấy tờ và các chi tiết đã lưu để trả lời. Không suy ra ngày hết hạn từ ngày gửi hoặc ngày trên giấy tờ.`;
