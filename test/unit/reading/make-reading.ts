@@ -3,6 +3,7 @@ import type { ReadAttempt, Reading, ReadingItem } from '../../../src/app/reading
 export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
   return {
     category: 'fuel',
+    document_title: null,
     maintenance_item: null,
     occurred_on: '2026-10-30',
     amount_vnd: 1250000,
