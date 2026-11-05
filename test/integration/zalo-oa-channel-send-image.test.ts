@@ -51,6 +51,15 @@ describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('sends an image without a text field when it has no text', async () => {
+    const server = await startStubServer({ upload: replyWithJson({ error: 0, data: { attachment_id: 'att-1' } }), send: replyWithJson({ error: 0 }) });
+
+    await sendFromChannel(server.baseUrl, makeJpeg(1000), 'a1');
+
+    const [, send] = server.requests;
+    expect(Object.keys(JSON.parse(send?.body ?? '').message)).toEqual(['attachment']);
+  });
+
   it('sends nothing after a rejected upload', async () => {
     const server = await startStubServer({ upload: replyWithJson({ error: -210, message: 'File too large' }), send: replyWithJson({ error: 0 }) });
 
