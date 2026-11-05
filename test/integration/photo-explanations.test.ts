@@ -10,7 +10,6 @@ import {
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
-import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
@@ -590,6 +589,16 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
   });
 
+  it('starts no second reading when the readers time out on the second answer', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTimingOutReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'asked_again' });
+    expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
@@ -690,7 +699,7 @@ function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): Fak
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }
 
-function makeTimingOutReaders(): ReaderSlots {
+function makeTimingOutReaders(): FakeReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }
