@@ -8,4 +8,10 @@ describe('buildNewRecords', () => {
 
     expect(record?.category).toBe('khác');
   });
+
+  it('saves a blank printed title as no title', () => {
+    const [record] = buildNewRecords([makeItem({ document_title: '  ' })]);
+
+    expect(record?.documentTitle).toBeNull();
+  });
 });

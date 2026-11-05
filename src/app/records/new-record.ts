@@ -2,7 +2,7 @@ import { normalizeCode, normalizeCodeSet, normalizeMaintenanceItem } from '../re
 import type { ReadingItem } from '../reading/reading.ts';
 import { summarizeRecord } from './summarize-record.ts';
 
-const BLANK_CATEGORY = 'khác';
+const FALLBACK_CATEGORY = 'khác';
 
 export type NewRecord = {
   itemIndex: number;
@@ -24,8 +24,8 @@ export function buildNewRecords(items: ReadingItem[]): NewRecord[] {
 
 function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
   const fields = {
-    category: item.category.trim() === '' ? BLANK_CATEGORY : item.category,
-    documentTitle: item.document_title,
+    category: item.category.trim() === '' ? FALLBACK_CATEGORY : item.category,
+    documentTitle: item.document_title?.trim() === '' ? null : item.document_title,
     maintenanceItem: normalizeMaintenanceItem(item.maintenance_item),
     vehiclePlate: normalizeCode(item.vehicle_plate),
     documentNumber: normalizeCode(item.document_number),
