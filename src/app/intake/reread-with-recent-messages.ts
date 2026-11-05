@@ -16,8 +16,8 @@ export async function rereadWithRecentMessages(context: IntakeContext, message: 
   if (recent.texts.length === 0 && recent.photo === null) return null;
   const photo = await loadRecentPhoto(context, recent.photo);
   const text = wrapRecentMessages([...recent.texts, message.text]);
-  const decision = await readMessage(context, { text, photo: photo?.content ?? null });
-  return { plan: planReply(decision, photo !== null), photo };
+  const attempt = await readMessage(context, { text, photo: photo?.content ?? null });
+  return { plan: planReply(attempt, photo !== null), photo };
 }
 
 function findRecentMessagesOf(context: IntakeContext, messageId: string): Promise<RecentMessages> {
@@ -31,8 +31,8 @@ export async function rereadPhotoWithRecentTexts(
   const recent = await findRecentMessagesOf(context, message.id);
   if (recent.texts.length === 0) return null;
   const caption = message.text === null ? [] : [message.text];
-  const decision = await readMessage(context, { text: wrapRecentMessages([...recent.texts, ...caption]), photo: message.photo });
-  return { plan: planReply(decision, true), photo: null };
+  const attempt = await readMessage(context, { text: wrapRecentMessages([...recent.texts, ...caption]), photo: message.photo });
+  return { plan: planReply(attempt, true), photo: null };
 }
 
 async function loadRecentPhoto(context: IntakeContext, photo: RecentPhoto | null): Promise<RereadPhoto | null> {

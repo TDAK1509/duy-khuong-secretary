@@ -8,6 +8,9 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  ALTER TABLE messages ADD COLUMN code_choice jsonb;
+  ALTER TABLE records ADD COLUMN read_by text;
+  DELETE FROM pgmigrations WHERE name = '0033_drop_two_reader_columns';
   ALTER TABLE messages DROP COLUMN code_choice;
   DELETE FROM pgmigrations WHERE name = '0032_add_message_code_choice';
   ALTER TABLE messages DROP CONSTRAINT messages_submission_status_check;
@@ -96,7 +99,7 @@ describe('the migration that frees the record categories', () => {
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
     expect(lines).toEqual([
-      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice',
+      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns',
     ]);
     expect(exitCode).toBe(0);
   }

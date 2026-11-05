@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
-import type { FakeReader } from '../fakes/fake-reader.ts';
+import type { ReadingItem } from '../../src/app/reading/reading.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -25,7 +24,7 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('does not save the copy of a saved paper that another driver sends', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-hung');
 
     await harness.receivePhoto('zu-lan');
@@ -34,7 +33,7 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('tells the driver of a copy that the group already has the paper', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
     harness.channel.texts.splice(0);
@@ -51,7 +50,7 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('marks the message of a duplicate as duplicate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-hung');
 
     await harness.receivePhoto('zu-lan');
@@ -65,9 +64,9 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('saves a paper whose printed title differs from the title of a saved paper', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
+    harness.reader.answerWith(makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
     await harness.receivePhoto('zu-hung');
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Phiếu xuất kho' })]));
+    harness.reader.answerWith(makeReading([makeFuelItem({ document_title: 'Phiếu xuất kho' })]));
 
     await harness.receivePhoto('zu-lan');
 
@@ -78,7 +77,7 @@ describe('rejecting duplicate papers', () => {
   });
 
   it('does not save the copy of a saved paper that has the same printed title', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
+    harness.reader.answerWith(makeReading([makeFuelItem({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]));
     await harness.receivePhoto('zu-hung');
 
     await harness.receivePhoto('zu-lan');
@@ -89,7 +88,7 @@ describe('rejecting duplicate papers', () => {
   it('saves the same paper in another workspace', async () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
     await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy' });
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-vy');
 
     await harness.receivePhoto('zu-hung');
@@ -103,9 +102,9 @@ describe('rejecting duplicate papers', () => {
   it('rejects the whole message when one of its items is a duplicate', async () => {
     const toll = (documentNumber: string, amount: number) =>
       makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
-    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000)]));
+    harness.reader.answerWith(makeReading([toll('0012345', 35000)]));
     await harness.receivePhoto('zu-hung');
-    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
+    harness.reader.answerWith(makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
 
     await harness.receivePhoto('zu-lan');
 
@@ -131,7 +130,7 @@ describe('rejecting duplicate papers', () => {
 
   it('finds a saved copy when the connections format dates another way', async () => {
     await formatDatesDayFirstOnNewConnections();
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-hung');
 
     await harness.receivePhoto('zu-lan');
@@ -147,8 +146,8 @@ describe('rejecting duplicate papers', () => {
   }
 
   async function processSamePaperFromHungAndLanTogether(): Promise<void> {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
-    holdReaderUntilArrivals(harness.readers.cheap[0], 2);
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
+    holdReaderUntilArrivals(harness.reader, 2);
     await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
     await insertInboundEvent(database, { externalUserId: 'zu-lan', kind: 'images', imageUrls: [PHOTO_URL] });
     await Promise.all([harness.runInbound(), harness.runInbound()]);
@@ -162,9 +161,5 @@ describe('rejecting duplicate papers', () => {
       document_number: '0001234',
       ...overrides,
     });
-  }
-
-  function answerPair(pair: readonly [FakeReader, FakeReader], reading: Reading): void {
-    pair.forEach((reader) => reader.answerWith(reading));
   }
 });

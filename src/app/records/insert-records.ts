@@ -6,25 +6,23 @@ export type RecordedMessage = { id: string; workspaceId: string; userId: string 
 export async function insertRecords(
   transaction: Transaction,
   message: RecordedMessage,
-  readBy: 'cheap_pair' | 'expensive_pair',
   records: NewRecord[],
 ): Promise<void> {
-  for (const record of records) await insertRecord(transaction, message, readBy, record);
+  for (const record of records) await insertRecord(transaction, message, record);
 }
 
 async function insertRecord(
   transaction: Transaction,
   message: RecordedMessage,
-  readBy: string,
   record: NewRecord,
 ): Promise<void> {
   await transaction.query(
     `INSERT INTO records
        (workspace_id, user_id, message_id, item_index, sender_name, category, document_title, maintenance_item,
-        vehicle_plate, document_number, occurred_on, amount_vnd, identifiers, summary, details, read_by)
+        vehicle_plate, document_number, occurred_on, amount_vnd, identifiers, summary, details)
      VALUES ($1, $2, $3, $4,
        (SELECT display_name FROM memberships WHERE workspace_id = $1 AND user_id = $2),
-       $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15)`,
+       $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)`,
     [
       message.workspaceId,
       message.userId,
@@ -40,7 +38,6 @@ async function insertRecord(
       record.identifiers,
       record.summary,
       JSON.stringify(record.details),
-      readBy,
     ],
   );
 }

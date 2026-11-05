@@ -15,6 +15,5 @@ export type ReaderResult =
   | { ok: false; reason: 'timeout' | 'invalid_output' | 'unavailable' };
 
 export interface ReaderService {
-  readonly label: string;
   read(request: ReaderRequest): Promise<ReaderResult>;
 }

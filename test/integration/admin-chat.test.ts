@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -27,8 +26,7 @@ describe('an admin asks the bot', () => {
 
   function answerQuestionOnly(): void {
     const reading = makeReading([], { has_work_data: false, has_question: true });
-    const pair: readonly [FakeReader, FakeReader] = harness.readers.cheap;
-    pair.forEach((reader) => reader.answerWith(reading));
+    harness.reader.answerWith(reading);
   }
 
   async function findUserId(displayName: string): Promise<string> {
@@ -249,7 +247,7 @@ describe('an admin asks the bot', () => {
     expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([
       { status: 'queued', attempts: 0 },
     ]);
-    expect(harness.readers.cheap[0].requests).toEqual([]);
+    expect(harness.reader.requests).toEqual([]);
   });
 
   it('stores no answer for an admin removed while the model answers', async () => {
@@ -368,7 +366,7 @@ describe('an admin asks the bot', () => {
     beforeEach(() => {
       harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
       const reading = makeReading([makeFuelItem()], { has_question: true });
-      harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+      harness.reader.answerWith(reading);
     });
 
     function makeFuelItem() {
@@ -454,12 +452,11 @@ describe('an admin asks the bot', () => {
       });
 
       it('does not read the photo again', async () => {
-        const readsBefore = harness.readers.cheap[0].requests.length;
+        const readsBefore = harness.reader.requests.length;
 
         await harness.runInbound();
 
-        expect(harness.readers.cheap[0].requests).toHaveLength(readsBefore);
-        expect(harness.readers.strong[0].requests).toHaveLength(0);
+        expect(harness.reader.requests).toHaveLength(readsBefore);
       });
 
       it('does not run the model for an admin who left the workspace of the message', async () => {
@@ -494,7 +491,7 @@ describe('an admin asks the bot', () => {
 
     it('never sends an admin\'s data without a question to the chat model', async () => {
       const reading = makeReading([makeFuelItem()], { has_question: false });
-      harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+      harness.reader.answerWith(reading);
 
       await harness.receivePhoto('zu-duy');
 
@@ -502,12 +499,7 @@ describe('an admin asks the bot', () => {
     });
 
     it('never sends an admin\'s unresolved message to the chat model', async () => {
-      const first = makeReading([makeFuelItem()], { has_question: true });
-      const second = makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })], { has_question: true });
-      for (const [firstReader, secondReader] of [harness.readers.cheap, harness.readers.strong]) {
-        firstReader.answerWith(first);
-        secondReader.answerWith(second);
-      }
+      harness.reader.failWith('timeout');
 
       await harness.receivePhoto('zu-duy');
 

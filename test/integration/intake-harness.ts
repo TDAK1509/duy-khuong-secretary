@@ -6,7 +6,6 @@ import { createInboundHandler } from '../../src/app/processing/handle-inbound-ev
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import type { Stages } from '../../src/app/processing/stages.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
-import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
@@ -14,7 +13,7 @@ import { FakeChatService } from '../fakes/fake-chat-service.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
-import { createFakeReaderSlots, type FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
+import { FakeReader } from '../fakes/fake-reader.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -26,7 +25,7 @@ export const PHOTO_URL = 'https://z.test/1.jpg';
 
 export type InboundOverrides = {
   photoStorage?: FakePhotoStorage | null;
-  readers?: ReaderSlots | null;
+  reader?: FakeReader | null;
   chat?: FakeChatService | null;
   beforeFinish?: () => Promise<void>;
 };
@@ -38,7 +37,7 @@ export type IntakeHarness = {
   channel: FakeMessagingChannel;
   photoStorage: FakePhotoStorage;
   alerts: OperatorAlerts;
-  readers: FakeReaderSlots;
+  reader: FakeReader;
   chat: FakeChatService;
   workspaceId: string;
   hungUserId: string;
@@ -87,7 +86,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
   const channel = new FakeMessagingChannel();
   const photoStorage = new FakePhotoStorage();
   const alerts = new OperatorAlerts(new FakeAlertSink(), clock);
-  const readers = createFakeReaderSlots();
+  const reader = new FakeReader();
   const chat = new FakeChatService();
   const tokens = makeTokenPair({ accessToken: 'a1' });
   await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW }, ENCRYPTION_KEY);
@@ -96,7 +95,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
 
   function runInbound(overrides: InboundOverrides = {}): Promise<unknown> {
     const storage = overrides.photoStorage === undefined ? photoStorage : overrides.photoStorage;
-    const slots = overrides.readers === undefined ? readers : overrides.readers;
+    const readerService = overrides.reader === undefined ? reader : overrides.reader;
     const chatService = overrides.chat === undefined ? chat : overrides.chat;
     return runInboundStep({
       database: pool,
@@ -109,7 +108,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
         database: pool,
         encryptionKey: ENCRYPTION_KEY,
         photoStorage: storage,
-        readers: slots,
+        reader: readerService,
         chat: chatService,
       })),
     });
@@ -138,7 +137,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     channel,
     photoStorage,
     alerts,
-    readers,
+    reader,
     chat,
     workspaceId,
     hungUserId,

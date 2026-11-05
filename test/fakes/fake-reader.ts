@@ -1,12 +1,12 @@
 import type { ReaderRequest, ReaderResult, ReaderService } from '../../src/services/reading/reader-service.ts';
 
+const NO_WORK_DATA = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
+
 export class FakeReader implements ReaderService {
-  readonly label: string;
   readonly requests: ReaderRequest[] = [];
   private respond: (request: ReaderRequest) => ReaderResult;
 
-  constructor(label: string, respond: (request: ReaderRequest) => ReaderResult) {
-    this.label = label;
+  constructor(respond: (request: ReaderRequest) => ReaderResult = () => ({ ok: true, json: NO_WORK_DATA })) {
     this.respond = respond;
   }
 
@@ -14,12 +14,12 @@ export class FakeReader implements ReaderService {
     this.respond = () => ({ ok: true, json });
   }
 
+  failWith(reason: 'timeout' | 'invalid_output' | 'unavailable'): void {
+    this.respond = () => ({ ok: false, reason });
+  }
+
   async read(request: ReaderRequest): Promise<ReaderResult> {
     this.requests.push(request);
     return this.respond(request);
   }
-}
-
-export function makeReaderReturning(label: string, json: unknown): FakeReader {
-  return new FakeReader(label, () => ({ ok: true, json }));
 }

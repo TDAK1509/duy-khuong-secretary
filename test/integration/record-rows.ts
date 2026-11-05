@@ -42,12 +42,12 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
   const [inserted] = await database.query<{ id: string }>(
     `INSERT INTO records
        (workspace_id, user_id, message_id, item_index, sender_name, category, document_title, maintenance_item, vehicle_plate,
-        document_number, occurred_on, amount_vnd, identifiers, summary, details, read_by, created_at)
+        document_number, occurred_on, amount_vnd, identifiers, summary, details, created_at)
      VALUES (${literal(row.workspaceId)}, ${literal(row.userId)}, ${literal(messageId)}, ${row.itemIndex ?? 0}, ${literal(row.senderName)},
        ${literal(category)}, ${nullable(row.documentTitle ?? null)}, ${nullable(maintenanceItem)}, ${nullable(vehiclePlate)}, ${nullable(row.documentNumber ?? null)},
        ${nullable(row.occurredOn ?? null)}, ${row.amountVnd ?? 'NULL'},
        ARRAY[${(row.identifiers ?? []).map(literal).join(',')}]::text[], ${literal(row.summary ?? 'Mục')},
-       ${literal(JSON.stringify(row.details ?? []))}::jsonb, 'cheap_pair', ${timestamp(row.savedAt ?? createdAt)})
+       ${literal(JSON.stringify(row.details ?? []))}::jsonb, ${timestamp(row.savedAt ?? createdAt)})
      RETURNING id`,
   );
   if (!inserted) throw new Error('record not inserted');

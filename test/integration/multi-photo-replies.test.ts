@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FakeReader } from '../fakes/fake-reader.ts';
-import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { makeJpeg, createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
@@ -53,7 +52,7 @@ describe('replies that come back as their photo', () => {
     harness.channel.attachments.set(FIRST_PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL] });
 
-    await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+    await harness.runInbound({ reader: readFuelItemByPhotoSize() });
     await harness.sendAllQueuedTexts();
 
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: FIRST_REPLY }]);
@@ -64,7 +63,7 @@ describe('replies that come back as their photo', () => {
     harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL, SECOND_PHOTO_URL] });
 
-    await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+    await harness.runInbound({ reader: readFuelItemByPhotoSize() });
     await harness.sendAllQueuedTexts();
 
     expect(harness.channel.sends).toEqual([
@@ -78,14 +77,14 @@ describe('replies that come back as their photo', () => {
     harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL, SECOND_PHOTO_URL] });
     await harness.runInbound({
-      readers: readFuelItemByPhotoSize(),
+      reader: readFuelItemByPhotoSize(),
       beforeFinish: async () => {
         throw new Error('the worker crashed before finishing');
       },
     });
     harness.clock.advanceBy(31_000);
 
-    await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+    await harness.runInbound({ reader: readFuelItemByPhotoSize() });
     await harness.sendAllQueuedTexts();
 
     expect(harness.channel.sends.map((sent) => sent.kind)).toEqual(['image', 'image']);
@@ -96,7 +95,7 @@ describe('replies that come back as their photo', () => {
     harness.channel.attachments.set(SECOND_PHOTO_URL, { ok: true, bytes: makeJpeg(SECOND_PHOTO_SIZE) });
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [FIRST_PHOTO_URL, SECOND_PHOTO_URL] });
 
-    await harness.runInbound({ readers: readManyFuelItems() });
+    await harness.runInbound({ reader: readManyFuelItems() });
     await harness.sendAllQueuedTexts();
 
     const sends = harness.channel.sends.filter((sent) => sent.kind === 'image' && sent.photo.bytes.length === FIRST_PHOTO_SIZE);
@@ -105,10 +104,8 @@ describe('replies that come back as their photo', () => {
   });
 });
 
-function readFuelItemByPhotoSize(): ReaderSlots {
-  const makeReader = (label: string) =>
-    new FakeReader(label, ({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function readFuelItemByPhotoSize(): FakeReader {
+  return new FakeReader(({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
 }
 
 function makeFuelItemFor(photoSize: number | undefined) {
@@ -117,10 +114,9 @@ function makeFuelItemFor(photoSize: number | undefined) {
     : makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
 }
 
-function readManyFuelItems(): ReaderSlots {
+function readManyFuelItems(): FakeReader {
   const items = Array.from({ length: 45 }, (_, index) =>
     makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: String(index).padStart(7, '0') }),
   );
-  const makeReader = (label: string) => new FakeReader(label, () => ({ ok: true, json: makeReading(items) }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+  return new FakeReader(() => ({ ok: true, json: makeReading(items) }));
 }

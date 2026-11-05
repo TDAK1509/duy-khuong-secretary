@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
+import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import { releaseHeldMessages } from '../delivery/release-held-messages.ts';
@@ -12,7 +13,6 @@ import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
-import type { ReaderSlots } from '../reading/decide-reading.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -36,7 +36,7 @@ export type InboundHandlerDependencies = {
   database: Database;
   encryptionKey: string;
   photoStorage: PhotoStorage | null;
-  readers: ReaderSlots | null;
+  reader: ReaderService | null;
   chat: ChatService | null;
 };
 

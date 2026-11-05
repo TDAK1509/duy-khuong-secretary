@@ -98,10 +98,10 @@ describe('the records table', () => {
     const quote = (value: string | null) => (value === null ? 'NULL' : `'${value}'`);
     return database.query(
       `INSERT INTO records (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item,
-         vehicle_plate, document_title, summary, read_by)
+         vehicle_plate, document_title, summary)
        VALUES ('${record.workspaceId ?? workspaceId}', '${userId}', '${messageId}', ${record.itemIndex ?? 0}, 'Hùng',
          '${record.category}', ${quote(record.maintenanceItem)}, ${quote(record.vehiclePlate)},
-         ${quote(record.documentTitle ?? null)}, 'x', 'cheap_pair')`,
+         ${quote(record.documentTitle ?? null)}, 'x')`,
     );
   }
 });

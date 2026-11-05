@@ -51,7 +51,7 @@ describe('notices to admins about a member photo', () => {
   }
 
   function answerWithFuelItem(): void {
-    for (const reader of harness.readers.cheap) reader.answerWith(makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
   }
 
   function makeFuelItem() {
@@ -103,10 +103,7 @@ describe('notices to admins about a member photo', () => {
   });
 
   it('announces an unread photo with the reply the member got', async () => {
-    for (const pair of [harness.readers.cheap, harness.readers.strong]) {
-      pair[0].answerWith(makeReading([makeFuelItem()]));
-      pair[1].answerWith(makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })]));
-    }
+    harness.reader.failWith('timeout');
 
     await harness.receivePhoto('zu-hung');
     await harness.sendAllQueuedTexts();
@@ -239,7 +236,7 @@ describe('notices to admins about a member photo', () => {
     harness.chat.replyWith('Hùng gửi 1 phiếu.');
     await harness.receivePhoto('zu-hung');
     await harness.sendAllQueuedTexts();
-    for (const reader of harness.readers.cheap) reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
 
     await harness.receiveText('zu-duy', 'Hùng gửi gì?');
 

@@ -2,7 +2,7 @@ import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
-import type { ReadingDecision } from '../reading/decide-reading.ts';
+import type { ReadAttempt } from '../reading/reading.ts';
 import { asksOnlyAQuestion, planReply, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
 import { rereadPhotoWithRecentTexts, rereadWithRecentMessages, type RereadPhoto, type Reread } from './reread-with-recent-messages.ts';
@@ -10,14 +10,14 @@ import { isReplied, runReplyStage } from './run-reply-stage.ts';
 import { saveRereadOnPhoto } from './save-on-photo.ts';
 import { isQuestionPending } from './store-user-message.ts';
 
-type FirstReading = { decision: ReadingDecision; plan: ReplyPlan };
+type FirstReading = { attempt: ReadAttempt; plan: ReplyPlan };
 
 export type MessageToRead = { id: string; text: string | null; photo: Photo | null };
 
 export async function replyToMessage(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
-  const decision = await readMessage(context, message);
-  const firstPlan = planReply(decision, message.photo !== null);
-  const reread = await rereadUnclearMessage(context, message, { decision, plan: firstPlan });
+  const attempt = await readMessage(context, message);
+  const firstPlan = planReply(attempt, message.photo !== null);
+  const reread = await rereadUnclearMessage(context, message, { attempt, plan: firstPlan });
   if (reread?.photo) return replyOnRereadPhoto(context, message, reread.plan, reread.photo);
   return replyWithPlan(context, message, reread?.plan ?? firstPlan);
 }
@@ -44,11 +44,7 @@ async function rereadUnclearPhoto(
 ): Promise<Reread | null> {
   if (!plan.isUnclear || isSentToChat(context, plan, message.text)) return null;
   const reread = await rereadPhotoWithRecentTexts(context, message);
-  return reread && isSavedOrCodeQuestion(reread.plan) ? reread : null;
-}
-
-function isSavedOrCodeQuestion({ situation }: ReplyPlan): boolean {
-  return situation === 'saved' || situation === 'code_choice';
+  return reread?.plan.situation === 'saved' ? reread : null;
 }
 
 async function rereadUnclearText(context: IntakeContext, message: MessageToRead, first: FirstReading): Promise<Reread | null> {
@@ -57,9 +53,9 @@ async function rereadUnclearText(context: IntakeContext, message: MessageToRead,
   return reread?.plan.situation === 'saved' ? reread : null;
 }
 
-function isRereadable({ sender }: IntakeContext, { photo }: MessageToRead, { decision, plan }: FirstReading): boolean {
+function isRereadable({ sender }: IntakeContext, { photo }: MessageToRead, { attempt, plan }: FirstReading): boolean {
   if (!plan.isUnclear || photo !== null) return false;
-  return !(sender.role === 'admin' && asksOnlyAQuestion(decision));
+  return !(sender.role === 'admin' && asksOnlyAQuestion(attempt));
 }
 
 async function replyOnRereadPhoto(
