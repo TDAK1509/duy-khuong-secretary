@@ -112,6 +112,12 @@ describe('POST /oauth/token', () => {
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
 
+    it('ignores the fields it does not use', async () => {
+      const response = await requestToken(makeCodeRequest({ client_assertion: 'ignored', client_assertion_type: 'ignored' }));
+
+      expect(response.statusCode).toBe(200);
+    });
+
     it('accepts a request without a resource', async () => {
       const response = await requestToken(makeFieldsWithout(makeCodeRequest(), 'resource'));
 
