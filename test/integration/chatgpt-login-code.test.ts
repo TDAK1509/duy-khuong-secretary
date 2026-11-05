@@ -16,7 +16,7 @@ import { FakeReader } from '../fakes/fake-reader.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -115,6 +115,18 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     const rows = await database.query<{ code_hash: string }>('SELECT code_hash FROM chatgpt_login_codes');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.code_hash).not.toBe(hashLoginCode(firstCode));
+  });
+
+  it('uses the current Zalo workspace of the admin', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertMembership(database, { workspaceId: otherWorkspaceId, userId, displayName: 'Duy', role: 'admin' });
+    await database.query(`UPDATE channel_identities SET current_workspace_id = '${otherWorkspaceId}'`);
+
+    await receiveText('zu-duy', 'đăng nhập');
+
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE workspace_id = '${otherWorkspaceId}'`);
+    expect(await database.query('SELECT membership_id FROM chatgpt_login_codes')).toEqual([{ membership_id: membership?.id }]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
