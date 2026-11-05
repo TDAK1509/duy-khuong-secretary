@@ -50,7 +50,7 @@ export async function enqueueReplyToMessage(
 ): Promise<void> {
   const photo = await findStoredPhoto(transaction, messageId);
   if (photo === null) return enqueueReply(transaction, context, text);
-  if (hasSeveralPhotos(context.event)) return enqueueReplyAsPhoto(transaction, context, photo.imageKey, text);
+  if (photo.eventPhotoCount > 1) return enqueueReplyAsPhoto(transaction, context, photo.imageKey, text);
   return enqueueReply(transaction, context, text, { quote: { messageId: photo.eventId, fallbackPhotoKey: photo.imageKey } });
 }
 
@@ -66,16 +66,18 @@ async function enqueueReplyAsPhoto(transaction: Transaction, context: IntakeCont
   }
 }
 
-type StoredPhoto = { imageKey: string; eventId: string };
+type StoredPhoto = { imageKey: string; eventId: string; eventPhotoCount: number };
 
 async function findStoredPhoto(transaction: Transaction, messageId: string): Promise<StoredPhoto | null> {
-  const [photo] = await transaction.query<{ image_key: string; external_event_id: string }>(
-    `SELECT message.image_key, event.external_event_id
+  const [photo] = await transaction.query<{ image_key: string; external_event_id: string; photo_count: number }>(
+    `SELECT message.image_key, event.external_event_id, jsonb_array_length(event.payload -> 'image_urls') AS photo_count
      FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
      WHERE message.id = $1 AND message.image_key IS NOT NULL`,
     [messageId],
   );
-  return photo ? { imageKey: photo.image_key, eventId: photo.external_event_id } : null;
+  return photo
+    ? { imageKey: photo.image_key, eventId: photo.external_event_id, eventPhotoCount: photo.photo_count }
+    : null;
 }
 
 export async function enqueueReplyPhotos(

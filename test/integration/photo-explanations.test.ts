@@ -276,6 +276,31 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).filter((sent) => sent.text === ASK_LATER_TEXT)).toHaveLength(1);
   });
 
+  it('sends the replies about the photos of a two-photo event back as their photos', async () => {
+    readersReturn(UNCLEAR);
+    await insertInboundEvent(harness.database, {
+      externalUserId: 'zu-hung',
+      kind: 'images',
+      imageUrls: [PHOTO_A_URL, PHOTO_B_URL],
+      externalEventId: 'zmsg-1',
+    });
+    await harness.runInbound();
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    const photoReplies = harness.channel.sends.flatMap((sent) =>
+      sent.kind === 'image' && sent.to === 'zu-hung' ? [{ photoSize: sent.photo.bytes.length, text: sent.text }] : [],
+    );
+    expect(photoReplies).toEqual([
+      { photoSize: 1000, text: ASK_EXPLANATION_TEXT },
+      { photoSize: 2000, text: ASK_LATER_TEXT },
+      { photoSize: 1000, text: TIRE_SAVED_REPLY },
+      { photoSize: 2000, text: ASK_EXPLANATION_TEXT },
+    ]);
+  });
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
