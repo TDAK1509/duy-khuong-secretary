@@ -16,7 +16,7 @@ export async function runReplyStage(context: IntakeContext, messageId: string, p
   });
 }
 
-async function isReplied(transaction: Transaction, messageId: string): Promise<boolean> {
+export async function isReplied(transaction: Transaction, messageId: string): Promise<boolean> {
   const rows = await transaction.query(
     `SELECT 1 FROM messages
      WHERE id = $1 AND (submission_status <> 'pending' OR EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = $1))`,
@@ -43,7 +43,7 @@ async function saveReply(
   if (plan.saved && plan.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, messageId);
 }
 
-async function rejectDuplicates(transaction: Transaction, workspaceId: string, plan: ReplyPlan): Promise<ReplyPlan> {
+export async function rejectDuplicates(transaction: Transaction, workspaceId: string, plan: ReplyPlan): Promise<ReplyPlan> {
   if (!plan.saved) return plan;
   await lockWorkspaceRecords(transaction, workspaceId);
   if (!(await hasDuplicateRecord(transaction, workspaceId, plan.saved.records))) return plan;

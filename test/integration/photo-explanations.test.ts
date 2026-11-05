@@ -9,6 +9,7 @@ const PHOTO_A_URL = 'https://z.test/a.jpg';
 const PHOTO_B_URL = 'https://z.test/b.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
+const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
@@ -71,6 +72,24 @@ describe('asking what an unclear photo is for', () => {
     const request = harness.readers.cheap[0].requests.at(-1);
     expect(request?.image?.bytes).toEqual(makeJpeg(1000));
     expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${TIRE_EXPLANATION}`);
+  });
+
+  it('saves the record on the photo and quotes the photo in the reply to a good answer', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    const recordedOn = await harness.database.query<{ event: string }>(
+      `SELECT event.external_event_id AS event FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+    expect(recordedOn).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
   });
 
   function readersReturn(reading: unknown): void {
