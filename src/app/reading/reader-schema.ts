@@ -5,6 +5,7 @@ export const READER_SCHEMA_NAME = 'work_message_reading';
 export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties":false,
  "properties":{
   "has_work_data":{"type":"boolean"},
+  "needs_explanation":{"type":"boolean"},
   "has_question":{"type":"boolean"},
   "items":{"type":"array","items":{"type":"object","additionalProperties":false,
    "properties":{
@@ -19,4 +20,4 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
     "details":{"type":"array","items":{"type":"object","additionalProperties":false,
       "properties":{"label":{"type":"string"},"value":{"type":"string"}},"required":["label","value"]}}},
    "required":["category","document_title","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","details"]}}},
- "required":["has_work_data","has_question","items"]};
+ "required":["has_work_data","needs_explanation","has_question","items"]};

@@ -14,6 +14,7 @@ const itemSchema = z.strictObject({
 
 const readingSchema = z.strictObject({
   has_work_data: z.boolean(),
+  needs_explanation: z.boolean(),
   has_question: z.boolean(),
   items: z.array(itemSchema),
 });

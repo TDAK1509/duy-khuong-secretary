@@ -152,6 +152,13 @@ describe('areAgreeing', () => {
     expect(areAgreeing(first, second)).toBe(false);
   });
 
+  it('disagrees when only one reader says the photo needs an explanation', () => {
+    const first = succeed(makeReading([], { has_work_data: false, needs_explanation: true }));
+    const second = succeed(makeReading([], { has_work_data: false, needs_explanation: false }));
+
+    expect(areAgreeing(first, second)).toBe(false);
+  });
+
   it('never agrees with a failed read', () => {
     const failed: ReadAttempt = { ok: false, reason: 'timeout' };
 

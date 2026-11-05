@@ -20,7 +20,7 @@ export function makeFuelItemX(overrides: Partial<ReadingItem> = {}): ReadingItem
 }
 
 export function makeReading(items: ReadingItem[] = [makeItem()], overrides: Partial<Reading> = {}): Reading {
-  return { has_work_data: true, has_question: false, items, ...overrides };
+  return { has_work_data: true, needs_explanation: false, has_question: false, items, ...overrides };
 }
 
 export function succeed(reading: Reading): ReadAttempt {
