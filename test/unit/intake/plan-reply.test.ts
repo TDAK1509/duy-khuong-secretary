@@ -78,6 +78,16 @@ describe('planReply maintenance without a plate', () => {
   });
 });
 
+describe('planReply photo that needs an explanation', () => {
+  it('is unclear when the readers agree the photo needs an explanation', () => {
+    const reading = makeReading([], { has_work_data: false, needs_explanation: true });
+
+    const plan = planReply(agreeOn(reading), true);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+});
+
 describe('planReply no work data', () => {
   it('is not unclear when the readers agree there is no work data', () => {
     const reading = makeReading([], { has_work_data: false, needs_explanation: false });

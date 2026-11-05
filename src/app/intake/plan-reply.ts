@@ -103,7 +103,7 @@ function planExplanationRequest(): ReplyPlan {
     saved: null,
     situation: 'needs_explanation',
     asksQuestion: false,
-    isUnclear: false,
+    isUnclear: true,
   };
 }
 
