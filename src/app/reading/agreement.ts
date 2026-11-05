@@ -12,6 +12,29 @@ export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
   );
 }
 
+export function listDisagreements(first: Reading, second: Reading): string[] {
+  const flags = READING_FLAGS.filter((flag) => first[flag] !== second[flag]);
+  return [...flags, ...listItemDisagreements(first, second)];
+}
+
+const READING_FLAGS = ['has_work_data', 'needs_explanation', 'has_question'] as const;
+
+function listItemDisagreements(first: Reading, second: Reading): string[] {
+  const firstItems = sortItemsForComparison(first);
+  const secondItems = sortItemsForComparison(second);
+  if (firstItems.length !== secondItems.length) return ['items'];
+  const fields = firstItems.flatMap((item, index) => listFieldDisagreements(item, secondItems[index]));
+  return [...new Set(fields)];
+}
+
+function listFieldDisagreements(item: ReadingItem, partner: ReadingItem | undefined): string[] {
+  if (partner === undefined) return ['items'];
+  const comparable = toComparableItem(item);
+  const partnerComparable = toComparableItem(partner);
+  const keys = Object.keys(comparable) as (keyof typeof comparable)[];
+  return keys.filter((key) => !isDeepStrictEqual(comparable[key], partnerComparable[key]));
+}
+
 function haveAgreeingItems(first: Reading, second: Reading): boolean {
   const firstItems = sortItemsForComparison(first);
   const secondItems = sortItemsForComparison(second);
