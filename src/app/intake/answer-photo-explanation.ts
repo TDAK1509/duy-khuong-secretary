@@ -1,8 +1,8 @@
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import type { Transaction } from '../db/transaction.ts';
-import type { CodeChoice } from '../reading/code-choice.ts';
 import { readSentAt } from '../processing/claimed-event.ts';
+import type { CodeChoice } from '../reading/code-choice.ts';
 import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { findEarlierAnswers } from './find-earlier-answers.ts';
