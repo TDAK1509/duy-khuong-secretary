@@ -154,6 +154,12 @@ describe('GET /oauth/authorize', () => {
     expect(response.body).not.toMatch(/<(img|script|link|iframe)[\s>]/i);
   });
 
+  it('is not cached', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
   function requestSignInPage(query: Record<string, string>) {
     const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });

@@ -57,7 +57,7 @@ async function confirmSubmission(dependencies: SignInDependencies, submission: S
 }
 
 function addSignInHeaders(response: HttpResponse): HttpResponse {
-  return { ...response, headers: { ...response.headers, 'content-security-policy': CONTENT_SECURITY_POLICY } };
+  return { ...response, headers: { ...response.headers, 'content-security-policy': CONTENT_SECURITY_POLICY, 'cache-control': 'no-store' } };
 }
 
 async function respondToOutcome(dependencies: SignInDependencies, outcome: SignInOutcome): Promise<HttpResponse> {
