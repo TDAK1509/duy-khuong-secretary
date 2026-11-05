@@ -1,9 +1,10 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
+import { announceConnection } from './announce-connection.ts';
 import { computeCodeChallenge } from './compute-code-challenge.ts';
 import { issueTokens, type IssuedTokens } from './issue-tokens.ts';
 import { hashSecretToken } from './secret-token.ts';
 
-export type CodeExchange = { code: string; codeVerifier: string; redirectUri: string; now: Date };
+export type CodeExchange = { code: string; codeVerifier: string; redirectUri: string; maxTextLength: number; now: Date };
 
 export type TokenOutcome = { kind: 'issued'; tokens: IssuedTokens } | { kind: 'invalid_grant' };
 
@@ -13,7 +14,7 @@ export function exchangeAuthorizationCode(database: Database, exchange: CodeExch
   return runInTransaction(database, async (transaction) => {
     const signIn = await lockConfirmedSignIn(transaction, exchange);
     if (signIn === null || !isGrantedTo(signIn, exchange)) return { kind: 'invalid_grant' };
-    return connectSignIn(transaction, signIn, exchange.now);
+    return connectSignIn(transaction, signIn, exchange);
   });
 }
 
@@ -30,7 +31,7 @@ function isGrantedTo(signIn: SignInRow, exchange: CodeExchange): boolean {
   return signIn.redirect_uri === exchange.redirectUri && signIn.code_challenge === computeCodeChallenge(exchange.codeVerifier);
 }
 
-async function connectSignIn(transaction: Transaction, signIn: SignInRow, now: Date): Promise<TokenOutcome> {
+async function connectSignIn(transaction: Transaction, signIn: SignInRow, { maxTextLength, now }: CodeExchange): Promise<TokenOutcome> {
   const tokens = issueTokens(now);
   await transaction.query('DELETE FROM chatgpt_sign_ins WHERE id = $1', [signIn.id]);
   await transaction.query(
@@ -39,5 +40,6 @@ async function connectSignIn(transaction: Transaction, signIn: SignInRow, now: D
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [signIn.membership_id, signIn.client_id, tokens.accessTokenHash, tokens.accessExpiresAt, tokens.refreshTokenHash, tokens.refreshExpiresAt],
   );
+  await announceConnection(transaction, { membershipId: signIn.membership_id, maxTextLength, now });
   return { kind: 'issued', tokens };
 }

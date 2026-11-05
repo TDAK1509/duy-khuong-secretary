@@ -7,7 +7,7 @@ import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-gene
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { insertConfirmedSignIn } from './chatgpt-sign-in-rows.ts';
-import { CHATGPT_CLIENT_ID, CHATGPT_REDIRECT_URI, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { CHATGPT_CLIENT_ID, CHATGPT_REDIRECT_URI, MAX_TEXT_LENGTH, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -284,7 +284,7 @@ describe('POST /oauth/token', () => {
 
   function requestToken(fields: Record<string, string>) {
     const server = buildServer(pool, null, {
-      chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() },
+      chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH, qrCode: new QrCodeGeneratorRenderer() },
     });
     return server.inject({
       method: 'POST',

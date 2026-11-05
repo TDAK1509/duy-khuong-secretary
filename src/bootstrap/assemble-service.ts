@@ -94,7 +94,13 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
   const { pool, clock, zalo, alerts, connection, channel, webhookConfig } = parts;
   return {
     oauthCallback: connection,
-    chatgptOAuth: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, qrCode: new QrCodeGeneratorRenderer() },
+    chatgptOAuth: zalo && channel && {
+      database: pool,
+      clock,
+      publicBaseUrl: zalo.publicBaseUrl,
+      maxTextLength: channel.maxTextLength,
+      qrCode: new QrCodeGeneratorRenderer(),
+    },
     chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint() },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     verifierFile: config.verifierFile,

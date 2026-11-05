@@ -21,6 +21,7 @@ export type SignInDependencies = {
   database: Database;
   clock: Clock;
   publicBaseUrl: string;
+  maxTextLength: number;
   qrCode: QrCodeService;
 };
 

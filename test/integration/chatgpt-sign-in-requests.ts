@@ -1,4 +1,5 @@
 export const PUBLIC_BASE_URL = 'https://generator-24.com';
+export const MAX_TEXT_LENGTH = 2000;
 
 export const CHATGPT_CLIENT_ID = 'https://chatgpt.com/oauth/client.json';
 export const CHATGPT_REDIRECT_URI = 'https://chatgpt.com/connector_platform_oauth_redirect';

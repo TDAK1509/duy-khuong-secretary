@@ -21,7 +21,7 @@ const refreshGrantSchema = z
   .object({ refresh_token: z.string(), client_id: z.literal(CHATGPT_CLIENT_ID) })
   .transform(({ refresh_token }) => ({ refreshToken: refresh_token }));
 
-export type TokenDependencies = { database: Database; clock: Clock; publicBaseUrl: string };
+export type TokenDependencies = { database: Database; clock: Clock; publicBaseUrl: string; maxTextLength: number };
 
 export function handleAuthorizationServerMetadata(dependencies: TokenDependencies | null): HttpResponse {
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
@@ -60,7 +60,7 @@ async function respondToCodeGrant(dependencies: TokenDependencies, body: unknown
   if (!grant.success) return respondWithError('invalid_request');
   const { resource, ...exchange } = grant.data;
   if (resource !== undefined && resource !== `${dependencies.publicBaseUrl}/mcp`) return respondWithError('invalid_grant');
-  return respondToOutcome(await exchangeAuthorizationCode(dependencies.database, { ...exchange, now: dependencies.clock.now() }));
+  return respondToOutcome(await exchangeAuthorizationCode(dependencies.database, { ...exchange, maxTextLength: dependencies.maxTextLength, now: dependencies.clock.now() }));
 }
 
 async function respondToRefreshGrant(dependencies: TokenDependencies, body: unknown): Promise<HttpResponse> {

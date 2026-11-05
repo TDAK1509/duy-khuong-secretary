@@ -8,7 +8,7 @@ import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-gene
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertLoginCode } from './chatgpt-login-code-rows.ts';
-import { CHATGPT_REDIRECT_URI, makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { CHATGPT_REDIRECT_URI, makeSignInQuery, MAX_TEXT_LENGTH, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -153,6 +153,6 @@ describe('POST /oauth/authorize', () => {
   }
 
   function buildSignInServer() {
-    return buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+    return buildServer(pool, null, { chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH, qrCode: new QrCodeGeneratorRenderer() } });
   }
 });
