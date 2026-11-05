@@ -12,6 +12,7 @@ const CATEGORY_LABELS: Record<ReadingItem['category'], string> = {
 
 export type SummaryFields = {
   category: ReadingItem['category'];
+  documentTitle: string | null;
   maintenanceItem: string | null;
   vehiclePlate: string | null;
   documentNumber: string | null;
@@ -19,9 +20,9 @@ export type SummaryFields = {
 };
 
 export function summarizeRecord(fields: SummaryFields): string {
-  const { category, maintenanceItem, vehiclePlate, documentNumber, identifiers } = fields;
+  const { category, documentTitle, maintenanceItem, vehiclePlate, documentNumber, identifiers } = fields;
   return [
-    CATEGORY_LABELS[category] + (maintenanceItem ? `: ${maintenanceItem}` : ''),
+    (documentTitle ?? CATEGORY_LABELS[category]) + (maintenanceItem ? `: ${maintenanceItem}` : ''),
     vehiclePlate && `xe ${vehiclePlate}`,
     documentNumber && `số ${documentNumber}`,
     identifiers.length > 0 && `mã ${identifiers.join(', ')}`,

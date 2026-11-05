@@ -5,6 +5,7 @@ import { summarizeRecord } from './summarize-record.ts';
 export type NewRecord = {
   itemIndex: number;
   category: ReadingItem['category'];
+  documentTitle: string | null;
   maintenanceItem: string | null;
   vehiclePlate: string | null;
   documentNumber: string | null;
@@ -22,6 +23,7 @@ export function buildNewRecords(items: ReadingItem[]): NewRecord[] {
 function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
   const fields = {
     category: item.category,
+    documentTitle: item.document_title,
     maintenanceItem: item.category === 'maintenance' ? normalizeMaintenanceItem(item.maintenance_item) : null,
     vehiclePlate: normalizeCode(item.vehicle_plate),
     documentNumber: normalizeCode(item.document_number),
