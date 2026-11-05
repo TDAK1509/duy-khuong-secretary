@@ -33,7 +33,7 @@ export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPl
   if (decision.agreed === null || decision.outcome === 'unresolved') return { ...planUnresolvedReply(), isUnclear: !isReaderOutage(decision) };
   const reading = saveAgreedReading(...decision.agreed);
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
-  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
+  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
@@ -107,7 +107,7 @@ function planExplanationRequest(): ReplyPlan {
   };
 }
 
-function planUploadOnlyReply(): ReplyPlan {
+function planUploadOnlyReply(isUnclear: boolean): ReplyPlan {
   return {
     replyText: UPLOAD_ONLY_TEXT,
     replyKind: 'answer',
@@ -115,6 +115,6 @@ function planUploadOnlyReply(): ReplyPlan {
     saved: null,
     situation: 'no_work_data',
     asksQuestion: false,
-    isUnclear: false,
+    isUnclear,
   };
 }

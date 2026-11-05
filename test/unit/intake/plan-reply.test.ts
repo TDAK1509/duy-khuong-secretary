@@ -58,6 +58,16 @@ describe('planReply unclear readings', () => {
   });
 });
 
+describe('planReply text that needs an explanation', () => {
+  it('is unclear and keeps the upload-only reply when the readers agree it needs an explanation', () => {
+    const reading = makeReading([], { has_work_data: false, needs_explanation: true });
+
+    const plan = planReply(agreeOn(reading), false);
+
+    expect(plan).toMatchObject({ isUnclear: true, replyText: UPLOAD_ONLY_TEXT });
+  });
+});
+
 describe('planAnswer', () => {
   const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
   const question = makeReading([], { has_work_data: false, has_question: true });
