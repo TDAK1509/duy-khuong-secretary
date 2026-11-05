@@ -92,6 +92,18 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     expect(chat.requests).toEqual([]);
   });
 
+  it('gives a member the member reply and no code', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+
+    await receiveText('zu-hung', 'đăng nhập');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      ['zu-hung', 'Chỉ quản lý nhóm mới kết nối được ChatGPT. Ở nhóm "Xe tải Duy Khương", bạn là thành viên.'],
+    ]);
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
