@@ -46,18 +46,18 @@ export function planAnswer(decision: ReadingDecision, asked: AskedPhoto, role: I
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
 
+function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
+  return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
+}
+
 export function asksOnlyAQuestion({ agreed, outcome }: ReadingDecision): boolean {
   if (agreed === null || outcome === 'unresolved') return false;
   const reading = saveAgreedReading(...agreed);
   return reading.has_question && reading.items.length === 0;
 }
 
-function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
-  return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
-}
-
 export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
-  if (decision.agreed === null || decision.outcome === 'unresolved') return { ...planUnresolvedReply(), isUnclear: !isReaderOutage(decision) };
+  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply(!isReaderOutage(decision));
   const reading = saveAgreedReading(...decision.agreed);
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
@@ -93,8 +93,8 @@ function planMaintenanceWithoutPlateReply(): ReplyPlan {
   return { ...planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT), isUnclear: true };
 }
 
-function planUnresolvedReply(): ReplyPlan {
-  return planRefusal(UNRESOLVED_TEXT);
+function planUnresolvedReply(isUnclear = false): ReplyPlan {
+  return { ...planRefusal(UNRESOLVED_TEXT), isUnclear };
 }
 
 function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {

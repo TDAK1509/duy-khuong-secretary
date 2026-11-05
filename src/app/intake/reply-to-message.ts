@@ -19,7 +19,10 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
   const firstPlan = planReply(decision, message.photo !== null);
   const reread = await rereadUnclearText(context, message, { decision, plan: firstPlan });
   if (reread?.photo) return replyOnRereadPhoto(context, message, reread.plan, reread.photo);
-  const plan = reread?.plan ?? firstPlan;
+  return replyWithPlan(context, message, reread?.plan ?? firstPlan);
+}
+
+async function replyWithPlan(context: IntakeContext, message: MessageToRead, plan: ReplyPlan): Promise<IntakeOutcome> {
   if (context.sender.role === 'admin' && isForChat(plan, message.text)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
