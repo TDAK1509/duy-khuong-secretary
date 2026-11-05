@@ -307,6 +307,22 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
   });
 
+  it('answers an admin question once when it is processed again after the chat answer was published', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
+    await harness.runInbound({ beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.chat.requests).toHaveLength(1);
+    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
+  });
+
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
     readersReturn(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
@@ -521,6 +537,10 @@ describe('asking what an unclear photo is for', () => {
     return photo;
   }
 });
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
+}
 
 function makeTimingOutReaders(): ReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));
