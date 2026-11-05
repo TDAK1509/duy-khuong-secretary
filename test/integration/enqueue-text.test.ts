@@ -35,4 +35,19 @@ describe('enqueueText', () => {
       { kind: 'text', status: 'queued', length: 699 },
     ]);
   });
+
+  it('keeps the quote and the fallback photo on every part of a split text', async () => {
+    const text = `${'a'.repeat(1800)}\n${'b'.repeat(699)}`;
+    const quote = { messageId: 'zmsg-1', fallbackPhotoKey: 'w/photo.jpg' };
+
+    await runInTransaction(pool, (transaction) =>
+      enqueueText(transaction, { to: HUNG, text, maxTextLength: 2000, availableAt: AVAILABLE_AT, quote }),
+    );
+
+    const rows = await database.query('SELECT quote_message_id, fallback_photo_key FROM outbound_messages ORDER BY seq');
+    expect(rows).toEqual([
+      { quote_message_id: 'zmsg-1', fallback_photo_key: 'w/photo.jpg' },
+      { quote_message_id: 'zmsg-1', fallback_photo_key: 'w/photo.jpg' },
+    ]);
+  });
 });

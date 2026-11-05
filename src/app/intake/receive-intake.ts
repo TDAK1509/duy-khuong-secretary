@@ -7,7 +7,7 @@ import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import type { Finished, NotConfigured, Stages } from '../processing/stages.ts';
-import { enqueueReply } from './enqueue-reply.ts';
+import { enqueueRefusal } from './enqueue-reply.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext, IntakeDependencies } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
@@ -67,5 +67,5 @@ async function finishIntake(
 }
 
 async function sendRefusal(transaction: Transaction, context: IntakeContext, outcome: IntakeOutcome): Promise<void> {
-  if (outcome.kind === 'refused') await enqueueReply(transaction, context, outcome.replyText);
+  if (outcome.kind === 'refused') await enqueueRefusal(transaction, context, outcome.replyText);
 }

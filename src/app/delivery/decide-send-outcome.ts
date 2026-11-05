@@ -2,12 +2,14 @@ import type { SendResult } from '../../services/messaging/messaging-channel.ts';
 import { describeNoConnection, describeOutboundMessageFailed, describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import { mayBeHeld, type ClaimedMessage } from './claimed-message.ts';
 
+export type Rewrite = 'plain_text' | 'photo_with_text';
+
 export type Settlement = {
   status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
   availableAt?: Date;
   sentAt?: Date;
   lastError?: string;
-  asPlainText?: boolean;
+  rewrite?: Rewrite;
   recheck?: { lastInboundAt: Date | null };
 };
 
@@ -16,6 +18,7 @@ export type SendOutcome = { settlement: Settlement; alert?: string };
 type FailedSend = Extract<SendResult, { ok: false }>;
 
 const IMAGE_REJECTED = 'image_rejected';
+const QUOTE_REJECTED = 'quote_rejected';
 const RATE_LIMIT_WAIT_MS = 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 10;
 const UNREACHABLE_FIRST_WAIT_MS = 30_000;
@@ -57,16 +60,21 @@ function decideFailureOutcome(message: ClaimedMessage, result: FailedSend, now: 
     case 'window_closed':
       return mayBeHeld(message) ? { settlement: { status: 'held', lastError: result.reason } } : failSend(result);
     case 'rejected':
-      return hasImageText(message) ? requeueAsPlainText() : failSend(result);
+      return decideRejection(message, result);
   }
 }
 
-function hasImageText(message: ClaimedMessage): boolean {
-  return message.content.kind === 'image' && message.content.text !== undefined;
+function decideRejection(message: ClaimedMessage, result: FailedSend): SendOutcome {
+  const { content } = message;
+  if (content.kind === 'image' && content.text !== undefined) return requeueRewritten('plain_text', IMAGE_REJECTED);
+  if (content.kind === 'text' && content.quote) {
+    return requeueRewritten(content.quote.fallbackPhotoKey ? 'photo_with_text' : 'plain_text', QUOTE_REJECTED);
+  }
+  return failSend(result);
 }
 
-function requeueAsPlainText(): SendOutcome {
-  return { settlement: { status: 'queued', lastError: IMAGE_REJECTED, asPlainText: true } };
+function requeueRewritten(rewrite: Rewrite, lastError: string): SendOutcome {
+  return { settlement: { status: 'queued', lastError, rewrite } };
 }
 
 function failSend(result: FailedSend): SendOutcome {

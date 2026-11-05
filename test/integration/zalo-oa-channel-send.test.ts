@@ -27,6 +27,23 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     expect(request?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"chào"}}');
   });
 
+  it('posts the id of the message to quote next to the text', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0 }));
+
+    await sendFromChannel(server.baseUrl, 'Đã lưu: …', 'a1', 5000, 'msg-1');
+
+    const [request] = server.requests;
+    expect(request?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"Đã lưu: …","quote_message_id":"msg-1"}}');
+  });
+
+  it('posts no quote field for a text without a quote', async () => {
+    const server = await startStubServer(replyWithJson({ error: 0 }));
+
+    await sendFromChannel(server.baseUrl, 'Chào anh', 'a1');
+
+    expect(server.requests[0]?.body).toBe('{"recipient":{"user_id":"zu-hung"},"message":{"text":"Chào anh"}}');
+  });
+
   it('turns a success answer into ok', async () => {
     const server = await startStubServer(replyWithJson({ error: 0 }));
 
@@ -115,8 +132,8 @@ describe('ZaloOaChannel.sendText against a stub Zalo API', () => {
     return server;
   }
 
-  function sendFromChannel(apiBaseUrl: string, text: string, credential: string, timeoutMs = 5000): Promise<SendResult> {
+  function sendFromChannel(apiBaseUrl: string, text: string, credential: string, timeoutMs = 5000, quoteMessageId?: string): Promise<SendResult> {
     const channel = new ZaloOaChannel({ ...TEST_CHANNEL_SETTINGS, apiBaseUrl, timeoutMs });
-    return channel.sendText(HUNG, text, credential);
+    return channel.sendText(HUNG, text, credential, quoteMessageId);
   }
 });

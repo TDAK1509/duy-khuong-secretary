@@ -26,7 +26,7 @@ export interface MessagingChannel {
   readonly maxTextLength: number;
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): boolean;
   parseEvent(rawBody: string): InboundEvent;
-  sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult>;
+  sendText(to: ChannelRecipient, text: string, credential: string, quoteMessageId?: string): Promise<SendResult>;
   sendImage(to: ChannelRecipient, photo: Photo, credential: string, text?: string): Promise<SendResult>;
   sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult>;
   getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null>;

@@ -1,7 +1,9 @@
 import type { ChannelRecipient } from '../../services/messaging/messaging-channel.ts';
 
+export type QuotedMessage = { messageId: string; fallbackPhotoKey?: string };
+
 export type MessageContent =
-  | { kind: 'text'; body: string }
+  | { kind: 'text'; body: string; quote?: QuotedMessage }
   | { kind: 'image'; photoKey: string; text?: string }
   | { kind: 'template'; templateId: string; params: Record<string, string> };
 

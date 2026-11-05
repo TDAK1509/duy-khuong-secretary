@@ -100,7 +100,7 @@ async function loadPayload(photoStorage: PhotoStorage | null, content: MessageCo
 function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: Payload, accessKey: string): Promise<SendResult> {
   switch (payload.kind) {
     case 'text':
-      return channel.sendText(to, payload.body, accessKey);
+      return channel.sendText(to, payload.body, accessKey, payload.quote?.messageId);
     case 'image':
       return channel.sendImage(to, payload.photo, accessKey, payload.text);
     case 'template':

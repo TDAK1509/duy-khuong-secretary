@@ -14,6 +14,8 @@ type ClaimedRow = {
   kind: 'text' | 'image' | 'template';
   body: string | null;
   photo_key: string | null;
+  quote_message_id: string | null;
+  fallback_photo_key: string | null;
   template_id: string | null;
   template_params: Record<string, string> | null;
   admin_membership_id: string | null;
@@ -58,7 +60,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      SET status = 'sending', locked_until = $2, attempts = attempts + 1
      FROM candidate
      WHERE outbound_messages.id = candidate.id
-     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, requires_open_window, attempts`,
+     RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, quote_message_id, fallback_photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, requires_open_window, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
 }
@@ -81,9 +83,14 @@ function describeClaim(row: ClaimedRow): ClaimedMessage {
 
 function describeContent(row: ClaimedRow): MessageContent {
   if (row.kind === 'image' && row.photo_key !== null) return { kind: 'image', photoKey: row.photo_key, text: row.body ?? undefined };
-  if (row.kind === 'text' && row.body !== null) return { kind: 'text', body: row.body };
+  if (row.kind === 'text' && row.body !== null) return describeTextContent(row, row.body);
   if (row.kind === 'template' && row.template_id !== null) {
     return { kind: 'template', templateId: row.template_id, params: row.template_params ?? {} };
   }
   throw new Error(`outbound message ${row.id} has no content for its kind`);
+}
+
+function describeTextContent(row: ClaimedRow, body: string): MessageContent {
+  if (row.quote_message_id === null) return { kind: 'text', body };
+  return { kind: 'text', body, quote: { messageId: row.quote_message_id, fallbackPhotoKey: row.fallback_photo_key ?? undefined } };
 }

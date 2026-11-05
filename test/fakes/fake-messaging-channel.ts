@@ -8,7 +8,7 @@ import type {
   TemplateMessage,
 } from '../../src/services/messaging/messaging-channel.ts';
 
-export type RecordedText = { to: ChannelRecipient; text: string; credential: string };
+export type RecordedText = { to: ChannelRecipient; text: string; credential: string; quoteMessageId?: string };
 
 export type RecordedTemplate = { to: ChannelRecipient; templateId: string; params: Record<string, string>; credential: string };
 
@@ -27,6 +27,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly nameLookupCredentials: string[] = [];
   readonly downloadedUrls: string[] = [];
   readonly attachments = new Map<string, DownloadResult>();
+  readonly queuedTextResults: SendResult[] = [];
   nextTextResult: SendResult = { ok: true };
   whileSendingText: () => Promise<void> = async () => {};
   nextImageResult: SendResult = { ok: true };
@@ -40,11 +41,11 @@ export class FakeMessagingChannel implements MessagingChannel {
     return { kind: 'ignored' };
   }
 
-  async sendText(to: ChannelRecipient, text: string, credential: string): Promise<SendResult> {
-    this.texts.push({ to, text, credential });
+  async sendText(to: ChannelRecipient, text: string, credential: string, quoteMessageId?: string): Promise<SendResult> {
+    this.texts.push({ to, text, credential, ...(quoteMessageId !== undefined && { quoteMessageId }) });
     await this.whileSendingText();
     this.sends.push({ kind: 'text', to: to.externalUserId, text });
-    return this.nextTextResult;
+    return this.queuedTextResults.shift() ?? this.nextTextResult;
   }
 
   async sendImage(to: ChannelRecipient, photo: Photo, _credential: string, text?: string): Promise<SendResult> {
