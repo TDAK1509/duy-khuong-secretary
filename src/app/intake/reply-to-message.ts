@@ -6,6 +6,7 @@ import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { planReply, type ReplyPlan } from './plan-reply.ts';
+import { rereadWithRecentMessages } from './reread-with-recent-messages.ts';
 import { runReplyStage } from './run-reply-stage.ts';
 import { isQuestionPending } from './store-user-message.ts';
 
@@ -23,6 +24,9 @@ export function readMessage(context: IntakeContext, message: Pick<MessageToRead,
 
 export async function replyToMessage(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
   const plan = planReply(await readMessage(context, message), message.photo !== null);
+  if (plan.isUnclear && message.photo === null && message.text !== null) {
+    await rereadWithRecentMessages(context, { id: message.id, text: message.text });
+  }
   if (context.sender.role === 'admin' && isForChat(plan, message.text)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
