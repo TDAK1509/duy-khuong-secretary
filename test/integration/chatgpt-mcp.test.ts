@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
@@ -35,8 +36,14 @@ describe('the MCP address', () => {
     );
   });
 
-  function postMcp(body: unknown) {
-    const server = buildServer(pool, null, { chatgptMcp: { publicBaseUrl: PUBLIC_BASE_URL } });
+  it('answers 503 while Zalo is off', async () => {
+    const response = await postMcp(INITIALIZE_REQUEST, null);
+
+    expect(response.statusCode).toBe(503);
+  });
+
+  function postMcp(body: unknown, chatgptMcp: McpDependencies | null = { publicBaseUrl: PUBLIC_BASE_URL }) {
+    const server = buildServer(pool, null, { chatgptMcp });
     return server.inject({ method: 'POST', url: '/mcp', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(body) });
   }
 });

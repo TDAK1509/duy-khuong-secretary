@@ -23,7 +23,7 @@ export type ServerOptions = {
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
   chatgptOAuth?: SignInDependencies | null;
-  chatgptMcp?: McpDependencies;
+  chatgptMcp?: McpDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -43,7 +43,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
   registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
-  registerMcpRoutes(server, options.chatgptMcp);
+  registerMcpRoutes(server, options.chatgptMcp ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
@@ -62,8 +62,7 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
   );
 }
 
-function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | undefined): void {
-  if (chatgptMcp === undefined) return;
+function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
   server.post('/mcp', async (_request, reply) => sendResponse(reply, handleMcpRequest(chatgptMcp)));
 }
 
