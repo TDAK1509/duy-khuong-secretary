@@ -211,8 +211,7 @@ describe('the MCP address', () => {
 
   it('refuses the token of an admin who was removed', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
-    const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
-    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: await findMembershipId(duyUserId) });
 
     const response = await postMcp(callToolRequest('list_members', {}), { token: DUY_ACCESS_TOKEN });
 
@@ -236,6 +235,14 @@ describe('the MCP address', () => {
     expect(JSON.parse(response.json().result.content[0].text)).toMatchObject({ ok: true, code: expect.stringMatching(/^MOI-/) });
   });
 
+  it('removes a person of the workspace of the token', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+
+    await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(hungUserId) }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toEqual([]);
+  });
+
   it('refuses the 61st request of a connection in one minute', async () => {
     const server = buildTestServer();
     for (let count = 0; count < 60; count += 1) await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
@@ -250,6 +257,12 @@ describe('the MCP address', () => {
 
     expect(response.statusCode).toBe(405);
   });
+
+  async function findMembershipId(userId: string): Promise<string> {
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
+    if (!membership) throw new Error('membership not found');
+    return membership.id;
+  }
 
   async function listTools(): Promise<ListedTool[]> {
     const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
