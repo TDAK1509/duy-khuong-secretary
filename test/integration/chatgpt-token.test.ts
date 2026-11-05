@@ -123,6 +123,16 @@ describe('POST /oauth/token', () => {
 
       expect(response.headers['cache-control']).toBe('no-store');
     });
+
+    it('lets the access token last 1 hour and the refresh token 30 days', async () => {
+      await requestToken(makeCodeRequest());
+
+      const [connection] = await database.query<{ access_expires_at: Date; refresh_expires_at: Date }>(
+        'SELECT access_expires_at, refresh_expires_at FROM chatgpt_connections',
+      );
+      expect(connection?.access_expires_at).toEqual(new Date(NOW.getTime() + 60 * ONE_MINUTE_MS));
+      expect(connection?.refresh_expires_at).toEqual(new Date(NOW.getTime() + 30 * ONE_DAY_MS));
+    });
   });
 
   describe('with a refresh token', () => {
