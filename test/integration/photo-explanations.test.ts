@@ -541,6 +541,16 @@ describe('asking what an unclear photo is for', () => {
     expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${FIRST_LINE}\n${SECOND_LINE}`);
   });
 
+  it('saves the records on the photo when the second reading with the earlier answer is good', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
