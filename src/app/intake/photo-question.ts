@@ -19,5 +19,9 @@ export async function enqueuePhotoQuestion(
   { text, candidates }: PhotoQuestion,
 ): Promise<void> {
   await enqueueReplyToMessage(transaction, context, photoId, text);
+  await enqueueCandidates(transaction, context, candidates);
+}
+
+export async function enqueueCandidates(transaction: Transaction, context: IntakeContext, candidates: string[]): Promise<void> {
   for (const candidate of candidates) await enqueueReply(transaction, context, candidate);
 }

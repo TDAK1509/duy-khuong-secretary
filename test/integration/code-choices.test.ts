@@ -6,11 +6,14 @@ import { createFakeReaderSlots, type FakeReaderSlots } from '../fakes/fake-reade
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
+import { insertMember } from './workspace-rows.ts';
 
 const PHOTO_URL = 'https://z.test/a.jpg';
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const FIRST_CODE = '8936012345678';
 const SECOND_CODE = '8936012845678';
+const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
+const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 
 describe('choosing the right code when the readers disagree only on the code', () => {
   let harness: IntakeHarness;
@@ -18,6 +21,8 @@ describe('choosing the right code when the readers disagree only on the code', (
   beforeEach(async () => {
     harness = await createIntakeHarness();
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    const { database, workspaceId } = harness;
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin', lastInboundAt: DUY_LAST_WROTE_AT });
   });
 
   afterEach(async () => {
@@ -72,6 +77,22 @@ describe('choosing the right code when the readers disagree only on the code', (
     expect([...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests).filter((request) => request.image !== null)).toEqual([]);
   });
 
+  it('asks an admin which code is right when his explanation leaves only the code unclear', async () => {
+    await sendPhoto('zu-duy', 'zmsg-9', null, makeReadersAnswering(UNCLEAR));
+    await harness.sendAllQueuedTexts();
+    harness.channel.texts.length = 0;
+
+    await harness.receiveText('zu-duy', TIRE_EXPLANATION, { readers: makeCodeSplitReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readTextsTo('zu-duy')).toEqual([
+      { text: CODE_CHOICE_TEXT, quoteMessageId: 'zmsg-9' },
+      { text: FIRST_CODE, quoteMessageId: undefined },
+      { text: SECOND_CODE, quoteMessageId: undefined },
+    ]);
+    expect(harness.chat.requests).toEqual([]);
+  });
+
   async function sendWaitingCodePhoto(): Promise<void> {
     await sendPhoto('zu-hung', 'zmsg-1', TIRE_EXPLANATION, makeCodeSplitReaders());
     await harness.sendAllQueuedTexts();
@@ -107,6 +128,12 @@ describe('choosing the right code when the readers disagree only on the code', (
     return photo.status;
   }
 });
+
+function makeReadersAnswering(reading: unknown): FakeReaderSlots {
+  const slots = createFakeReaderSlots();
+  for (const reader of [...slots.cheap, ...slots.strong]) reader.answerWith(reading);
+  return slots;
+}
 
 function makeCodeSplitReaders(): FakeReaderSlots {
   return {

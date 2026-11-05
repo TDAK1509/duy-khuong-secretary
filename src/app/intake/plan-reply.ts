@@ -45,9 +45,14 @@ export function planAnswer(decision: ReadingDecision, asked: AskedPhoto, role: I
   if (isReaderOutage(decision)) return planUnreadAnswer();
   const reply = planReply(decision, true);
   if (reply.situation === 'saved') return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
+  if (reply.situation === 'code_choice') return planCodeQuestionAnswer(reply);
   if (role === 'admin' && hasAgreedQuestion(decision)) return { kind: 'question' };
   if (asked.status === 'asked_again') return { kind: 'reply', reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
+}
+
+function planCodeQuestionAnswer(reply: ReplyPlan): ReplyAnswer {
+  return { kind: 'reply', reply: { ...reply, status: 'accepted' }, photoAfter: 'unchanged' };
 }
 
 export function planCodeAnswer({ item }: CodeChoice, code: string): ReplyAnswer {
