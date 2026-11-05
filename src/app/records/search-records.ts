@@ -21,6 +21,7 @@ export type FoundRecord = {
   id: string;
   member: string;
   category: string;
+  document_title: string | null;
   maintenance_item: string | null;
   plate: string | null;
   document_number: string | null;
@@ -37,7 +38,7 @@ export type SearchPage = { items: FoundRecord[]; nextCursor: string | null };
 
 type FoundRow = FoundRecord & { created_at_utc: string };
 
-const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, record.category, record.maintenance_item,
+const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, record.category, record.document_title, record.maintenance_item,
     record.vehicle_plate AS plate, record.document_number,
     to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd,
     record.summary, record.identifiers, record.details,
@@ -114,6 +115,7 @@ function toFoundRecord(row: FoundRow): FoundRecord {
     id: row.id,
     member: row.member,
     category: row.category,
+    document_title: row.document_title,
     maintenance_item: row.maintenance_item,
     plate: row.plate,
     document_number: row.document_number,

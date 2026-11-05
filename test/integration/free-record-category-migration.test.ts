@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrationCommand } from '../../src/bootstrap/migrate.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { insertRecordRow } from './record-rows.ts';
+import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -47,7 +47,7 @@ describe('the migration that frees the record categories', () => {
     ['certificate', 'giấy chứng nhận'],
     ['other', 'khác'],
   ])('turns the old category %s into %s', async (oldCategory, newCategory) => {
-    await insertRecordRow(database, { workspaceId, userId, senderName: 'Hùng', category: oldCategory });
+    await insertRecordOfTheOldShape(oldCategory);
 
     await migrate();
 
@@ -65,6 +65,23 @@ describe('the migration that frees the record categories', () => {
 
     expect(index?.indexdef).toContain('WHERE (maintenance_item IS NOT NULL)');
   });
+
+  async function insertRecordOfTheOldShape(category: string): Promise<void> {
+    const messageId = await insertChatMessage(database, {
+      workspaceId,
+      userId,
+      author: 'user',
+      text: 'tin nhắn',
+      createdAt: new Date('2026-10-31T10:00:00+07:00'),
+    });
+    const isMaintenance = category === 'maintenance';
+    await database.query(
+      `INSERT INTO records (workspace_id, user_id, message_id, item_index, sender_name, category, maintenance_item,
+         vehicle_plate, summary, read_by)
+       VALUES ('${workspaceId}', '${userId}', '${messageId}', 0, 'Hùng', '${category}',
+         ${isMaintenance ? `'lốp'` : 'NULL'}, ${isMaintenance ? `'29C12345'` : 'NULL'}, 'Mục', 'cheap_pair')`,
+    );
+  }
 
   async function migrate(): Promise<void> {
     const lines: string[] = [];

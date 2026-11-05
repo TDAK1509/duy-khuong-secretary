@@ -13,7 +13,7 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 
 type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'cursor', string>>;
 
-type SearchResult = { items: { id: string; member: string; plate: string | null; category: string; has_photo: boolean }[]; next_cursor: string | null };
+type SearchResult = { items: { id: string; member: string; plate: string | null; category: string; document_title: string | null; has_photo: boolean }[]; next_cursor: string | null };
 
 describe('the data tools of an admin', () => {
   const clock = new FakeClock(new Date('2026-11-02T10:00:00+07:00'));
@@ -109,6 +109,15 @@ describe('the data tools of an admin', () => {
     const result = await runSearch({ category: 'Kiem Dinh XE' });
 
     expect(result.items.map((item) => item.category)).toEqual(['kiểm định xe']);
+  });
+
+  it('returns the printed title of a record', async () => {
+    const documentTitle = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category: 'kiểm định xe', documentTitle });
+
+    const result = await runSearch();
+
+    expect(result.items.map((item) => item.document_title)).toEqual([documentTitle]);
   });
 
   it('ignores Vietnamese accents in the text', async () => {
