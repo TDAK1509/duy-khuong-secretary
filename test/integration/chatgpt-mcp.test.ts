@@ -105,6 +105,12 @@ describe('the MCP address', () => {
     });
   });
 
+  it('answers 503 on the protected resource metadata while Zalo is off', async () => {
+    const response = await buildTestServer(null).inject({ method: 'GET', url: '/.well-known/oauth-protected-resource' });
+
+    expect(response.statusCode).toBe(503);
+  });
+
   it('returns the server instructions when a signed-in admin initializes', async () => {
     const response = await postMcp(INITIALIZE_REQUEST, { token: DUY_ACCESS_TOKEN });
 
