@@ -11,6 +11,8 @@ import { insertMember } from './workspace-rows.ts';
 const PHOTO_A_URL = 'https://z.test/a.jpg';
 const MINUTE_IN_MS = 60 * 1000;
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const FIRST_LINE = 'Lốp mới thay';
+const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
 const PLATE_AND_AMOUNT = '29C-123.45, 3.500.000đ';
 const RECENT_MESSAGES_HEADER = 'Các tin nhắn gần đây của người gửi';
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
@@ -91,6 +93,17 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('reads earlier unsaved texts without a photo and saves the records on the new text', async () => {
+    const readers = makeReadersAnswering(({ text }) =>
+      text?.includes(`- ${FIRST_LINE}`) && text.includes(`- ${SECOND_LINE}`) ? TIRE_ITEM : UNCLEAR,
+    );
+    await sendTextSentMinutesAgo('zu-hung', FIRST_LINE, 2, readers);
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(await readRecordedTexts()).toEqual([{ text: SECOND_LINE }]);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
@@ -113,6 +126,12 @@ describe('reading an unclear text with the recent messages of the sender', () =>
       `SELECT event.external_event_id AS event FROM records
        JOIN messages message ON message.id = records.message_id
        JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+  }
+
+  async function readRecordedTexts(): Promise<{ text: string }[]> {
+    return harness.database.query<{ text: string }>(
+      'SELECT message.text FROM records JOIN messages message ON message.id = records.message_id',
     );
   }
 
