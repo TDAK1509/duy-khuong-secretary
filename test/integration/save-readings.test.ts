@@ -32,6 +32,14 @@ describe('saving what the reader returns', () => {
     expect(harness.reader.requests).toHaveLength(1);
   });
 
+  it('makes exactly one reader request for a photo with work data', async () => {
+    harness.reader.answerWith(makeReading([makeTireItem()]));
+
+    await harness.receivePhoto('zu-hung', 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ');
+
+    expect(harness.reader.requests).toHaveLength(1);
+  });
+
   it('saves the fuel item of the reading for the sender', async () => {
     harness.reader.answerWith(makeReading([makeFuelItem()]));
 
@@ -442,6 +450,17 @@ describe('saving what the reader returns', () => {
       vehicle_plate: '29C-123.45',
       amount_vnd: null,
       occurred_on: null,
+    });
+  }
+
+  function makeTireItem() {
+    return makeItem({
+      category: 'bảo dưỡng',
+      maintenance_item: 'lốp',
+      vehicle_plate: '29C-123.45',
+      amount_vnd: 3500000,
+      occurred_on: null,
+      identifiers: ['8936012845678'],
     });
   }
 
