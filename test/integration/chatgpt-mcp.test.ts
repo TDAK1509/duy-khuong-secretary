@@ -159,6 +159,13 @@ describe('the MCP address', () => {
     expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, ...CHANGE_TOOL_NAMES]);
   });
 
+  it('asks for approval on each change tool', async () => {
+    const tools = await listTools();
+
+    const changeTools = tools.filter((tool) => CHANGE_TOOL_NAMES.includes(tool.name));
+    expect(changeTools.map((tool) => tool.annotations)).toEqual(CHANGE_TOOL_NAMES.map(() => ({ readOnlyHint: false, destructiveHint: true, openWorldHint: false })));
+  });
+
   it('keeps the admin chat descriptions and schemas of the read tools', async () => {
     const tools = await listReadTools();
 
