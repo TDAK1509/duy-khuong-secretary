@@ -205,6 +205,18 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
   });
 
+  it('replies as before when the second reading is still unclear', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    const readers = makeReadersAnswering(() => UNCLEAR);
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([2, 2]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined });
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
