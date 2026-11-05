@@ -22,6 +22,11 @@ export function handleProtectedResourceMetadata(dependencies: McpDependencies | 
   return respondWithJson(200, describeProtectedResource(dependencies.publicBaseUrl));
 }
 
+export function refuseMcpMethod(): HttpResponse {
+  const response = respondWithText(405, 'Method not allowed.');
+  return { ...response, headers: { ...response.headers, allow: 'POST' } };
+}
+
 export function createMcpRateLimit(): RequestRateLimit {
   return new RequestRateLimit(MAX_REQUESTS_PER_MINUTE, ONE_MINUTE_MS);
 }

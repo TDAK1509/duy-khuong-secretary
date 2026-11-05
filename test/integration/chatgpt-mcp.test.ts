@@ -203,6 +203,12 @@ describe('the MCP address', () => {
     expect(response.statusCode).toBe(429);
   });
 
+  it.each(['GET', 'DELETE'] as const)('refuses %s with 405', async (method) => {
+    const response = await buildTestServer().inject({ method, url: '/mcp', headers: { authorization: `Bearer ${DUY_ACCESS_TOKEN}` } });
+
+    expect(response.statusCode).toBe(405);
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
