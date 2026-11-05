@@ -50,7 +50,7 @@ services:
       - key: READER_PROVIDER
         value: openai-compatible
       - key: READER_REASONING_EFFORT
-        value: low
+        value: medium
       - key: READER_CHEAP_1_BASE_URL
         value: https://api.openai.com/v1
       - key: READER_CHEAP_1_MODEL

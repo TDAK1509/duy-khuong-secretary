@@ -251,7 +251,7 @@ A manual tool that reads a folder of receipt photos with the cheap reader pair, 
 
 ```sh
 export READER_PROVIDER=openai-compatible
-export READER_REASONING_EFFORT=low
+export READER_REASONING_EFFORT=medium
 export LLM_API_KEY=<your OpenAI key>
 for slot in CHEAP_1 CHEAP_2 STRONG_1 STRONG_2; do
   export READER_${slot}_BASE_URL=https://api.openai.com/v1
