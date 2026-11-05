@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_EXPLANATION_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
+import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import type { ReadingDecision } from '../../../src/app/reading/decide-reading.ts';
@@ -43,5 +43,11 @@ describe('planAnswer', () => {
     const plan = planAnswer(agreeOn(tireAndQuestion), asked, 'admin');
 
     expect(plan).toMatchObject({ kind: 'reply', photoAfter: 'same_as_reply', reply: { situation: 'saved', asksQuestion: true } });
+  });
+
+  it('plans to ask again for a member answer that asks and has no items', () => {
+    const plan = planAnswer(agreeOn(question), asked, 'member');
+
+    expect(plan).toMatchObject({ kind: 'reply', photoAfter: 'asked_again', reply: { replyText: ASK_AGAIN_TEXT } });
   });
 });
