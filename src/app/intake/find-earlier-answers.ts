@@ -14,9 +14,9 @@ export async function findEarlierAnswers(database: Database, sender: IntakeSende
      WHERE earlier.workspace_id = $1 AND earlier.user_id = $2 AND earlier.author = 'user'
        AND event.kind = 'text' AND earlier.id <> $4
        AND (earlier.created_at, earlier.id) > (question.created_at, question.id)
-       AND (event.payload ->> 'sent_at')::timestamptz >= $5
+       AND (event.payload ->> 'sent_at')::timestamptz BETWEEN $5 AND $6
      ORDER BY earlier.created_at, earlier.id`,
-    [sender.workspaceId, sender.userId, answer.photoId, answer.currentTextId, new Date(answer.currentSentAt.getTime() - EARLIER_ANSWER_WINDOW_MS)],
+    [sender.workspaceId, sender.userId, answer.photoId, answer.currentTextId, new Date(answer.currentSentAt.getTime() - EARLIER_ANSWER_WINDOW_MS), answer.currentSentAt],
   );
   return rows.map(({ text }) => text);
 }
