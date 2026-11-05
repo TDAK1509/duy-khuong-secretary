@@ -132,6 +132,16 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('saves an unclear text of an admin on his photo without asking the chat', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
+
+    await harness.receiveText('zu-duy', PLATE_AND_AMOUNT, { readers: makeContextReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect(harness.chat.requests).toEqual([]);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
