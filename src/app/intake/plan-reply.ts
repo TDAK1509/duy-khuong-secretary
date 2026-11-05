@@ -11,6 +11,7 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
+import type { IntakeSender } from './find-intake-sender.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
@@ -35,21 +36,29 @@ export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPl
   return planRecordsReply(buildNewRecords(reading.items), decision.outcome, reading.has_question);
 }
 
-export type AnswerPlan = {
+export type ReplyAnswer = {
+  kind: 'reply';
   reply: ReplyPlan;
   photoAfter: 'same_as_reply' | 'asked_again' | 'unresolved' | 'unchanged';
 };
 
-export function planAnswer(decision: ReadingDecision, asked: AskedPhoto): AnswerPlan {
+export type AnswerPlan = { kind: 'question' } | ReplyAnswer;
+
+export function planAnswer(decision: ReadingDecision, asked: AskedPhoto, role: IntakeSender['role']): AnswerPlan {
   if (isReaderOutage(decision)) return planUnreadAnswer();
   const reply = planReply(decision, true);
-  if (reply.situation === 'saved') return { reply, photoAfter: 'same_as_reply' };
-  if (asked.status === 'asked_again') return { reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
-  return { reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
+  if (reply.situation === 'saved') return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
+  if (role === 'admin' && hasAgreedQuestion(decision)) return { kind: 'question' };
+  if (asked.status === 'asked_again') return { kind: 'reply', reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
+  return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
+}
+
+function hasAgreedQuestion({ agreed, outcome }: ReadingDecision): boolean {
+  return agreed !== null && outcome !== 'unresolved' && saveAgreedReading(...agreed).has_question;
 }
 
 export function planUnreadAnswer(): AnswerPlan {
-  return { reply: planUnresolvedReply(), photoAfter: 'unchanged' };
+  return { kind: 'reply', reply: planUnresolvedReply(), photoAfter: 'unchanged' };
 }
 
 function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: boolean): ReplyPlan {

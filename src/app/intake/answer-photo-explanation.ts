@@ -6,7 +6,7 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
-import { planAnswer, planUnreadAnswer, type AnswerPlan, type ReplyPlan } from './plan-reply.ts';
+import { planAnswer, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './reply-to-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied, rejectDuplicates } from './run-reply-stage.ts';
@@ -33,7 +33,7 @@ export async function answerPhotoExplanation(
 async function readAnswer(context: IntakeContext, explanation: Explanation, asked: AskedPhoto): Promise<AnswerPlan> {
   const photo = await requirePhotoStorage(context).get(asked.imageKey);
   if (photo === null) return planUnreadAnswer();
-  return planAnswer(await readMessage(context, { text: wrapExplanation(explanation.text), photo }), asked);
+  return planAnswer(await readMessage(context, { text: wrapExplanation(explanation.text), photo }), asked, context.sender.role);
 }
 
 async function saveAnswer(
@@ -42,6 +42,7 @@ async function saveAnswer(
   answered: Answered,
   answer: AnswerPlan,
 ): Promise<void> {
+  if (answer.kind === 'question') return;
   const reply = await rejectDuplicates(transaction, context.sender.workspaceId, answer.reply);
   await saveRecordsAndReply(transaction, context, answered, reply);
   const photoStatus = findPhotoStatus(answer, reply);
@@ -62,12 +63,12 @@ async function saveRecordsAndReply(
   await setSubmissionStatus(transaction, explanation.id, reply.status);
 }
 
-function findPhotoStatus({ photoAfter }: AnswerPlan, reply: ReplyPlan): SubmissionStatus | null {
+function findPhotoStatus({ photoAfter }: ReplyAnswer, reply: ReplyPlan): SubmissionStatus | null {
   if (photoAfter === 'unchanged') return null;
   return photoAfter === 'same_as_reply' ? reply.status : photoAfter;
 }
 
-function endsWait({ photoAfter }: AnswerPlan): boolean {
+function endsWait({ photoAfter }: ReplyAnswer): boolean {
   return photoAfter === 'same_as_reply' || photoAfter === 'unresolved';
 }
 
