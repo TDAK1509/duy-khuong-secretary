@@ -1,4 +1,5 @@
 import type { Clock } from '../../services/clock/clock.ts';
+import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import type { McpEndpoint, McpExchange } from '../../services/mcp/mcp-endpoint.ts';
 import { describeProtectedResource } from '../chatgpt/describe-protected-resource.ts';
 import { describeMcpServer } from '../chatgpt/describe-mcp-server.ts';
@@ -11,7 +12,7 @@ const MAX_REQUESTS_PER_MINUTE = 60;
 const ONE_MINUTE_MS = 60 * 1000;
 const TOO_MANY_REQUESTS_TEXT = 'Too many requests.';
 
-export type McpDependencies = { database: Database; clock: Clock; publicBaseUrl: string; endpoint: McpEndpoint };
+export type McpDependencies = { database: Database; clock: Clock; publicBaseUrl: string; endpoint: McpEndpoint; photoStorage: PhotoStorage | null };
 
 export type McpAccess =
   | { kind: 'refused'; response: HttpResponse }

@@ -50,9 +50,10 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
   const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
   const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
-  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig, zalo }));
+  const photoStorageConfig = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
+  const photoStorage = photoStorageConfig && buildPhotoStorage(photoStorageConfig);
+  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig, zalo, photoStorage }));
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
-  const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
   const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
   const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
@@ -63,7 +64,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     alerts,
     channel,
     zalo,
-    photoStorage: photoStorage && buildPhotoStorage(photoStorage),
+    photoStorage,
     reader: readerConfig && buildReader(readerConfig),
     chat,
     reportReadyTemplateId: reportTemplate && reportTemplate.templateId,
@@ -88,10 +89,11 @@ type HttpParts = {
   connection: ReturnType<typeof buildConnectionDependencies> | null;
   channel: MessagingChannel | null;
   webhookConfig: ZaloWebhookConfig | null;
+  photoStorage: PhotoStorage | null;
 };
 
 function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
-  const { pool, clock, zalo, alerts, connection, channel, webhookConfig } = parts;
+  const { pool, clock, zalo, alerts, connection, channel, webhookConfig, photoStorage } = parts;
   return {
     oauthCallback: connection,
     chatgptOAuth: zalo && channel && {
@@ -101,7 +103,7 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
       maxTextLength: channel.maxTextLength,
       qrCode: new QrCodeGeneratorRenderer(),
     },
-    chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint() },
+    chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint(), photoStorage },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     verifierFile: config.verifierFile,
   };

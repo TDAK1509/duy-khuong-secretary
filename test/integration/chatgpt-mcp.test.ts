@@ -19,6 +19,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { SdkMcpEndpoint } from '../../src/providers/mcp/sdk-mcp-endpoint.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -43,6 +44,16 @@ const DAILY_REPORT = {
   weekday: null,
   day_of_month: null,
   maintenance_rules: [],
+};
+const ATTACH_PHOTOS_DESCRIPTION =
+  'Đọc ảnh gốc của các mục dữ liệu trong nhóm và trả ảnh vào cuộc trò chuyện này. Lấy id từ search_records. Tối đa 4 ảnh. Mục không có ảnh hoặc không được phép xem sẽ bị bỏ qua.';
+const ATTACH_PHOTOS_SCHEMA = {
+  type: 'object',
+  properties: {
+    record_ids: { type: 'array', maxItems: 4, items: { type: 'string' }, description: 'id của các mục cần đọc ảnh, lấy từ search_records.' },
+  },
+  required: ['record_ids'],
+  additionalProperties: false,
 };
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
@@ -75,6 +86,7 @@ describe('the MCP address', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let photoStorage: FakePhotoStorage;
   let workspaceId: string;
   let duyUserId: string;
 
@@ -82,6 +94,7 @@ describe('the MCP address', () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
+    photoStorage = new FakePhotoStorage();
     await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens: makeTokenPair({ accessToken: 'a1' }), storedAt: NOW }, ENCRYPTION_KEY);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
@@ -168,10 +181,22 @@ describe('the MCP address', () => {
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
   });
 
-  it('lists the five read tools and the four change tools', async () => {
+  it('lists the five read tools, attach_photos and the four change tools', async () => {
     const tools = await listTools();
 
-    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, ...CHANGE_TOOL_NAMES]);
+    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, 'attach_photos', ...CHANGE_TOOL_NAMES]);
+  });
+
+  it('lists attach_photos with its own description, schema and read-only hints', async () => {
+    const tools = await listTools();
+
+    const attachPhotos = tools.find((tool) => tool.name === 'attach_photos');
+    expect(attachPhotos).toMatchObject({
+      description: ATTACH_PHOTOS_DESCRIPTION,
+      inputSchema: ATTACH_PHOTOS_SCHEMA,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { securitySchemes: [{ type: 'oauth2' }] },
+    });
   });
 
   it('asks for approval on each change tool', async () => {
@@ -231,8 +256,9 @@ describe('the MCP address', () => {
 
   it('cannot call a tool that is not listed', async () => {
     const recordId = await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Duy', hasPhoto: true });
+    const mcp = { ...makeMcpDependencies(), photoStorage: null };
 
-    const response = await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN });
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN, mcp });
 
     expect(response.json().error).toBeDefined();
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
@@ -325,7 +351,7 @@ describe('the MCP address', () => {
   }
 
   function makeMcpDependencies(): McpDependencies {
-    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint() };
+    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint(), photoStorage };
   }
 
   function postMcp(body: unknown, { token, mcp }: { token?: string; mcp?: McpDependencies | null } = {}) {
