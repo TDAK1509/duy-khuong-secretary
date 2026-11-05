@@ -13,6 +13,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const ONE_MINUTE_MS = 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * ONE_MINUTE_MS;
 const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
 
 describe('GET /oauth/authorize', () => {
@@ -115,6 +116,16 @@ describe('GET /oauth/authorize', () => {
     expect(response.statusCode).toBe(429);
     expect(response.body).toContain('Đang có quá nhiều lượt kết nối. Thử lại sau vài phút.');
     expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toHaveLength(200);
+  });
+
+  it('deletes sign-ins that expired more than a day ago', async () => {
+    await insertSignIns(database, { count: 1, expiresAt: new Date(NOW.getTime() - 2 * ONE_DAY_MS) });
+
+    await requestSignInPage(makeSignInQuery());
+
+    const rows = await database.query<{ browser_key_hash: string }>('SELECT browser_key_hash FROM chatgpt_sign_ins');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.browser_key_hash).not.toBe('key-1');
   });
 
   function requestSignInPage(query: Record<string, string>) {
