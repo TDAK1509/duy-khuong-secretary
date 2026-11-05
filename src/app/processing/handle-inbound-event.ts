@@ -99,21 +99,29 @@ async function answerSender(
   await clearChoiceUnlessAnswered(transaction, identity, message.text);
   const reply = await decideReply(transaction, { ...message, identity, now, maxTextLength: channel.maxTextLength });
   if (reply === null) return;
-  await enqueueText(transaction, {
+  await enqueueReply(transaction, { ...message, now, maxTextLength: channel.maxTextLength }, reply);
+}
+
+async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply): Promise<void> {
+  const common = {
     to: describeSender(message.event),
-    text: reply.text,
-    maxTextLength: channel.maxTextLength,
-    availableAt: now,
+    maxTextLength: message.maxTextLength,
+    availableAt: message.now,
     ...(reply.adminMembershipId !== undefined && { adminMembershipId: reply.adminMembershipId }),
+  };
+  await enqueueText(transaction, {
+    ...common,
+    text: reply.text,
     ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
+  if (reply.followUpText !== undefined) await enqueueText(transaction, { ...common, text: reply.followUpText });
 }
 
 type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxTextLength: number };
 
 async function decideReply(transaction: Transaction, message: ReceivedMessage): Promise<Reply | null> {
   const { identity, inviteCode, zaloName, now } = message;
-  if (inviteCode === null) return replyToOtherMessage(transaction, identity, message.text);
+  if (inviteCode === null) return replyToOtherMessage(transaction, message);
   const joined = await joinWithInviteCode(transaction, { identity, code: inviteCode, zaloName, now });
   if (joined.kind === 'joined') await tellInviter(transaction, joined, message);
   return { text: formatJoinResult(joined) };
@@ -130,13 +138,9 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
   });
 }
 
-async function replyToOtherMessage(
-  transaction: Transaction,
-  identity: ChannelIdentity,
-  text: string | null,
-): Promise<Reply | null> {
+async function replyToOtherMessage(transaction: Transaction, { identity, text, now }: ReceivedMessage): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
-  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text, now });
 }

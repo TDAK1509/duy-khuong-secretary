@@ -11,6 +11,7 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
+import { QrCodeGeneratorRenderer } from '../providers/qr-code/qrcode-generator-renderer.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
@@ -48,7 +49,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
   const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
   const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
-  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, alerts, connection, channel, webhookConfig }));
+  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig, zalo }));
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
   const photoStorage = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
@@ -80,6 +81,8 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
 
 type HttpParts = {
   pool: PostgresPool;
+  clock: Clock;
+  zalo: ZaloConfig | null;
   alerts: OperatorAlerts;
   connection: ReturnType<typeof buildConnectionDependencies> | null;
   channel: MessagingChannel | null;
@@ -87,9 +90,10 @@ type HttpParts = {
 };
 
 function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
-  const { pool, alerts, connection, channel, webhookConfig } = parts;
+  const { pool, clock, zalo, alerts, connection, channel, webhookConfig } = parts;
   return {
     oauthCallback: connection,
+    signIn: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, qrCode: new QrCodeGeneratorRenderer() },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     verifierFile: config.verifierFile,
   };

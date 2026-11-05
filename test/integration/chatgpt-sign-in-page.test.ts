@@ -1,0 +1,198 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { buildServer } from '../../src/bootstrap/server.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertLoginCode } from './chatgpt-login-code-rows.ts';
+import { insertSignIns } from './chatgpt-sign-in-rows.ts';
+import { makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
+
+const NOW = new Date('2026-11-02T10:00:00+07:00');
+const ENCRYPTION_KEY = 'a'.repeat(64);
+const ONE_MINUTE_MS = 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * ONE_MINUTE_MS;
+const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
+
+describe('GET /oauth/authorize', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let clock: FakeClock;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    clock = new FakeClock(NOW);
+    const tokens = makeTokenPair({ accessToken: 'a1' });
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens, storedAt: NOW }, ENCRYPTION_KEY);
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('shows the sign-in form for a valid ChatGPT request', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('Mã kết nối');
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toHaveLength(1);
+    expect(response.headers['set-cookie']).toMatch(/HttpOnly/);
+  });
+
+  it('shows a QR code for the Trợ lý chat', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    const expectedSvg = new QrCodeGeneratorRenderer().renderSvg('https://zalo.me/1234567890', QR_CAPTION);
+    expect(response.body).toContain(expectedSvg);
+    expect(expectedSvg).toContain('role="img"');
+  });
+
+  it('opens the Trợ lý chat with the Mở Zalo button', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.body).toMatch(/<a [^>]*href="https:\/\/zalo\.me\/1234567890"[^>]*>Mở Zalo<\/a>/);
+  });
+
+  it('does not cut a pasted code in the code field', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    const codeField = response.body.match(/<input[^>]*>/)?.[0];
+    expect(codeField).toContain('name="code"');
+    expect(codeField).not.toMatch(/maxlength/i);
+  });
+
+  it('refuses an unknown client without a redirect', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ client_id: 'https://evil.example/client.json' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('Yêu cầu kết nối không hợp lệ.');
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('refuses a different redirect address', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ redirect_uri: 'https://evil.example/cb' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('refuses the plain PKCE method', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ code_challenge_method: 'plain' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('refuses a different resource', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ resource: 'https://other.example/mcp' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('refuses a response type other than code', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ response_type: 'token' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('refuses a request with an empty code challenge', async () => {
+    const response = await requestSignInPage(makeSignInQuery({ code_challenge: '' }));
+
+    expect(response.statusCode).toBe(400);
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toEqual([]);
+  });
+
+  it('stops at 200 open sign-ins', async () => {
+    await insertSignIns(database, { count: 200, expiresAt: new Date(NOW.getTime() + ONE_MINUTE_MS) });
+
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.statusCode).toBe(429);
+    expect(response.body).toContain('Đang có quá nhiều lượt kết nối. Thử lại sau vài phút.');
+    expect(await database.query('SELECT id FROM chatgpt_sign_ins')).toHaveLength(200);
+  });
+
+  it('deletes sign-ins that expired more than a day ago', async () => {
+    await insertSignIns(database, { count: 1, expiresAt: new Date(NOW.getTime() - 2 * ONE_DAY_MS) });
+
+    await requestSignInPage(makeSignInQuery());
+
+    const rows = await database.query<{ browser_key_hash: string }>('SELECT browser_key_hash FROM chatgpt_sign_ins');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.browser_key_hash).not.toBe('key-1');
+  });
+
+  it('deletes login codes that expired more than a day ago', async () => {
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertLoginCode(database, { userId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - 2 * ONE_DAY_MS) });
+
+    await requestSignInPage(makeSignInQuery());
+
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([]);
+  });
+
+  it('keeps the strict content security policy', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['content-security-policy']).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; frame-ancestors 'none'",
+    );
+  });
+
+  it('loads nothing from any address', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.body).not.toMatch(/<(img|script|link|iframe)[\s>]/i);
+  });
+
+  it('is not cached', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
+  it('sends no referrer', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
+  });
+
+  it('shows the steps and the notes in the verbatim words', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    expect(textLinesOf(response.body)).toEqual([
+      'Kết nối ChatGPT với Trợ lý',
+      'ChatGPT muốn đọc và thay đổi dữ liệu của nhóm bạn quản lý.',
+      '1. Mở khung chat với Trợ lý trong Zalo. Trên điện thoại, bấm "Mở Zalo". Trên máy tính, mở Zalo trên điện thoại và quét mã QR bên dưới. Nếu Zalo mở trang của Trợ lý, bấm "Nhắn tin".',
+      'Mở Zalo',
+      'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.',
+      '2. Nhắn: đăng nhập',
+      '3. Trợ lý gửi mã trong một tin nhắn riêng. Nhấn giữ tin nhắn đó để sao chép, rồi dán vào ô dưới đây. Bạn cũng có thể gõ mã.',
+      '4. Bấm "Tiếp tục".',
+      'Mã kết nối',
+      'Tiếp tục',
+      'Trợ lý kết nối nhóm bạn đang dùng trong Zalo. Muốn dùng nhóm khác, nhắn "đổi nhóm" cho Trợ lý trước khi nhắn "đăng nhập".',
+      'Chỉ nhập mã trên trang bạn tự mở từ ChatGPT của mình.',
+    ]);
+  });
+
+  function textLinesOf(html: string): string[] {
+    const body = html.slice(html.indexOf('<body>'));
+    const withoutSvg = body.replace(/<svg[\s\S]*?<\/svg>/g, '');
+    return withoutSvg.split(/<[^>]*>/).map((line) => line.trim()).filter((line) => line !== '');
+  }
+
+  function requestSignInPage(query: Record<string, string>) {
+    const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
+    return server.inject({ method: 'GET', url: '/oauth/authorize', query });
+  }
+});

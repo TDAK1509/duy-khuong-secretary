@@ -1,6 +1,6 @@
 import { createHash, randomInt } from 'node:crypto';
 
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
 
 export function generateInviteCode(): string {

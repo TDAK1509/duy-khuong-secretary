@@ -8,6 +8,9 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  DROP TABLE chatgpt_login_codes;
+  DROP TABLE chatgpt_sign_ins;
+  DELETE FROM pgmigrations WHERE name = '0034_create_chatgpt_sign_in_tables';
   ALTER TABLE messages ADD COLUMN code_choice jsonb;
   ALTER TABLE records ADD COLUMN read_by text;
   DELETE FROM pgmigrations WHERE name = '0033_drop_two_reader_columns';
@@ -99,7 +102,7 @@ describe('the migration that frees the record categories', () => {
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
     expect(lines).toEqual([
-      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns',
+      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables',
     ]);
     expect(exitCode).toBe(0);
   }

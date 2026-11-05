@@ -51,6 +51,15 @@ describe('assembling the service', () => {
     ]);
   });
 
+  it('answers 503 on the sign-in page while Zalo is off', async () => {
+    service = assembleService({ DATABASE_URL: testDatabaseUrl }, () => {});
+
+    const response = await service.server.inject({ method: 'GET', url: '/oauth/authorize' });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('Zalo is not configured.');
+  });
+
   it('names the two missing reader values when no reader value is set', async () => {
     const lines: string[] = [];
 
@@ -86,5 +95,24 @@ describe('assembling the service', () => {
     expect(response.statusCode).toBe(400);
     expect(response.body).toBe('Zalo connection failed. Run connect-zalo again.');
     expect(lines).toEqual([]);
+  });
+
+  it('serves the sign-in page when Zalo is configured', async () => {
+    service = assembleService(
+      {
+        DATABASE_URL: testDatabaseUrl,
+        MESSAGING_PROVIDER: 'zalo-oa',
+        ZALO_APP_ID: 'app-1',
+        ZALO_APP_SECRET: 'sec-1',
+        CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
+        PUBLIC_BASE_URL: 'https://x.test',
+      },
+      () => {},
+    );
+
+    const response = await service.server.inject({ method: 'GET', url: '/oauth/authorize' });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('Yêu cầu kết nối không hợp lệ.');
   });
 });
