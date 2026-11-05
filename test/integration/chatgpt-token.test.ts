@@ -111,6 +111,12 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
+
+    it('accepts a request without a resource', async () => {
+      const response = await requestToken(makeFieldsWithout(makeCodeRequest(), 'resource'));
+
+      expect(response.statusCode).toBe(200);
+    });
   });
 
   describe('with a refresh token', () => {
