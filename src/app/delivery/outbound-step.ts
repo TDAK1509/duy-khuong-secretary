@@ -89,12 +89,12 @@ function failMessage(dependencies: OutboundDependencies, message: ClaimedMessage
   return applyOutcome(dependencies, message, { settlement: { status: 'failed', lastError: reason } });
 }
 
-type Payload = Exclude<MessageContent, { kind: 'image' }> | { kind: 'image'; photo: Photo };
+type Payload = Exclude<MessageContent, { kind: 'image' }> | { kind: 'image'; photo: Photo; text?: string };
 
 async function loadPayload(photoStorage: PhotoStorage | null, content: MessageContent): Promise<Payload | null> {
   if (content.kind !== 'image') return content;
   const photo = await photoStorage?.get(content.photoKey);
-  return photo ? { kind: 'image', photo } : null;
+  return photo ? { kind: 'image', photo, text: content.text } : null;
 }
 
 function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: Payload, accessKey: string): Promise<SendResult> {
@@ -102,7 +102,7 @@ function sendPayload(channel: MessagingChannel, to: ChannelRecipient, payload: P
     case 'text':
       return channel.sendText(to, payload.body, accessKey);
     case 'image':
-      return channel.sendImage(to, payload.photo, accessKey);
+      return channel.sendImage(to, payload.photo, accessKey, payload.text);
     case 'template':
       return channel.sendTemplate(to, payload, accessKey);
   }

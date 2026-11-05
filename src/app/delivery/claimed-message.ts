@@ -2,7 +2,7 @@ import type { ChannelRecipient } from '../../services/messaging/messaging-channe
 
 export type MessageContent =
   | { kind: 'text'; body: string }
-  | { kind: 'image'; photoKey: string }
+  | { kind: 'image'; photoKey: string; text?: string }
   | { kind: 'template'; templateId: string; params: Record<string, string> };
 
 export type ClaimedMessage = {

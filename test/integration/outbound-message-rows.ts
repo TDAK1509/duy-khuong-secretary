@@ -44,6 +44,6 @@ export async function insertOutboundMessage(database: TemporaryDatabase, message
 
 function describeContent(message: NewOutboundMessage): string {
   if (message.templateId) return `'template', NULL, NULL, ${literal(message.templateId)}`;
-  if (message.photoKey) return `'image', NULL, ${literal(message.photoKey)}, NULL`;
+  if (message.photoKey) return `'image', ${message.body ? literal(message.body) : 'NULL'}, ${literal(message.photoKey)}, NULL`;
   return `'text', ${literal(message.body ?? 'chào')}, NULL, NULL`;
 }

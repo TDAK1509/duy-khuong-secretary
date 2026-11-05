@@ -11,3 +11,7 @@ export function readIntakeParts(event: ClaimedEvent): IntakePart[] {
   const { image_urls: imageUrls, caption } = imagesPayloadSchema.parse(event.payload);
   return imageUrls.map((imageUrl, index) => ({ index, text: caption, imageUrl }));
 }
+
+export function hasSeveralPhotos(event: ClaimedEvent): boolean {
+  return event.kind === 'images' && readIntakeParts(event).length > 1;
+}

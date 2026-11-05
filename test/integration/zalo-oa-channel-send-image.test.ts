@@ -8,6 +8,7 @@ import { replyWithJson, startStubHttpServer, type StubAnswer, type StubHttpServe
 const DUY: ChannelRecipient = { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-duy' };
 const UPLOAD_PATH = '/v2.0/oa/upload/image';
 const SEND_PATH = '/v3.0/oa/message/cs';
+const SAVED_TEXT = 'Đã lưu: Đổ xăng dầu, 1.250.000đ, ngày 30/10/2026.';
 
 describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
   const servers: StubHttpServer[] = [];
@@ -34,6 +35,31 @@ describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('sends an image with its text in one message', async () => {
+    const server = await startStubServer({ upload: replyWithJson({ error: 0, data: { attachment_id: 'att-1' } }), send: replyWithJson({ error: 0 }) });
+
+    const result = await sendFromChannel(server.baseUrl, makeJpeg(1000), 'a1', SAVED_TEXT);
+
+    const [, send] = server.requests;
+    expect(JSON.parse(send?.body ?? '')).toEqual({
+      recipient: { user_id: 'zu-duy' },
+      message: {
+        text: SAVED_TEXT,
+        attachment: { type: 'template', payload: { template_type: 'media', elements: [{ media_type: 'image', attachment_id: 'att-1' }] } },
+      },
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('sends an image without a text field when it has no text', async () => {
+    const server = await startStubServer({ upload: replyWithJson({ error: 0, data: { attachment_id: 'att-1' } }), send: replyWithJson({ error: 0 }) });
+
+    await sendFromChannel(server.baseUrl, makeJpeg(1000), 'a1');
+
+    const [, send] = server.requests;
+    expect(Object.keys(JSON.parse(send?.body ?? '').message)).toEqual(['attachment']);
+  });
+
   it('sends nothing after a rejected upload', async () => {
     const server = await startStubServer({ upload: replyWithJson({ error: -210, message: 'File too large' }), send: replyWithJson({ error: 0 }) });
 
@@ -57,8 +83,8 @@ describe('ZaloOaChannel.sendImage against a stub Zalo API', () => {
     return server;
   }
 
-  function sendFromChannel(apiBaseUrl: string, bytes: Uint8Array, credential: string): Promise<SendResult> {
+  function sendFromChannel(apiBaseUrl: string, bytes: Uint8Array, credential: string, text?: string): Promise<SendResult> {
     const channel = new ZaloOaChannel({ ...TEST_CHANNEL_SETTINGS, apiBaseUrl, timeoutMs: 5000 });
-    return channel.sendImage(DUY, { bytes, contentType: 'image/jpeg' }, credential);
+    return channel.sendImage(DUY, { bytes, contentType: 'image/jpeg' }, credential, text);
   }
 });

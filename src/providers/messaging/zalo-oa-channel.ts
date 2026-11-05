@@ -132,10 +132,10 @@ export class ZaloOaChannel implements MessagingChannel {
     return guardSend(() => this.postMessage(to, { text }, credential));
   }
 
-  async sendImage(to: ChannelRecipient, photo: Photo, credential: string): Promise<SendResult> {
+  async sendImage(to: ChannelRecipient, photo: Photo, credential: string, text?: string): Promise<SendResult> {
     return guardSend(async () => {
       const upload = await this.uploadImage(photo, credential);
-      return upload.ok ? this.postMessage(to, buildImageMessage(upload.attachmentId), credential) : upload;
+      return upload.ok ? this.postMessage(to, buildImageMessage(upload.attachmentId, text), credential) : upload;
     });
   }
 
@@ -331,9 +331,10 @@ async function guardSend(send: () => Promise<SendResult>): Promise<SendResult> {
   }
 }
 
-function buildImageMessage(attachmentId: string): object {
+function buildImageMessage(attachmentId: string, text: string | undefined): object {
   const elements = [{ media_type: 'image', attachment_id: attachmentId }];
-  return { attachment: { type: 'template', payload: { template_type: 'media', elements } } };
+  const attachment = { type: 'template', payload: { template_type: 'media', elements } };
+  return { ...(text !== undefined && { text }), attachment };
 }
 
 function toUploadFileName(photo: Photo): string {
@@ -364,7 +365,9 @@ async function readUploadResult(response: Response): Promise<UploadResult> {
 
 function toFailedSend(error: number): FailedSend {
   if (error === RATE_LIMIT_ERROR) return { ok: false, reason: 'rate_limited' };
-  return { ok: false, reason: error === WINDOW_CLOSED_ERROR ? 'window_closed' : 'rejected' };
+  if (error === WINDOW_CLOSED_ERROR) return { ok: false, reason: 'window_closed' };
+  console.error(`[zalo] send rejected: error ${error}`);
+  return { ok: false, reason: 'rejected' };
 }
 
 function wasNeverSent(error: unknown): boolean {
