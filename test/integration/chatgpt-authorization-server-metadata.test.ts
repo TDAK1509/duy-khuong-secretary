@@ -43,4 +43,10 @@ describe('GET /.well-known/oauth-authorization-server', () => {
       authorization_response_iss_parameter_supported: true,
     });
   });
+
+  it('answers 503 while Zalo is off', async () => {
+    const response = await buildServer(pool, null).inject({ method: 'GET', url: '/.well-known/oauth-authorization-server' });
+
+    expect(response.statusCode).toBe(503);
+  });
 });
