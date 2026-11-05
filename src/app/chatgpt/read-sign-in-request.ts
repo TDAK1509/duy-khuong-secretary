@@ -13,6 +13,7 @@ export function readSignInRequest(query: unknown, publicBaseUrl: string): SignIn
 
 function makeSignInQuerySchema(publicBaseUrl: string) {
   return z.object({
+    response_type: z.literal('code'),
     client_id: z.literal(CHATGPT_CLIENT_ID),
     redirect_uri: z.literal(CHATGPT_REDIRECT_URI),
     code_challenge: z.string(),
