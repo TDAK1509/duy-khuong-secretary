@@ -1,4 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  COUNT_RECORDS_SPEC,
+  LIST_MEMBERS_SPEC,
+  LIST_SCHEDULED_TASKS_SPEC,
+  MAINTENANCE_STATUS_SPEC,
+  SEARCH_RECORDS_SPEC,
+} from '../../src/app/admin-chat/tools/tool-specs.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -14,7 +21,10 @@ const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
 const DUY_ACCESS_TOKEN = 'duy-access-token';
+const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
+
+type ListedTool = { name: string; description: string; inputSchema: unknown };
 
 const INITIALIZE_REQUEST = {
   jsonrpc: '2.0',
@@ -103,6 +113,13 @@ describe('the MCP address', () => {
       'maintenance_status',
       'list_scheduled_tasks',
     ]);
+  });
+
+  it('keeps the admin chat descriptions and schemas of the read tools', async () => {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+
+    const listed = response.json().result.tools.map(({ name, description, inputSchema }: ListedTool) => ({ name, description, inputSchema }));
+    expect(listed).toEqual(READ_TOOL_SPECS.map(({ name, description, parameters }) => ({ name, description, inputSchema: parameters })));
   });
 
   it('refuses an expired access token', async () => {
