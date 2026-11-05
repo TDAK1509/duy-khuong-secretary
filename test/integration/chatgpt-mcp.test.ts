@@ -61,6 +61,7 @@ const ATTACH_PHOTOS_SCHEMA = {
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const FUEL_TEXT = 'đổ dầu 1.250.000đ xe 29C-123.45 hôm nay';
 const UNCLEAR_TEXT = 'Chưa lưu vì nội dung chưa đủ rõ. Hãy gửi lại đầy đủ việc gì, cho xe nào, ngày nào và số tiền nếu có.';
+const READER_FAILED_TEXT = 'Chưa lưu được vì Trợ lý đang lỗi. Hãy thử lại sau.';
 const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -372,6 +373,15 @@ describe('the MCP address', () => {
 
     expect(response.json().result.content[0].text).toBe(UNCLEAR_TEXT);
     expect(await database.query('SELECT id FROM records')).toEqual([]);
+  });
+
+  it('saves nothing when the reader fails', async () => {
+    reader.failWith('timeout');
+
+    const response = await postMcp(callToolRequest('save_record_from_text', { text: 'đổ dầu 1.250.000đ' }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.content[0].text).toBe(READER_FAILED_TEXT);
+    expect(await database.query('SELECT id FROM messages')).toEqual([]);
   });
 
   it('creates a schedule with a creation key', async () => {
