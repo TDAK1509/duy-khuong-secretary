@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
@@ -48,8 +47,7 @@ describe('the text an admin wrote is the only text that changes anything', () =>
 
   function answerQuestionOnly(): void {
     const reading = makeReading([], { has_work_data: false, has_question: true });
-    const pair: readonly [FakeReader, FakeReader] = harness.readers.cheap;
-    pair.forEach((reader) => reader.answerWith(reading));
+    harness.reader.answerWith(reading);
   }
 
   async function findMembershipId(displayName: string): Promise<string> {
@@ -158,7 +156,7 @@ describe('the text an admin wrote is the only text that changes anything', () =>
 
   it('still changes things in a text message that also holds work data', async () => {
     const reading = makeReading([makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30' })], { has_question: true });
-    harness.readers.cheap.forEach((reader) => reader.answerWith(reading));
+    harness.reader.answerWith(reading);
     followRounds(replyWithToolCalls(callTool('create_scheduled_task', DAILY_REPORT)), replyWithText('Đã đặt lịch.'));
 
     await harness.receiveText('zu-duy', 'Đổ dầu 1.250.000đ. Mỗi ngày 18 giờ gửi tôi báo cáo hoạt động.');

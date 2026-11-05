@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -93,7 +92,7 @@ describe('replies that quote the photo they answer', () => {
         lastInboundAt: DUY_LAST_WROTE_AT,
       });
       harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(FIRST_PHOTO_SIZE) });
-      for (const reader of harness.readers.cheap) reader.answerWith(makeReading([makeFuelItem()]));
+      harness.reader.answerWith(makeReading([makeFuelItem()]));
     });
 
     it('quotes the photo in the reply to a saved photo', async () => {
@@ -148,8 +147,8 @@ describe('replies that quote the photo they answer', () => {
       await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });
       await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [SECOND_PHOTO_URL], externalEventId: 'zmsg-2' });
 
-      await harness.runInbound({ readers: readFuelItemByPhotoSize() });
-      await harness.runInbound({ readers: readFuelItemByPhotoSize() });
+      await harness.runInbound({ reader: readFuelItemByPhotoSize() });
+      await harness.runInbound({ reader: readFuelItemByPhotoSize() });
       await harness.sendAllQueuedTexts();
 
       const toHung = harness.channel.texts.filter((text) => text.to.externalUserId === 'zu-hung');
@@ -165,10 +164,8 @@ function makeFuelItem() {
   return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
 }
 
-function readFuelItemByPhotoSize(): ReaderSlots {
-  const makeReader = (label: string) =>
-    new FakeReader(label, ({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function readFuelItemByPhotoSize(): FakeReader {
+  return new FakeReader(({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
 }
 
 function makeFuelItemFor(photoSize: number | undefined) {

@@ -95,19 +95,22 @@ describe('render.yaml environment', () => {
     const environment = buildBlueprintEnvironment('placeholder');
 
     const config = loadConfig(environment);
-    const readers = loadReaderConfig(environment);
     const chat = loadChatConfig(environment);
 
     expect(new URL(config.databaseUrl).username).toBe('app_runtime');
     expect(loadZaloConfig(environment).ok).toBe(true);
     expect(loadZaloWebhookConfig(environment).ok).toBe(true);
     expect(loadPhotoStorageConfig(environment).ok).toBe(true);
-    expect(readers.ok && readers.config).toMatchObject({
-      reasoningEffort: 'medium',
-      cheap: [{ model: 'gpt-6-luna' }, { model: 'gpt-6.1-terra' }],
-      strong: [{ model: 'gpt-6.1-sol' }, { model: 'gpt-6-astra' }],
-    });
+    expect(loadReaderConfig(environment).ok).toBe(true);
     expect(chat.ok && chat.config).toMatchObject({ model: 'gpt-6-luna', reasoningEffort: 'none' });
+  });
+});
+
+describe('render.yaml reader', () => {
+  it('reads with gpt-6.1-sol at medium effort', () => {
+    const readers = loadReaderConfig(buildBlueprintEnvironment('placeholder'));
+
+    expect(readers.ok && readers.config).toMatchObject({ model: 'gpt-6.1-sol', reasoningEffort: 'medium' });
   });
 });
 

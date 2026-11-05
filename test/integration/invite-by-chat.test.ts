@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
@@ -18,8 +17,7 @@ describe('an admin invites a person by chat', () => {
     ({ database, workspaceId } = harness);
     await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const reading = makeReading([], { has_work_data: false, has_question: true });
-    const pair: readonly [FakeReader, FakeReader] = harness.readers.cheap;
-    pair.forEach((reader) => reader.answerWith(reading));
+    harness.reader.answerWith(reading);
     const call = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
     harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(ANSWER_TEXT)));
   });

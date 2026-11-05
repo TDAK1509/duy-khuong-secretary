@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DUPLICATE_TEXT, UPLOAD_ONLY_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
-import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -46,11 +45,11 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
   it('reads an unclear text again with the latest unresolved photo', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeContextReaders();
+    const reader = makeContextReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
-    const request = readers.cheap[0].requests.at(-1);
+    const request = reader.requests.at(-1);
     expect(request?.image?.bytes).toEqual(makeJpeg(1000));
     expect(request?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n- ${PLATE_AND_AMOUNT}`);
   });
@@ -58,7 +57,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
   it('saves the records on the photo and quotes the photo when the second reading is good', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers: makeContextReaders() });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader: makeContextReader() });
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
@@ -68,77 +67,77 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
   it('does not use a photo sent more than 10 minutes before', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 11);
-    const readers = makeContextReaders();
+    const reader = makeContextReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
     await harness.sendAllQueuedTexts();
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
     expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UPLOAD_ONLY_TEXT);
   });
 
-  it('does not use a photo whose readings agreed on no work data', async () => {
+  it('does not use a photo whose reading found no work data', async () => {
     await sendPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeContextReaders();
+    const reader = makeContextReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('does not use the messages before a saved message', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    await sendTextSentMinutesAgo('zu-hung', 'Đổ dầu 500.000đ xe 29C-123.45', 2, makeReadersAnswering(() => FUEL_ITEM));
-    const readers = makeContextReaders();
+    await sendTextSentMinutesAgo('zu-hung', 'Đổ dầu 500.000đ xe 29C-123.45', 2, makeReaderAnswering(() => FUEL_ITEM));
+    const reader = makeContextReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('reads earlier unsaved texts without a photo and saves the records on the new text', async () => {
-    const readers = makeReadersAnswering(({ text }) =>
+    const reader = makeReaderAnswering(({ text }) =>
       text?.includes(`- ${FIRST_LINE}`) && text.includes(`- ${SECOND_LINE}`) ? TIRE_ITEM : UNCLEAR,
     );
-    await sendTextSentMinutesAgo('zu-hung', FIRST_LINE, 2, readers);
+    await sendTextSentMinutesAgo('zu-hung', FIRST_LINE, 2, reader);
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader });
 
     expect(await readRecordedTexts()).toEqual([{ text: SECOND_LINE }]);
   });
 
   it('does not use the photo of another member', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-lan', 'zmsg-1', 2);
-    const readers = makeContextReaders();
+    const reader = makeContextReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('reads a clear text once', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeReadersAnswering(() => TIRE_ITEM);
+    const reader = makeReaderAnswering(() => TIRE_ITEM);
 
-    await harness.receiveText('zu-hung', `Lốp mới thay cho ${SECOND_LINE}`, { readers });
+    await harness.receiveText('zu-hung', `Lốp mới thay cho ${SECOND_LINE}`, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
     expect(await readRecordedTexts()).toEqual([{ text: `Lốp mới thay cho ${SECOND_LINE}` }]);
   });
 
-  it('starts no second reading when the readers time out', async () => {
+  it('starts no second reading when the reader times out', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeTimingOutReaders();
+    const reader = makeTimingOutReader();
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
-    expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('saves an unclear text of an admin on his photo without asking the chat', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
 
-    await harness.receiveText('zu-duy', PLATE_AND_AMOUNT, { readers: makeContextReaders() });
+    await harness.receiveText('zu-duy', PLATE_AND_AMOUNT, { reader: makeContextReader() });
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
@@ -147,25 +146,25 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
   it('sends an admin question with no items to the chat without a second reading', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
-    const readers = makeReadersAnswering(() => UNCLEAR_QUESTION);
+    const reader = makeReaderAnswering(() => UNCLEAR_QUESTION);
     harness.chat.replyWith('Ảnh này là lốp xe.');
 
-    await harness.receiveText('zu-duy', 'Lốp này của xe nào?', { readers });
+    await harness.receiveText('zu-duy', 'Lốp này của xe nào?', { reader });
     await harness.sendAllQueuedTexts();
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
     expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
   });
 
   it('saves an admin text with work data and a question first, then lets the chat answer', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
     const question = 'Lốp 3.500.000đ, xe 29C-123.45 đã thay chưa?';
-    const readers = makeReadersAnswering(({ text }) =>
+    const reader = makeReaderAnswering(({ text }) =>
       text?.startsWith(RECENT_MESSAGES_HEADER) ? { ...TIRE_ITEM, has_question: true } : { ...TIRE_WITHOUT_PLATE, has_question: true },
     );
     harness.chat.replyWith('Đã lưu lốp cho xe 29C-123.45.');
 
-    await harness.receiveText('zu-duy', question, { readers });
+    await harness.receiveText('zu-duy', question, { reader });
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
@@ -185,7 +184,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     });
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers: makeContextReaders() });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader: makeContextReader() });
     await harness.sendAllQueuedTexts();
 
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: DUPLICATE_TEXT, quoteMessageId: 'zmsg-1' });
@@ -193,12 +192,12 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
   it('saves once when the text is processed again after a crash', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeContextReaders();
+    const reader = makeContextReader();
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: PLATE_AND_AMOUNT });
-    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    await harness.runInbound({ reader, beforeFinish: crashBeforeFinishing });
     harness.clock.advanceBy(31_000);
 
-    await harness.runInbound({ readers });
+    await harness.runInbound({ reader });
     await harness.sendAllQueuedTexts();
 
     expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
@@ -207,37 +206,37 @@ describe('reading an unclear text with the recent messages of the sender', () =>
 
   it('replies as before when the second reading is still unclear', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
-    const readers = makeReadersAnswering(() => UNCLEAR);
+    const reader = makeReaderAnswering(() => UNCLEAR);
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
     await harness.sendAllQueuedTexts();
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([2, 2]);
+    expect(reader.requests).toHaveLength(2);
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined });
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
   it('reads an unclear text with only the newest 10 earlier texts', async () => {
-    const unclearReaders = makeReadersAnswering(() => UNCLEAR);
+    const unclearReader = makeReaderAnswering(() => UNCLEAR);
     const earlierTexts = Array.from({ length: 12 }, (_, index) => `Tin ${index + 1}`);
-    for (const text of earlierTexts) await sendTextSentMinutesAgo('zu-hung', text, 5, unclearReaders);
-    const readers = makeReadersAnswering(() => UNCLEAR);
+    for (const text of earlierTexts) await sendTextSentMinutesAgo('zu-hung', text, 5, unclearReader);
+    const reader = makeReaderAnswering(() => UNCLEAR);
 
-    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { reader });
 
     const newestTen = earlierTexts.slice(2);
     const lines = [...newestTen, PLATE_AND_AMOUNT].map((text) => `- ${text}`);
-    expect(readers.cheap[0].requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n${lines.join('\n')}`);
+    expect(reader.requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n${lines.join('\n')}`);
   });
 
-  async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
+  async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, reader: FakeReader): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
-    await harness.runInbound({ readers });
+    await harness.runInbound({ reader });
   }
 
   async function sendUnresolvedPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {
-    for (const reader of harness.readers.cheap) reader.answerWith(TIRE_WITHOUT_PLATE);
+    harness.reader.answerWith(TIRE_WITHOUT_PLATE);
     await sendPhotoSentMinutesAgo(externalUserId, externalEventId, minutesAgo);
   }
 
@@ -279,18 +278,16 @@ describe('reading an unclear text with the recent messages of the sender', () =>
   }
 });
 
-function makeContextReaders(): FakeReaderSlots {
-  return makeReadersAnswering(({ text }) => (text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR));
+function makeContextReader(): FakeReader {
+  return makeReaderAnswering(({ text }) => (text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR));
 }
 
-function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
-  const makeReader = (label: string) => new FakeReader(label, (request): ReaderResult => ({ ok: true, json: respond(request) }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function makeReaderAnswering(respond: (request: ReaderRequest) => unknown): FakeReader {
+  return new FakeReader((request): ReaderResult => ({ ok: true, json: respond(request) }));
 }
 
-function makeTimingOutReaders(): FakeReaderSlots {
-  const makeReader = (label: string) => new FakeReader(label, (): ReaderResult => ({ ok: false, reason: 'timeout' }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function makeTimingOutReader(): FakeReader {
+  return new FakeReader((): ReaderResult => ({ ok: false, reason: 'timeout' }));
 }
 
 async function crashBeforeFinishing(): Promise<void> {

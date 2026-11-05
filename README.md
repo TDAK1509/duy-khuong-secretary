@@ -118,17 +118,26 @@ The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except
 
 To run with MinIO by hand (never in CI): `docker compose --profile minio up -d --wait minio`. It creates the bucket `photos`. Then set `PHOTO_STORAGE=s3`, `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=photos`, `S3_ACCESS_KEY_ID=minioadmin`, `S3_SECRET_ACCESS_KEY=minioadmin` and `S3_FORCE_PATH_STYLE=true`. Set `MINIO_PORT` if port 9000 is taken. The MinIO console is at `http://localhost:9001`. The image is `bitnamilegacy/minio`, because MinIO no longer publishes images on Docker Hub.
 
-## Save what two readers agree on
+## Save what the reader reads
 
-Every text and photo from a person in a workspace goes to the readers (the cheap pair, then the strong pair when the cheap pair disagrees). When a pair agrees on work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. `read_by` is `cheap_pair` or `expensive_pair`. When no pair agrees, nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message from a member with no work data gets the upload-only reply. A question in a member's message is ignored. Admins get the chat model (see "Admins ask the bot").
+Every text and photo from a person in a workspace goes to one reader. The reader returns a reading. When the reading has work data, the server saves one `records` row per item in one transaction with the saved reply and marks the message `accepted`. When the reader fails (timeout, unavailable or invalid output), nothing is saved, the sender is asked to send again and the message is `unresolved`. A maintenance item without a plate saves nothing from the whole message and asks for the plate. A message from a member with no work data gets the upload-only reply. A question in a member's message is ignored. Admins get the chat model (see "Admins ask the bot").
 
-The `readers` group is on only when `READER_PROVIDER` and the 12 `READER_<SLOT>_BASE_URL/_API_KEY/_MODEL` values are set (an empty `_API_KEY` falls back to `LLM_API_KEY`) (see "Evaluate the readers"). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
+The `readers` group is on only when `READER_PROVIDER` and `READER_API_KEY` are set (an empty `READER_API_KEY` falls back to `LLM_API_KEY`). While it is off the service logs `[config] readers is off; missing: <NAMES>.` and the messages of people in a workspace wait.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `READER_PROVIDER` | none, required | `openai-compatible` |
+| `READER_API_KEY` | `LLM_API_KEY` | Key of the reader |
+| `READER_BASE_URL` | `https://api.openai.com/v1` | Chat Completions endpoint of the reader |
+| `READER_MODEL` | `gpt-6.1-sol` | Model of the reader |
+| `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
+| `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
 
 ## Admins ask the bot
 
 A message from an admin goes to the chat model when it has no work data. When it has work data and a question, the server saves the data and sends the saved reply first, then the chat model answers. Unresolved, no-plate and duplicate messages get their fixed replies and never reach the model. Members never reach the model. The model calls three tools, up to 5 rounds: `search_records`, `count_records` and `list_members`. Each tool reloads the caller's membership and refuses anyone who is not a current admin of the workspace. The answer is stored only when the admin's membership row is still the same row and still `admin`. If the chat model fails, the admin gets the failure text; the saved records stay.
 
-The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the readers run.
+The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the reader runs.
 
 | Env var | Default | Meaning |
 |---|---|---|
@@ -220,7 +229,7 @@ Then, in a Render Hobby workspace, allow Render's GitHub app on this repository,
 
 | Prompt | Value |
 |---|---|
-| `LLM_API_KEY` | The OpenAI API key. Every chat and reader slot uses it |
+| `LLM_API_KEY` | The OpenAI API key. The chat model and the reader use it |
 | `S3_ENDPOINT` | The R2 S3 endpoint |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The R2 access key pair |
 | `ZALO_APP_ID`, `ZALO_APP_SECRET` | The Zalo app's id and secret key |
@@ -244,42 +253,6 @@ A sync cannot create these. Do them by hand:
 Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log holds a `[migrate]` line, then `[migrate] app_runtime password set`. The start log has no `database role owns the tables` line.
 
 Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, set `GIT_COMMIT`, and set `DATABASE_URL` (or `APP_RUNTIME_PASSWORD`, so that `migrate.js` sets the password).
-
-## Evaluate the readers
-
-A manual tool that reads a folder of receipt photos with the cheap reader pair, escalates to the strong pair when they disagree, and prints what each reader read. It never writes the database and needs an OpenAI API key.
-
-```sh
-export READER_PROVIDER=openai-compatible
-export READER_REASONING_EFFORT=medium
-export LLM_API_KEY=<your OpenAI key>
-for slot in CHEAP_1 CHEAP_2 STRONG_1 STRONG_2; do
-  export READER_${slot}_BASE_URL=https://api.openai.com/v1
-done
-export READER_CHEAP_1_MODEL=gpt-6-luna
-export READER_CHEAP_2_MODEL=gpt-6.1-terra
-export READER_STRONG_1_MODEL=gpt-6.1-sol
-export READER_STRONG_2_MODEL=gpt-6-astra
-npm run build
-node dist/bootstrap/evaluate-readers.js <photo folder>
-```
-
-The command reads every `.jpg`, `.jpeg` and `.png` file in the folder. Per photo it prints each reading, whether each pair agrees, and the outcome (`cheap_pair`, `expensive_pair` or `unresolved`). The last lines are `photos`, `cheap_pair`, `expensive_pair`, `unresolved`, `escalation rate` and `details agreement`.
-
-Put an `expected.json` next to the photos to also get `amounts correct` and `dates correct`:
-
-```json
-{ "receipt-1.jpg": { "amount_vnd": 1250000, "occurred_on": "2026-10-30" } }
-```
-
-| Env var | Default | Meaning |
-|---|---|---|
-| `READER_PROVIDER` | none, required | `openai-compatible` |
-| `READER_<SLOT>_BASE_URL`, `_API_KEY`, `_MODEL` | none, required | One set per slot: `READER_CHEAP_1`, `READER_CHEAP_2`, `READER_STRONG_1`, `READER_STRONG_2`. `READER_<SLOT>_API_KEY` defaults to `LLM_API_KEY`, so one OpenAI key serves all four slots. A slot with its own key keeps it |
-| `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
-| `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
-
-When a required value is missing the command prints `readers is not configured: missing <NAMES>.` and exits with 1.
 
 ## Check your change
 

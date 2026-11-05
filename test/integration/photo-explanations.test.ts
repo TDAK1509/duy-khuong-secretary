@@ -13,7 +13,6 @@ import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
-import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -63,7 +62,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks about the first unclear photo and quotes it', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
 
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
@@ -74,7 +73,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('says it will ask later about a second unclear photo, which waits its turn', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
 
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
@@ -88,21 +87,21 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('reads the next text together with the photo that was asked about', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
 
-    const request = harness.readers.cheap[0].requests.at(-1);
+    const request = harness.reader.requests.at(-1);
     expect(request?.image?.bytes).toEqual(makeJpeg(1000));
     expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${TIRE_EXPLANATION}`);
   });
 
   it('saves the record on the photo and quotes the photo in the reply to a good answer', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
     await harness.sendAllQueuedTexts();
@@ -118,10 +117,10 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks about the next waiting photo after a good answer', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
     await harness.sendAllQueuedTexts();
@@ -134,9 +133,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks once more after a first weak answer', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
 
     await harness.receiveText('zu-hung', 'cái này');
     await harness.sendAllQueuedTexts();
@@ -146,9 +145,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('ends the wait after a second weak answer', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await harness.receiveText('zu-hung', 'cái này');
 
     await harness.receiveText('zu-hung', 'không biết');
@@ -159,12 +158,12 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('does not count a reader outage on an answer as a try', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await harness.receiveText('zu-hung', 'cái này');
 
-    await harness.receiveText('zu-hung', 'Lốp dự phòng để trong kho', { readers: makeTimingOutReaders() });
+    await harness.receiveText('zu-hung', 'Lốp dự phòng để trong kho', { reader: makeTimingOutReader() });
     await harness.sendAllQueuedTexts();
 
     expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UNRESOLVED_TEXT);
@@ -172,13 +171,13 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('ends every wait of the member when the question is older than 24 hours', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
     await harness.sendAllQueuedTexts();
     await backdateQuestion('zmsg-1', 25);
     const textsBefore = (await readTextsTo('zu-hung')).length;
-    readersReturn(WEAK);
+    readerReturns(WEAK);
 
     await harness.receiveText('zu-hung', 'ok');
     await harness.sendAllQueuedTexts();
@@ -192,15 +191,15 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('counts the 24 hours of a waiting photo from the moment it is asked', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await harness.receiveText('zu-hung', 'cái này');
     await harness.receiveText('zu-hung', 'không biết');
     await backdatePhoto('zmsg-2', 30);
     await backdateQuestion('zmsg-2', 2);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
 
@@ -213,9 +212,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('does not answer a photo of another member', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
 
     await harness.receiveText('zu-lan', TIRE_EXPLANATION);
 
@@ -224,7 +223,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks an admin whether an unclear photo with no caption is for saving or for asking', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
@@ -235,7 +234,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('sends an unclear photo of an admin with a caption to the chat', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     harness.chat.replyWith('Ảnh này là lốp xe.');
     await insertInboundEvent(harness.database, {
       externalUserId: 'zu-duy',
@@ -253,9 +252,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('saves the record on the photo and quotes the photo when an admin explains it', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-duy', TIRE_EXPLANATION);
     await harness.sendAllQueuedTexts();
@@ -267,9 +266,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('sends the photo and the question of an admin to the chat and accepts the photo', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(QUESTION);
+    readerReturns(QUESTION);
     harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
 
     await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
@@ -285,10 +284,10 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks an admin about the next waiting photo after the chat answers a question', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-duy', 'zmsg-2', PHOTO_B_URL);
-    readersReturn(QUESTION);
+    readerReturns(QUESTION);
     harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
 
     await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
@@ -303,9 +302,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks an admin once more after a first weak answer', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
 
     await harness.receiveText('zu-duy', 'cái này');
     await harness.sendAllQueuedTexts();
@@ -315,9 +314,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('answers an admin question once when it is processed again after the chat answer was published', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(QUESTION);
+    readerReturns(QUESTION);
     harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
     await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
     await harness.runInbound({ beforeFinish: crashBeforeFinishing });
@@ -331,9 +330,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('keeps the photo for the chat when an admin question is processed again before the chat answered', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(QUESTION);
+    readerReturns(QUESTION);
     const inviteCall = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
     harness.chat.follow((_request, callNumber) => {
       if (callNumber === 1) throw new Error('the chat failed');
@@ -357,9 +356,9 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('saves the records on the photo and gives the chat the saved records when an admin explains and asks', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_AND_QUESTION);
+    readerReturns(TIRE_AND_QUESTION);
     harness.chat.replyWith('Đã lưu lốp cho xe 29C-123.45.');
 
     await harness.receiveText('zu-duy', `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?`);
@@ -378,7 +377,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('sends a photo of an admin that has no work data and no caption to the chat', async () => {
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     harness.chat.replyWith('Ảnh này không có thông tin công việc.');
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
@@ -389,12 +388,12 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
     await harness.sendAllQueuedTexts();
     const textsBefore = (await readTextsTo('zu-hung')).length;
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: TIRE_EXPLANATION });
     await harness.runInbound({
       beforeFinish: async () => {
@@ -414,7 +413,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('asks about a new unclear photo at once when the earlier question is older than 24 hours', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await backdateQuestion('zmsg-1', 25);
 
@@ -427,7 +426,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('says it will ask later once when the event of the waiting photo is processed again after a crash', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_B_URL], externalEventId: 'zmsg-2' });
     await harness.runInbound({
@@ -444,7 +443,7 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('sends the replies about the photos of a two-photo event back as their photos', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await insertInboundEvent(harness.database, {
       externalUserId: 'zu-hung',
       kind: 'images',
@@ -452,7 +451,7 @@ describe('asking what an unclear photo is for', () => {
       externalEventId: 'zmsg-1',
     });
     await harness.runInbound();
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
     await harness.sendAllQueuedTexts();
@@ -469,12 +468,12 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('tells the admins about the first and the final reply to a photo, as of when the photo was sent', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await harness.receiveText('zu-hung', 'cái này');
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
     await insertInboundEvent(harness.database, {
       externalUserId: 'zu-hung',
       text: TIRE_EXPLANATION,
@@ -502,9 +501,9 @@ describe('asking what an unclear photo is for', () => {
       vehiclePlate: '29C12345',
       amountVnd: 3500000,
     });
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION);
     await harness.sendAllQueuedTexts();
@@ -514,16 +513,16 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
 
-  it('does not call the readers or save anything when the stored photo is missing', async () => {
-    readersReturn(UNCLEAR);
+  it('does not call the reader or save anything when the stored photo is missing', async () => {
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    readersReturn(TIRE_ITEM);
-    const readsBefore = countReaderRequests();
+    readerReturns(TIRE_ITEM);
+    const readsBefore = harness.reader.requests.length;
 
     await harness.receiveText('zu-hung', TIRE_EXPLANATION, { photoStorage: new FakePhotoStorage() });
     await harness.sendAllQueuedTexts();
 
-    expect(countReaderRequests()).toBe(readsBefore);
+    expect(harness.reader.requests).toHaveLength(readsBefore);
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
@@ -531,11 +530,11 @@ describe('asking what an unclear photo is for', () => {
 
   it('reads the second answer again together with the earlier answer', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
-    const readers = makeTwoLineReaders();
+    const reader = makeTwoLineReader();
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader });
 
-    const request = readers.cheap[0].requests.at(-1);
+    const request = reader.requests.at(-1);
     expect(request?.image?.bytes).toEqual(makeJpeg(1000));
     expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${FIRST_LINE}\n${SECOND_LINE}`);
   });
@@ -543,7 +542,7 @@ describe('asking what an unclear photo is for', () => {
   it('saves the records on the photo when the second reading with the earlier answer is good', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader: makeTwoLineReader() });
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
@@ -561,57 +560,57 @@ describe('asking what an unclear photo is for', () => {
   });
 
   it('reads a first answer once', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
-    const readers = makeTwoLineReaders();
+    const reader = makeTwoLineReader();
 
-    await harness.receiveText('zu-hung', 'cái này', { readers });
+    await harness.receiveText('zu-hung', 'cái này', { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('reads a second answer that is good alone once', async () => {
     await askAgainAfterAnswer('zu-hung', 'cái này', 2);
-    const readers = makeReadersAnswering(() => TIRE_ITEM);
+    const reader = makeReaderAnswering(() => TIRE_ITEM);
 
-    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { readers });
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('does not read an earlier answer sent more than 10 minutes before again', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, 11);
-    const readers = makeTwoLineReaders();
+    const reader = makeTwoLineReader();
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
     expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
   });
 
-  it('starts no second reading when the readers time out on the second answer', async () => {
+  it('starts no second reading when the reader times out on the second answer', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
-    const readers = makeTimingOutReaders();
+    const reader = makeTimingOutReader();
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader });
 
     expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'asked_again' });
-    expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
   });
 
   it('does not read a text sent before the question about the photo again', async () => {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
-    readersReturn(TIRE_ITEM);
+    readerReturns(TIRE_ITEM);
     await sendTextSentMinutesAgo('zu-hung', TIRE_EXPLANATION, 5);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await sendTextSentMinutesAgo('zu-hung', 'cái này', 3);
-    const readers = makeReadersAnswering(() => WEAK);
+    const reader = makeReaderAnswering(() => WEAK);
 
-    await harness.receiveText('zu-hung', 'không biết', { readers });
+    await harness.receiveText('zu-hung', 'không biết', { reader });
 
-    const texts = [...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests.map(({ text }) => text));
+    const texts = reader.requests.map(({ text }) => text);
     expect(texts.length).toBeGreaterThan(0);
     expect(texts.filter((text) => text?.includes(TIRE_EXPLANATION))).toEqual([]);
   });
@@ -619,7 +618,7 @@ describe('asking what an unclear photo is for', () => {
   it('reads the second answer of an admin again with his earlier answer', async () => {
     await askAgainAfterAnswer('zu-duy', FIRST_LINE, 2);
 
-    await harness.receiveText('zu-duy', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.receiveText('zu-duy', SECOND_LINE, { reader: makeTwoLineReader() });
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
@@ -628,12 +627,12 @@ describe('asking what an unclear photo is for', () => {
 
   it('saves once when the second answer is processed again after a crash', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
-    const readers = makeTwoLineReaders();
+    const reader = makeTwoLineReader();
     await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: SECOND_LINE });
-    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    await harness.runInbound({ reader, beforeFinish: crashBeforeFinishing });
     harness.clock.advanceBy(31_000);
 
-    await harness.runInbound({ readers });
+    await harness.runInbound({ reader });
     await harness.sendAllQueuedTexts();
 
     expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
@@ -642,18 +641,18 @@ describe('asking what an unclear photo is for', () => {
 
   it('does not read an earlier answer processed first but sent after the current answer again', async () => {
     await askAgainAfterAnswer('zu-hung', FIRST_LINE, -20);
-    const readers = makeTwoLineReaders();
+    const reader = makeTwoLineReader();
 
-    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+    await harness.receiveText('zu-hung', SECOND_LINE, { reader });
 
-    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(reader.requests).toHaveLength(1);
     expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
   });
 
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
-    readersReturn(UNCLEAR);
+    readerReturns(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
-    readersReturn(WEAK);
+    readerReturns(WEAK);
     await sendTextSentMinutesAgo(externalUserId, answer, minutesAgo);
   }
 
@@ -686,10 +685,6 @@ describe('asking what an unclear photo is for', () => {
     return row?.imageKey ?? null;
   }
 
-  function countReaderRequests(): number {
-    return [...harness.readers.cheap, ...harness.readers.strong].reduce((total, reader) => total + reader.requests.length, 0);
-  }
-
   function formatNotice(replyText: string): string {
     return `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${replyText}`;
   }
@@ -710,8 +705,8 @@ describe('asking what an unclear photo is for', () => {
     );
   }
 
-  function readersReturn(reading: unknown): void {
-    for (const reader of harness.readers.cheap) reader.answerWith(reading);
+  function readerReturns(reading: unknown): void {
+    harness.reader.answerWith(reading);
   }
 
   async function sendPhoto(externalUserId: string, externalEventId: string, imageUrl: string): Promise<void> {
@@ -741,16 +736,14 @@ async function crashBeforeFinishing(): Promise<void> {
   throw new Error('the worker crashed before finishing');
 }
 
-function makeTwoLineReaders(): FakeReaderSlots {
-  return makeReadersAnswering(({ text }) => (text?.includes(FIRST_LINE) && text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK));
+function makeTwoLineReader(): FakeReader {
+  return makeReaderAnswering(({ text }) => (text?.includes(FIRST_LINE) && text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK));
 }
 
-function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
-  const makeReader = (label: string) => new FakeReader(label, (request): ReaderResult => ({ ok: true, json: respond(request) }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function makeReaderAnswering(respond: (request: ReaderRequest) => unknown): FakeReader {
+  return new FakeReader((request): ReaderResult => ({ ok: true, json: respond(request) }));
 }
 
-function makeTimingOutReaders(): FakeReaderSlots {
-  const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));
-  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+function makeTimingOutReader(): FakeReader {
+  return new FakeReader(() => ({ ok: false, reason: 'timeout' }));
 }

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FakeReader } from '../fakes/fake-reader.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
@@ -36,8 +35,7 @@ describe('an admin creates maintenance reminders by chat', () => {
 
   function answerQuestionOnly(): void {
     const reading = makeReading([], { has_work_data: false, has_question: true });
-    const pair: readonly [FakeReader, FakeReader] = harness.readers.cheap;
-    pair.forEach((reader) => reader.answerWith(reading));
+    harness.reader.answerWith(reading);
   }
 
   function createWithRules(rules: MaintenanceRule[]): void {

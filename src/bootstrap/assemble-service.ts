@@ -6,10 +6,10 @@ import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import { runTick } from '../app/ticker/run-tick.ts';
-import type { ReaderSlots } from '../app/reading/decide-reading.ts';
 import type { ChatService } from '../services/chat/chat-service.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
+import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
@@ -20,7 +20,7 @@ import {
   buildClock,
   buildMessagingChannel,
   buildPhotoStorage,
-  buildReaderSlots,
+  buildReader,
 } from './from-env.ts';
 import { loadChatConfig } from './chat-config.ts';
 import { loadPhotoStorageConfig } from './photo-storage-config.ts';
@@ -62,7 +62,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     channel,
     zalo,
     photoStorage: photoStorage && buildPhotoStorage(photoStorage),
-    readers: readerConfig && buildReaderSlots(readerConfig),
+    reader: readerConfig && buildReader(readerConfig),
     chat,
     reportReadyTemplateId: reportTemplate && reportTemplate.templateId,
     log,
@@ -102,7 +102,7 @@ type QueueParts = {
   channel: MessagingChannel | null;
   zalo: ZaloConfig | null;
   photoStorage: PhotoStorage | null;
-  readers: ReaderSlots | null;
+  reader: ReaderService | null;
   chat: ChatService | null;
   reportReadyTemplateId: string | null;
   log: (line: string) => void;
@@ -110,7 +110,7 @@ type QueueParts = {
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, readers, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, reader, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
   const inbound = {
     database: pool,
@@ -118,7 +118,7 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, rea
     alerts,
     notices,
     handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, readers, chat },
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, reader, chat },
     ),
   };
   const outbound = channel &&

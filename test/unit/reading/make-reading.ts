@@ -15,10 +15,6 @@ export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
   };
 }
 
-export function makeFuelItemX(overrides: Partial<ReadingItem> = {}): ReadingItem {
-  return makeItem({ amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234', ...overrides });
-}
-
 export function makeReading(items: ReadingItem[] = [makeItem()], overrides: Partial<Reading> = {}): Reading {
   return { has_work_data: true, needs_explanation: false, has_question: false, items, ...overrides };
 }

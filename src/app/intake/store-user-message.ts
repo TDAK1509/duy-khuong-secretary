@@ -1,4 +1,3 @@
-import type { CodeChoice } from '../reading/code-choice.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -100,10 +99,6 @@ export async function setSubmissionStatus(
   status: SubmissionStatus,
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
-}
-
-export async function storeCodeChoice(transaction: Transaction, userMessageId: string, codeChoice: CodeChoice): Promise<void> {
-  await transaction.query('UPDATE messages SET code_choice = $2::jsonb WHERE id = $1', [userMessageId, JSON.stringify(codeChoice)]);
 }
 
 export async function markQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {

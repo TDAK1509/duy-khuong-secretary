@@ -35,7 +35,7 @@ async function saveReply(
   const { sender } = context;
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
-  if (plan.saved) await insertRecords(transaction, message, plan.saved.readBy, plan.saved.records);
+  if (plan.saved) await insertRecords(transaction, message, plan.saved);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, plan.replyText);
@@ -44,12 +44,12 @@ async function saveReply(
 }
 
 function isPhotoQuestion({ situation }: ReplyPlan): boolean {
-  return situation === 'needs_explanation' || situation === 'code_choice';
+  return situation === 'needs_explanation';
 }
 
 export async function rejectDuplicates(transaction: Transaction, workspaceId: string, plan: ReplyPlan): Promise<ReplyPlan> {
   if (!plan.saved) return plan;
   await lockWorkspaceRecords(transaction, workspaceId);
-  if (!(await hasDuplicateRecord(transaction, workspaceId, plan.saved.records))) return plan;
+  if (!(await hasDuplicateRecord(transaction, workspaceId, plan.saved))) return plan;
   return planDuplicateReply();
 }

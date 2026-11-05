@@ -204,7 +204,7 @@ describe('storing what a member sends', () => {
     await runInbound();
     await sendQueuedTexts();
 
-    expect(harness.readers.cheap[0].requests.map((request) => request.image?.bytes.length)).toEqual([1000]);
+    expect(harness.reader.requests.map((request) => request.image?.bytes.length)).toEqual([1000]);
     expect(harness.channel.downloadedUrls).toEqual([]);
     expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
   });

@@ -1,84 +1,69 @@
 import { describe, expect, it } from 'vitest';
-import { loadReaderConfig, type ReaderConfig } from '../../src/bootstrap/reader-config.ts';
+import { loadReaderConfig } from '../../src/bootstrap/reader-config.ts';
 
 const COMPLETE_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_PROVIDER: 'openai-compatible',
-  READER_CHEAP_1_BASE_URL: 'https://api.openai.com/v1',
-  READER_CHEAP_1_API_KEY: 'key',
-  READER_CHEAP_1_MODEL: 'gpt-6-luna',
-  READER_CHEAP_2_BASE_URL: 'https://api.openai.com/v1',
-  READER_CHEAP_2_API_KEY: 'key',
-  READER_CHEAP_2_MODEL: 'gpt-6.1-terra',
-  READER_STRONG_1_BASE_URL: 'https://api.openai.com/v1',
-  READER_STRONG_1_API_KEY: 'key',
-  READER_STRONG_1_MODEL: 'gpt-6.1-sol',
-  READER_STRONG_2_BASE_URL: 'https://api.openai.com/v1',
-  READER_STRONG_2_API_KEY: 'key',
-  READER_STRONG_2_MODEL: 'gpt-6-astra',
-};
-
-const ENVIRONMENT_WITHOUT_SLOT_KEYS: NodeJS.ProcessEnv = {
-  ...COMPLETE_ENVIRONMENT,
-  READER_CHEAP_1_API_KEY: undefined,
-  READER_CHEAP_2_API_KEY: undefined,
-  READER_STRONG_1_API_KEY: undefined,
-  READER_STRONG_2_API_KEY: undefined,
+  READER_BASE_URL: 'https://ai.test/v1',
+  READER_API_KEY: 'key',
+  READER_MODEL: 'model-x',
 };
 
 describe('loadReaderConfig', () => {
-  it('gives every slot without its own key the LLM_API_KEY', () => {
-    const result = loadReaderConfig({ ...ENVIRONMENT_WITHOUT_SLOT_KEYS, LLM_API_KEY: 'sk-shared' });
+  it('uses the set reader values as given', () => {
+    const result = loadReaderConfig(COMPLETE_ENVIRONMENT);
 
-    expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-shared']);
+    expect(result).toMatchObject({
+      ok: true,
+      config: { baseUrl: 'https://ai.test/v1', apiKey: 'key', model: 'model-x' },
+    });
   });
 
-  it('keeps the own key of a slot over the LLM_API_KEY', () => {
+  it('takes the LLM_API_KEY when READER_API_KEY is empty', () => {
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: '', LLM_API_KEY: 'sk-shared' });
+
+    expect(result).toMatchObject({ ok: true, config: { apiKey: 'sk-shared' } });
+  });
+
+  it('uses the OpenAI URL without READER_BASE_URL', () => {
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key', READER_MODEL: 'model-x' });
+
+    expect(result).toMatchObject({ ok: true, config: { baseUrl: 'https://api.openai.com/v1' } });
+  });
+
+  it('uses gpt-6.1-sol without READER_MODEL', () => {
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key' });
+
+    expect(result).toMatchObject({ ok: true, config: { model: 'gpt-6.1-sol' } });
+  });
+
+  it('ignores an old slot value', () => {
     const result = loadReaderConfig({
-      ...ENVIRONMENT_WITHOUT_SLOT_KEYS,
+      READER_PROVIDER: 'openai-compatible',
       LLM_API_KEY: 'sk-shared',
-      READER_STRONG_2_API_KEY: 'sk-own',
+      READER_STRONG_2_MODEL: 'gpt-6-astra',
     });
 
-    expect(result.ok && readSlotKeys(result.config)).toEqual(['sk-shared', 'sk-shared', 'sk-shared', 'sk-own']);
-  });
-
-  it('reports the four slot keys missing when neither they nor LLM_API_KEY are set', () => {
-    const result = loadReaderConfig(ENVIRONMENT_WITHOUT_SLOT_KEYS);
-
-    expect(result).toEqual({
-      ok: false,
-      missing: [
-        'READER_CHEAP_1_API_KEY',
-        'READER_CHEAP_2_API_KEY',
-        'READER_STRONG_1_API_KEY',
-        'READER_STRONG_2_API_KEY',
-      ],
-    });
+    expect(result).toMatchObject({ ok: true, config: { model: 'gpt-6.1-sol' } });
   });
 
   it('lists every missing value by name', () => {
-    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_STRONG_2_MODEL: '' });
+    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_API_KEY: '' });
 
-    expect(result).toEqual({ ok: false, missing: ['READER_PROVIDER', 'READER_STRONG_2_MODEL'] });
+    expect(result).toEqual({ ok: false, missing: ['READER_PROVIDER', 'READER_API_KEY'] });
   });
 
-  it('reads the four slots with the default timeout and no reasoning effort', () => {
+  it('reads the reader with the default timeout and no reasoning effort', () => {
     const result = loadReaderConfig(COMPLETE_ENVIRONMENT);
 
     expect(result).toEqual({
       ok: true,
       config: {
         provider: 'openai-compatible',
+        baseUrl: 'https://ai.test/v1',
+        apiKey: 'key',
+        model: 'model-x',
         timeoutMs: 60000,
         reasoningEffort: undefined,
-        cheap: [
-          { baseUrl: 'https://api.openai.com/v1', apiKey: 'key', model: 'gpt-6-luna' },
-          { baseUrl: 'https://api.openai.com/v1', apiKey: 'key', model: 'gpt-6.1-terra' },
-        ],
-        strong: [
-          { baseUrl: 'https://api.openai.com/v1', apiKey: 'key', model: 'gpt-6.1-sol' },
-          { baseUrl: 'https://api.openai.com/v1', apiKey: 'key', model: 'gpt-6-astra' },
-        ],
       },
     });
   });
@@ -104,16 +89,12 @@ describe('loadReaderConfig', () => {
   });
 
   it('refuses a base URL that is not a URL and names the value', () => {
-    const environment = { ...COMPLETE_ENVIRONMENT, READER_CHEAP_2_BASE_URL: 'not a url' };
+    const environment = { ...COMPLETE_ENVIRONMENT, READER_BASE_URL: 'not a url' };
 
-    expect(() => loadReaderConfig(environment)).toThrow(/READER_CHEAP_2_BASE_URL/);
+    expect(() => loadReaderConfig(environment)).toThrow(/READER_BASE_URL/);
   });
 
   it('refuses a timeout that is not a positive whole number and names the value', () => {
     expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_TIMEOUT_MS: '0' })).toThrow(/READER_TIMEOUT_MS/);
   });
 });
-
-function readSlotKeys(config: ReaderConfig): string[] {
-  return [...config.cheap, ...config.strong].map((slot) => slot.apiKey);
-}

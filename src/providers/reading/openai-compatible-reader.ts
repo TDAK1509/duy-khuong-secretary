@@ -11,13 +11,11 @@ export type OpenAiCompatibleReaderSettings = {
 };
 
 export class OpenAiCompatibleReader implements ReaderService {
-  readonly label: string;
   private readonly client: OpenAI;
   private readonly model: string;
   private readonly reasoningEffort: OpenAI.ReasoningEffort | undefined;
 
   constructor(settings: OpenAiCompatibleReaderSettings) {
-    this.label = settings.model;
     this.model = settings.model;
     this.reasoningEffort = settings.reasoningEffort as OpenAI.ReasoningEffort | undefined;
     this.client = new OpenAI({

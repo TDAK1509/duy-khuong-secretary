@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
-import type { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
+const OUTAGE_REPLY =
+  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
 const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
 
-describe('saving what two readers agree on', () => {
+describe('saving what the reader returns', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
   let workspaceId: string;
@@ -25,15 +26,31 @@ describe('saving what two readers agree on', () => {
     await harness.close();
   });
 
-  it('saves an agreed fuel item for the sender', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+  it('makes exactly one reader request for a text with work data', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
+
+    expect(harness.reader.requests).toHaveLength(1);
+  });
+
+  it('makes exactly one reader request for a photo with work data', async () => {
+    harness.reader.answerWith(makeReading([makeTireItem()]));
+
+    await harness.receivePhoto('zu-hung', 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ');
+
+    expect(harness.reader.requests).toHaveLength(1);
+  });
+
+  it('saves the fuel item of the reading for the sender', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
 
     await harness.receivePhoto('zu-hung');
 
     expect(
       await database.query(
         `SELECT workspace_id, user_id, category, amount_vnd::int AS amount_vnd,
-           to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, read_by
+           to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on
          FROM records`,
       ),
     ).toEqual([
@@ -43,13 +60,25 @@ describe('saving what two readers agree on', () => {
         category: 'đổ xăng dầu',
         amount_vnd: 1250000,
         occurred_on: '2026-10-30',
-        read_by: 'cheap_pair',
       },
     ]);
   });
 
+  it('saves the fuel item of a text for the sender', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
+
+    expect(
+      await database.query(
+        `SELECT user_id, category, amount_vnd::int AS amount_vnd, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on
+         FROM records`,
+      ),
+    ).toEqual([{ user_id: hungUserId, category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30' }]);
+  });
+
   it('saves a category outside the old list', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem({ category: 'phiếu cân' })]));
+    harness.reader.answerWith(makeReading([makeFuelItem({ category: 'phiếu cân' })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -57,7 +86,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('names the printed title of a certificate in the reply', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+    harness.reader.answerWith(makeReading([makeInspectionCertificate()]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -68,7 +97,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the printed title of a certificate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeInspectionCertificate()]));
+    harness.reader.answerWith(makeReading([makeInspectionCertificate()]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -77,8 +106,30 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
+  it('saves a tire photo with its barcode and sends nothing else', async () => {
+    harness.reader.answerWith(makeReading([makeTireItem()]));
+    await insertInboundEvent(database, {
+      externalUserId: 'zu-hung',
+      kind: 'images',
+      imageUrls: [PHOTO_URL],
+      caption: 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ',
+      externalEventId: 'zmsg-1',
+    });
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.texts.map(({ to, text, quoteMessageId }) => ({ to: to.externalUserId, text, quoteMessageId }))).toEqual([
+      {
+        to: 'zu-hung',
+        text: 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã 8936012845678, 3.500.000đ.',
+        quoteMessageId: 'zmsg-1',
+      },
+    ]);
+  });
+
   it('replies to one saved item with what was saved', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -87,7 +138,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('marks a saved message as accepted', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -96,47 +147,45 @@ describe('saving what two readers agree on', () => {
     ]);
   });
 
-  it('saves with its own marker when the strong pair agrees', async () => {
-    disagreeOnAmount(harness.readers.cheap);
-    answerPair(harness.readers.strong, makeReading([makeFuelItem()]));
+  it('gives the outage reply when the reader times out', async () => {
+    harness.reader.failWith('timeout');
 
-    await harness.receivePhoto('zu-hung');
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+    await harness.sendAllQueuedTexts();
 
-    expect(await database.query('SELECT read_by FROM records')).toEqual([{ read_by: 'expensive_pair' }]);
+    expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
   });
 
-  function disagreeOnAmount(pair: readonly [FakeReader, FakeReader]): void {
-    pair[0].answerWith(makeReading([makeFuelItem()]));
-    pair[1].answerWith(makeReading([makeItem({ ...makeFuelItem(), amount_vnd: 1250001 })]));
-  }
+  it('marks a text as unresolved when the reader times out', async () => {
+    harness.reader.failWith('timeout');
 
-  it('saves nothing when both pairs disagree', async () => {
-    disagreeOnAmount(harness.readers.cheap);
-    disagreeOnAmount(harness.readers.strong);
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
 
-    await harness.receivePhoto('zu-hung');
-
-    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
-  });
-
-  it('asks the sender to send again when both pairs disagree', async () => {
-    disagreeOnAmount(harness.readers.cheap);
-    disagreeOnAmount(harness.readers.strong);
-
-    await harness.receivePhoto('zu-hung');
-    await harness.sendQueuedTexts();
-
-    expect(sentTexts()).toEqual([
-      [
-        'zu-hung',
-        'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".',
-      ],
+    expect(await database.query(`SELECT submission_status FROM messages WHERE author = 'user'`)).toEqual([
+      { submission_status: 'unresolved' },
     ]);
   });
 
+  it('gives the outage reply when the reader is unavailable', async () => {
+    harness.reader.failWith('unavailable');
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
+  });
+
+  it('gives the outage reply when the reader output breaks the reading schema', async () => {
+    harness.reader.answerWith({ items: 'none' });
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
+  });
+
   it('marks an unresolved message as unresolved', async () => {
-    disagreeOnAmount(harness.readers.cheap);
-    disagreeOnAmount(harness.readers.strong);
+    harness.reader.failWith('timeout');
 
     await harness.receivePhoto('zu-hung');
 
@@ -148,7 +197,7 @@ describe('saving what two readers agree on', () => {
   it('replies to two saved items with one line for each', async () => {
     const toll = (documentNumber: string, amount: number) =>
       makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
-    answerPair(harness.readers.cheap, makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
+    harness.reader.answerWith(makeReading([toll('0012345', 35000), toll('0012346', 40000)]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -167,7 +216,7 @@ describe('saving what two readers agree on', () => {
 
   it('sends the saved reply only to the Zalo account of the sender', async () => {
     await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -179,21 +228,20 @@ describe('saving what two readers agree on', () => {
     expect(harness.channel.texts.filter((sent) => sent.to.externalUserId === 'zu-lan')).toEqual([]);
   });
 
-  it('sends a text to the readers as text without an image', async () => {
+  it('sends a text to the reader as text without an image', async () => {
     await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
 
-    expect(harness.readers.cheap.map((reader) => reader.requests.map(({ text, image }) => ({ text, image })))).toEqual([
-      [{ text: 'Đổ dầu 500.000đ', image: null }],
-      [{ text: 'Đổ dầu 500.000đ', image: null }],
+    expect(harness.reader.requests.map(({ text, image }) => ({ text, image }))).toEqual([
+      { text: 'Đổ dầu 500.000đ', image: null },
     ]);
   });
 
-  it('sends a photo to the readers with its caption', async () => {
+  it('sends a photo to the reader with its caption', async () => {
     await harness.receivePhoto('zu-hung', 'Xe 29C-123.45');
 
-    expect(
-      harness.readers.cheap.map((reader) => reader.requests.map(({ text, image }) => [text, image?.contentType])),
-    ).toEqual([[['Xe 29C-123.45', 'image/jpeg']], [['Xe 29C-123.45', 'image/jpeg']]]);
+    expect(harness.reader.requests.map(({ text, image }) => [text, image?.contentType])).toEqual([
+      ['Xe 29C-123.45', 'image/jpeg'],
+    ]);
   });
 
   function makeQuestionOnly(): Reading {
@@ -201,7 +249,7 @@ describe('saving what two readers agree on', () => {
   }
 
   it('answers the question of a member with the upload-only reply', async () => {
-    answerPair(harness.readers.cheap, makeQuestionOnly());
+    harness.reader.answerWith(makeQuestionOnly());
 
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
     await harness.sendQueuedTexts();
@@ -215,7 +263,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves no record for the question of a member', async () => {
-    answerPair(harness.readers.cheap, makeQuestionOnly());
+    harness.reader.answerWith(makeQuestionOnly());
 
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
 
@@ -223,7 +271,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves the data of a member who also asks a question', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()], { has_question: true }));
+    harness.reader.answerWith(makeReading([makeFuelItem()], { has_question: true }));
 
     await harness.receivePhoto('zu-hung', 'Lưu giúp tôi, còn bao nhiêu tiền?');
 
@@ -231,7 +279,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('sends only the saved reply to a member who also asks a question', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()], { has_question: true }));
+    harness.reader.answerWith(makeReading([makeFuelItem()], { has_question: true }));
 
     await harness.receivePhoto('zu-hung', 'Lưu giúp tôi, còn bao nhiêu tiền?');
     await harness.sendQueuedTexts();
@@ -242,7 +290,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the identifiers normalized', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ identifiers: ['DT2024-889'] })]));
+    harness.reader.answerWith(makeReading([makeItem({ identifiers: ['DT2024-889'] })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -250,7 +298,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the plate normalized', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+    harness.reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -258,7 +306,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('stores the document number normalized', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ document_number: 'aa/26e-0001234' })]));
+    harness.reader.answerWith(makeReading([makeItem({ document_number: 'aa/26e-0001234' })]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -267,7 +315,7 @@ describe('saving what two readers agree on', () => {
 
   it('stores the maintenance item trimmed and lowercased', async () => {
     const oilChange = makeItem({ category: 'bảo dưỡng', maintenance_item: ' Dầu  Máy ', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([oilChange]));
+    harness.reader.answerWith(makeReading([oilChange]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -279,7 +327,7 @@ describe('saving what two readers agree on', () => {
   }
 
   it('saves nothing for a maintenance item without a plate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+    harness.reader.answerWith(makeReading([makePlatelessMaintenanceItem()]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -287,7 +335,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('asks for the plate when a maintenance item has none', async () => {
-    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+    harness.reader.answerWith(makeReading([makePlatelessMaintenanceItem()]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -301,7 +349,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves no record at all when one maintenance item has no plate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem(), makePlatelessMaintenanceItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem(), makePlatelessMaintenanceItem()]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -310,7 +358,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('marks a maintenance message without a plate as unresolved', async () => {
-    answerPair(harness.readers.cheap, makeReading([makePlatelessMaintenanceItem()]));
+    harness.reader.answerWith(makeReading([makePlatelessMaintenanceItem()]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -320,43 +368,34 @@ describe('saving what two readers agree on', () => {
   });
 
   it('saves a fuel item without a plate', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: null })]));
+    harness.reader.answerWith(makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: null })]));
 
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: null }]);
   });
 
-  it('saves only the details both readers returned', async () => {
-    const [first, second] = harness.readers.cheap;
-    first.answerWith(
-      makeReading([
-        makeItem({
-          details: [
-            { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
-            { label: 'Số lít', value: '50' },
-          ],
-        }),
-      ]),
-    );
-    second.answerWith(makeReading([makeItem({ details: [{ label: 'tên trạm', value: 'PETROLIMEX LONG BIEN' }] })]));
+  it('keeps every detail the reader returned', async () => {
+    const details = [
+      { label: 'Số lít', value: '50' },
+      { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
+    ];
+    harness.reader.answerWith(makeReading([makeFuelItem({ details })]));
 
-    await harness.receivePhoto('zu-hung');
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
 
-    expect(await database.query('SELECT details FROM records')).toEqual([
-      { details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }] },
-    ]);
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
   });
 
   it('copies the display name of the sender onto the record', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
 
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT sender_name FROM records')).toEqual([{ sender_name: 'Hùng' }]);
   });
 
-  it('builds the summary from the agreed fields', async () => {
+  it('builds the summary from the fields of the reading', async () => {
     const tyre = makeItem({
       category: 'bảo dưỡng',
       maintenance_item: 'lốp',
@@ -364,7 +403,7 @@ describe('saving what two readers agree on', () => {
       identifiers: ['DT2024-889'],
       document_number: null,
     });
-    answerPair(harness.readers.cheap, makeReading([tyre]));
+    harness.reader.answerWith(makeReading([tyre]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -374,11 +413,11 @@ describe('saving what two readers agree on', () => {
   });
 
   async function processSavedPhotoAgain(): Promise<void> {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
     await harness.receivePhoto('zu-hung');
     const expiredLock = new Date(NOW.getTime() - 60_000).toISOString();
     await database.query(`UPDATE inbound_events SET status = 'processing', locked_until = '${expiredLock}'`);
-    harness.readers.cheap.forEach((reader) => reader.requests.splice(0));
+    harness.reader.requests.splice(0);
     await harness.runInbound();
   }
 
@@ -392,8 +431,7 @@ describe('saving what two readers agree on', () => {
   it('does not read the photo again when a saved message is processed again', async () => {
     await processSavedPhotoAgain();
 
-    expect(harness.readers.cheap.map((reader) => reader.requests.length)).toEqual([0, 0]);
-    expect(harness.readers.strong.map((reader) => reader.requests.length)).toEqual([0, 0]);
+    expect(harness.reader.requests).toHaveLength(0);
   });
 
   it('saves nothing more when a saved message is processed again', async () => {
@@ -403,9 +441,9 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
   });
 
-  it('saves nothing when the worker lost its claim while the readers read', async () => {
-    answerPair(harness.readers.cheap, makeReading([makeFuelItem()]));
-    const [reader] = harness.readers.cheap;
+  it('saves nothing when the worker lost its claim while the reader reads', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()]));
+    const { reader } = harness;
     const readOnce = reader.read.bind(reader);
     reader.read = async (request) => {
       await database.query(`UPDATE inbound_events SET attempts = attempts + 1`);
@@ -419,10 +457,10 @@ describe('saving what two readers agree on', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
-  it('keeps a message waiting while the readers are not configured', async () => {
+  it('keeps a message waiting while the reader is not configured', async () => {
     await insertInboundEvent(database, { externalUserId: 'zu-hung', text: 'Đổ dầu 500.000đ' });
 
-    await harness.runInbound({ readers: null });
+    await harness.runInbound({ reader: null });
 
     expect(await database.query('SELECT status, attempts FROM inbound_events')).toEqual([
       { status: 'queued', attempts: 0 },
@@ -432,7 +470,7 @@ describe('saving what two readers agree on', () => {
 
   it('saves a record whose maintenance item is blank, without an item', async () => {
     const blankItem = makeItem({ category: 'bảo dưỡng', maintenance_item: '  ', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([blankItem]));
+    harness.reader.answerWith(makeReading([blankItem]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -443,7 +481,7 @@ describe('saving what two readers agree on', () => {
 
   it('keeps the maintenance item of a record whatever its category', async () => {
     const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'Lốp', vehicle_plate: '29C-123.45' });
-    answerPair(harness.readers.cheap, makeReading([tireChange]));
+    harness.reader.answerWith(makeReading([tireChange]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -454,7 +492,7 @@ describe('saving what two readers agree on', () => {
 
   it('asks for the plate when a record of any category has a maintenance item and no plate', async () => {
     const tireChange = makeItem({ category: 'thay phụ tùng', maintenance_item: 'lốp', vehicle_plate: null });
-    answerPair(harness.readers.cheap, makeReading([tireChange]));
+    harness.reader.answerWith(makeReading([tireChange]));
 
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
@@ -469,7 +507,7 @@ describe('saving what two readers agree on', () => {
   });
 
   it('gives the upload-only reply when work data has no item', async () => {
-    answerPair(harness.readers.cheap, makeReading([], { has_work_data: true }));
+    harness.reader.answerWith(makeReading([], { has_work_data: true }));
 
     await harness.receiveText('zu-hung', 'Đổ dầu');
     await harness.sendQueuedTexts();
@@ -487,7 +525,7 @@ describe('saving what two readers agree on', () => {
 
     await harness.runInbound();
 
-    expect(harness.readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(harness.reader.requests).toHaveLength(1);
     expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toHaveLength(1);
   });
 
@@ -498,6 +536,17 @@ describe('saving what two readers agree on', () => {
       vehicle_plate: '29C-123.45',
       amount_vnd: null,
       occurred_on: null,
+    });
+  }
+
+  function makeTireItem() {
+    return makeItem({
+      category: 'bảo dưỡng',
+      maintenance_item: 'lốp',
+      vehicle_plate: '29C-123.45',
+      amount_vnd: 3500000,
+      occurred_on: null,
+      identifiers: ['8936012845678'],
     });
   }
 
@@ -513,9 +562,5 @@ describe('saving what two readers agree on', () => {
 
   function sentTexts(): string[][] {
     return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
-  }
-
-  function answerPair(pair: readonly [FakeReader, FakeReader], reading: Reading): void {
-    pair.forEach((reader) => reader.answerWith(reading));
   }
 });
