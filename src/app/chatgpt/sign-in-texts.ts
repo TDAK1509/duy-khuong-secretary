@@ -14,3 +14,4 @@ export const CONTINUE_BUTTON_LABEL = 'Tiếp tục';
 export const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
 export const OPEN_ZALO_BUTTON_LABEL = 'Mở Zalo';
 export const INVALID_REQUEST_TEXT = 'Yêu cầu kết nối không hợp lệ.';
+export const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập" cho Trợ lý để lấy mã mới.';

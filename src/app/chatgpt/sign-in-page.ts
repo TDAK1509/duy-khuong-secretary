@@ -23,9 +23,9 @@ const PAGE_STYLE = `
   input, button { box-sizing: border-box; width: 100%; min-height: 48px; font-size: 1rem; margin-top: 8px; }
 `;
 
-export type ChatEntrance = { chatUrl: string; qrSvg: string };
+export type ChatEntrance = { chatUrl: string; qrSvg: string; message: string | null };
 
-export function renderSignInPage({ chatUrl, qrSvg }: ChatEntrance): string {
+export function renderSignInPage({ chatUrl, qrSvg, message }: ChatEntrance): string {
   return renderDocument(
     [
       `<h1>${SIGN_IN_TITLE}</h1>`,
@@ -36,6 +36,7 @@ export function renderSignInPage({ chatUrl, qrSvg }: ChatEntrance): string {
       `<p>${SIGN_IN_STEP_SEND_COMMAND}</p>`,
       `<p>${SIGN_IN_STEP_COPY_CODE}</p>`,
       `<p>${SIGN_IN_STEP_CONTINUE}</p>`,
+      ...(message === null ? [] : [`<p role="alert">${message}</p>`]),
       renderCodeForm(),
       `<p>${SIGN_IN_WORKSPACE_NOTE}</p>`,
       `<p>${SIGN_IN_PHISHING_NOTE}</p>`,
@@ -53,7 +54,7 @@ function renderDocument(content: string): string {
 }
 
 export function renderMessagePage(message: string): string {
-  return renderDocument(`<p>${escapeHtml(message)}</p>`);
+  return renderDocument(`<p>${message}</p>`);
 }
 
 function renderCodeForm(): string {

@@ -69,6 +69,14 @@ describe('POST /oauth/authorize', () => {
     expect(String(response.headers['location'])).toContain(CHATGPT_REDIRECT_URI);
   });
 
+  it('counts one failed attempt for a wrong code', async () => {
+    const response = await submitCode('AAAA-AAAA');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập" cho Trợ lý để lấy mã mới.');
+    expect(await database.query('SELECT failed_attempts FROM chatgpt_sign_ins')).toEqual([{ failed_attempts: 1 }]);
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';

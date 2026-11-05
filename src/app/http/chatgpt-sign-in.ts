@@ -4,7 +4,7 @@ import type { QrCodeService } from '../../services/qr-code/qr-code.ts';
 import { findConnectedAccountId } from '../channel-auth/find-connected-account.ts';
 import { confirmSignIn, type SignInOutcome } from '../chatgpt/confirm-sign-in.ts';
 import { readSignInRequest } from '../chatgpt/read-sign-in-request.ts';
-import { INVALID_REQUEST_TEXT, QR_CAPTION } from '../chatgpt/sign-in-texts.ts';
+import { INVALID_REQUEST_TEXT, QR_CAPTION, WRONG_CODE_TEXT } from '../chatgpt/sign-in-texts.ts';
 import { renderMessagePage, renderSignInPage } from '../chatgpt/sign-in-page.ts';
 import { startSignIn } from '../chatgpt/start-sign-in.ts';
 import type { Database } from '../db/transaction.ts';
@@ -27,7 +27,7 @@ export async function handleSignInPage(dependencies: SignInDependencies | null, 
   if (dependencies === null) return respondWithText(503, 'Zalo is not configured.');
   const request = readSignInRequest(query, dependencies.publicBaseUrl);
   if (request === null) return respondWithHtml(renderMessagePage(INVALID_REQUEST_TEXT), 400);
-  const page = respondWithHtml(await renderForm(dependencies));
+  const page = respondWithHtml(await renderForm(dependencies, null));
   const browserKey = await startSignIn(dependencies.database, request, dependencies.clock.now());
   return { ...page, headers: { ...page.headers, 'set-cookie': `${BROWSER_KEY_COOKIE}=${browserKey}; Path=/; Secure; HttpOnly; SameSite=Lax` } };
 }
@@ -46,7 +46,7 @@ export async function handleSignInSubmission(
 }
 
 async function respondToOutcome(dependencies: SignInDependencies, outcome: SignInOutcome): Promise<HttpResponse> {
-  if (outcome.kind === 'wrong_code') return respondWithHtml(await renderForm(dependencies));
+  if (outcome.kind === 'wrong_code') return respondWithHtml(await renderForm(dependencies, WRONG_CODE_TEXT));
   const redirect = new URL(outcome.redirectUri);
   redirect.searchParams.set('code', outcome.authorizationCode);
   if (outcome.state !== null) redirect.searchParams.set('state', outcome.state);
@@ -54,9 +54,9 @@ async function respondToOutcome(dependencies: SignInDependencies, outcome: SignI
   return { status: 303, headers: { location: redirect.toString() }, body: '' };
 }
 
-async function renderForm(dependencies: SignInDependencies): Promise<string> {
+async function renderForm(dependencies: SignInDependencies, message: string | null): Promise<string> {
   const chatUrl = `https://zalo.me/${await findConnectedAccountId(dependencies.database, 'zalo-oa')}`;
-  return renderSignInPage({ chatUrl, qrSvg: dependencies.qrCode.renderSvg(chatUrl, QR_CAPTION) });
+  return renderSignInPage({ chatUrl, qrSvg: dependencies.qrCode.renderSvg(chatUrl, QR_CAPTION), message });
 }
 
 function readBrowserKey(cookieHeader: string | undefined): string {

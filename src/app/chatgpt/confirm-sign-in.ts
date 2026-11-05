@@ -13,12 +13,12 @@ type SignInRow = { id: string; redirect_uri: string; state: string | null };
 export function confirmSignIn(database: Database, confirmation: SignInConfirmation): Promise<SignInOutcome> {
   return runInTransaction(database, async (transaction) => {
     const [signIn] = await transaction.query<SignInRow>(
-      'SELECT id, redirect_uri, state FROM chatgpt_sign_ins WHERE browser_key_hash = $1',
+      'SELECT id, redirect_uri, state FROM chatgpt_sign_ins WHERE browser_key_hash = $1 FOR UPDATE',
       [hashSecretToken(confirmation.browserKey)],
     );
     if (!signIn) throw new Error('no sign-in matches the browser key');
     const membershipId = await useUpLoginCode(transaction, confirmation.typedCode);
-    if (membershipId === null) return { kind: 'wrong_code' };
+    if (membershipId === null) return countFailedAttempt(transaction, signIn.id);
     const authorizationCode = generateSecretToken();
     await bindSignIn(transaction, signIn.id, { membershipId, authorizationCode });
     return { kind: 'confirmed', redirectUri: signIn.redirect_uri, state: signIn.state, authorizationCode };
@@ -41,4 +41,9 @@ async function bindSignIn(transaction: Transaction, signInId: string, { membersh
     membershipId,
     hashSecretToken(authorizationCode),
   ]);
+}
+
+async function countFailedAttempt(transaction: Transaction, signInId: string): Promise<SignInOutcome> {
+  await transaction.query('UPDATE chatgpt_sign_ins SET failed_attempts = failed_attempts + 1 WHERE id = $1', [signInId]);
+  return { kind: 'wrong_code' };
 }
