@@ -4,6 +4,7 @@ import type { NewRecord } from './new-record.ts';
 
 type SavedRecordRow = {
   category: DuplicateFields['category'];
+  document_title: string | null;
   maintenance_item: string | null;
   vehicle_plate: string | null;
   document_number: string | null;
@@ -42,7 +43,7 @@ function buildSavedCopyQuery(workspaceId: string, record: NewRecord): [string, u
   equalOrBothEmpty('document_number', record.documentNumber);
   equalOrBothEmpty('occurred_on', record.occurredOn);
   return [
-    `SELECT category, maintenance_item, vehicle_plate, document_number, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on,
+    `SELECT category, document_title, maintenance_item, vehicle_plate, document_number, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on,
        amount_vnd::float8 AS amount_vnd, identifiers, details
      FROM records WHERE ${conditions.join(' AND ')}`,
     values,
@@ -52,6 +53,7 @@ function buildSavedCopyQuery(workspaceId: string, record: NewRecord): [string, u
 function toDuplicateFields(row: SavedRecordRow): DuplicateFields {
   return {
     category: row.category,
+    documentTitle: row.document_title,
     maintenanceItem: row.maintenance_item,
     vehiclePlate: row.vehicle_plate,
     documentNumber: row.document_number,
