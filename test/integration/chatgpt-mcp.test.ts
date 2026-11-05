@@ -243,6 +243,16 @@ describe('the MCP address', () => {
     expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toEqual([]);
   });
 
+  it('does not remove a person of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const lanUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+
+    const response = await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(lanUserId) }), { token: DUY_ACCESS_TOKEN });
+
+    expect(JSON.parse(response.json().result.content[0].text).ok).not.toBe(true);
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${lanUserId}'`)).toHaveLength(1);
+  });
+
   it('refuses the 61st request of a connection in one minute', async () => {
     const server = buildTestServer();
     for (let count = 0; count < 60; count += 1) await injectMcp(server, TOOLS_LIST_REQUEST, DUY_ACCESS_TOKEN);
