@@ -8,6 +8,10 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  ALTER TABLE messages DROP CONSTRAINT messages_submission_status_check;
+  ALTER TABLE messages ADD CONSTRAINT messages_submission_status_check
+    CHECK (submission_status IN ('pending', 'accepted', 'duplicate', 'unresolved', 'failed'));
+  DELETE FROM pgmigrations WHERE name = '0031_allow_photo_explanation_status';
   ALTER TABLE records DROP CONSTRAINT records_category_not_blank;
   ALTER TABLE records DROP CONSTRAINT records_maintenance_item_not_blank;
   ALTER TABLE records DROP CONSTRAINT records_maintenance_item_needs_plate;
@@ -89,7 +93,7 @@ describe('the migration that frees the record categories', () => {
       { MIGRATION_DATABASE_URL: database.url },
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
-    expect(lines).toEqual(['[migrate] applied: 0030_free_record_category']);
+    expect(lines).toEqual(['[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status']);
     expect(exitCode).toBe(0);
   }
 });
