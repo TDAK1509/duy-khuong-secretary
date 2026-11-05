@@ -104,8 +104,7 @@ describe('render.yaml environment', () => {
     expect(loadPhotoStorageConfig(environment).ok).toBe(true);
     expect(readers.ok && readers.config).toMatchObject({
       reasoningEffort: 'medium',
-      cheap: [{ model: 'gpt-6-luna' }, { model: 'gpt-6.1-terra' }],
-      strong: [{ model: 'gpt-6.1-sol' }, { model: 'gpt-6-astra' }],
+      model: 'gpt-6.1-sol',
     });
     expect(chat.ok && chat.config).toMatchObject({ model: 'gpt-6-luna', reasoningEffort: 'none' });
   });

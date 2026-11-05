@@ -51,22 +51,10 @@ services:
         value: openai-compatible
       - key: READER_REASONING_EFFORT
         value: medium
-      - key: READER_CHEAP_1_BASE_URL
+      - key: READER_BASE_URL
         value: https://api.openai.com/v1
-      - key: READER_CHEAP_1_MODEL
-        value: gpt-6-luna
-      - key: READER_CHEAP_2_BASE_URL
-        value: https://api.openai.com/v1
-      - key: READER_CHEAP_2_MODEL
-        value: gpt-6.1-terra
-      - key: READER_STRONG_1_BASE_URL
-        value: https://api.openai.com/v1
-      - key: READER_STRONG_1_MODEL
+      - key: READER_MODEL
         value: gpt-6.1-sol
-      - key: READER_STRONG_2_BASE_URL
-        value: https://api.openai.com/v1
-      - key: READER_STRONG_2_MODEL
-        value: gpt-6-astra
 
 databases:
   - name: secretary-db

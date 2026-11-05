@@ -14,13 +14,9 @@ const PHOTO_ENVIRONMENT: NodeJS.ProcessEnv = {
 
 const READER_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_PROVIDER: 'openai-compatible',
-  ...Object.fromEntries(
-    ['CHEAP_1', 'CHEAP_2', 'STRONG_1', 'STRONG_2'].flatMap((slot) => [
-      [`READER_${slot}_BASE_URL`, 'https://ai.test/v1'],
-      [`READER_${slot}_API_KEY`, 'key'],
-      [`READER_${slot}_MODEL`, 'model'],
-    ]),
-  ),
+  READER_BASE_URL: 'https://ai.test/v1',
+  READER_API_KEY: 'key',
+  READER_MODEL: 'model',
 };
 
 const CHAT_ENVIRONMENT: NodeJS.ProcessEnv = {

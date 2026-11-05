@@ -78,7 +78,7 @@ export function buildPhotoStorage(config: PhotoStorageConfig): PhotoStorage {
 export function buildReader(config: ReaderConfig): ReaderService {
   switch (config.provider) {
     case 'openai-compatible':
-      return new OpenAiCompatibleReader({ ...config.strong[0], timeoutMs: config.timeoutMs, reasoningEffort: config.reasoningEffort });
+      return new OpenAiCompatibleReader(config);
   }
 }
 
