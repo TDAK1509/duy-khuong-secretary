@@ -12,14 +12,18 @@ export function findCodeSplit(decision: ReadingDecision): CodeSplit | null {
   const [secondItem] = second.reading.items;
   if (!firstItem || !secondItem) return null;
   const codes = [findExtraCode(firstItem, secondItem), findExtraCode(secondItem, firstItem)].filter((code) => code !== undefined);
-  return { reading: saveAgreedReading(removeCodes(first.reading), removeCodes(second.reading)), codes };
+  const reading = saveAgreedReading(keepSharedCodes(first.reading, secondItem), keepSharedCodes(second.reading, firstItem));
+  return { reading, codes };
 }
 
 function findExtraCode(item: ReadingItem, other: ReadingItem): string | undefined {
-  const otherCodes = new Set(other.identifiers.map(normalizeCode));
-  return item.identifiers.find((code) => !otherCodes.has(normalizeCode(code)));
+  return item.identifiers.find((code) => !hasCode(other, code));
 }
 
-function removeCodes(reading: Reading): Reading {
-  return { ...reading, items: reading.items.map((item) => ({ ...item, identifiers: [] })) };
+function keepSharedCodes(reading: Reading, other: ReadingItem): Reading {
+  return { ...reading, items: reading.items.map((item) => ({ ...item, identifiers: item.identifiers.filter((code) => hasCode(other, code)) })) };
+}
+
+function hasCode(item: ReadingItem, code: string): boolean {
+  return item.identifiers.some((own) => normalizeCode(own) === normalizeCode(code));
 }

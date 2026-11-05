@@ -18,6 +18,18 @@ describe('findCodeSplit', () => {
     expect(split?.codes).toEqual(['8936012345678', '8936012845678']);
     expect(split?.reading.items.map((item) => item.identifiers)).toEqual([[]]);
   });
+
+  it('keeps a code both strong readers read on the item and does not offer it', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['SN-001', 'A1'] })]),
+      makeReading([makeTire({ identifiers: ['SN001', 'B1'] })]),
+    );
+
+    const split = findCodeSplit(decision);
+
+    expect(split?.codes).toEqual(['A1', 'B1']);
+    expect(split?.reading.items.map((item) => item.identifiers)).toEqual([['SN-001']]);
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {
