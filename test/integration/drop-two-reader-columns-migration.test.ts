@@ -17,6 +17,10 @@ describe('the migration that drops the two-reader columns', () => {
     expect(await listColumns('records')).not.toContain('read_by');
   });
 
+  it('leaves the messages table without code_choice', async () => {
+    expect(await listColumns('messages')).not.toContain('code_choice');
+  });
+
   async function listColumns(tableName: string): Promise<string[]> {
     const rows = await database.query<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`,
