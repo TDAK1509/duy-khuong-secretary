@@ -99,6 +99,15 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(await readPhotoStatus('zmsg-1')).toBe('needs_explanation');
   });
 
+  it('reads a clear photo once', async () => {
+    await sendTextSentMinutesAgo('zu-hung', PLATE_TEXT, 2);
+    const readers = makeReadersAnswering(() => TIRE_ITEM);
+
+    await sendPhotoA('zu-hung', readers);
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
