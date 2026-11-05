@@ -19,7 +19,7 @@ describe('loadReaderConfig', () => {
   });
 
   it('takes the LLM_API_KEY when READER_API_KEY is empty', () => {
-    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_API_KEY: '', LLM_API_KEY: 'sk-shared' });
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: '', LLM_API_KEY: 'sk-shared' });
 
     expect(result).toMatchObject({ ok: true, config: { apiKey: 'sk-shared' } });
   });
@@ -30,10 +30,16 @@ describe('loadReaderConfig', () => {
     expect(result).toMatchObject({ ok: true, config: { baseUrl: 'https://api.openai.com/v1' } });
   });
 
-  it('lists every missing value by name', () => {
-    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_MODEL: '' });
+  it('uses gpt-6.1-sol without READER_MODEL', () => {
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key' });
 
-    expect(result).toEqual({ ok: false, missing: ['READER_PROVIDER', 'READER_MODEL'] });
+    expect(result).toMatchObject({ ok: true, config: { model: 'gpt-6.1-sol' } });
+  });
+
+  it('lists every missing value by name', () => {
+    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_API_KEY: '' });
+
+    expect(result).toEqual({ ok: false, missing: ['READER_PROVIDER', 'READER_API_KEY'] });
   });
 
   it('reads the reader with the default timeout and no reasoning effort', () => {

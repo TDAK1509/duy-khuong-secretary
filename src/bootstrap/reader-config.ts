@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
-const REQUIRED_NAMES = ['READER_PROVIDER', 'READER_API_KEY', 'READER_MODEL'];
+const REQUIRED_NAMES = ['READER_PROVIDER', 'READER_API_KEY'];
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_MODEL = 'gpt-6.1-sol';
 
 const environmentSchema = z.object({
   READER_PROVIDER: z.literal('openai-compatible'),
@@ -44,6 +45,7 @@ function applyDefaults(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     ...environment,
     READER_API_KEY: environment['READER_API_KEY'] || environment['LLM_API_KEY'],
     READER_BASE_URL: environment['READER_BASE_URL'] || DEFAULT_BASE_URL,
+    READER_MODEL: environment['READER_MODEL'] || DEFAULT_MODEL,
   };
 }
 
