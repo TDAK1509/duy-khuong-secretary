@@ -3,15 +3,16 @@ import type { Clock } from '../../services/clock/clock.ts';
 import { describeAuthorizationServer } from '../chatgpt/describe-authorization-server.ts';
 import { exchangeAuthorizationCode, type TokenOutcome } from '../chatgpt/exchange-authorization-code.ts';
 import { ACCESS_TOKEN_VALID_FOR_MS } from '../chatgpt/issue-tokens.ts';
+import { CHATGPT_CLIENT_ID } from '../chatgpt/read-sign-in-request.ts';
 import { refreshTokens } from '../chatgpt/refresh-tokens.ts';
 import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 
 const codeGrantSchema = z
-  .object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string(), client_id: z.string() })
+  .object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string(), client_id: z.literal(CHATGPT_CLIENT_ID) })
   .transform(({ code, code_verifier, redirect_uri }) => ({ code, codeVerifier: code_verifier, redirectUri: redirect_uri }));
 const refreshGrantSchema = z
-  .object({ refresh_token: z.string(), client_id: z.string() })
+  .object({ refresh_token: z.string(), client_id: z.literal(CHATGPT_CLIENT_ID) })
   .transform(({ refresh_token }) => ({ refreshToken: refresh_token }));
 
 export type TokenDependencies = { database: Database; clock: Clock; publicBaseUrl: string };

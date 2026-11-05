@@ -181,6 +181,16 @@ describe('POST /oauth/token', () => {
     expect(response.json()).toEqual({ error: 'invalid_request' });
   });
 
+  it.each([
+    ['a code request', makeCodeRequest({ client_id: 'https://other.example/client.json' })],
+    ['a refresh request', makeRefreshRequest({ client_id: 'https://other.example/client.json' })],
+  ])('refuses a client other than ChatGPT in %s', async (_kind, fields) => {
+    const response = await requestToken(fields);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'invalid_request' });
+  });
+
   function makeFieldsWithout(fields: Record<string, string>, name: string): Record<string, string> {
     return Object.fromEntries(Object.entries(fields).filter(([field]) => field !== name));
   }
