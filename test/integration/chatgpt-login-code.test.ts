@@ -27,6 +27,8 @@ describe('asking for a ChatGPT login code in Zalo', () => {
   let clock: FakeClock;
   let channel: FakeMessagingChannel;
   let alerts: OperatorAlerts;
+  let reader: FakeReader;
+  let chat: FakeChatService;
   let workspaceId: string;
 
   beforeEach(async () => {
@@ -35,6 +37,8 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     clock = new FakeClock(NOW);
     channel = new FakeMessagingChannel();
     alerts = new OperatorAlerts(new FakeAlertSink(), clock);
+    reader = new FakeReader();
+    chat = new FakeChatService();
     const tokens = makeTokenPair({ accessToken: 'a1' });
     await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW }, ENCRYPTION_KEY);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
@@ -79,6 +83,15 @@ describe('asking for a ChatGPT login code in Zalo', () => {
     expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toEqual([{ user_id: userId }]);
   });
 
+  it('never reaches the reader or the admin chat', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'đăng nhập');
+
+    expect(reader.requests).toEqual([]);
+    expect(chat.requests).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
@@ -86,7 +99,7 @@ describe('asking for a ChatGPT login code in Zalo', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, reader: new FakeReader(), chat: new FakeChatService() }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, reader, chat }),
     });
   }
 
