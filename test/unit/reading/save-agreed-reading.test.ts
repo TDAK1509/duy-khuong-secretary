@@ -74,4 +74,16 @@ describe('saveAgreedReading', () => {
 
     expect(saved.items[0]?.document_title).toBe('Hóa đơn bán lẻ xăng dầu');
   });
+
+  it('pairs items with the same fixed fields by category, so a title stays with its own item', () => {
+    const fuel = makeFuelItemX({ category: 'đổ xăng dầu', document_title: 'Hóa đơn bán lẻ xăng dầu' });
+    const toll = makeFuelItemX({ category: 'phí cầu đường', document_title: null });
+
+    const saved = saveAgreedReading(makeReading([fuel, toll]), makeReading([toll, fuel]));
+
+    expect(saved.items.map((item) => [item.category, item.document_title])).toEqual([
+      ['đổ xăng dầu', 'Hóa đơn bán lẻ xăng dầu'],
+      ['phí cầu đường', null],
+    ]);
+  });
 });

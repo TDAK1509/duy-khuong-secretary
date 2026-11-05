@@ -14,7 +14,7 @@ export function areAgreeing(first: ReadAttempt, second: ReadAttempt): boolean {
 }
 
 export function sortItemsForComparison(reading: Reading): ReadingItem[] {
-  return reading.items.toSorted((first, second) => compareBySortKey(toComparableItem(first), toComparableItem(second)));
+  return reading.items.toSorted((first, second) => buildSortKey(first).localeCompare(buildSortKey(second)));
 }
 
 function listComparableItems(reading: Reading): ComparableItem[] {
@@ -32,16 +32,15 @@ function toComparableItem(item: ReadingItem) {
   };
 }
 
-function compareBySortKey(first: ComparableItem, second: ComparableItem): number {
-  return buildSortKey(first).localeCompare(buildSortKey(second));
-}
-
-function buildSortKey(item: ComparableItem): string {
+function buildSortKey(item: ReadingItem): string {
+  const comparable = toComparableItem(item);
   return JSON.stringify([
-    item.maintenance_item,
-    item.occurred_on,
-    item.amount_vnd,
-    item.document_number,
-    item.identifiers.join(','),
+    comparable.maintenance_item,
+    comparable.occurred_on,
+    comparable.amount_vnd,
+    comparable.document_number,
+    comparable.identifiers.join(','),
+    toAccentFreeForm(item.category),
+    toAccentFreeForm(item.document_title),
   ]);
 }
