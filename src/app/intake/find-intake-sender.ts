@@ -37,6 +37,6 @@ async function findMembership(transaction: Transaction, userId: string, workspac
   return { userId, workspaceId, membershipId: membership.id, role: membership.role };
 }
 
-export function isIntakeText(text: string): boolean {
+function isIntakeText(text: string): boolean {
   return !isInviteCodeMessage(text) && !isBareNumber(text) && !isSwitchCommand(text);
 }
