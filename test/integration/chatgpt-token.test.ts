@@ -92,6 +92,13 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
+
+    it('refuses a different redirect address', async () => {
+      const response = await requestToken(makeCodeRequest({ redirect_uri: 'https://evil.example/cb' }));
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {

@@ -6,6 +6,8 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 
+const codeGrantSchema = z.object({ code: z.string(), code_verifier: z.string(), redirect_uri: z.string() });
+
 export type TokenDependencies = { database: Database; clock: Clock; publicBaseUrl: string };
 
 export function handleAuthorizationServerMetadata(dependencies: TokenDependencies | null): HttpResponse {
@@ -15,8 +17,8 @@ export function handleAuthorizationServerMetadata(dependencies: TokenDependencie
 
 export async function handleTokenRequest(dependencies: TokenDependencies | null, body: unknown): Promise<HttpResponse> {
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
-  const { code, code_verifier: codeVerifier } = z.object({ code: z.string(), code_verifier: z.string() }).parse(body);
-  const outcome = await exchangeAuthorizationCode(dependencies.database, { code, codeVerifier, now: dependencies.clock.now() });
+  const { code, code_verifier: codeVerifier, redirect_uri: redirectUri } = codeGrantSchema.parse(body);
+  const outcome = await exchangeAuthorizationCode(dependencies.database, { code, codeVerifier, redirectUri, now: dependencies.clock.now() });
   return respondToOutcome(outcome);
 }
 

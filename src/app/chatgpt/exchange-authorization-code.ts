@@ -3,23 +3,27 @@ import { computeCodeChallenge } from './compute-code-challenge.ts';
 import { issueTokens, type IssuedTokens } from './issue-tokens.ts';
 import { hashSecretToken } from './secret-token.ts';
 
-export type CodeExchange = { code: string; codeVerifier: string; now: Date };
+export type CodeExchange = { code: string; codeVerifier: string; redirectUri: string; now: Date };
 
 export type TokenOutcome = { kind: 'issued'; tokens: IssuedTokens } | { kind: 'invalid_grant' };
 
-type SignInRow = { id: string; membership_id: string; client_id: string; code_challenge: string };
+type SignInRow = { id: string; membership_id: string; client_id: string; code_challenge: string; redirect_uri: string };
 
 export function exchangeAuthorizationCode(database: Database, exchange: CodeExchange): Promise<TokenOutcome> {
   return runInTransaction(database, async (transaction) => {
     const signIn = await lockConfirmedSignIn(transaction, exchange);
-    if (signIn === null || computeCodeChallenge(exchange.codeVerifier) !== signIn.code_challenge) return { kind: 'invalid_grant' };
+    if (signIn === null || !isGrantedTo(signIn, exchange)) return { kind: 'invalid_grant' };
     return connectSignIn(transaction, signIn, exchange.now);
   });
 }
 
+function isGrantedTo(signIn: SignInRow, exchange: CodeExchange): boolean {
+  return signIn.redirect_uri === exchange.redirectUri && signIn.code_challenge === computeCodeChallenge(exchange.codeVerifier);
+}
+
 async function lockConfirmedSignIn(transaction: Transaction, { code, now }: CodeExchange): Promise<SignInRow | null> {
   const [signIn] = await transaction.query<SignInRow>(
-    `SELECT id, membership_id, client_id, code_challenge FROM chatgpt_sign_ins
+    `SELECT id, membership_id, client_id, code_challenge, redirect_uri FROM chatgpt_sign_ins
      WHERE authorization_code_hash = $1 AND expires_at > $2 FOR UPDATE`,
     [hashSecretToken(code), now],
   );
