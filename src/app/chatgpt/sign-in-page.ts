@@ -1,6 +1,7 @@
 import {
   CODE_FIELD_LABEL,
   CONTINUE_BUTTON_LABEL,
+  QR_CAPTION,
   SIGN_IN_INTRO,
   SIGN_IN_PHISHING_NOTE,
   SIGN_IN_STEP_CONTINUE,
@@ -14,10 +15,12 @@ import {
 const PAGE_STYLE = `
   body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; line-height: 1.5; }
   main { max-width: 36rem; margin: 0 auto; }
+  figure { margin: 16px 0; }
+  svg { display: block; width: 240px; max-width: 100%; height: auto; }
   input, button { box-sizing: border-box; width: 100%; min-height: 48px; font-size: 1rem; margin-top: 8px; }
 `;
 
-export function renderSignInPage(): string {
+export function renderSignInPage(qrSvg: string): string {
   return [
     '<!doctype html>',
     '<html lang="vi">',
@@ -25,6 +28,7 @@ export function renderSignInPage(): string {
     `<body><main><h1>${SIGN_IN_TITLE}</h1>`,
     `<p>${SIGN_IN_INTRO}</p>`,
     `<p>${SIGN_IN_STEP_OPEN_CHAT}</p>`,
+    `<figure>${qrSvg}<figcaption>${QR_CAPTION}</figcaption></figure>`,
     `<p>${SIGN_IN_STEP_SEND_COMMAND}</p>`,
     `<p>${SIGN_IN_STEP_COPY_CODE}</p>`,
     `<p>${SIGN_IN_STEP_CONTINUE}</p>`,

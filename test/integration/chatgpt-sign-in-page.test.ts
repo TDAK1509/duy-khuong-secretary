@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { makeSignInQuery, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
@@ -10,6 +11,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ENCRYPTION_KEY = 'a'.repeat(64);
+const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';
 
 describe('GET /oauth/authorize', () => {
   let database: TemporaryDatabase;
@@ -38,8 +40,16 @@ describe('GET /oauth/authorize', () => {
     expect(response.headers['set-cookie']).toMatch(/HttpOnly/);
   });
 
+  it('shows a QR code for the Trợ lý chat', async () => {
+    const response = await requestSignInPage(makeSignInQuery());
+
+    const expectedSvg = new QrCodeGeneratorRenderer().renderSvg('https://zalo.me/1234567890', QR_CAPTION);
+    expect(response.body).toContain(expectedSvg);
+    expect(expectedSvg).toContain('role="img"');
+  });
+
   function requestSignInPage(query: Record<string, string>) {
-    const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL } });
+    const server = buildServer(pool, null, { signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() } });
     return server.inject({ method: 'GET', url: '/oauth/authorize', query });
   }
 });

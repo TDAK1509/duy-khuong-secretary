@@ -11,3 +11,4 @@ export const SIGN_IN_WORKSPACE_NOTE =
 export const SIGN_IN_PHISHING_NOTE = 'Chỉ nhập mã trên trang bạn tự mở từ ChatGPT của mình.';
 export const CODE_FIELD_LABEL = 'Mã kết nối';
 export const CONTINUE_BUTTON_LABEL = 'Tiếp tục';
+export const QR_CAPTION = 'Quét bằng Zalo trên điện thoại để mở khung chat với Trợ lý.';

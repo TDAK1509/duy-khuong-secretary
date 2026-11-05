@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 
 const SOURCE_FOLDERS = ['app', 'services', 'providers', 'bootstrap'];
 const MIGRATION_TOOL_PATH = './src/providers/database/migration-tool.ts';
-const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
+const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify', 'qrcode-generator'];
 
 /** @returns {import('eslint').Linter.Config[]} */
 export function makeArchitectureConfig(rootDir) {
