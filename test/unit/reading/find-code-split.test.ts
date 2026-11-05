@@ -41,6 +41,15 @@ describe('findCodeSplit', () => {
 
     expect(split?.codes).toEqual(['A1234']);
   });
+
+  it('gives no code choice when a second field differs', () => {
+    const decision = decideOnStrong(
+      makeReading([makeTire({ identifiers: ['A1234'], amount_vnd: 3500000 })]),
+      makeReading([makeTire({ identifiers: ['B1234'], amount_vnd: 3600000 })]),
+    );
+
+    expect(findCodeSplit(decision)).toBeNull();
+  });
 });
 
 function decideOnStrong(first: ReadAttempt | Reading, second: ReadAttempt | Reading): ReadingDecision {

@@ -1,3 +1,4 @@
+import { areAgreeing } from './agreement.ts';
 import type { ReadingDecision } from './decide-reading.ts';
 import { normalizeCode } from './normalize.ts';
 import type { Reading, ReadingItem } from './reading.ts';
@@ -8,12 +9,18 @@ export type CodeSplit = { reading: SavedReading; codes: string[] };
 export function findCodeSplit(decision: ReadingDecision): CodeSplit | null {
   const [first, second] = decision.strong ?? [];
   if (!first?.ok || !second?.ok) return null;
-  const [firstItem] = first.reading.items;
-  const [secondItem] = second.reading.items;
+  return splitCodes(first.reading, second.reading);
+}
+
+function splitCodes(first: Reading, second: Reading): CodeSplit | null {
+  const [firstItem] = first.items;
+  const [secondItem] = second.items;
   if (!firstItem || !secondItem) return null;
+  const firstShared = keepSharedCodes(first, secondItem);
+  const secondShared = keepSharedCodes(second, firstItem);
+  if (!areAgreeing({ ok: true, reading: firstShared }, { ok: true, reading: secondShared })) return null;
   const codes = [findExtraCode(firstItem, secondItem), findExtraCode(secondItem, firstItem)].filter((code) => code !== undefined);
-  const reading = saveAgreedReading(keepSharedCodes(first.reading, secondItem), keepSharedCodes(second.reading, firstItem));
-  return { reading, codes };
+  return { reading: saveAgreedReading(firstShared, secondShared), codes };
 }
 
 function findExtraCode(item: ReadingItem, other: ReadingItem): string | undefined {
