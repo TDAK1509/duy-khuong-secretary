@@ -25,7 +25,7 @@ describe('GET /.well-known/oauth-authorization-server', () => {
 
   it('publishes the OAuth metadata of the service', async () => {
     const server = buildServer(pool, null, {
-      signIn: { database: pool, clock: new FakeClock(NOW), publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() },
+      chatgptOAuth: { database: pool, clock: new FakeClock(NOW), publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() },
     });
 
     const response = await server.inject({ method: 'GET', url: '/.well-known/oauth-authorization-server' });

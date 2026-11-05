@@ -21,7 +21,7 @@ export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
-  signIn?: SignInDependencies | null;
+  chatgptOAuth?: SignInDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -40,7 +40,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
-  registerSignInRoutes(server, options.signIn ?? null);
+  registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
@@ -49,26 +49,26 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   }
 }
 
-function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencies | null): void {
+function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
   server.get('/oauth/authorize', async (request, reply) =>
-    sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
+    sendResponse(reply, await handleSignInPage(chatgptOAuth, request.query as SignInQuery)),
   );
-  registerFormPostRoutes(server, signIn);
+  registerFormPostRoutes(server, chatgptOAuth);
   server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
-    sendResponse(reply, handleAuthorizationServerMetadata(signIn)),
+    sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
   );
 }
 
-function registerFormPostRoutes(server: FastifyInstance, signIn: SignInDependencies | null): void {
+function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: FORM_LIMIT_BYTES }, (_request, body, done) =>
       done(null, Object.fromEntries(new URLSearchParams(String(body)))),
     );
     scope.post('/oauth/authorize', async (request, reply) =>
-      sendResponse(reply, await handleSignInSubmission(signIn, { cookieHeader: request.headers.cookie, body: request.body })),
+      sendResponse(reply, await handleSignInSubmission(chatgptOAuth, { cookieHeader: request.headers.cookie, body: request.body })),
     );
-    scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(signIn, request.body)));
+    scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(chatgptOAuth, request.body)));
   });
 }
 

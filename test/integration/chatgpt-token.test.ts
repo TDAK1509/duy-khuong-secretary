@@ -284,7 +284,7 @@ describe('POST /oauth/token', () => {
 
   function requestToken(fields: Record<string, string>) {
     const server = buildServer(pool, null, {
-      signIn: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() },
+      chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, qrCode: new QrCodeGeneratorRenderer() },
     });
     return server.inject({
       method: 'POST',
