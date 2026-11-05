@@ -11,7 +11,8 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
+const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
 const DUY_ACCESS_TOKEN = 'duy-access-token';
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
@@ -21,6 +22,8 @@ const INITIALIZE_REQUEST = {
   method: 'initialize',
   params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'chatgpt', version: '1.0.0' } },
 };
+
+const TOOLS_LIST_REQUEST = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} };
 
 const SERVER_INSTRUCTIONS = `Đây là Trợ lý của một nhóm xe tải. Thành viên gửi ảnh và tin nhắn qua Zalo; Trợ lý đọc và lưu thành dữ liệu. Bạn làm việc thay cho một quản lý của nhóm, chỉ trong nhóm đó.
 - Ngày giờ là giờ Việt Nam.
@@ -33,13 +36,15 @@ describe('the MCP address', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let workspaceId: string;
+  let duyUserId: string;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
-    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
-    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertConnection(database, {
       userId: duyUserId,
       accessToken: DUY_ACCESS_TOKEN,
@@ -86,6 +91,20 @@ describe('the MCP address', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
+  });
+
+  it('refuses an expired access token', async () => {
+    await insertConnection(database, {
+      userId: duyUserId,
+      accessToken: 'expired-access-token',
+      refreshToken: 'expired-refresh-token',
+      refreshExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS),
+      accessExpiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS),
+    });
+
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: 'expired-access-token' });
+
+    expect(response.statusCode).toBe(401);
   });
 
   function buildTestServer(mcp: McpDependencies | null = makeMcpDependencies()) {

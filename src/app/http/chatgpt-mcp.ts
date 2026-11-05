@@ -20,7 +20,7 @@ export function handleProtectedResourceMetadata(dependencies: McpDependencies | 
 export async function authorizeMcpRequest(dependencies: McpDependencies | null, authorization: string | undefined): Promise<McpAccess> {
   if (dependencies === null) return refuse(respondWithText(503, ZALO_OFF_TEXT));
   const accessToken = readBearerToken(authorization);
-  if (accessToken === null || !(await hasConnection(dependencies.database, accessToken))) {
+  if (accessToken === null || !(await hasConnection(dependencies.database, accessToken, dependencies.clock.now()))) {
     return refuse(respondWithSignInChallenge(dependencies.publicBaseUrl));
   }
   return { kind: 'granted', serve: (exchange) => dependencies.endpoint.serve(MCP_SERVER_DEFINITION, exchange) };
