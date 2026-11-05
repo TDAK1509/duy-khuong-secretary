@@ -580,6 +580,16 @@ describe('asking what an unclear photo is for', () => {
     expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
   });
 
+  it('does not read an earlier answer sent more than 10 minutes before again', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 11);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
