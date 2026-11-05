@@ -8,18 +8,23 @@ export type LoginCommand = { userId: string; workspaceId: string; now: Date };
 type MembershipRow = { membership_id: string; role: 'admin' | 'member'; workspace_name: string };
 
 export async function answerLoginCommand(transaction: Transaction, command: LoginCommand): Promise<Reply> {
+  const membership = await findMembership(transaction, command);
+  if (membership.role === 'member') return { text: formatMemberRefusal(membership.workspace_name) };
+  const code = generateLoginCode();
+  await storeLoginCode(transaction, { ...command, membershipId: membership.membership_id, code });
+  return { text: formatCodeExplanation(membership.workspace_name), followUpText: code, adminMembershipId: membership.membership_id };
+}
+
+async function findMembership(transaction: Transaction, { userId, workspaceId }: LoginCommand): Promise<MembershipRow> {
   const [membership] = await transaction.query<MembershipRow>(
     `SELECT membership.id AS membership_id, membership.role, workspace.name AS workspace_name
      FROM memberships membership
      JOIN workspaces workspace ON workspace.id = membership.workspace_id
      WHERE membership.user_id = $1 AND membership.workspace_id = $2`,
-    [command.userId, command.workspaceId],
+    [userId, workspaceId],
   );
   if (!membership) throw new Error('the sender has no membership in the workspace');
-  if (membership.role === 'member') return { text: formatMemberRefusal(membership.workspace_name) };
-  const code = generateLoginCode();
-  await storeLoginCode(transaction, { ...command, membershipId: membership.membership_id, code });
-  return { text: formatCodeExplanation(membership.workspace_name), followUpText: code };
+  return membership;
 }
 
 type NewLoginCode = LoginCommand & { membershipId: string; code: string };

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { hashLoginCode } from '../../src/app/chatgpt/login-code.ts';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
@@ -127,6 +128,18 @@ describe('asking for a ChatGPT login code in Zalo', () => {
 
     const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE workspace_id = '${otherWorkspaceId}'`);
     expect(await database.query('SELECT membership_id FROM chatgpt_login_codes')).toEqual([{ membership_id: membership?.id }]);
+  });
+
+  it('does not send the code to an admin who was removed meanwhile', async () => {
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    await receiveText('zu-duy', 'đăng nhập');
+    const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
+
+    await sendAllQueuedTexts();
+
+    expect(channel.texts).toEqual([]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
