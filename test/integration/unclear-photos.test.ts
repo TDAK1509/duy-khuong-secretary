@@ -131,6 +131,15 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
   });
 
+  it('reads an admin photo with a caption again when the readers disagree', async () => {
+    await sendTextSentMinutesAgo('zu-duy', PLATE_TEXT, 2);
+
+    await sendPhotoA('zu-duy', makeDisagreeingReaders(), 'thay lốp');
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+  });
+
   async function sendTextSentMinutesAgo(
     externalUserId: string,
     text: string,
@@ -174,6 +183,19 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
 
 function makeContextReaders(): FakeReaderSlots {
   return makeReadersAnswering(({ text }) => (text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR));
+}
+
+function makeDisagreeingReaders(): FakeReaderSlots {
+  const makeReader = (label: string, plate: string) =>
+    new FakeReader(label, ({ text }): ReaderResult => ({ ok: true, json: text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : makeTireWithPlate(plate) }));
+  return {
+    cheap: [makeReader('cheap-1', '29C-111.11'), makeReader('cheap-2', '29C-222.22')],
+    strong: [makeReader('strong-1', '29C-333.33'), makeReader('strong-2', '29C-444.44')],
+  };
+}
+
+function makeTireWithPlate(plate: string): unknown {
+  return makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: plate, amount_vnd: 3500000, occurred_on: null })]);
 }
 
 function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
