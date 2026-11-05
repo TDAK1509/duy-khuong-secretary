@@ -119,6 +119,14 @@ describe('POST /oauth/authorize', () => {
     expect(await database.query('SELECT authorization_code_hash FROM chatgpt_sign_ins')).toEqual([{ authorization_code_hash: null }]);
   });
 
+  it('finds no sign-in for a post without the browser cookie', async () => {
+    const response = await submitCode('K7M2-QX4P', null);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain('Lượt kết nối này đã hết hạn. Quay lại ChatGPT và kết nối lại.');
+    expect(await database.query('SELECT user_id FROM chatgpt_login_codes')).toHaveLength(1);
+  });
+
   async function openSignIn(): Promise<string> {
     const response = await buildSignInServer().inject({ method: 'GET', url: '/oauth/authorize', query: makeSignInQuery() });
     return String(response.headers['set-cookie']).split(';')[0] ?? '';

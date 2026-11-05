@@ -8,7 +8,8 @@ export type SignInConfirmation = { browserKey: string; typedCode: string; now: D
 export type SignInOutcome =
   | { kind: 'confirmed'; redirectUri: string; state: string | null; authorizationCode: string }
   | { kind: 'wrong_code' }
-  | { kind: 'too_many_attempts' };
+  | { kind: 'too_many_attempts' }
+  | { kind: 'expired' };
 
 type SignInRow = { id: string; redirect_uri: string; state: string | null; failed_attempts: number };
 
@@ -18,6 +19,7 @@ export function confirmSignIn(database: Database, confirmation: SignInConfirmati
 
 async function confirmInTransaction(transaction: Transaction, confirmation: SignInConfirmation): Promise<SignInOutcome> {
   const signIn = await lockSignIn(transaction, confirmation.browserKey);
+  if (signIn === null) return { kind: 'expired' };
   if (signIn.failed_attempts >= MAX_FAILED_ATTEMPTS) return { kind: 'too_many_attempts' };
   if (!isLoginCodeShape(confirmation.typedCode)) return { kind: 'wrong_code' };
   const membershipId = await useUpLoginCode(transaction, confirmation);
@@ -25,13 +27,12 @@ async function confirmInTransaction(transaction: Transaction, confirmation: Sign
   return bindSignIn(transaction, signIn, membershipId);
 }
 
-async function lockSignIn(transaction: Transaction, browserKey: string): Promise<SignInRow> {
+async function lockSignIn(transaction: Transaction, browserKey: string): Promise<SignInRow | null> {
   const [signIn] = await transaction.query<SignInRow>(
     'SELECT id, redirect_uri, state, failed_attempts FROM chatgpt_sign_ins WHERE browser_key_hash = $1 FOR UPDATE',
     [hashSecretToken(browserKey)],
   );
-  if (!signIn) throw new Error('no sign-in matches the browser key');
-  return signIn;
+  return signIn ?? null;
 }
 
 async function useUpLoginCode(transaction: Transaction, { typedCode, now }: SignInConfirmation): Promise<string | null> {
