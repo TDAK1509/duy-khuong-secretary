@@ -26,6 +26,24 @@ describe('planReply', () => {
   });
 });
 
+describe('planReply unclear readings', () => {
+  const tireOfPlate = (plate: string) => makeReading([makeItem({ maintenance_item: 'lốp', vehicle_plate: plate })]);
+
+  it('is unclear when the readers disagree and every reader answered', () => {
+    const [first, second] = [tireOfPlate('29C-123.45'), tireOfPlate('29C-123.46')];
+    const decision: ReadingDecision = {
+      outcome: 'unresolved',
+      cheap: [succeed(first), succeed(second)],
+      strong: [succeed(first), succeed(second)],
+      agreed: null,
+    };
+
+    const plan = planReply(decision, false);
+
+    expect(plan.isUnclear).toBe(true);
+  });
+});
+
 describe('planAnswer', () => {
   const asked: AskedPhoto = { id: 'photo-1', imageKey: 'w/photo-1.jpg', status: 'needs_explanation' };
   const question = makeReading([], { has_work_data: false, has_question: true });

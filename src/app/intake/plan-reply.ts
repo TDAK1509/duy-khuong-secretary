@@ -26,10 +26,11 @@ export type ReplyPlan = {
   saved: SavedRecords | null;
   situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'refused';
   asksQuestion: boolean;
+  isUnclear: boolean;
 };
 
 export function planReply(decision: ReadingDecision, hasPhoto: boolean): ReplyPlan {
-  if (decision.agreed === null || decision.outcome === 'unresolved') return planUnresolvedReply();
+  if (decision.agreed === null || decision.outcome === 'unresolved') return { ...planUnresolvedReply(), isUnclear: true };
   const reading = saveAgreedReading(...decision.agreed);
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply();
@@ -70,6 +71,7 @@ function planRecordsReply(records: NewRecord[], readBy: ReadBy, asksQuestion: bo
     saved: { readBy, records },
     situation: 'saved',
     asksQuestion,
+    isUnclear: false,
   };
 }
 
@@ -90,7 +92,7 @@ function planUnresolvedReply(): ReplyPlan {
 }
 
 function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {
-  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false };
+  return { replyText, replyKind: 'answer', status, saved: null, situation: 'refused', asksQuestion: false, isUnclear: false };
 }
 
 function planExplanationRequest(): ReplyPlan {
@@ -101,6 +103,7 @@ function planExplanationRequest(): ReplyPlan {
     saved: null,
     situation: 'needs_explanation',
     asksQuestion: false,
+    isUnclear: false,
   };
 }
 
@@ -112,5 +115,6 @@ function planUploadOnlyReply(): ReplyPlan {
     saved: null,
     situation: 'no_work_data',
     asksQuestion: false,
+    isUnclear: false,
   };
 }
