@@ -44,4 +44,15 @@ describe('replies that quote the photo they answer', () => {
       },
     ]);
   });
+
+  it('queues a refused quote without a fallback photo again as the plain text', async () => {
+    const id = await insertOutboundMessage(harness.database, { externalUserId: 'zu-hung', body: SAVED_REPLY, quoteMessageId: 'msg-1' });
+    harness.channel.queuedTextResults.push({ ok: false, reason: 'rejected' }, { ok: true });
+
+    await harness.sendQueuedTexts();
+    await harness.sendQueuedTexts();
+
+    expect(await harness.database.query(`SELECT status FROM outbound_messages WHERE id = '${id}'`)).toEqual([{ status: 'sent' }]);
+    expect(harness.channel.texts.map((text) => text.quoteMessageId)).toEqual(['msg-1', undefined]);
+  });
 });

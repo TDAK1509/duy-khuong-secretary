@@ -2,7 +2,7 @@ import type { SendResult } from '../../services/messaging/messaging-channel.ts';
 import { describeNoConnection, describeOutboundMessageFailed, describeSendGotNoAnswer } from '../alerts/alert-texts.ts';
 import { mayBeHeld, type ClaimedMessage } from './claimed-message.ts';
 
-export type Rewrite = 'plain_text' | 'photo_with_text' | 'without_quote';
+export type Rewrite = 'plain_text' | 'photo_with_text';
 
 export type Settlement = {
   status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
@@ -68,7 +68,7 @@ function decideRejection(message: ClaimedMessage, result: FailedSend): SendOutco
   const { content } = message;
   if (content.kind === 'image' && content.text !== undefined) return requeueRewritten('plain_text', IMAGE_REJECTED);
   if (content.kind === 'text' && content.quote) {
-    return requeueRewritten(content.quote.fallbackPhotoKey ? 'photo_with_text' : 'without_quote', QUOTE_REJECTED);
+    return requeueRewritten(content.quote.fallbackPhotoKey ? 'photo_with_text' : 'plain_text', QUOTE_REJECTED);
   }
   return failSend(result);
 }

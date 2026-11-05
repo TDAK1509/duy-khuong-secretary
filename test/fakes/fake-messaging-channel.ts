@@ -27,6 +27,7 @@ export class FakeMessagingChannel implements MessagingChannel {
   readonly nameLookupCredentials: string[] = [];
   readonly downloadedUrls: string[] = [];
   readonly attachments = new Map<string, DownloadResult>();
+  readonly queuedTextResults: SendResult[] = [];
   nextTextResult: SendResult = { ok: true };
   whileSendingText: () => Promise<void> = async () => {};
   nextImageResult: SendResult = { ok: true };
@@ -44,7 +45,7 @@ export class FakeMessagingChannel implements MessagingChannel {
     this.texts.push({ to, text, credential, ...(quoteMessageId !== undefined && { quoteMessageId }) });
     await this.whileSendingText();
     this.sends.push({ kind: 'text', to: to.externalUserId, text });
-    return this.nextTextResult;
+    return this.queuedTextResults.shift() ?? this.nextTextResult;
   }
 
   async sendImage(to: ChannelRecipient, photo: Photo, _credential: string, text?: string): Promise<SendResult> {
