@@ -275,6 +275,17 @@ describe('the MCP address', () => {
     expect(content.slice(1)).toEqual([{ type: 'image', data: Buffer.from(PNG_BYTES).toString('base64'), mimeType: 'image/png' }]);
   });
 
+  it('returns no photo for a record of another workspace', async () => {
+    await photoStorage.put('workspace-b/fuel.png', { bytes: PNG_BYTES, contentType: 'image/png' });
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    const recordId = await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', imageKey: 'workspace-b/fuel.png' });
+
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().result.content).toEqual([{ type: 'text', text: '{"attached":0}' }]);
+  });
+
   it('creates an invite in the workspace of the token', async () => {
     const response = await postMcp(callToolRequest('create_invite', { display_name: 'Nam', role: 'member' }), { token: DUY_ACCESS_TOKEN });
 
