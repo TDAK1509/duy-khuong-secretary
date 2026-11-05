@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
@@ -21,13 +22,14 @@ describe('POST /oauth/token', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let workspaceId: string;
   let duyUserId: string;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
-    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
   });
 
@@ -142,6 +144,18 @@ describe('POST /oauth/token', () => {
 
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
+
+    it('refuses the refresh token of an admin who was removed and deletes the connection', async () => {
+      const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+      const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+      await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
+
+      const response = await requestToken(makeRefreshRequest());
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+      expect(await database.query('SELECT id FROM chatgpt_connections')).toEqual([]);
     });
   });
 
