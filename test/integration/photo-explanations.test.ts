@@ -626,6 +626,20 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toEqual([]);
   });
 
+  it('saves once when the second answer is processed again after a crash', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTwoLineReaders();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: SECOND_LINE });
+    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound({ readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
+  });
+
   async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
     readersReturn(UNCLEAR);
     await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
