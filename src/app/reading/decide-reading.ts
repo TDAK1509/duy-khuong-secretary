@@ -1,5 +1,5 @@
 import type { ReaderRequest, ReaderService } from '../../services/reading/reader-service.ts';
-import { areAgreeing } from './agreement.ts';
+import { areAgreeing, listDisagreements } from './agreement.ts';
 import { validateReading, type ReadAttempt, type Reading } from './reading.ts';
 
 export type ReaderPair = readonly [ReaderService, ReaderService];
@@ -18,10 +18,17 @@ export async function decideReading(slots: ReaderSlots, request: ReaderRequest):
   const cheap = await readWithPair(slots.cheap, request);
   const agreedCheap = pickAgreedReadings(cheap);
   if (agreedCheap) return { outcome: 'cheap_pair', cheap, strong: null, agreed: agreedCheap };
+  logDisagreement('cheap', cheap);
   const strong = await readWithPair(slots.strong, request);
   const agreedStrong = pickAgreedReadings(strong);
   if (agreedStrong) return { outcome: 'expensive_pair', cheap, strong, agreed: agreedStrong };
+  logDisagreement('strong', strong);
   return { outcome: 'unresolved', cheap, strong, agreed: null };
+}
+
+function logDisagreement(pairName: 'cheap' | 'strong', [first, second]: AttemptPair): void {
+  if (!first.ok || !second.ok) return;
+  console.warn(`[reading] ${pairName} readers disagree on: ${listDisagreements(first.reading, second.reading).join(', ')}`);
 }
 
 export function isReaderOutage(decision: ReadingDecision): boolean {

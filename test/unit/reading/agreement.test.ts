@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReadAttempt } from '../../../src/app/reading/reading.ts';
-import { areAgreeing } from '../../../src/app/reading/agreement.ts';
+import { areAgreeing, listDisagreements } from '../../../src/app/reading/agreement.ts';
 import { makeFuelItemX, makeItem, makeReading, succeed } from './make-reading.ts';
 
 describe('areAgreeing', () => {
@@ -163,5 +163,30 @@ describe('areAgreeing', () => {
     const failed: ReadAttempt = { ok: false, reason: 'timeout' };
 
     expect(areAgreeing(succeed(makeReading()), failed)).toBe(false);
+  });
+});
+
+describe('listDisagreements', () => {
+  it('names the item fields the two readings disagree on', () => {
+    const first = makeReading([makeItem({ identifiers: ['DOT 4521'], vehicle_plate: '29C-123.45' })]);
+    const second = makeReading([makeItem({ identifiers: ['DOT 4527'], vehicle_plate: '29C12345' })]);
+
+    expect(listDisagreements(first, second)).toEqual(['identifiers']);
+  });
+
+  it('names the flags the two readings disagree on', () => {
+    const first = makeReading([], { has_work_data: false, needs_explanation: true });
+    const second = makeReading([makeItem()]);
+
+    expect(listDisagreements(first, second)).toEqual(['has_work_data', 'needs_explanation', 'items']);
+  });
+
+  it('names the category when items with the same fixed fields pair by name', () => {
+    const first = makeReading([makeFuelItemX({ category: 'đổ xăng dầu' }), makeFuelItemX({ category: 'phí cầu đường' })]);
+    const second = makeReading([makeFuelItemX({ category: 'đổ xăng dầu' }), makeFuelItemX({ category: 'rửa xe' })], {
+      has_question: true,
+    });
+
+    expect(listDisagreements(first, second)).toEqual(['has_question', 'category or title']);
   });
 });

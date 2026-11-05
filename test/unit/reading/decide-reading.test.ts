@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { decideReading } from '../../../src/app/reading/decide-reading.ts';
 import type { Reading } from '../../../src/app/reading/reading.ts';
 import type { ReaderRequest } from '../../../src/services/reading/reader-service.ts';
@@ -60,5 +60,21 @@ describe('decideReading', () => {
     const decision = await decideReading(slots, REQUEST);
 
     expect(decision.outcome).toBe('unresolved');
+  });
+
+  it('logs the fields each pair disagrees on, without their values', async () => {
+    const logged = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const slots = makeSlots({
+      cheap: [FUEL_READING, OTHER_AMOUNT_READING],
+      strong: [FUEL_READING, OTHER_AMOUNT_READING],
+    });
+
+    await decideReading(slots, REQUEST);
+
+    expect(logged.mock.calls).toEqual([
+      ['[reading] cheap readers disagree on: amount_vnd'],
+      ['[reading] strong readers disagree on: amount_vnd'],
+    ]);
+    logged.mockRestore();
   });
 });
