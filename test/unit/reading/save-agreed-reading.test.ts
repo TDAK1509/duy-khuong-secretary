@@ -56,4 +56,22 @@ describe('saveAgreedReading', () => {
 
     expect(saved.items[0]?.category).toBe('Kiểm định xe');
   });
+
+  it('saves no title when the readers copy it differently', () => {
+    const first = makeReading([makeFuelItemX({ document_title: 'Chứng nhận kiểm định' })]);
+    const second = makeReading([makeFuelItemX({ document_title: 'Giấy chứng nhận kiểm định' })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.document_title).toBeNull();
+  });
+
+  it('keeps the title both readers copy, ignoring case and accents', () => {
+    const first = makeReading([makeFuelItemX({ document_title: 'Hóa đơn bán lẻ xăng dầu' })]);
+    const second = makeReading([makeFuelItemX({ document_title: 'hoa don ban le xang dau' })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.document_title).toBe('Hóa đơn bán lẻ xăng dầu');
+  });
 });

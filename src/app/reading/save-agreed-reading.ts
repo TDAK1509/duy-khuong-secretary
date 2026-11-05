@@ -27,11 +27,12 @@ function keepSharedValues(item: ReadingItem, other: ReadingItem | undefined): Re
   return {
     ...item,
     category: keepSharedText(item.category, other?.category) ?? UNSHARED_CATEGORY,
+    document_title: keepSharedText(item.document_title, other?.document_title),
     details: item.details.filter((detail) => otherKeys.has(buildDetailKey(detail))),
   };
 }
 
-function keepSharedText(text: string, otherText: string | undefined): string | null {
+function keepSharedText(text: string | null, otherText: string | null | undefined): string | null {
   const accentFree = toAccentFreeForm(text);
   return accentFree !== null && accentFree === toAccentFreeForm(otherText ?? null) ? text : null;
 }
