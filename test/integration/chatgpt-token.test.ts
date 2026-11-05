@@ -134,6 +134,15 @@ describe('POST /oauth/token', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ error: 'invalid_grant' });
     });
+
+    it('refuses a refresh token that expired yesterday', async () => {
+      clock.advanceBy(31 * ONE_DAY_MS);
+
+      const response = await requestToken(makeRefreshRequest());
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
