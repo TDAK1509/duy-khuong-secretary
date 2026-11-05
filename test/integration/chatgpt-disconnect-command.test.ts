@@ -64,6 +64,19 @@ describe('ending ChatGPT connections from Zalo', () => {
     ]);
   });
 
+  it('leaves the connections of other admins', async () => {
+    const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    await insertConnectionOf(duyUserId, { workspaceId, token: '1' });
+    await insertConnectionOf(lanUserId, { workspaceId, token: '2' });
+
+    await receiveText('zu-duy', 'ngắt ChatGPT');
+
+    expect(await database.query(`SELECT membership.user_id FROM chatgpt_connections connection
+      JOIN memberships membership ON membership.id = connection.membership_id`)).toEqual([{ user_id: lanUserId }]);
+  });
+
   async function insertConnectionOf(userId: string, { workspaceId, token }: { workspaceId: string; token: string }): Promise<void> {
     await insertConnection(database, {
       userId,
