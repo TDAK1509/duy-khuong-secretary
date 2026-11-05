@@ -1,23 +1,30 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
+  CREATE_INVITE_SPEC,
+  CREATE_SCHEDULED_TASK_SPEC,
   LIST_MEMBERS_SPEC,
   LIST_SCHEDULED_TASKS_SPEC,
   MAINTENANCE_STATUS_SPEC,
+  REMOVE_MEMBER_SPEC,
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { SdkMcpEndpoint } from '../../src/providers/mcp/sdk-mcp-endpoint.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
+import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -25,9 +32,22 @@ const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
 const DUY_ACCESS_TOKEN = 'duy-access-token';
 const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
+const READ_TOOL_NAMES = READ_TOOL_SPECS.map(({ name }) => name);
+const CHANGE_TOOL_NAMES = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC].map(({ name }) => name);
+const DAILY_REPORT = {
+  title: 'Báo cáo hằng ngày',
+  instruction: 'Lập báo cáo.',
+  repeat: 'daily',
+  run_once_at: null,
+  time_of_day: '18:00',
+  weekday: null,
+  day_of_month: null,
+  maintenance_rules: [],
+};
+const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
-type ListedTool = { name: string; description: string; inputSchema: unknown };
+type ListedTool = { name: string; description: string; inputSchema: unknown; annotations: unknown; _meta: unknown };
 
 const INITIALIZE_REQUEST = {
   jsonrpc: '2.0',
@@ -62,6 +82,7 @@ describe('the MCP address', () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens: makeTokenPair({ accessToken: 'a1' }), storedAt: NOW }, ENCRYPTION_KEY);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertConnection(database, {
@@ -147,37 +168,36 @@ describe('the MCP address', () => {
     expect(response.json().result.instructions).toBe(SERVER_INSTRUCTIONS);
   });
 
-  it('lists exactly the five read tools', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+  it('lists the five read tools and the four change tools', async () => {
+    const tools = await listTools();
 
-    expect(response.json().result.tools.map((tool: { name: string }) => tool.name)).toEqual([
-      'search_records',
-      'count_records',
-      'list_members',
-      'maintenance_status',
-      'list_scheduled_tasks',
-    ]);
+    expect(tools.map((tool) => tool.name)).toEqual([...READ_TOOL_NAMES, ...CHANGE_TOOL_NAMES]);
+  });
+
+  it('asks for approval on each change tool', async () => {
+    const tools = await listTools();
+
+    const changeTools = tools.filter((tool) => CHANGE_TOOL_NAMES.includes(tool.name));
+    expect(changeTools.map((tool) => tool.annotations)).toEqual(CHANGE_TOOL_NAMES.map(() => ({ readOnlyHint: false, destructiveHint: true, openWorldHint: false })));
   });
 
   it('keeps the admin chat descriptions and schemas of the read tools', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const listed = response.json().result.tools.map(({ name, description, inputSchema }: ListedTool) => ({ name, description, inputSchema }));
+    const listed = tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
     expect(listed).toEqual(READ_TOOL_SPECS.map(({ name, description, parameters }) => ({ name, description, inputSchema: parameters })));
   });
 
   it('marks each read tool as read-only', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const annotations = response.json().result.tools.map((tool: { annotations: unknown }) => tool.annotations);
-    expect(annotations).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
+    expect(tools.map((tool) => tool.annotations)).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
   });
 
   it('declares the OAuth security scheme on each read tool', async () => {
-    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    const tools = await listReadTools();
 
-    const metas = response.json().result.tools.map((tool: { _meta: unknown }) => tool._meta);
-    expect(metas).toEqual(READ_TOOL_SPECS.map(() => ({ securitySchemes: [{ type: 'oauth2' }] })));
+    expect(tools.map((tool) => tool._meta)).toEqual(READ_TOOL_SPECS.map(() => ({ securitySchemes: [{ type: 'oauth2' }] })));
   });
 
   it('searches only the workspace of the token', async () => {
@@ -202,8 +222,7 @@ describe('the MCP address', () => {
 
   it('refuses the token of an admin who was removed', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
-    const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
-    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: await findMembershipId(duyUserId) });
 
     const response = await postMcp(callToolRequest('list_members', {}), { token: DUY_ACCESS_TOKEN });
 
@@ -219,14 +238,56 @@ describe('the MCP address', () => {
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
   });
 
-  it('cannot call a change tool yet', async () => {
+  it('creates an invite in the workspace of the token', async () => {
+    const response = await postMcp(callToolRequest('create_invite', { display_name: 'Nam', role: 'member' }), { token: DUY_ACCESS_TOKEN });
+
+    const invites = await database.query('SELECT workspace_id, created_by, display_name FROM workspace_invites');
+    expect(invites).toEqual([{ workspace_id: workspaceId, created_by: duyUserId, display_name: 'Nam' }]);
+    expect(JSON.parse(response.json().result.content[0].text)).toMatchObject({ ok: true, code: expect.stringMatching(/^MOI-/) });
+  });
+
+  it('removes a person of the workspace of the token', async () => {
     const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
-    const [hung] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`);
 
-    const response = await postMcp(callToolRequest('remove_member', { member_id: hung?.id }), { token: DUY_ACCESS_TOKEN });
+    await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(hungUserId) }), { token: DUY_ACCESS_TOKEN });
 
-    expect(response.json().error).toBeDefined();
-    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toEqual([]);
+  });
+
+  it('does not remove a person of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const lanUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+
+    const response = await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(lanUserId) }), { token: DUY_ACCESS_TOKEN });
+
+    expect(JSON.parse(response.json().result.content[0].text).ok).not.toBe(true);
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${lanUserId}'`)).toHaveLength(1);
+  });
+
+  it('creates a schedule with a creation key', async () => {
+    await postMcp(callToolRequest('create_scheduled_task', DAILY_REPORT), { token: DUY_ACCESS_TOKEN });
+
+    const tasks = await database.query<{ created_by: string; status: string; creation_key: string | null }>(
+      'SELECT created_by, status, creation_key FROM scheduled_tasks',
+    );
+    expect(tasks).toEqual([{ created_by: duyUserId, status: 'active', creation_key: expect.any(String) }]);
+  });
+
+  it('cancels a schedule', async () => {
+    const taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', nextRunAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+
+    await postMcp(callToolRequest('cancel_scheduled_task', { task_id: taskId }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query(`SELECT status FROM scheduled_tasks WHERE id = '${taskId}'`)).toEqual([{ status: 'cancelled' }]);
+  });
+
+  it('does not refuse a change after a search on the same connection', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await postMcp(callToolRequest('search_records', NO_SEARCH_FILTERS), { token: DUY_ACCESS_TOKEN });
+
+    await postMcp(callToolRequest('remove_member', { member_id: await findMembershipId(hungUserId) }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query(`SELECT id FROM memberships WHERE user_id = '${hungUserId}'`)).toEqual([]);
   });
 
   it('refuses the 61st request of a connection in one minute', async () => {
@@ -243,6 +304,21 @@ describe('the MCP address', () => {
 
     expect(response.statusCode).toBe(405);
   });
+
+  async function findMembershipId(userId: string): Promise<string> {
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
+    if (!membership) throw new Error('membership not found');
+    return membership.id;
+  }
+
+  async function listTools(): Promise<ListedTool[]> {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+    return response.json().result.tools;
+  }
+
+  async function listReadTools(): Promise<ListedTool[]> {
+    return (await listTools()).filter((tool) => READ_TOOL_NAMES.includes(tool.name));
+  }
 
   function buildTestServer(mcp: McpDependencies | null = makeMcpDependencies()) {
     return buildServer(pool, null, { chatgptMcp: mcp });
