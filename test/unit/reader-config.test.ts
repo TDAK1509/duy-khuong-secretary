@@ -18,6 +18,12 @@ describe('loadReaderConfig', () => {
     });
   });
 
+  it('takes the LLM_API_KEY when READER_API_KEY is empty', () => {
+    const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_API_KEY: '', LLM_API_KEY: 'sk-shared' });
+
+    expect(result).toMatchObject({ ok: true, config: { apiKey: 'sk-shared' } });
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_MODEL: '' });
 
