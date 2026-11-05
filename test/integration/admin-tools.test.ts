@@ -92,13 +92,23 @@ describe('the data tools of an admin', () => {
   });
 
   it('narrows to one category', async () => {
-    for (const category of ['fuel', 'fuel', 'toll']) {
+    for (const category of ['đổ xăng dầu', 'đổ xăng dầu', 'phí cầu đường']) {
       await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category });
     }
 
-    const result = await runSearch({ category: 'toll' });
+    const result = await runSearch({ category: 'phí cầu đường' });
 
-    expect(result.items.map((item) => item.category)).toEqual(['toll']);
+    expect(result.items.map((item) => item.category)).toEqual(['phí cầu đường']);
+  });
+
+  it('narrows to a category that is not in the old list, ignoring accents and case', async () => {
+    for (const category of ['kiểm định xe', 'phiếu cân']) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category });
+    }
+
+    const result = await runSearch({ category: 'Kiem Dinh XE' });
+
+    expect(result.items.map((item) => item.category)).toEqual(['kiểm định xe']);
   });
 
   it('ignores Vietnamese accents in the text', async () => {
@@ -431,11 +441,11 @@ describe('the data tools of an admin', () => {
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: text"}');
   });
 
-  it('refuses a category that does not exist', async () => {
+  it('refuses a category that is not text', async () => {
     const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
       name: 'search_records',
-      argumentsJson: JSON.stringify({ text: null, category: 'banana', member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+      argumentsJson: JSON.stringify({ text: null, category: 5, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
     });
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: category"}');

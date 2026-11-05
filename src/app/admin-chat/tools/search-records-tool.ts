@@ -8,7 +8,7 @@ import { searchRecords } from '../../records/search-records.ts';
 
 const argumentsSchema = z.object({
   text: z.string().nullable(),
-  category: z.enum(['fuel', 'toll', 'delivery_pickup', 'delivery_dropoff', 'maintenance', 'certificate', 'other']).nullable(),
+  category: z.string().nullable(),
   member: z.string().nullable(),
   plate: z.string().nullable(),
   added_from: z.string().nullable(),

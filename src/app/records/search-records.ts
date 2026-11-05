@@ -61,9 +61,9 @@ function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
-  if (filters.member !== null) where.require(buildMemberCondition(where, filters.member));
+  if (filters.member !== null) where.require(buildAccentFreeEquals(where, 'record.sender_name', filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
-  if (filters.category !== null) where.require(`record.category = ${where.bind(filters.category)}`);
+  if (filters.category !== null) where.require(buildAccentFreeEquals(where, 'record.category', filters.category));
   addDateConditions(where, filters);
   if (filters.cursor !== null) {
     where.require(`(record.created_at, record.id) < (${where.bind(filters.cursor.createdAt)}::timestamptz, ${where.bind(filters.cursor.id)}::uuid)`);
@@ -94,9 +94,9 @@ function buildCodeCondition(where: WhereClause, text: string): string {
     OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
 }
 
-function buildMemberCondition(where: WhereClause, member: string): string {
-  const bound = where.bind(toAccentFreeForm(member) ?? '');
-  return `regexp_replace(trim(lower(unaccent(record.sender_name))), '\\s+', ' ', 'g') = ${bound}`;
+function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
+  const bound = where.bind(toAccentFreeForm(text) ?? '');
+  return `regexp_replace(trim(lower(unaccent(${column}))), '\\s+', ' ', 'g') = ${bound}`;
 }
 
 function toPage(rows: FoundRow[]): SearchPage {
