@@ -122,6 +122,13 @@ describe('the MCP address', () => {
     expect(listed).toEqual(READ_TOOL_SPECS.map(({ name, description, parameters }) => ({ name, description, inputSchema: parameters })));
   });
 
+  it('marks each read tool as read-only', async () => {
+    const response = await postMcp(TOOLS_LIST_REQUEST, { token: DUY_ACCESS_TOKEN });
+
+    const annotations = response.json().result.tools.map((tool: { annotations: unknown }) => tool.annotations);
+    expect(annotations).toEqual(READ_TOOL_SPECS.map(() => ({ readOnlyHint: true, destructiveHint: false, openWorldHint: false })));
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
