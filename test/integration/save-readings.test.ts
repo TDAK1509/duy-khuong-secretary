@@ -314,6 +314,18 @@ describe('saving what the reader returns', () => {
     expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: null }]);
   });
 
+  it('keeps every detail the reader returned', async () => {
+    const details = [
+      { label: 'Số lít', value: '50' },
+      { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
+    ];
+    harness.reader.answerWith(makeReading([makeFuelItem({ details })]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
+
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
+  });
+
   it('copies the display name of the sender onto the record', async () => {
     harness.reader.answerWith(makeReading([makeFuelItem()]));
 
