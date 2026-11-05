@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ASK_EXPLANATION_TEXT, ASK_LATER_TEXT } from '../../src/app/intake/intake-texts.ts';
-import { makeReading } from '../unit/reading/make-reading.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -8,7 +8,11 @@ import { insertMember } from './workspace-rows.ts';
 const PHOTO_A_URL = 'https://z.test/a.jpg';
 const PHOTO_B_URL = 'https://z.test/b.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
+const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
+const TIRE_ITEM = makeReading([
+  makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
+]);
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -55,6 +59,18 @@ describe('asking what an unclear photo is for', () => {
       { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
     ]);
     expect(await readPhoto('zmsg-2')).toEqual({ status: 'needs_explanation', hasBotReply: false });
+  });
+
+  it('reads the next text together with the photo that was asked about', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+
+    const request = harness.readers.cheap[0].requests.at(-1);
+    expect(request?.image?.bytes).toEqual(makeJpeg(1000));
+    expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${TIRE_EXPLANATION}`);
   });
 
   function readersReturn(reading: unknown): void {

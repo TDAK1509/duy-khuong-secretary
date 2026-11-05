@@ -33,3 +33,7 @@ export function formatPhotoNotice({ senderName, workspaceName, sentAt, replyText
     replyText,
   ].join('\n');
 }
+
+export function wrapExplanation(explanation: string): string {
+  return `Lời giải thích của người gửi cho ảnh này:\n${explanation}`;
+}

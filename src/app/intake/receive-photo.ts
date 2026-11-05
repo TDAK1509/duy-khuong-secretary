@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
+import type { Photo } from '../../services/storage/photo-storage.ts';
 import { detectImageType, type DetectedImage } from './detect-image-type.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
@@ -11,6 +11,7 @@ import {
 } from './intake-texts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
 import { replyToMessage } from './reply-to-message.ts';
+import { requirePhotoStorage } from './require-photo-storage.ts';
 import { findUserMessage, runStoreStage, type StoredUserMessage } from './store-user-message.ts';
 
 const MAX_PHOTO_BYTES = 5_000_000;
@@ -51,10 +52,4 @@ async function storeMessageAndPhoto(context: IntakeContext, part: PhotoPart, ima
   const stored = await runStoreStage(context, { id, text: part.text, imageKey, partIndex: part.index });
   await requirePhotoStorage(context).put(stored.imageKey ?? imageKey, image.photo);
   return stored.id;
-}
-
-function requirePhotoStorage(context: IntakeContext): PhotoStorage {
-  const { photoStorage } = context.dependencies;
-  if (photoStorage === null) throw new Error('photo storage is not configured');
-  return photoStorage;
 }
