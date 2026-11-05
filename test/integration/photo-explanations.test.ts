@@ -243,6 +243,20 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
   });
 
+  it('saves the record on the photo and quotes the photo when an admin explains it', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(TIRE_ITEM);
+
+    await harness.receiveText('zu-duy', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
+    expect(harness.chat.requests).toEqual([]);
+  });
+
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
     readersReturn(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
@@ -383,6 +397,14 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
   });
+
+  async function readRecordedEvents(): Promise<{ event: string }[]> {
+    return harness.database.query<{ event: string }>(
+      `SELECT event.external_event_id AS event FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+  }
 
   function countReaderRequests(): number {
     return [...harness.readers.cheap, ...harness.readers.strong].reduce((total, reader) => total + reader.requests.length, 0);
