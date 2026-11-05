@@ -34,4 +34,8 @@ describe('the outbound messages table', () => {
   it('refuses a template with a body', async () => {
     await expect(insertRaw('kind, template_id, body', `'template', 't-1', 'Đã lưu'`)).rejects.toMatchObject({ code: CHECK_VIOLATION });
   });
+
+  it('refuses a quote on an image', async () => {
+    await expect(insertRaw('kind, photo_key, quote_message_id', `'image', 'w/1.jpg', 'msg-1'`)).rejects.toMatchObject({ code: CHECK_VIOLATION });
+  });
 });
