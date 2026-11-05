@@ -295,6 +295,18 @@ describe('asking what an unclear photo is for', () => {
     ]);
   });
 
+  it('asks an admin once more after a first weak answer', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+
+    await harness.receiveText('zu-duy', 'cái này');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: ASK_AGAIN_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
+  });
+
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
     readersReturn(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
