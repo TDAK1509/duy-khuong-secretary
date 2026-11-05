@@ -174,6 +174,15 @@ describe('the MCP address', () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it('cannot call a tool that is not listed', async () => {
+    const recordId = await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Duy', hasPhoto: true });
+
+    const response = await postMcp(callToolRequest('attach_photos', { record_ids: [recordId] }), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.json().error).toBeDefined();
+    expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
+  });
+
   it('refuses an expired access token', async () => {
     await insertConnection(database, {
       userId: duyUserId,
