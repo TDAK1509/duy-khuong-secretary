@@ -51,6 +51,14 @@ describe('assembling the service', () => {
     ]);
   });
 
+  it('names the two missing reader values when no reader value is set', async () => {
+    const lines: string[] = [];
+
+    service = assembleService({ DATABASE_URL: testDatabaseUrl }, (line) => lines.push(line));
+
+    expect(lines).toContain('[config] readers is off; missing: READER_PROVIDER, READER_API_KEY.');
+  });
+
   it('serves the Zalo callback and logs nothing when Zalo is configured', async () => {
     const lines: string[] = [];
 
