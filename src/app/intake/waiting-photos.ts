@@ -1,6 +1,8 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
+const QUESTION_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
 export type AskedPhoto = { id: string; imageKey: string; status: 'needs_explanation' | 'asked_again' };
 
 export function findAskedPhoto(database: Database, sender: IntakeSender): Promise<AskedPhoto | null> {
@@ -24,4 +26,16 @@ export async function hasOtherWaitingPhoto(transaction: Transaction, sender: Int
     [sender.workspaceId, sender.userId, photoId],
   );
   return rows.length > 0;
+}
+
+export async function endExpiredWaits(transaction: Transaction, sender: IntakeSender, now: Date): Promise<void> {
+  await transaction.query(
+    `UPDATE messages SET submission_status = 'unresolved'
+     WHERE workspace_id = $1 AND user_id = $2 AND submission_status IN ('needs_explanation', 'asked_again')
+       AND (SELECT ask.created_at
+            FROM messages photo LEFT JOIN messages ask ON ask.reply_to = photo.id
+            WHERE photo.workspace_id = $1 AND photo.user_id = $2 AND photo.submission_status IN ('needs_explanation', 'asked_again')
+            ORDER BY photo.created_at, photo.id LIMIT 1) < $3`,
+    [sender.workspaceId, sender.userId, new Date(now.getTime() - QUESTION_LIFETIME_MS)],
+  );
 }

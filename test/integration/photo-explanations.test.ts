@@ -5,17 +5,20 @@ import {
   ASK_LATER_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
+  UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
-import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, NOW, type IntakeHarness } from './intake-harness.ts';
+import { timestamp } from './sql-literals.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const PHOTO_A_URL = 'https://z.test/a.jpg';
 const PHOTO_B_URL = 'https://z.test/b.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
+const HOURS_IN_MS = 60 * 60 * 1000;
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
 const WEAK = makeReading([], { has_work_data: false });
@@ -154,6 +157,34 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UNRESOLVED_TEXT);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
   });
+
+  it('ends every wait of the member when the question is older than 24 hours', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    await harness.sendAllQueuedTexts();
+    await backdateQuestion('zmsg-1', 25);
+    const textsBefore = (await readTextsTo('zu-hung')).length;
+    readersReturn(WEAK);
+
+    await harness.receiveText('zu-hung', 'ok');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).slice(textsBefore)).toEqual([
+      { text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined },
+    ]);
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
+    expect(await readPhoto('zmsg-2')).toEqual({ status: 'unresolved', hasBotReply: false });
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+  });
+
+  async function backdateQuestion(externalEventId: string, hoursAgo: number): Promise<void> {
+    await harness.database.query(
+      `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}
+       WHERE reply_to = (SELECT message.id FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+                         WHERE event.external_event_id = '${externalEventId}')`,
+    );
+  }
 
   function readersReturn(reading: unknown): void {
     for (const reader of harness.readers.cheap) reader.answerWith(reading);
