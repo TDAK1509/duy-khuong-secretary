@@ -24,6 +24,12 @@ describe('loadReaderConfig', () => {
     expect(result).toMatchObject({ ok: true, config: { apiKey: 'sk-shared' } });
   });
 
+  it('uses the OpenAI URL without READER_BASE_URL', () => {
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key', READER_MODEL: 'model-x' });
+
+    expect(result).toMatchObject({ ok: true, config: { baseUrl: 'https://api.openai.com/v1' } });
+  });
+
   it('lists every missing value by name', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_PROVIDER: undefined, READER_MODEL: '' });
 

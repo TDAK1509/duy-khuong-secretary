@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const REQUIRED_NAMES = ['READER_PROVIDER', 'READER_BASE_URL', 'READER_API_KEY', 'READER_MODEL'];
+const REQUIRED_NAMES = ['READER_PROVIDER', 'READER_API_KEY', 'READER_MODEL'];
+
+const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
 const environmentSchema = z.object({
   READER_PROVIDER: z.literal('openai-compatible'),
@@ -20,7 +22,7 @@ export type ReaderConfig = {
 export type ReaderConfigResult = { ok: true; config: ReaderConfig } | { ok: false; missing: string[] };
 
 export function loadReaderConfig(suppliedEnvironment: NodeJS.ProcessEnv): ReaderConfigResult {
-  const environment = applySharedApiKey(suppliedEnvironment);
+  const environment = applyDefaults(suppliedEnvironment);
   const missing = REQUIRED_NAMES.filter((name) => !environment[name]);
   if (missing.length > 0) return { ok: false, missing };
   const settings = parseSettings(environment);
@@ -37,8 +39,12 @@ export function loadReaderConfig(suppliedEnvironment: NodeJS.ProcessEnv): Reader
   };
 }
 
-function applySharedApiKey(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return { ...environment, READER_API_KEY: environment['READER_API_KEY'] || environment['LLM_API_KEY'] };
+function applyDefaults(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...environment,
+    READER_API_KEY: environment['READER_API_KEY'] || environment['LLM_API_KEY'],
+    READER_BASE_URL: environment['READER_BASE_URL'] || DEFAULT_BASE_URL,
+  };
 }
 
 function parseSettings(environment: NodeJS.ProcessEnv): z.infer<typeof environmentSchema> {
