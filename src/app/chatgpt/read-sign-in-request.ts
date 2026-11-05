@@ -16,7 +16,7 @@ function makeSignInQuerySchema(publicBaseUrl: string) {
     response_type: z.literal('code'),
     client_id: z.literal(CHATGPT_CLIENT_ID),
     redirect_uri: z.literal(CHATGPT_REDIRECT_URI),
-    code_challenge: z.string(),
+    code_challenge: z.string().min(1),
     code_challenge_method: z.literal('S256'),
     resource: z.literal(`${publicBaseUrl}/mcp`),
     state: z.string().optional(),
