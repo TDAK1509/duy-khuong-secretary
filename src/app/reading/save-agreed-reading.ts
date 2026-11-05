@@ -7,6 +7,7 @@ const UNSHARED_CATEGORY = 'khác';
 
 export type SavedReading = {
   has_work_data: boolean;
+  needs_explanation: boolean;
   has_question: boolean;
   items: ReadingItem[];
 };
@@ -14,7 +15,12 @@ export type SavedReading = {
 export function saveAgreedReading(first: Reading, second: Reading): SavedReading {
   const partnerOf = pairItemsForComparison(first, second);
   const items = first.items.map((item) => keepSharedValues(item, partnerOf.get(item)));
-  return { has_work_data: first.has_work_data, has_question: first.has_question, items };
+  return {
+    has_work_data: first.has_work_data,
+    needs_explanation: first.needs_explanation,
+    has_question: first.has_question,
+    items,
+  };
 }
 
 function pairItemsForComparison(first: Reading, second: Reading): Map<ReadingItem, ReadingItem | undefined> {

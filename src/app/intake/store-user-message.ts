@@ -4,6 +4,8 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 
+export type SubmissionStatus = 'accepted' | 'unresolved' | 'duplicate' | 'needs_explanation';
+
 export type NewUserMessage = { id: string; text: string | null; imageKey: string | null; partIndex: number };
 
 export type StoredUserMessage = { id: string; imageKey: string | null; hasReply: boolean; questionPending: boolean };
@@ -94,7 +96,7 @@ export async function storeReplyPhotos(
 export async function setSubmissionStatus(
   transaction: Transaction,
   userMessageId: string,
-  status: 'accepted' | 'unresolved' | 'duplicate',
+  status: SubmissionStatus,
 ): Promise<void> {
   await transaction.query('UPDATE messages SET submission_status = $2 WHERE id = $1', [userMessageId, status]);
 }
