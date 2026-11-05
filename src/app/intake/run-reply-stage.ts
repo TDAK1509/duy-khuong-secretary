@@ -31,7 +31,7 @@ async function saveReply(
   messageId: string,
   plannedReply: ReplyPlan,
 ): Promise<void> {
-  if (plannedReply.situation === 'needs_explanation') return placeUnclearPhoto(transaction, context, messageId, plannedReply);
+  if (isPhotoQuestion(plannedReply)) return placeUnclearPhoto(transaction, context, messageId, plannedReply);
   const { sender } = context;
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
@@ -41,6 +41,10 @@ async function saveReply(
   await enqueueReplyToMessage(transaction, context, messageId, plan.replyText);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan.replyText);
   if (plan.saved && plan.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, messageId);
+}
+
+function isPhotoQuestion({ situation }: ReplyPlan): boolean {
+  return situation === 'needs_explanation' || situation === 'code_choice';
 }
 
 export async function rejectDuplicates(transaction: Transaction, workspaceId: string, plan: ReplyPlan): Promise<ReplyPlan> {
