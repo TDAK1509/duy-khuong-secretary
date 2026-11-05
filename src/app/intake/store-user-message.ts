@@ -105,6 +105,10 @@ export async function markQuestionPending(transaction: Transaction, userMessageI
   await transaction.query('UPDATE messages SET question_pending = true WHERE id = $1', [userMessageId]);
 }
 
+export async function markQuestionAboutPhoto(transaction: Transaction, userMessageId: string, imageKey: string): Promise<void> {
+  await transaction.query('UPDATE messages SET question_pending = true, image_key = $2 WHERE id = $1', [userMessageId, imageKey]);
+}
+
 export async function clearQuestionPending(transaction: Transaction, userMessageId: string): Promise<void> {
   await transaction.query('UPDATE messages SET question_pending = false WHERE id = $1', [userMessageId]);
 }

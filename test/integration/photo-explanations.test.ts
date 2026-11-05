@@ -25,6 +25,8 @@ const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const HOURS_IN_MS = 60 * 60 * 1000;
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const QUESTION_ABOUT_TIRE = 'Lốp này đã lắp cho xe nào chưa?';
+const QUESTION = makeReading([], { has_work_data: false, has_question: true });
 const WEAK = makeReading([], { has_work_data: false });
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 const TIRE_ITEM = makeReading([
@@ -257,6 +259,24 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toEqual([]);
   });
 
+  it('sends the photo and the question of an admin to the chat and accepts the photo', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readersReturn(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+    await harness.sendAllQueuedTexts();
+
+    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
+    expect(lastTurn).toMatchObject({ role: 'user', text: QUESTION_ABOUT_TIRE });
+    expect(lastTurn?.role === 'user' ? lastTurn.image?.bytes : null).toEqual(makeJpeg(1000));
+    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Lốp này chưa lắp cho xe nào.');
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'accepted' });
+    expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(await readImageKeyOf(QUESTION_ABOUT_TIRE)).toBe(await readImageKeyOfEvent('zmsg-1'));
+  });
+
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
     readersReturn(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
@@ -404,6 +424,21 @@ describe('asking what an unclear photo is for', () => {
        JOIN messages message ON message.id = records.message_id
        JOIN inbound_events event ON event.id = message.inbound_event_id`,
     );
+  }
+
+  async function readImageKeyOf(text: string): Promise<string | null> {
+    const [row] = await harness.database.query<{ imageKey: string | null }>(
+      `SELECT image_key AS "imageKey" FROM messages WHERE author = 'user' AND text = '${text}'`,
+    );
+    return row?.imageKey ?? null;
+  }
+
+  async function readImageKeyOfEvent(externalEventId: string): Promise<string | null> {
+    const [row] = await harness.database.query<{ imageKey: string | null }>(
+      `SELECT message.image_key AS "imageKey" FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+       WHERE event.external_event_id = '${externalEventId}'`,
+    );
+    return row?.imageKey ?? null;
   }
 
   function countReaderRequests(): number {
