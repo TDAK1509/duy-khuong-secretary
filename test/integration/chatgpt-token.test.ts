@@ -166,6 +166,25 @@ describe('POST /oauth/token', () => {
     expect(response.json()).toEqual({ error: 'unsupported_grant_type' });
   });
 
+  it.each([
+    ['grant_type', makeFieldsWithout(makeCodeRequest(), 'grant_type')],
+    ['code', makeFieldsWithout(makeCodeRequest(), 'code')],
+    ['code_verifier', makeFieldsWithout(makeCodeRequest(), 'code_verifier')],
+    ['redirect_uri', makeFieldsWithout(makeCodeRequest(), 'redirect_uri')],
+    ['client_id of a code request', makeFieldsWithout(makeCodeRequest(), 'client_id')],
+    ['refresh_token', makeFieldsWithout(makeRefreshRequest(), 'refresh_token')],
+    ['client_id of a refresh request', makeFieldsWithout(makeRefreshRequest(), 'client_id')],
+  ])('refuses a request without %s', async (_missingField, fields) => {
+    const response = await requestToken(fields);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'invalid_request' });
+  });
+
+  function makeFieldsWithout(fields: Record<string, string>, name: string): Record<string, string> {
+    return Object.fromEntries(Object.entries(fields).filter(([field]) => field !== name));
+  }
+
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
     return {
       grant_type: 'authorization_code',
