@@ -301,6 +301,34 @@ describe('asking what an unclear photo is for', () => {
     ]);
   });
 
+  it('tells the admins about the first and the final reply to a photo, as of when the photo was sent', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(WEAK);
+    await harness.receiveText('zu-hung', 'cái này');
+    readersReturn(TIRE_ITEM);
+    await insertInboundEvent(harness.database, {
+      externalUserId: 'zu-hung',
+      text: TIRE_EXPLANATION,
+      sentAt: '2026-11-02T11:00:00+07:00',
+    });
+    await harness.runInbound();
+
+    await harness.sendAllQueuedTexts();
+
+    const notices = (await readTextsTo('zu-duy')).map(({ text }) => text);
+    expect(notices).toEqual([
+      formatNotice(ASK_EXPLANATION_TEXT),
+      formatNotice(ASK_LATER_TEXT),
+      formatNotice(TIRE_SAVED_REPLY),
+    ]);
+  });
+
+  function formatNotice(replyText: string): string {
+    return `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${replyText}`;
+  }
+
   async function backdatePhoto(externalEventId: string, hoursAgo: number): Promise<void> {
     await harness.database.query(
       `UPDATE messages SET created_at = ${timestamp(new Date(NOW.getTime() - hoursAgo * HOURS_IN_MS))}

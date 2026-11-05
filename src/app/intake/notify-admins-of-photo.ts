@@ -2,11 +2,10 @@ import { listWorkspaceAdmins, type WorkspaceAdmin } from '../access/list-workspa
 import type { Transaction } from '../db/transaction.ts';
 import { enqueueImage } from '../delivery/enqueue-image.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
-import { readSentAt } from '../processing/claimed-event.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { formatPhotoNotice } from './intake-texts.ts';
 
-type PhotoFacts = { image_key: string; display_name: string; workspace_name: string };
+type PhotoFacts = { image_key: string; display_name: string; workspace_name: string; sent_at: Date };
 
 export async function notifyAdminsOfPhoto(
   transaction: Transaction,
@@ -21,7 +20,7 @@ export async function notifyAdminsOfPhoto(
   const notice = formatPhotoNotice({
     senderName: facts.display_name,
     workspaceName: facts.workspace_name,
-    sentAt: readSentAt(context.event),
+    sentAt: facts.sent_at,
     replyText,
   });
   for (const admin of await listWorkspaceAdmins(transaction, sender.workspaceId)) {
@@ -36,8 +35,10 @@ async function findPhotoFacts(
   workspaceId: string,
 ): Promise<PhotoFacts | null> {
   const [facts] = await transaction.query<PhotoFacts>(
-    `SELECT message.image_key, membership.display_name, workspace.name AS workspace_name
-     FROM messages message, memberships membership, workspaces workspace
+    `SELECT message.image_key, membership.display_name, workspace.name AS workspace_name,
+       (event.payload ->> 'sent_at')::timestamptz AS sent_at
+     FROM messages message
+     JOIN inbound_events event ON event.id = message.inbound_event_id, memberships membership, workspaces workspace
      WHERE message.id = $1 AND message.image_key IS NOT NULL AND membership.id = $2 AND workspace.id = $3`,
     [messageId, membershipId, workspaceId],
   );
