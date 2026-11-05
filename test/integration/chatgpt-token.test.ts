@@ -125,6 +125,15 @@ describe('POST /oauth/token', () => {
         { access_token_hash: hashSecretToken(accessToken), refresh_token_hash: hashSecretToken(refreshToken) },
       ]);
     });
+
+    it('refuses a refresh token that was already used', async () => {
+      await requestToken(makeRefreshRequest());
+
+      const response = await requestToken(makeRefreshRequest());
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_grant' });
+    });
   });
 
   function makeCodeRequest(overrides: Record<string, string> = {}): Record<string, string> {
