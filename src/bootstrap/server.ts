@@ -8,14 +8,14 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleAuthorizationServerMetadata } from '../app/http/chatgpt-token.ts';
+import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
 
 const WEBHOOK_BODY_LIMIT_BYTES = 1024 * 1024;
-const SIGN_IN_FORM_LIMIT_BYTES = 8 * 1024;
+const FORM_LIMIT_BYTES = 8 * 1024;
 
 export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
@@ -53,21 +53,22 @@ function registerSignInRoutes(server: FastifyInstance, signIn: SignInDependencie
   server.get('/oauth/authorize', async (request, reply) =>
     sendResponse(reply, await handleSignInPage(signIn, request.query as SignInQuery)),
   );
-  registerSignInSubmitRoute(server, signIn);
+  registerFormPostRoutes(server, signIn);
   server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
     sendResponse(reply, handleAuthorizationServerMetadata(signIn)),
   );
 }
 
-function registerSignInSubmitRoute(server: FastifyInstance, signIn: SignInDependencies | null): void {
+function registerFormPostRoutes(server: FastifyInstance, signIn: SignInDependencies | null): void {
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
-    scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: SIGN_IN_FORM_LIMIT_BYTES }, (_request, body, done) =>
+    scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: FORM_LIMIT_BYTES }, (_request, body, done) =>
       done(null, Object.fromEntries(new URLSearchParams(String(body)))),
     );
     scope.post('/oauth/authorize', async (request, reply) =>
       sendResponse(reply, await handleSignInSubmission(signIn, { cookieHeader: request.headers.cookie, body: request.body })),
     );
+    scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(signIn, request.body)));
   });
 }
 
