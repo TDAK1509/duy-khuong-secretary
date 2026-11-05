@@ -12,10 +12,12 @@ import {
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { SdkMcpEndpoint } from '../../src/providers/mcp/sdk-mcp-endpoint.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
@@ -31,6 +33,7 @@ const DUY_ACCESS_TOKEN = 'duy-access-token';
 const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_SPEC, MAINTENANCE_STATUS_SPEC, LIST_SCHEDULED_TASKS_SPEC];
 const READ_TOOL_NAMES = READ_TOOL_SPECS.map(({ name }) => name);
 const CHANGE_TOOL_NAMES = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC].map(({ name }) => name);
+const ENCRYPTION_KEY = 'a'.repeat(64);
 const MCP_HEADERS = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 
 type ListedTool = { name: string; description: string; inputSchema: unknown; annotations: unknown; _meta: unknown };
@@ -68,6 +71,7 @@ describe('the MCP address', () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: '1234567890', tokens: makeTokenPair({ accessToken: 'a1' }), storedAt: NOW }, ENCRYPTION_KEY);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await insertConnection(database, {
@@ -222,6 +226,14 @@ describe('the MCP address', () => {
 
     expect(response.json().error).toBeDefined();
     expect(await database.query('SELECT id FROM outbound_messages')).toEqual([]);
+  });
+
+  it('creates an invite in the workspace of the token', async () => {
+    const response = await postMcp(callToolRequest('create_invite', { display_name: 'Nam', role: 'member' }), { token: DUY_ACCESS_TOKEN });
+
+    const invites = await database.query('SELECT workspace_id, created_by, display_name FROM workspace_invites');
+    expect(invites).toEqual([{ workspace_id: workspaceId, created_by: duyUserId, display_name: 'Nam' }]);
+    expect(JSON.parse(response.json().result.content[0].text)).toMatchObject({ ok: true, code: expect.stringMatching(/^MOI-/) });
   });
 
   it('refuses the 61st request of a connection in one minute', async () => {
