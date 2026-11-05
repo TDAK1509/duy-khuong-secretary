@@ -1,19 +1,26 @@
+import type { Photo } from '../../services/storage/photo-storage.ts';
 import { findRecentMessages, type RecentPhoto } from './find-recent-messages.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { wrapRecentMessages } from './intake-texts.ts';
 import { planReply, type ReplyPlan } from './plan-reply.ts';
-import { readMessage } from './reply-to-message.ts';
+import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 
-export type RecentReading = { plan: ReplyPlan; photo: RecentPhoto | null };
+export type RereadPhoto = RecentPhoto & { content: Photo };
 
-export async function rereadWithRecentMessages(
-  context: IntakeContext,
-  message: { id: string; text: string },
-): Promise<RecentReading | null> {
+export type Reread = { plan: ReplyPlan; photo: RereadPhoto | null };
+
+export async function rereadWithRecentMessages(context: IntakeContext, message: { id: string; text: string }): Promise<Reread | null> {
   const recent = await findRecentMessages(context.dependencies.database, context.sender, message);
   if (recent.texts.length === 0 && recent.photo === null) return null;
-  const photo = recent.photo && (await requirePhotoStorage(context).get(recent.photo.imageKey));
-  const decision = await readMessage(context, { text: wrapRecentMessages([...recent.texts, message.text]), photo });
-  return { plan: planReply(decision, photo !== null), photo: recent.photo };
+  const photo = await loadRecentPhoto(context, recent.photo);
+  const text = wrapRecentMessages([...recent.texts, message.text]);
+  const decision = await readMessage(context, { text, photo: photo?.content ?? null });
+  return { plan: planReply(decision, photo !== null), photo };
+}
+
+async function loadRecentPhoto(context: IntakeContext, photo: RecentPhoto | null): Promise<RereadPhoto | null> {
+  if (photo === null) return null;
+  const content = await requirePhotoStorage(context).get(photo.imageKey);
+  return content && { ...photo, content };
 }

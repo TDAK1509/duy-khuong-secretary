@@ -9,6 +9,7 @@ import { insertMember } from './workspace-rows.ts';
 
 const PHOTO_A_URL = 'https://z.test/a.jpg';
 const MINUTE_IN_MS = 60 * 1000;
+const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
 const PLATE_AND_AMOUNT = '29C-123.45, 3.500.000đ';
 const RECENT_MESSAGES_HEADER = 'Các tin nhắn gần đây của người gửi';
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
@@ -45,11 +46,47 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(request?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n- ${PLATE_AND_AMOUNT}`);
   });
 
+  it('saves the records on the photo and quotes the photo when the second reading is good', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers: makeContextReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
+  });
+
   async function sendUnresolvedPhotoSentMinutesAgo(externalUserId: string, externalEventId: string, minutesAgo: number): Promise<void> {
     for (const reader of harness.readers.cheap) reader.answerWith(TIRE_WITHOUT_PLATE);
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, kind: 'images', imageUrls: [PHOTO_A_URL], externalEventId, sentAt });
     await harness.runInbound();
+  }
+
+  async function readRecordedEvents(): Promise<{ event: string }[]> {
+    return harness.database.query<{ event: string }>(
+      `SELECT event.external_event_id AS event FROM records
+       JOIN messages message ON message.id = records.message_id
+       JOIN inbound_events event ON event.id = message.inbound_event_id`,
+    );
+  }
+
+  async function readTextsTo(externalUserId: string): Promise<{ text: string; quoteMessageId: string | undefined }[]> {
+    return harness.channel.texts
+      .filter((sent) => sent.to.externalUserId === externalUserId)
+      .map(({ text, quoteMessageId }) => ({ text, quoteMessageId }));
+  }
+
+  async function readPhoto(externalEventId: string): Promise<{ status: string; hasBotReply: boolean }> {
+    const [photo] = await harness.database.query<{ status: string; hasBotReply: boolean }>(
+      `SELECT message.submission_status AS status,
+         EXISTS (SELECT 1 FROM messages reply WHERE reply.reply_to = message.id) AS "hasBotReply"
+       FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
+       WHERE event.external_event_id = '${externalEventId}'`,
+    );
+    if (!photo) throw new Error(`no message for event ${externalEventId}`);
+    return photo;
   }
 });
 
