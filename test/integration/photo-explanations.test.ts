@@ -10,10 +10,11 @@ import {
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
-import type { ReaderSlots } from '../../src/app/reading/decide-reading.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
+import type { FakeReaderSlots } from '../fakes/fake-reader-slots.ts';
+import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, type IntakeHarness } from './intake-harness.ts';
@@ -35,6 +36,9 @@ const TIRE_ITEM = makeReading([
   makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45', amount_vnd: 3500000, occurred_on: null }),
 ]);
 const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
+const FIRST_LINE = 'Lốp mới thay';
+const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
+const MINUTE_IN_MS = 60 * 1000;
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -525,6 +529,140 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
   });
 
+  it('reads the second answer again together with the earlier answer', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    const request = readers.cheap[0].requests.at(-1);
+    expect(request?.image?.bytes).toEqual(makeJpeg(1000));
+    expect(request?.text).toBe(`Lời giải thích của người gửi cho ảnh này:\n${FIRST_LINE}\n${SECOND_LINE}`);
+  });
+
+  it('saves the records on the photo when the second reading with the earlier answer is good', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+  });
+
+  it('ends the wait when the second reading with the earlier answer is weak too', async () => {
+    await askAgainAfterAnswer('zu-hung', 'cái này', 2);
+
+    await harness.receiveText('zu-hung', 'không biết');
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: STILL_UNCLEAR_TEXT, quoteMessageId: 'zmsg-1' });
+    expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
+  });
+
+  it('reads a first answer once', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', 'cái này', { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
+  it('reads a second answer that is good alone once', async () => {
+    await askAgainAfterAnswer('zu-hung', 'cái này', 2);
+    const readers = makeReadersAnswering(() => TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
+  it('does not read an earlier answer sent more than 10 minutes before again', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 11);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
+  });
+
+  it('starts no second reading when the readers time out on the second answer', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTimingOutReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'asked_again' });
+    expect(readers.strong.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
+  it('does not read a text sent before the question about the photo again', async () => {
+    readersReturn(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    await sendPhoto('zu-hung', 'zmsg-2', PHOTO_B_URL);
+    readersReturn(TIRE_ITEM);
+    await sendTextSentMinutesAgo('zu-hung', TIRE_EXPLANATION, 5);
+    readersReturn(WEAK);
+    await sendTextSentMinutesAgo('zu-hung', 'cái này', 3);
+    const readers = makeReadersAnswering(() => WEAK);
+
+    await harness.receiveText('zu-hung', 'không biết', { readers });
+
+    const texts = [...readers.cheap, ...readers.strong].flatMap((reader) => reader.requests.map(({ text }) => text));
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts.filter((text) => text?.includes(TIRE_EXPLANATION))).toEqual([]);
+  });
+
+  it('reads the second answer of an admin again with his earlier answer', async () => {
+    await askAgainAfterAnswer('zu-duy', FIRST_LINE, 2);
+
+    await harness.receiveText('zu-duy', SECOND_LINE, { readers: makeTwoLineReaders() });
+    await harness.sendAllQueuedTexts();
+
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
+    expect(harness.chat.requests).toEqual([]);
+  });
+
+  it('saves once when the second answer is processed again after a crash', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, 2);
+    const readers = makeTwoLineReaders();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: SECOND_LINE });
+    await harness.runInbound({ readers, beforeFinish: crashBeforeFinishing });
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound({ readers });
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
+  });
+
+  it('does not read an earlier answer processed first but sent after the current answer again', async () => {
+    await askAgainAfterAnswer('zu-hung', FIRST_LINE, -20);
+    const readers = makeTwoLineReaders();
+
+    await harness.receiveText('zu-hung', SECOND_LINE, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'unresolved' });
+  });
+
+  async function askAgainAfterAnswer(externalUserId: string, answer: string, minutesAgo: number): Promise<void> {
+    readersReturn(UNCLEAR);
+    await sendPhoto(externalUserId, 'zmsg-1', PHOTO_A_URL);
+    readersReturn(WEAK);
+    await sendTextSentMinutesAgo(externalUserId, answer, minutesAgo);
+  }
+
+  async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number): Promise<void> {
+    const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
+    await harness.runInbound();
+  }
+
   async function readRecordedEvents(): Promise<{ event: string }[]> {
     return harness.database.query<{ event: string }>(
       `SELECT event.external_event_id AS event FROM records
@@ -603,7 +741,16 @@ async function crashBeforeFinishing(): Promise<void> {
   throw new Error('the worker crashed before finishing');
 }
 
-function makeTimingOutReaders(): ReaderSlots {
+function makeTwoLineReaders(): FakeReaderSlots {
+  return makeReadersAnswering(({ text }) => (text?.includes(FIRST_LINE) && text.includes(SECOND_LINE) ? TIRE_ITEM : WEAK));
+}
+
+function makeReadersAnswering(respond: (request: ReaderRequest) => unknown): FakeReaderSlots {
+  const makeReader = (label: string) => new FakeReader(label, (request): ReaderResult => ({ ok: true, json: respond(request) }));
+  return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
+}
+
+function makeTimingOutReaders(): FakeReaderSlots {
   const makeReader = (label: string) => new FakeReader(label, () => ({ ok: false, reason: 'timeout' }));
   return { cheap: [makeReader('cheap-1'), makeReader('cheap-2')], strong: [makeReader('strong-1'), makeReader('strong-2')] };
 }

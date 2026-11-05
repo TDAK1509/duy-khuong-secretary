@@ -2,8 +2,10 @@ import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { insertRecords } from '../records/insert-records.ts';
+import { readSentAt } from '../processing/claimed-event.ts';
 import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
+import { findEarlierAnswers } from './find-earlier-answers.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
@@ -16,6 +18,8 @@ import { isQuestionPending, markQuestionAboutPhoto, setSubmissionStatus, storeBo
 import type { AskedPhoto } from './waiting-photos.ts';
 
 type Explanation = { id: string; text: string };
+
+type PhotoToRead = { asked: AskedPhoto; photo: Photo };
 
 type Answered = { explanation: Explanation; asked: AskedPhoto };
 
@@ -43,7 +47,36 @@ async function readAnswer(
   photo: Photo | null,
 ): Promise<AnswerPlan> {
   if (photo === null) return planUnreadAnswer();
-  return planAnswer(await readMessage(context, { text: wrapExplanation(explanation.text), photo }), asked, context.sender.role);
+  const first = await readAndPlanAnswer(context, { asked, photo }, [explanation.text]);
+  if (!isWeakAnswer(first)) return first;
+  const second = await rereadWithEarlierAnswers(context, explanation, { asked, photo });
+  return second !== null && isSavedOrQuestion(second) ? second : first;
+}
+
+async function rereadWithEarlierAnswers(
+  context: IntakeContext,
+  explanation: Explanation,
+  target: PhotoToRead,
+): Promise<AnswerPlan | null> {
+  const earlier = await findEarlierAnswers(context.dependencies.database, context.sender, {
+    photoId: target.asked.id,
+    currentTextId: explanation.id,
+    currentSentAt: readSentAt(context.event),
+  });
+  return earlier.length === 0 ? null : readAndPlanAnswer(context, target, [...earlier, explanation.text]);
+}
+
+async function readAndPlanAnswer(context: IntakeContext, { asked, photo }: PhotoToRead, texts: string[]): Promise<AnswerPlan> {
+  const decision = await readMessage(context, { text: wrapExplanation(texts.join('\n')), photo });
+  return planAnswer(decision, asked, context.sender.role);
+}
+
+function isWeakAnswer(answer: AnswerPlan): boolean {
+  return answer.kind === 'reply' && (answer.photoAfter === 'asked_again' || answer.photoAfter === 'unresolved');
+}
+
+function isSavedOrQuestion(answer: AnswerPlan): boolean {
+  return answer.kind === 'question' || answer.reply.situation === 'saved';
 }
 
 async function saveAnswer(
