@@ -1,7 +1,6 @@
 import type { Database } from '../db/transaction.ts';
+import { SIGN_IN_VALID_FOR_MS } from './sign-in-limits.ts';
 import { generateSecretToken, hashSecretToken } from './secret-token.ts';
-
-export const SIGN_IN_VALID_FOR_MS = 10 * 60 * 1000;
 
 export type SignInRequest = {
   clientId: string;

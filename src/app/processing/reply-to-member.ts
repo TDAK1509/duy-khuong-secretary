@@ -12,13 +12,14 @@ export type MemberMessage = {
   userId: string;
   workspaceId: string;
   text: string | null;
+  now: Date;
 };
 
 export async function replyToMember(transaction: Transaction, message: MemberMessage): Promise<Reply | null> {
-  const { userId, workspaceId, text } = message;
+  const { userId, workspaceId, text, now } = message;
   if (text === null) return null;
   if (isBareNumber(text)) return answerBareNumber(transaction, message, Number(text.trim()));
-  if (isLoginCommand(text)) return answerLoginCommand(transaction, workspaceId);
+  if (isLoginCommand(text)) return answerLoginCommand(transaction, { userId, workspaceId, now });
   if (isSwitchCommand(text)) return answerSwitchCommand(transaction, userId, workspaceId);
   return null;
 }

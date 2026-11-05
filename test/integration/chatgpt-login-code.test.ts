@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { hashLoginCode } from '../../src/app/chatgpt/login-code.ts';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
@@ -56,6 +57,18 @@ describe('asking for a ChatGPT login code in Zalo', () => {
         'Mã cho ChatGPT đọc và thay đổi dữ liệu nhóm "Xe tải Duy Khương". Mã hết hạn sau 10 phút. Không đưa mã này cho ai, kể cả người nói là của Trợ lý.',
     );
     expect(channel.texts[1]?.text).toMatch(/^\S{4}-\S{4}$/);
+  });
+
+  it('stores the code that the second message carries', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'đăng nhập');
+    await sendAllQueuedTexts();
+
+    const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
+    expect(await database.query('SELECT user_id, membership_id, code_hash FROM chatgpt_login_codes')).toEqual([
+      { user_id: userId, membership_id: membership?.id, code_hash: hashLoginCode(channel.texts[1]?.text ?? '') },
+    ]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {

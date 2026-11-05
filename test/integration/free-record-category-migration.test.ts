@@ -8,6 +8,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  DROP TABLE chatgpt_login_codes;
   DROP TABLE chatgpt_sign_ins;
   DELETE FROM pgmigrations WHERE name = '0034_create_chatgpt_sign_in_tables';
   ALTER TABLE messages ADD COLUMN code_choice jsonb;
