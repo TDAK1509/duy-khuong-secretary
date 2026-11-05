@@ -7,6 +7,7 @@ import {
   SEARCH_RECORDS_SPEC,
 } from '../../src/app/admin-chat/tools/tool-specs.ts';
 import type { McpDependencies } from '../../src/app/http/chatgpt-mcp.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { SdkMcpEndpoint } from '../../src/providers/mcp/sdk-mcp-endpoint.ts';
@@ -161,6 +162,16 @@ describe('the MCP address', () => {
     const result = response.json().result;
     expect(result.isError).toBe(true);
     expect(JSON.parse(result.content[0].text)).toEqual({ ok: false, error: 'Ngày không hợp lệ.' });
+  });
+
+  it('refuses the token of an admin who was removed', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    const [duy] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+    await removeMember(pool, { workspaceId, callerUserId: lanUserId, membershipId: duy?.id ?? '' });
+
+    const response = await postMcp(callToolRequest('list_members', {}), { token: DUY_ACCESS_TOKEN });
+
+    expect(response.statusCode).toBe(401);
   });
 
   it('refuses an expired access token', async () => {
