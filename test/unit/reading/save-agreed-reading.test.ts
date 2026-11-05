@@ -47,4 +47,13 @@ describe('saveAgreedReading', () => {
 
     expect(saved.items[0]?.category).toBe('khác');
   });
+
+  it('keeps the category both readers share, ignoring case and accents', () => {
+    const first = makeReading([makeFuelItemX({ category: 'Kiểm định xe' })]);
+    const second = makeReading([makeFuelItemX({ category: 'kiem dinh xe' })]);
+
+    const saved = saveAgreedReading(first, second);
+
+    expect(saved.items[0]?.category).toBe('Kiểm định xe');
+  });
 });
