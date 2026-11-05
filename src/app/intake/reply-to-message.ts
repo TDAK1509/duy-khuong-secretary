@@ -5,7 +5,7 @@ import type { IntakeOutcome } from './intake-outcome.ts';
 import type { ReadingDecision } from '../reading/decide-reading.ts';
 import { asksOnlyAQuestion, planReply, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
-import { rereadWithRecentMessages, type RereadPhoto, type Reread } from './reread-with-recent-messages.ts';
+import { rereadPhotoWithRecentTexts, rereadWithRecentMessages, type RereadPhoto, type Reread } from './reread-with-recent-messages.ts';
 import { isReplied, runReplyStage } from './run-reply-stage.ts';
 import { saveRereadOnPhoto } from './save-on-photo.ts';
 import { isQuestionPending } from './store-user-message.ts';
@@ -17,19 +17,34 @@ export type MessageToRead = { id: string; text: string | null; photo: Photo | nu
 export async function replyToMessage(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
   const decision = await readMessage(context, message);
   const firstPlan = planReply(decision, message.photo !== null);
-  const reread = await rereadUnclearText(context, message, { decision, plan: firstPlan });
+  const reread = await rereadUnclearMessage(context, message, { decision, plan: firstPlan });
   if (reread?.photo) return replyOnRereadPhoto(context, message, reread.plan, reread.photo);
   return replyWithPlan(context, message, reread?.plan ?? firstPlan);
 }
 
 async function replyWithPlan(context: IntakeContext, message: MessageToRead, plan: ReplyPlan): Promise<IntakeOutcome> {
-  if (context.sender.role === 'admin' && isForChat(plan, message.text)) {
+  if (isSentToChat(context, plan, message.text)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
   }
   await runReplyStage(context, message.id, plan);
   if (await isQuestionPending(context.dependencies.database, message.id)) await answerWithChat(context, message);
   return { kind: 'replied' };
+}
+
+function rereadUnclearMessage(context: IntakeContext, message: MessageToRead, first: FirstReading): Promise<Reread | null> {
+  if (message.photo === null) return rereadUnclearText(context, message, first);
+  return rereadUnclearPhoto(context, { ...message, photo: message.photo }, first);
+}
+
+async function rereadUnclearPhoto(
+  context: IntakeContext,
+  message: { id: string; text: string | null; photo: Photo },
+  { plan }: FirstReading,
+): Promise<Reread | null> {
+  if (!plan.isUnclear || isSentToChat(context, plan, message.text)) return null;
+  const reread = await rereadPhotoWithRecentTexts(context, message);
+  return reread?.plan.situation === 'saved' ? reread : null;
 }
 
 async function rereadUnclearText(context: IntakeContext, message: MessageToRead, first: FirstReading): Promise<Reread | null> {
@@ -58,6 +73,10 @@ async function replyOnRereadPhoto(
     await answerWithChat(context, { ...message, photo: photo.content });
   }
   return { kind: 'replied' };
+}
+
+function isSentToChat({ sender }: IntakeContext, plan: ReplyPlan, text: string | null): boolean {
+  return sender.role === 'admin' && isForChat(plan, text);
 }
 
 function isForChat({ situation }: ReplyPlan, text: string | null): boolean {
