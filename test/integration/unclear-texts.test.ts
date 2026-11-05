@@ -104,6 +104,15 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect(await readRecordedTexts()).toEqual([{ text: SECOND_LINE }]);
   });
 
+  it('does not use the photo of another member', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-lan', 'zmsg-1', 2);
+    const readers = makeContextReaders();
+
+    await harness.receiveText('zu-hung', PLATE_AND_AMOUNT, { readers });
+
+    expect(readers.cheap.map((reader) => reader.requests.length)).toEqual([1, 1]);
+  });
+
   async function sendTextSentMinutesAgo(externalUserId: string, text: string, minutesAgo: number, readers: FakeReaderSlots): Promise<void> {
     const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
     await insertInboundEvent(harness.database, { externalUserId, text, sentAt });
