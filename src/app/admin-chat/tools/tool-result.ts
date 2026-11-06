@@ -1,6 +1,6 @@
 export const REFUSAL_ERROR = 'Không có quyền.';
 export const CHANGE_REFUSED_ERROR =
-  'Chưa làm: tin nhắn có ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý.';
+  'Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý.';
 export const INVALID_CURSOR_ERROR = 'Con trỏ không hợp lệ.';
 export const INVALID_DATE_ERROR = 'Ngày không hợp lệ.';
 

@@ -118,16 +118,12 @@ describe('reading an unclear photo with the recent texts of the sender', () => {
     expect(harness.chat.requests).toHaveLength(chatRequestsBefore);
   });
 
-  it('sends an admin photo that needs an explanation and has a caption to the chat without a second reading', async () => {
+  it('reads an unclear photo of an admin with a caption again with his earlier text and saves it', async () => {
     await sendTextSentMinutesAgo('zu-duy', PLATE_TEXT, 2);
-    harness.chat.replyWith('Ảnh này là lốp xe.');
-    const reader = makeContextReader();
 
-    await sendPhotoA('zu-duy', reader, 'Lốp này của xe nào?');
-    await harness.sendAllQueuedTexts();
+    await sendPhotoA('zu-duy', makeContextReader(), 'Lốp này của xe nào?');
 
-    expect(reader.requests).toHaveLength(1);
-    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
+    expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
   });
 
   it('saves once when the photo is processed again after a crash', async () => {

@@ -508,7 +508,7 @@ describe('the data tools of an admin', () => {
     });
 
     expect(output).toBe(
-      '{"ok":false,"error":"Chưa làm: tin nhắn có ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
+      '{"ok":false,"error":"Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
     );
     expect(await database.query(`SELECT 1 FROM memberships WHERE user_id = '${hungUserId}'`)).toHaveLength(1);
   });

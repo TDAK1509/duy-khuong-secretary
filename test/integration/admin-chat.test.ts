@@ -8,6 +8,8 @@ import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
+const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 1.250.000đ ngày 30/10/2026, số 0001234. Hôm nay tổng bao nhiêu?';
+
 describe('an admin asks the bot', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
@@ -155,8 +157,8 @@ describe('an admin asks the bot', () => {
 
     const turns = harness.chat.requests[0]?.turns ?? [];
     expect(turns).toHaveLength(21);
-    expect(turns[0]).toEqual({ role: 'user', text: 'tin 11', image: null });
-    expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?', image: null });
+    expect(turns[0]).toEqual({ role: 'user', text: 'tin 11' });
+    expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?' });
   });
 
   it('never shows the model another person\'s messages', async () => {
@@ -193,17 +195,7 @@ describe('an admin asks the bot', () => {
 
     await harness.receiveText('zu-duy', 'Chào bạn');
 
-    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn', image: null }]);
-  });
-
-  it('sends the new photo to the model as an image', async () => {
-    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-
-    await harness.receivePhoto('zu-duy');
-
-    const turns = harness.chat.requests[0]?.turns ?? [];
-    const lastTurn = turns[turns.length - 1];
-    expect(lastTurn).toMatchObject({ role: 'user', image: { contentType: 'image/jpeg' } });
+    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn' }]);
   });
 
   it('sends older photos to the model as text', async () => {
@@ -220,8 +212,7 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-duy', 'Còn gì nữa không?');
 
     const turns = harness.chat.requests[0]?.turns ?? [];
-    expect(turns.some((turn) => turn.role === 'user' && turn.image !== null)).toBe(false);
-    expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]', image: null });
+    expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]' });
   });
 
   it('turns a chat-model failure into a friendly reply', async () => {
@@ -380,7 +371,7 @@ describe('an admin asks the bot', () => {
         return replyWithText('Hôm nay tổng 1.250.000đ.');
       });
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
 
       expect(recordsSeenByModel).toBe(1);
     });
@@ -388,7 +379,7 @@ describe('an admin asks the bot', () => {
     it('sends the saved reply first', async () => {
       harness.chat.replyWith('Hôm nay tổng 1.250.000đ.');
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
       await harness.sendAllQueuedTexts();
 
       expect(sentTexts()[0]).toEqual(['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']);
@@ -397,27 +388,27 @@ describe('an admin asks the bot', () => {
     it('sends the answer of the chat model second', async () => {
       harness.chat.replyWith('Hôm nay tổng 1.250.000đ.');
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
       await harness.sendAllQueuedTexts();
 
       expect(sentTexts()[1]).toEqual(['zu-duy', 'Hôm nay tổng 1.250.000đ.']);
     });
 
     it('lists the committed records in the system note', async () => {
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
 
       const turns = harness.chat.requests[0]?.turns ?? [];
       const lastTurn = turns[turns.length - 1];
       expect(lastTurn).toMatchObject({
         role: 'user',
-        text: 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?\n\nHệ thống đã lưu:\n- Đổ xăng dầu, số 0001234 · 1.250.000đ · 30/10/2026',
+        text: `${FUEL_TEXT_WITH_QUESTION}\n\nHệ thống đã lưu:\nĐã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.`,
       });
     });
 
     it('keeps the saved records when the chat model fails', async () => {
       harness.chat.failWith('unavailable');
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
 
       expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
     });
@@ -425,7 +416,7 @@ describe('an admin asks the bot', () => {
     it('gives the failure text as the second reply when the chat model fails', async () => {
       harness.chat.failWith('unavailable');
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
       await harness.sendAllQueuedTexts();
 
       expect(sentTexts()[1]).toEqual(['zu-duy', 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.']);
@@ -436,7 +427,7 @@ describe('an admin asks the bot', () => {
         harness.chat.follow(() => {
           throw new Error('the worker stopped');
         });
-        await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+        await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
         await database.query(
           `UPDATE inbound_events SET status = 'processing', locked_until = '2026-11-01T00:00:00Z', attempts = 1`,
         );
@@ -451,7 +442,7 @@ describe('an admin asks the bot', () => {
         ]);
       });
 
-      it('does not read the photo again', async () => {
+      it('does not read the message again', async () => {
         const readsBefore = harness.reader.requests.length;
 
         await harness.runInbound();
@@ -481,12 +472,36 @@ describe('an admin asks the bot', () => {
         return replyWithText('Trả lời');
       });
 
-      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
 
       expect(await database.query(`SELECT 1 FROM messages WHERE reply_kind = 'answer'`)).toEqual([]);
       expect(await database.query(`SELECT question_pending FROM messages WHERE author = 'user'`)).toEqual([
         { question_pending: true },
       ]);
+    });
+
+    it('never sends the question in the caption of an admin\'s photo to the chat model', async () => {
+      await harness.receivePhoto('zu-duy', 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(harness.chat.requests).toEqual([]);
+      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+    });
+
+    it('sends one saved reply when an admin photo with a question is processed again after a crash', async () => {
+      await insertInboundEvent(database, {
+        externalUserId: 'zu-duy',
+        kind: 'images',
+        imageUrls: [PHOTO_URL],
+        caption: 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?',
+      });
+      await harness.runInbound({ beforeFinish: crashBeforeFinishing });
+      harness.clock.advanceBy(31_000);
+
+      await harness.runInbound();
+      await harness.sendAllQueuedTexts();
+
+      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
     });
 
     it('never sends an admin\'s data without a question to the chat model', async () => {
@@ -516,3 +531,7 @@ describe('an admin asks the bot', () => {
     });
   });
 });
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
+}

@@ -5,9 +5,9 @@ import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
-import { markQuestionAboutPhoto, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
+import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
-export type TextOnPhoto = { textId: string; photo: { id: string; imageKey: string } };
+export type TextOnPhoto = { textId: string; photo: { id: string } };
 
 export async function saveRereadOnPhoto(
   transaction: Transaction,
@@ -31,7 +31,7 @@ export async function saveReplyOnPhoto(
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   await saveRecordsAndReply(transaction, context, target, reply);
   if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
-    await markQuestionAboutPhoto(transaction, target.textId, target.photo.imageKey);
+    await markQuestionPending(transaction, target.textId);
   }
   return reply;
 }

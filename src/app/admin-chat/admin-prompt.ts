@@ -28,7 +28,6 @@ const SAVING_SECTION = `Lưu dữ liệu:
 
 const SEARCH_SECTION = `Tìm dữ liệu:
 - Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.
-- Khi người dùng gửi ảnh để hỏi, đọc số seri, biển số hoặc mã trên ảnh rồi dùng làm từ khóa tìm kiếm.
 - Trong câu trả lời, nêu rõ ai đã gửi và ngày gửi.
 - Ngày trên giấy tờ khác với ngày gửi. Nói rõ ngày nào là ngày nào.
 - Không kết luận hai vật là một chỉ vì trông giống nhau. Chỉ coi là cùng một vật khi trùng số seri, biển số hoặc mã.
@@ -62,7 +61,7 @@ Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:
 
 const CHANGE_SECTION = `Việc thay đổi:
 - Việc thay đổi là create_scheduled_task, cancel_scheduled_task, create_invite và remove_member. Chỉ làm khi quản lý viết yêu cầu đó trong tin nhắn.
-- Hệ thống từ chối việc thay đổi nếu tin nhắn có ảnh, hoặc nếu trong lượt này bạn đã gọi search_records hoặc maintenance_status.
+- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã gọi search_records hoặc maintenance_status.
 - Khi quản lý nhờ một việc thay đổi, không gọi search_records hoặc maintenance_status. Để lấy id, dùng list_members hoặc list_scheduled_tasks.
 - Nếu việc thay đổi bị từ chối, không gọi lại và không nói là đã làm. Hệ thống tự gửi hướng dẫn cho quản lý.
 - Câu "(Câu trả lời cũ đã được ẩn.)" là một câu trả lời trước của bạn. Mọi câu trả lời trước đều được ẩn. Nếu cần dữ liệu cũ, gọi lại công cụ. Không viết câu này trong câu trả lời.`;

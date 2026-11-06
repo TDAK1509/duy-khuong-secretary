@@ -27,7 +27,7 @@ export async function loadHistoryTurns(
 
 function toTurn(row: HistoryRow): ChatTurn {
   if (row.author === 'bot') return { role: 'assistant', text: HIDDEN_ANSWER_TEXT };
-  return { role: 'user', text: row.image_key === null ? row.text : describePhotoMessage(row.text), image: null };
+  return { role: 'user', text: row.image_key === null ? row.text : describePhotoMessage(row.text) };
 }
 
 function describePhotoMessage(text: string | null): string {

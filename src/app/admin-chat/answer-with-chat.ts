@@ -4,13 +4,14 @@ import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
-import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { ADMIN_TOOLS } from './tools/admin-tools.ts';
 import { runToolLoop } from './run-tool-loop.ts';
 import { runAdminTool } from './tools/run-admin-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
+import type { ChatMessage } from './chat-message.ts';
+import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
@@ -21,7 +22,7 @@ import { AdminTextGuard } from './tools/admin-text-guard.ts';
 import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
-export async function answerWithChat(context: IntakeContext, message: MessageToRead): Promise<void> {
+export async function answerWithChat(context: IntakeContext, message: ChatMessage): Promise<void> {
   const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
   if (profile === null) return;
   const answer = await produceAnswer(context, message, profile);
@@ -33,11 +34,11 @@ export async function answerWithChat(context: IntakeContext, message: MessageToR
 
 type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[]; inviteCodes: string[]; changeRefused: boolean };
 
-async function produceAnswer(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<Answer> {
+async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
   const request = await buildChatRequest(context, message, profile);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const guard = new AdminTextGuard(message.photo !== null);
+  const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
   const { attachments, created, invites } = dependencies;
@@ -50,7 +51,7 @@ async function produceAnswer(context: IntakeContext, message: MessageToRead, pro
   };
 }
 
-async function buildChatRequest(context: IntakeContext, message: MessageToRead, profile: AdminProfile): Promise<ChatRequest> {
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<ChatRequest> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
   return {

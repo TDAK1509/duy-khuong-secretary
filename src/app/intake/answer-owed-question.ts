@@ -1,11 +1,11 @@
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
+import type { ChatMessage } from '../admin-chat/chat-message.ts';
 import type { Database } from '../db/transaction.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
-import type { MessageToRead } from './reply-to-message.ts';
 
-export async function answerOwedQuestion(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
+export async function answerOwedQuestion(context: IntakeContext, message: ChatMessage): Promise<IntakeOutcome> {
   const asker = await findCurrentAdminOfMessage(context.dependencies.database, message.id);
   if (asker !== null) await answerWithChat({ ...context, sender: asker }, message);
   return { kind: 'replied' };

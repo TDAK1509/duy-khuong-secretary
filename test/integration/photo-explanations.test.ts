@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  ASK_ADMIN_EXPLANATION_TEXT,
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
@@ -9,8 +8,8 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
-import { CHANGE_REFUSED_NOTICE } from '../../src/app/admin-chat/chat-texts.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
+import type { ChatResult } from '../../src/services/chat/chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
@@ -38,6 +37,7 @@ const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
 const FIRST_LINE = 'Lốp mới thay';
 const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
 const MINUTE_IN_MS = 60 * 1000;
+const INVITE_AN_CALL = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -222,20 +222,19 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
-  it('asks an admin whether an unclear photo with no caption is for saving or for asking', async () => {
+  it('asks an admin to explain an unclear photo with no caption, as it asks a member', async () => {
     readerReturns(UNCLEAR);
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
     expect(harness.chat.requests).toEqual([]);
   });
 
-  it('sends an unclear photo of an admin with a caption to the chat', async () => {
+  it('asks an admin to explain an unclear photo with a caption when he sent no earlier text', async () => {
     readerReturns(UNCLEAR);
-    harness.chat.replyWith('Ảnh này là lốp xe.');
     await insertInboundEvent(harness.database, {
       externalUserId: 'zu-duy',
       kind: 'images',
@@ -247,8 +246,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.runInbound();
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này là lốp xe.', quoteMessageId: undefined }]);
-    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
   });
 
   it('saves the record on the photo and quotes the photo when an admin explains it', async () => {
@@ -265,7 +263,7 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toEqual([]);
   });
 
-  it('sends the photo and the question of an admin to the chat and accepts the photo', async () => {
+  it('leaves the photo of an admin waiting when his answer only asks a question', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     readerReturns(QUESTION);
@@ -274,16 +272,23 @@ describe('asking what an unclear photo is for', () => {
     await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
     await harness.sendAllQueuedTexts();
 
-    const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
-    expect(lastTurn).toMatchObject({ role: 'user', text: QUESTION_ABOUT_TIRE });
-    expect(lastTurn?.role === 'user' ? lastTurn.image?.bytes : null).toEqual(makeJpeg(1000));
     expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Lốp này chưa lắp cho xe nào.');
-    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'accepted' });
+    expect(await readPhoto('zmsg-1')).toMatchObject({ status: 'needs_explanation' });
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
-    expect(await readImageKeyOf(QUESTION_ABOUT_TIRE)).toBe(await readImageKeyOfEvent('zmsg-1'));
   });
 
-  it('asks an admin about the next waiting photo after the chat answers a question', async () => {
+  it('gives the chat only the text of an admin answer that only asks a question', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+
+    expect(harness.chat.requests.at(-1)?.turns.at(-1)).toEqual({ role: 'user', text: QUESTION_ABOUT_TIRE });
+  });
+
+  it('does not ask an admin about the next waiting photo after the chat answers a question', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await sendPhoto('zu-duy', 'zmsg-2', PHOTO_B_URL);
@@ -294,9 +299,8 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect(await readTextsTo('zu-duy')).toEqual([
-      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
       { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
-      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
       { text: 'Lốp này chưa lắp cho xe nào.', quoteMessageId: undefined },
     ]);
   });
@@ -329,14 +333,13 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
   });
 
-  it('keeps the photo for the chat when an admin question is processed again before the chat answered', async () => {
+  it('answers an admin question once when it is processed again before the chat answered', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     readerReturns(QUESTION);
-    const inviteCall = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
     harness.chat.follow((_request, callNumber) => {
       if (callNumber === 1) throw new Error('the chat failed');
-      return callNumber === 2 ? replyWithToolCalls(inviteCall) : replyWithText('Lốp này chưa lắp cho xe nào.');
+      return replyWithText('Lốp này chưa lắp cho xe nào.');
     });
     await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: QUESTION_ABOUT_TIRE });
     await harness.runInbound();
@@ -345,17 +348,10 @@ describe('asking what an unclear photo is for', () => {
     await harness.runInbound();
     await harness.sendAllQueuedTexts();
 
-    const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
-    expect(retriedTurn?.role === 'user' ? retriedTurn.image?.bytes : null).toEqual(makeJpeg(1000));
-    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
-    expect(await readTextsTo('zu-duy')).toContainEqual({
-      text: `Lốp này chưa lắp cho xe nào.\n\n${CHANGE_REFUSED_NOTICE}`,
-      quoteMessageId: undefined,
-    });
-    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text.includes('Lốp này chưa lắp'))).toHaveLength(1);
+    expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
   });
 
-  it('saves the records on the photo and gives the chat the saved records when an admin explains and asks', async () => {
+  it('gives the chat the saved reply as its note when an admin explains and asks', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     readerReturns(TIRE_AND_QUESTION);
@@ -371,20 +367,69 @@ describe('asking what an unclear photo is for', () => {
     const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
     expect(lastTurn).toMatchObject({
       role: 'user',
-      text: expect.stringContaining('Hệ thống đã lưu:\n- Bảo dưỡng: lốp, xe 29C12345 · 3.500.000đ'),
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
     });
     expect(harness.chat.requests).toHaveLength(1);
   });
 
-  it('sends a photo of an admin that has no work data and no caption to the chat', async () => {
+  it('gives the chat the saved reply as its note when the owed answer of an explanation that asks is retried', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return replyWithText('Trả lời');
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?` });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+
+    const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
+    expect(retriedTurn).toMatchObject({
+      role: 'user',
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
+    });
+  });
+
+  it('refuses a change asked in an admin explanation that saves on his photo', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow(inviteThenReply);
+
+    await harness.receiveText('zu-duy', `${TIRE_EXPLANATION}. Mời An vào nhóm.`);
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
+
+  it('refuses the change again when the owed answer of an explanation that saves on a photo is retried', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow((request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return inviteThenReply(request, callNumber - 1);
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: `${TIRE_EXPLANATION}. Mời An vào nhóm.` });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
+
+  it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
     readerReturns(WEAK);
-    harness.chat.replyWith('Ảnh này không có thông tin công việc.');
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này không có thông tin công việc.', quoteMessageId: undefined }]);
-    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: UPLOAD_ONLY_TEXT, quoteMessageId: 'zmsg-1' }]);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
@@ -670,21 +715,6 @@ describe('asking what an unclear photo is for', () => {
     );
   }
 
-  async function readImageKeyOf(text: string): Promise<string | null> {
-    const [row] = await harness.database.query<{ imageKey: string | null }>(
-      `SELECT image_key AS "imageKey" FROM messages WHERE author = 'user' AND text = '${text}'`,
-    );
-    return row?.imageKey ?? null;
-  }
-
-  async function readImageKeyOfEvent(externalEventId: string): Promise<string | null> {
-    const [row] = await harness.database.query<{ imageKey: string | null }>(
-      `SELECT message.image_key AS "imageKey" FROM messages message JOIN inbound_events event ON event.id = message.inbound_event_id
-       WHERE event.external_event_id = '${externalEventId}'`,
-    );
-    return row?.imageKey ?? null;
-  }
-
   function formatNotice(replyText: string): string {
     return `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${replyText}`;
   }
@@ -731,6 +761,10 @@ describe('asking what an unclear photo is for', () => {
     return photo;
   }
 });
+
+function inviteThenReply(_request: unknown, callNumber: number): ChatResult {
+  return callNumber === 1 ? replyWithToolCalls(INVITE_AN_CALL) : replyWithText('Xong.');
+}
 
 async function crashBeforeFinishing(): Promise<void> {
   throw new Error('the worker crashed before finishing');

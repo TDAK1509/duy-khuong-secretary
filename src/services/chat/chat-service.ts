@@ -1,5 +1,4 @@
 import type { JsonSchema } from '../reading/reader-service.ts';
-import type { Photo } from '../storage/photo-storage.ts';
 
 export interface ToolSpec {
   name: string;
@@ -14,7 +13,7 @@ export interface ToolCall {
 }
 
 export type ChatTurn =
-  | { role: 'user'; text: string | null; image: Photo | null }
+  | { role: 'user'; text: string | null }
   | { role: 'assistant'; text: string }
   | { role: 'assistant_tool_calls'; calls: ToolCall[] }
   | { role: 'tool_result'; callId: string; output: string };
