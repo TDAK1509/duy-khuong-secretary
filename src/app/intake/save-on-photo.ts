@@ -7,7 +7,7 @@ import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
-export type TextOnPhoto = { textId: string; photo: { id: string; imageKey: string } };
+export type TextOnPhoto = { textId: string; photo: { id: string } };
 
 export async function saveRereadOnPhoto(
   transaction: Transaction,
