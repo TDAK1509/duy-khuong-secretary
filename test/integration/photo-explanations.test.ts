@@ -232,24 +232,6 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toEqual([]);
   });
 
-  it('sends an unclear photo of an admin with a caption to the chat', async () => {
-    readerReturns(UNCLEAR);
-    harness.chat.replyWith('Ảnh này là lốp xe.');
-    await insertInboundEvent(harness.database, {
-      externalUserId: 'zu-duy',
-      kind: 'images',
-      imageUrls: [PHOTO_A_URL],
-      externalEventId: 'zmsg-1',
-      caption: 'Lốp này của xe nào?',
-    });
-
-    await harness.runInbound();
-    await harness.sendAllQueuedTexts();
-
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này là lốp xe.', quoteMessageId: undefined }]);
-    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
-  });
-
   it('saves the record on the photo and quotes the photo when an admin explains it', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);

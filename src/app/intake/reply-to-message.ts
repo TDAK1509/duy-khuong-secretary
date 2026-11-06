@@ -23,7 +23,7 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
 }
 
 async function replyWithPlan(context: IntakeContext, message: MessageToRead, plan: ReplyPlan): Promise<IntakeOutcome> {
-  if (isSentToChat(context, plan, message.text)) {
+  if (isSentToChat(context, plan)) {
     await answerWithChat(context, message);
     return { kind: 'replied' };
   }
@@ -42,7 +42,7 @@ async function rereadUnclearPhoto(
   message: { id: string; text: string | null; photo: Photo },
   { plan }: FirstReading,
 ): Promise<Reread | null> {
-  if (!plan.isUnclear || isSentToChat(context, plan, message.text)) return null;
+  if (!plan.isUnclear || isSentToChat(context, plan)) return null;
   const reread = await rereadPhotoWithRecentTexts(context, message);
   return reread?.plan.situation === 'saved' ? reread : null;
 }
@@ -75,10 +75,6 @@ async function replyOnRereadPhoto(
   return { kind: 'replied' };
 }
 
-function isSentToChat({ sender }: IntakeContext, plan: ReplyPlan, text: string | null): boolean {
-  return sender.role === 'admin' && isForChat(plan, text);
-}
-
-function isForChat({ situation }: ReplyPlan, text: string | null): boolean {
-  return situation === 'no_work_data' || (situation === 'needs_explanation' && text !== null);
+function isSentToChat({ sender }: IntakeContext, { situation }: ReplyPlan): boolean {
+  return sender.role === 'admin' && situation === 'no_work_data';
 }
