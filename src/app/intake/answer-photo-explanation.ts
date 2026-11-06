@@ -14,7 +14,7 @@ import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied } from './run-reply-stage.ts';
 import { saveReplyOnPhoto } from './save-on-photo.ts';
-import { isQuestionPending, markQuestionAboutPhoto, setSubmissionStatus, type SubmissionStatus } from './store-user-message.ts';
+import { isQuestionPending, markQuestionPending, setSubmissionStatus, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
 type Explanation = { id: string; text: string };
@@ -89,19 +89,13 @@ async function saveAnswer(
   answered: Answered,
   answer: AnswerPlan,
 ): Promise<void> {
-  if (answer.kind === 'question') return saveQuestion(transaction, context, answered);
+  if (answer.kind === 'question') return markQuestionPending(transaction, answered.explanation.id);
   const target = { textId: answered.explanation.id, photo: answered.asked };
   const reply = await saveReplyOnPhoto(transaction, context, target, answer.reply);
   const photoStatus = findPhotoStatus(answer, reply);
   if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
   await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);
   if (endsWait(answer)) await endWait(transaction, context, answered.asked, reply.replyText);
-}
-
-async function saveQuestion(transaction: Transaction, context: IntakeContext, { explanation, asked }: Answered): Promise<void> {
-  await setSubmissionStatus(transaction, asked.id, 'accepted');
-  await markQuestionAboutPhoto(transaction, explanation.id, asked.imageKey);
-  await askNextWaitingPhoto(transaction, context);
 }
 
 function findPhotoStatus({ photoAfter }: ReplyAnswer, reply: ReplyPlan): SubmissionStatus | null {
