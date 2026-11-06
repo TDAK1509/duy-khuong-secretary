@@ -275,6 +275,17 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
+  it('gives the chat only the text of an admin answer that only asks a question', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(QUESTION);
+    harness.chat.replyWith('Lốp này chưa lắp cho xe nào.');
+
+    await harness.receiveText('zu-duy', QUESTION_ABOUT_TIRE);
+
+    expect(harness.chat.requests.at(-1)?.turns.at(-1)).toEqual({ role: 'user', text: QUESTION_ABOUT_TIRE });
+  });
+
   it('does not ask an admin about the next waiting photo after the chat answers a question', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);

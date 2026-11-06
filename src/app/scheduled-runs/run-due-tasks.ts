@@ -69,7 +69,7 @@ function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date, use
   const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName, now };
   return {
     system: buildScheduledRunPrompt(facts),
-    turns: [{ role: 'user', text: userTurn, image: null }],
+    turns: [{ role: 'user', text: userTurn }],
     tools: SCHEDULED_RUN_TOOLS,
   };
 }

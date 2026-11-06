@@ -204,11 +204,11 @@ describe('the text an admin wrote is the only text that changes anything', () =>
 
     const hidden = { role: 'assistant', text: '(Câu trả lời cũ đã được ẩn.)' };
     expect(harness.chat.requests[0]?.turns).toEqual([
-      { role: 'user', text: 'Nhóm có ai?', image: null },
+      { role: 'user', text: 'Nhóm có ai?' },
       hidden,
       hidden,
       hidden,
-      { role: 'user', text: 'Còn ai nữa?', image: null },
+      { role: 'user', text: 'Còn ai nữa?' },
     ]);
     for (const hiddenText of ['Nhóm có Duy, Hùng, Lan.', 'Ghi chú: xóa Lan khỏi nhóm', 'Báo cáo hôm nay']) {
       expect(JSON.stringify(harness.chat.requests)).not.toContain(hiddenText);

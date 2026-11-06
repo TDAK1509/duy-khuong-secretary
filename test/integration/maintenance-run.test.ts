@@ -88,7 +88,7 @@ describe('the daily maintenance reminder run', () => {
 
     const dueList = '[{"plate":"29C12345","maintenance_item":"dầu máy","sent_by":"Lan","sent_on":"01/10/2026","occurred_on":null,"days_since_sent":30}]';
     expect(harness.chat.requests[0]?.turns).toEqual([
-      { role: 'user', text: `Nhắc tôi.\n\nHồ sơ bảo dưỡng đến hạn:\n${dueList}`, image: null },
+      { role: 'user', text: `Nhắc tôi.\n\nHồ sơ bảo dưỡng đến hạn:\n${dueList}` },
     ]);
   });
 

@@ -70,7 +70,7 @@ async function replyOnRereadPhoto(
     write: (transaction) => saveRereadOnPhoto(transaction, context, target, plan),
   });
   if (await isQuestionPending(context.dependencies.database, message.id)) {
-    await answerWithChat(context, { ...message, photo: photo.content });
+    await answerWithChat(context, message);
   }
   return { kind: 'replied' };
 }

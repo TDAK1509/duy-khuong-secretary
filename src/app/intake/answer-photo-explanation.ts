@@ -32,7 +32,7 @@ export async function answerPhotoExplanation(
   const answer = await readAnswer(context, explanation, asked, photo);
   await runAnswerStage(context, { explanation, asked }, answer);
   if (await isQuestionPending(context.dependencies.database, explanation.id)) {
-    await answerWithChat(context, { ...explanation, photo });
+    await answerWithChat(context, explanation);
   }
   return { kind: 'replied' };
 }

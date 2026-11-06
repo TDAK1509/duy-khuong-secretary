@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import type { Photo } from '../../services/storage/photo-storage.ts';
 import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall, ToolSpec } from '../../services/chat/chat-service.ts';
 
 export type OpenAiCompatibleChatSettings = {
@@ -79,12 +78,5 @@ function toToolCall(call: ToolCall): OpenAI.Chat.ChatCompletionMessageToolCall {
 }
 
 function buildUserContent(turn: Extract<ChatTurn, { role: 'user' }>): OpenAI.Chat.ChatCompletionContentPart[] {
-  const parts: OpenAI.Chat.ChatCompletionContentPart[] = [];
-  if (turn.text !== null) parts.push({ type: 'text', text: turn.text });
-  if (turn.image !== null) parts.push({ type: 'image_url', image_url: { url: toDataUrl(turn.image) } });
-  return parts;
-}
-
-function toDataUrl(photo: Photo): string {
-  return `data:${photo.contentType};base64,${Buffer.from(photo.bytes).toString('base64')}`;
+  return turn.text === null ? [] : [{ type: 'text', text: turn.text }];
 }

@@ -157,8 +157,8 @@ describe('an admin asks the bot', () => {
 
     const turns = harness.chat.requests[0]?.turns ?? [];
     expect(turns).toHaveLength(21);
-    expect(turns[0]).toEqual({ role: 'user', text: 'tin 11', image: null });
-    expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?', image: null });
+    expect(turns[0]).toEqual({ role: 'user', text: 'tin 11' });
+    expect(turns[20]).toEqual({ role: 'user', text: 'Hôm nay thế nào?' });
   });
 
   it('never shows the model another person\'s messages', async () => {
@@ -195,7 +195,7 @@ describe('an admin asks the bot', () => {
 
     await harness.receiveText('zu-duy', 'Chào bạn');
 
-    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn', image: null }]);
+    expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn' }]);
   });
 
   it('sends older photos to the model as text', async () => {
@@ -212,8 +212,7 @@ describe('an admin asks the bot', () => {
     await harness.receiveText('zu-duy', 'Còn gì nữa không?');
 
     const turns = harness.chat.requests[0]?.turns ?? [];
-    expect(turns.some((turn) => turn.role === 'user' && turn.image !== null)).toBe(false);
-    expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]', image: null });
+    expect(turns[0]).toEqual({ role: 'user', text: '[ảnh]' });
   });
 
   it('turns a chat-model failure into a friendly reply', async () => {

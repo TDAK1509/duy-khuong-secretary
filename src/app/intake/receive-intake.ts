@@ -14,7 +14,7 @@ import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
 import { answerPhotoExplanation } from './answer-photo-explanation.ts';
-import { loadKeptPhoto, receivePhoto } from './receive-photo.ts';
+import { receivePhoto } from './receive-photo.ts';
 import { replyToMessage, type MessageToRead } from './reply-to-message.ts';
 import { findUserMessage, runStoreStage } from './store-user-message.ts';
 import { endExpiredWaits, findAskedPhoto } from './waiting-photos.ts';
@@ -50,7 +50,7 @@ function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOu
 async function receiveText(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
   const existing = await findUserMessage(context.dependencies.database, context.event, part.index);
   if (existing?.questionPending) {
-    return answerOwedQuestion(context, { id: existing.id, text: part.text, photo: await loadKeptPhoto(context, existing) });
+    return answerOwedQuestion(context, { id: existing.id, text: part.text });
   }
   if (existing?.isReplied) return { kind: 'replied' };
   const stored = await runStoreStage(context, { id: randomUUID(), text: part.text, imageKey: null, partIndex: part.index });
