@@ -8,7 +8,8 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
-import { replyWithText } from '../fakes/fake-chat-service.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
+import type { ChatResult } from '../../src/services/chat/chat-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
@@ -36,6 +37,7 @@ const TIRE_AND_QUESTION = { ...TIRE_ITEM, has_question: true };
 const FIRST_LINE = 'Lốp mới thay';
 const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
 const MINUTE_IN_MS = 60 * 1000;
+const INVITE_AN_CALL = { id: 'call_1', name: 'create_invite', argumentsJson: JSON.stringify({ display_name: 'An', role: 'member' }) };
 
 describe('asking what an unclear photo is for', () => {
   let harness: IntakeHarness;
@@ -391,6 +393,18 @@ describe('asking what an unclear photo is for', () => {
     });
   });
 
+  it('refuses a change asked in an admin explanation that saves on his photo', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow(inviteThenReply);
+
+    await harness.receiveText('zu-duy', `${TIRE_EXPLANATION}. Mời An vào nhóm.`);
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
+
   it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
     readerReturns(WEAK);
 
@@ -729,6 +743,10 @@ describe('asking what an unclear photo is for', () => {
     return photo;
   }
 });
+
+function inviteThenReply(_request: unknown, callNumber: number): ChatResult {
+  return callNumber === 1 ? replyWithToolCalls(INVITE_AN_CALL) : replyWithText('Xong.');
+}
 
 async function crashBeforeFinishing(): Promise<void> {
   throw new Error('the worker crashed before finishing');

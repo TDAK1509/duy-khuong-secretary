@@ -11,6 +11,7 @@ import { runAdminTool } from './tools/run-admin-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
+import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
@@ -37,7 +38,7 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
   const { database, clock } = context.dependencies;
   const request = await buildChatRequest(context, message, profile);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const guard = new AdminTextGuard(false);
+  const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
   const { attachments, created, invites } = dependencies;
