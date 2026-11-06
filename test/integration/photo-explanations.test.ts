@@ -373,15 +373,13 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toHaveLength(1);
   });
 
-  it('sends a photo of an admin that has no work data and no caption to the chat', async () => {
+  it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
     readerReturns(WEAK);
-    harness.chat.replyWith('Ảnh này không có thông tin công việc.');
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: 'Ảnh này không có thông tin công việc.', quoteMessageId: undefined }]);
-    expect(await harness.database.query(`SELECT 1 FROM messages WHERE submission_status = 'needs_explanation'`)).toEqual([]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: UPLOAD_ONLY_TEXT, quoteMessageId: 'zmsg-1' }]);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {

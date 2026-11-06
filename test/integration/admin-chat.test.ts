@@ -196,16 +196,6 @@ describe('an admin asks the bot', () => {
     expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Chào bạn', image: null }]);
   });
 
-  it('sends the new photo to the model as an image', async () => {
-    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-
-    await harness.receivePhoto('zu-duy');
-
-    const turns = harness.chat.requests[0]?.turns ?? [];
-    const lastTurn = turns[turns.length - 1];
-    expect(lastTurn).toMatchObject({ role: 'user', image: { contentType: 'image/jpeg' } });
-  });
-
   it('sends older photos to the model as text', async () => {
     const duyUserId = await findUserId('Duy');
     await insertChatMessage(database, {

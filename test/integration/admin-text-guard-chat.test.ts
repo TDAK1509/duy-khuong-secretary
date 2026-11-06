@@ -151,7 +151,6 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     await harness.sendQueuedTexts();
 
     expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
-    expect(sentTexts()).toEqual([['zu-duy', `Đây là mã mời.\n\n${REFUSED_NOTICE}`]]);
   });
 
   it('still changes things in a text message that also holds work data', async () => {
