@@ -359,6 +359,27 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.chat.requests).toHaveLength(1);
   });
 
+  it('gives the chat the saved reply as its note when the owed answer of an explanation that asks is retried', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return replyWithText('Trả lời');
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?` });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+
+    const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
+    expect(retriedTurn).toMatchObject({
+      role: 'user',
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
+    });
+  });
+
   it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
     readerReturns(WEAK);
 
