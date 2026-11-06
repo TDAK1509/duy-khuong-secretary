@@ -405,6 +405,24 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
   });
 
+  it('refuses the change again when the owed answer of an explanation that saves on a photo is retried', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_AND_QUESTION);
+    harness.chat.follow((request, callNumber) => {
+      if (callNumber === 1) throw new Error('the chat failed');
+      return inviteThenReply(request, callNumber - 1);
+    });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text: `${TIRE_EXPLANATION}. Mời An vào nhóm.` });
+    await harness.runInbound();
+    harness.clock.advanceBy(31_000);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
+
   it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
     readerReturns(WEAK);
 
