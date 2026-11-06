@@ -27,7 +27,7 @@ async function replyWithPlan(context: IntakeContext, message: MessageToRead, pla
     await answerWithChat(context, message);
     return { kind: 'replied' };
   }
-  await runReplyStage(context, message.id, plan);
+  await runReplyStage(context, message, plan);
   if (await isQuestionPending(context.dependencies.database, message.id)) await answerWithChat(context, message);
   return { kind: 'replied' };
 }

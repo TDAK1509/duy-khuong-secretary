@@ -7,12 +7,13 @@ import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { placeUnclearPhoto } from './place-unclear-photo.ts';
 import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
+import type { MessageToRead } from './reply-to-message.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
-export async function runReplyStage(context: IntakeContext, messageId: string, plan: ReplyPlan): Promise<void> {
+export async function runReplyStage(context: IntakeContext, message: MessageToRead, plan: ReplyPlan): Promise<void> {
   await context.stages.runStage({
-    isDone: (transaction) => isReplied(transaction, messageId),
-    write: (transaction) => saveReply(transaction, context, messageId, plan),
+    isDone: (transaction) => isReplied(transaction, message.id),
+    write: (transaction) => saveReply(transaction, context, message, plan),
   });
 }
 
@@ -28,7 +29,7 @@ export async function isReplied(transaction: Transaction, messageId: string): Pr
 async function saveReply(
   transaction: Transaction,
   context: IntakeContext,
-  messageId: string,
+  { id: messageId, photo }: MessageToRead,
   plannedReply: ReplyPlan,
 ): Promise<void> {
   if (isPhotoQuestion(plannedReply)) return placeUnclearPhoto(transaction, context, messageId, plannedReply);
@@ -40,7 +41,7 @@ async function saveReply(
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, plan.replyText);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan.replyText);
-  if (plan.saved && plan.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, messageId);
+  if (plan.saved && plan.asksQuestion && sender.role === 'admin' && photo === null) await markQuestionPending(transaction, messageId);
 }
 
 function isPhotoQuestion({ situation }: ReplyPlan): boolean {
