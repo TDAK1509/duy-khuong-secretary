@@ -338,7 +338,7 @@ describe('asking what an unclear photo is for', () => {
     expect((await readTextsTo('zu-duy')).filter((sent) => sent.text === 'Lốp này chưa lắp cho xe nào.')).toHaveLength(1);
   });
 
-  it('saves the records on the photo and gives the chat the saved records when an admin explains and asks', async () => {
+  it('gives the chat the saved reply as its note when an admin explains and asks', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     readerReturns(TIRE_AND_QUESTION);
@@ -354,7 +354,7 @@ describe('asking what an unclear photo is for', () => {
     const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
     expect(lastTurn).toMatchObject({
       role: 'user',
-      text: expect.stringContaining('Hệ thống đã lưu:\n- Bảo dưỡng: lốp, xe 29C12345 · 3.500.000đ'),
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
     });
     expect(harness.chat.requests).toHaveLength(1);
   });

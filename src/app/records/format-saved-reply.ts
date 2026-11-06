@@ -7,7 +7,7 @@ export function formatSavedReply(records: NewRecord[]): string {
   return [`Đã lưu ${records.length} mục:`, ...records.map(formatSavedLine)].join('\n');
 }
 
-export function formatSavedLine(record: Pick<NewRecord, 'summary' | 'amountVnd' | 'occurredOn'>): string {
+function formatSavedLine(record: Pick<NewRecord, 'summary' | 'amountVnd' | 'occurredOn'>): string {
   return `- ${record.summary}${formatTail(record, ' · ', ' · ')}`;
 }
 

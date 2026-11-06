@@ -402,7 +402,7 @@ describe('an admin asks the bot', () => {
       const lastTurn = turns[turns.length - 1];
       expect(lastTurn).toMatchObject({
         role: 'user',
-        text: `${FUEL_TEXT_WITH_QUESTION}\n\nHệ thống đã lưu:\n- Đổ xăng dầu, số 0001234 · 1.250.000đ · 30/10/2026`,
+        text: `${FUEL_TEXT_WITH_QUESTION}\n\nHệ thống đã lưu:\nĐã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.`,
       });
     });
 

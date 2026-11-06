@@ -2,9 +2,6 @@ import type { ChatTurn } from '../../services/chat/chat-service.ts';
 import type { Database } from '../db/transaction.ts';
 import type { MessageToRead } from '../intake/reply-to-message.ts';
 import { isQuestionPending } from '../intake/store-user-message.ts';
-import { formatSavedLine } from '../records/format-saved-reply.ts';
-
-type SavedRecordRow = { summary: string; amount_vnd: number | null; occurred_on: string | null };
 
 export async function buildUserTurn(database: Database, message: MessageToRead): Promise<ChatTurn> {
   const note = (await isQuestionPending(database, message.id)) ? await buildSystemNote(database, message.id) : null;
@@ -13,17 +10,10 @@ export async function buildUserTurn(database: Database, message: MessageToRead):
 }
 
 async function buildSystemNote(database: Database, messageId: string): Promise<string | null> {
-  const { rows } = await database.query<SavedRecordRow>(
-    `SELECT summary, amount_vnd::float8 AS amount_vnd, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on
-     FROM records
-     WHERE message_id IN (
-       SELECT holder.id FROM messages current
-       JOIN messages holder ON holder.id = current.id OR holder.image_key = current.image_key
-       WHERE current.id = $1)
-     ORDER BY item_index`,
+  const { rows } = await database.query<{ text: string }>(
+    `SELECT text FROM messages WHERE reply_to = $1 AND reply_kind = 'saved'`,
     [messageId],
   );
-  if (rows.length === 0) return null;
-  const lines = rows.map((row) => formatSavedLine({ summary: row.summary, amountVnd: row.amount_vnd, occurredOn: row.occurred_on }));
-  return ['Hệ thống đã lưu:', ...lines].join('\n');
+  const [savedReply] = rows;
+  return savedReply ? `Hệ thống đã lưu:\n${savedReply.text}` : null;
 }
