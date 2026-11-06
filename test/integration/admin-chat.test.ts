@@ -489,6 +489,22 @@ describe('an admin asks the bot', () => {
       expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
     });
 
+    it('sends one saved reply when an admin photo with a question is processed again after a crash', async () => {
+      await insertInboundEvent(database, {
+        externalUserId: 'zu-duy',
+        kind: 'images',
+        imageUrls: [PHOTO_URL],
+        caption: 'Lưu cái này rồi cho tôi biết hôm nay tổng bao nhiêu?',
+      });
+      await harness.runInbound({ beforeFinish: crashBeforeFinishing });
+      harness.clock.advanceBy(31_000);
+
+      await harness.runInbound();
+      await harness.sendAllQueuedTexts();
+
+      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+    });
+
     it('never sends an admin\'s data without a question to the chat model', async () => {
       const reading = makeReading([makeFuelItem()], { has_question: false });
       harness.reader.answerWith(reading);
@@ -516,3 +532,7 @@ describe('an admin asks the bot', () => {
     });
   });
 });
+
+async function crashBeforeFinishing(): Promise<void> {
+  throw new Error('the worker crashed before finishing');
+}
