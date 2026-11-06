@@ -11,8 +11,8 @@ import { insertMember } from './workspace-rows.ts';
 const REFUSED_RESULT =
   '{"ok":false,"error":"Chưa làm: tin nhắn có ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}';
 
-const REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người) vì tin nhắn này có ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.
-Nếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này, chỉ bằng chữ, không kèm ảnh.`;
+const REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người) vì tôi đã đọc dữ liệu do thành viên gửi.
+Nếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.`;
 
 const SEARCH_EVERYTHING = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
 
