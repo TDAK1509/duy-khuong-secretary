@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  ASK_ADMIN_EXPLANATION_TEXT,
   ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
@@ -222,13 +221,13 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 
-  it('asks an admin whether an unclear photo with no caption is for saving or for asking', async () => {
+  it('asks an admin to explain an unclear photo with no caption, as it asks a member', async () => {
     readerReturns(UNCLEAR);
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' }]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
     expect(harness.chat.requests).toEqual([]);
   });
@@ -294,9 +293,9 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect(await readTextsTo('zu-duy')).toEqual([
-      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-1' },
       { text: ASK_LATER_TEXT, quoteMessageId: 'zmsg-2' },
-      { text: ASK_ADMIN_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
+      { text: ASK_EXPLANATION_TEXT, quoteMessageId: 'zmsg-2' },
       { text: 'Lốp này chưa lắp cho xe nào.', quoteMessageId: undefined },
     ]);
   });
