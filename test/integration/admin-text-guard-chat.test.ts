@@ -9,7 +9,7 @@ import { insertRecordRow } from './record-rows.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const REFUSED_RESULT =
-  '{"ok":false,"error":"Chưa làm: tin nhắn có ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}';
+  '{"ok":false,"error":"Chưa làm: lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}';
 
 const REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người) vì tôi đã đọc dữ liệu do thành viên gửi.
 Nếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.`;
