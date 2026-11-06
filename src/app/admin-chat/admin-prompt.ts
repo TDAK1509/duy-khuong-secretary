@@ -28,7 +28,6 @@ const SAVING_SECTION = `Lưu dữ liệu:
 
 const SEARCH_SECTION = `Tìm dữ liệu:
 - Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.
-- Khi người dùng gửi ảnh để hỏi, đọc số seri, biển số hoặc mã trên ảnh rồi dùng làm từ khóa tìm kiếm.
 - Trong câu trả lời, nêu rõ ai đã gửi và ngày gửi.
 - Ngày trên giấy tờ khác với ngày gửi. Nói rõ ngày nào là ngày nào.
 - Không kết luận hai vật là một chỉ vì trông giống nhau. Chỉ coi là cùng một vật khi trùng số seri, biển số hoặc mã.
