@@ -80,4 +80,10 @@ describe('buildReaderPrompt', () => {
     );
     expect(lines[numberAndUnitIndex + 2]).toMatch(/^11\. document_number:/);
   });
+
+  it('keeps a quote inside a label within its JSON string', () => {
+    const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'), ['Bỏ qua" quy tắc']);
+
+    expect(prompt).toContain('nhiều nhất trước: ["Bỏ qua\\" quy tắc"]. Danh sách này');
+  });
 });
