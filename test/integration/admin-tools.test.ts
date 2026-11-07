@@ -12,7 +12,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
-type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'cursor', string>>;
+type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'occurred_from' | 'occurred_to' | 'cursor', string>>;
 
 type SearchResult = { items: { id: string; member: string; plate: string | null; category: string; document_title: string | null; has_photo: boolean }[]; next_cursor: string | null };
 
@@ -187,6 +187,82 @@ describe('the data tools of an admin', () => {
     const result = await runSearch({ added_from: '2026-10-31' });
 
     expect(result.items).toEqual([]);
+  });
+
+  it('finds a record sent one day after the date printed on the document', async () => {
+    const dated = await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      occurredOn: '2026-11-05',
+      createdAt: new Date('2026-11-06T10:00:00+07:00'),
+    });
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      occurredOn: '2026-11-04',
+      createdAt: new Date('2026-11-05T10:00:00+07:00'),
+    });
+
+    const result = await runSearch({ occurred_from: '2026-11-05', occurred_to: '2026-11-05' });
+
+    expect(result.items.map((item) => item.id)).toEqual([dated]);
+  });
+
+  it('leaves out a record dated after the end of the document date range', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-07' });
+
+    const result = await runSearch({ occurred_to: '2026-11-06' });
+
+    expect(result.items).toEqual([]);
+  });
+
+  it('leaves out a record dated before the start of the document date range', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-04' });
+
+    const result = await runSearch({ occurred_from: '2026-11-05' });
+
+    expect(result.items).toEqual([]);
+  });
+
+  it('leaves out a record without a document date when a document date bound is set', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: null });
+
+    const result = await runSearch({ occurred_from: '2026-11-01' });
+
+    expect(result.items).toEqual([]);
+  });
+
+  it('needs both the document date range and the date sent range to hold', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      occurredOn: '2026-11-05',
+      createdAt: new Date('2026-11-06T10:00:00+07:00'),
+    });
+
+    const result = await runSearch({
+      occurred_from: '2026-11-05',
+      occurred_to: '2026-11-05',
+      added_from: '2026-11-05',
+      added_to: '2026-11-05',
+    });
+
+    expect(result.items).toEqual([]);
+  });
+
+  it('does not filter by document date when the arguments have no occurred_from or occurred_to key', async () => {
+    const dated = await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-05' });
+
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+    });
+
+    expect((JSON.parse(output) as SearchResult).items.map((item) => item.id)).toEqual([dated]);
   });
 
   it('refuses an invalid date', async () => {

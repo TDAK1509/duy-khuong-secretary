@@ -1,4 +1,5 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
+import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import {
   ATTACH_PHOTOS_SPEC,
   CANCEL_SCHEDULED_TASK_SPEC,
@@ -9,11 +10,10 @@ import {
   MAINTENANCE_STATUS_SPEC,
   CREATE_SCHEDULED_TASK_SPEC,
   REMOVE_MEMBER_SPEC,
-  SEARCH_RECORDS_SPEC,
 } from './tool-specs.ts';
 
 export const ADMIN_TOOLS: ToolSpec[] = [
-  SEARCH_RECORDS_SPEC,
+  ADMIN_SEARCH_RECORDS_SPEC,
   COUNT_RECORDS_SPEC,
   LIST_MEMBERS_SPEC,
   CREATE_INVITE_SPEC,

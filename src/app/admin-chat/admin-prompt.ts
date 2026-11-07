@@ -30,6 +30,11 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.
 - Trong câu trả lời, nêu rõ ai đã gửi và ngày gửi.
 - Ngày trên giấy tờ khác với ngày gửi. Nói rõ ngày nào là ngày nào.
+- Khi hỏi ngày vận chuyển, ngày cân hoặc ngày trên phiếu, dùng occurred_from và occurred_to.
+- Nếu hỏi công việc trong một ngày mà không nói ngày gửi, dùng ngày trên giấy tờ.
+- Khi hỏi ngày gửi hoặc ngày tải lên, dùng added_from và added_to.
+- Nếu dùng cả hai khoảng ngày, kết quả phải thỏa cả hai.
+- Không thay ngày trên giấy tờ còn thiếu bằng ngày gửi.
 - Không kết luận hai vật là một chỉ vì trông giống nhau. Chỉ coi là cùng một vật khi trùng số seri, biển số hoặc mã.
 - Để đếm hoặc cộng tiền, dùng count_records. Không tự đếm từ kết quả search_records.
 - Nếu kết quả có "next_cursor" khác null và cần thêm dữ liệu, gọi lại công cụ với cursor đó. Nếu không đọc hết, nói rõ kết quả chưa đầy đủ.
