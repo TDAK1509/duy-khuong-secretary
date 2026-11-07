@@ -7,15 +7,17 @@ const MAX_CALLS_PER_ROUND = 5;
 
 export type RunTool = (call: ToolCall) => Promise<string>;
 
-export type ToolLoopOutcome = { ok: true; text: string } | { ok: false; text: string };
+export type ToolLoopOutcome = 'answered' | 'tool_round_limit' | 'chat_failed';
 
-export async function runToolLoop(chat: ChatService, request: ChatRequest, runTool: RunTool): Promise<ToolLoopOutcome> {
+export type ToolLoopResult = { outcome: ToolLoopOutcome; text: string };
+
+export async function runToolLoop(chat: ChatService, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
   let turns = request.turns;
   for (let round = 0; ; round += 1) {
     const result = await chat.respond({ ...request, turns });
-    if (!result.ok) return { ok: false, text: CHAT_FAILURE_TEXT };
-    if (result.reply.kind === 'text') return { ok: true, text: result.reply.text };
-    if (round === MAX_TOOL_ROUNDS) return { ok: false, text: TOOL_LOOP_TEXT };
+    if (!result.ok) return { outcome: 'chat_failed', text: CHAT_FAILURE_TEXT };
+    if (result.reply.kind === 'text') return { outcome: 'answered', text: result.reply.text };
+    if (round === MAX_TOOL_ROUNDS) return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
     turns = [...turns, ...(await runToolRound(result.reply.calls, runTool))];
   }
 }

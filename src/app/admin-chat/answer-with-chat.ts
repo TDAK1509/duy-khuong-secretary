@@ -40,10 +40,10 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
-  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  const result = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
   const { attachments, created, invites } = dependencies;
   return {
-    text: outcome.text,
+    text: result.text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
