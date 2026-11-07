@@ -2,10 +2,10 @@ import { z } from 'zod';
 import type { StoredDetail } from '../reading/detail-numbers-request.ts';
 import { readNumberPair } from '../reading/reading.ts';
 
-type ReplyDetail = { index: number; number: number | null; unit: string | null };
+type ReplyDetail = { index: number; number?: unknown; unit?: unknown };
 
 const detailNumbersReplySchema = z.strictObject({
-  details: z.array(z.strictObject({ index: z.number().int(), number: z.number().nullable(), unit: z.string().nullable() })),
+  details: z.array(z.strictObject({ index: z.number().int(), number: z.unknown(), unit: z.unknown() })),
 });
 
 export function mergeDetailNumbers(details: StoredDetail[], reply: unknown): StoredDetail[] | null {
