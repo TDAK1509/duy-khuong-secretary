@@ -425,14 +425,14 @@ describe('the number tools of an admin', () => {
   });
 
   it('keeps a ticket whose newer copy is outside the text filter', async () => {
-    const receiver = (factory: string) => ({ label: 'Nơi nhận', value: factory, number: null, unit: null });
+    const buildReceiverDetail = (factory: string) => ({ label: 'Nơi nhận', value: factory, number: null, unit: null });
     await insertTicketCopy({
       createdAt: new Date('2026-11-06T09:00:00+07:00'),
-      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), receiver('Cheng Loong')],
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), buildReceiverDetail('Cheng Loong')],
     });
     await insertTicketCopy({
       createdAt: new Date('2026-11-07T09:00:00+07:00'),
-      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), receiver('Chánh Dương')],
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), buildReceiverDetail('Chánh Dương')],
     });
 
     const output = await runTotalNumbers('Trọng lượng tịnh', 'none', { text: 'cheng loong' });
