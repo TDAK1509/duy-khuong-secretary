@@ -58,11 +58,11 @@ async function askModel(
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
-  const outcome = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
+  const result = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );
-  if (!outcome.ok || outcome.text.trim() === '') return { text: describeFailedRun(task.title), remindedRecordIds: [] };
-  return { text: outcome.text, remindedRecordIds: dueRecords.map((record) => record.record_id) };
+  if (result.outcome !== 'answered' || result.text.trim() === '') return { text: describeFailedRun(task.title), remindedRecordIds: [] };
+  return { text: result.text, remindedRecordIds: dueRecords.map((record) => record.record_id) };
 }
 
 function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date, userTurn: string): ChatRequest {

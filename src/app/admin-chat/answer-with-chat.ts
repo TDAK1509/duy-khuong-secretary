@@ -6,7 +6,8 @@ import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { ADMIN_TOOLS } from './tools/admin-tools.ts';
-import { runToolLoop } from './run-tool-loop.ts';
+import { runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
+import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runAdminTool } from './tools/run-admin-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
@@ -40,15 +41,27 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
-  const outcome = await runToolLoop(requireChat(context), request, (call) => runAdminTool(dependencies, caller, call));
+  const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
   const { attachments, created, invites } = dependencies;
   return {
-    text: outcome.text,
+    text: result.text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     changeRefused: guard.hasRefused(),
   };
+}
+
+async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
+  const rounds: LoggedRound[] = [];
+  try {
+    const result = await runToolLoop(requireChat(context), request, runTool, rounds);
+    console.log(formatAdminChatLine(message.id, result.outcome, rounds));
+    return result;
+  } catch (error) {
+    console.log(formatAdminChatLine(message.id, 'chat_failed', rounds));
+    throw error;
+  }
 }
 
 async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<ChatRequest> {

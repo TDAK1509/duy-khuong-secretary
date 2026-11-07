@@ -1,30 +1,67 @@
 import type { ChatRequest, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
 import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
+import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
 
 const MAX_TOOL_ROUNDS = 5;
 const MAX_CALLS_PER_ROUND = 5;
 
 export type RunTool = (call: ToolCall) => Promise<string>;
 
-export type ToolLoopOutcome = { ok: true; text: string } | { ok: false; text: string };
+export type ToolLoopOutcome = 'answered' | 'tool_round_limit' | 'chat_failed';
 
-export async function runToolLoop(chat: ChatService, request: ChatRequest, runTool: RunTool): Promise<ToolLoopOutcome> {
+export type ToolLoopResult = { outcome: ToolLoopOutcome; text: string };
+
+export type LoggedCall = { tool: string; arguments: string; result: string };
+
+export type LoggedRound = { calls: LoggedCall[]; ran: boolean };
+
+export async function runToolLoop(
+  chat: ChatService,
+  request: ChatRequest,
+  runTool: RunTool,
+  rounds: LoggedRound[] = [],
+): Promise<ToolLoopResult> {
   let turns = request.turns;
   for (let round = 0; ; round += 1) {
     const result = await chat.respond({ ...request, turns });
-    if (!result.ok) return { ok: false, text: CHAT_FAILURE_TEXT };
-    if (result.reply.kind === 'text') return { ok: true, text: result.reply.text };
-    if (round === MAX_TOOL_ROUNDS) return { ok: false, text: TOOL_LOOP_TEXT };
-    turns = [...turns, ...(await runToolRound(result.reply.calls, runTool))];
+    if (!result.ok) return { outcome: 'chat_failed', text: CHAT_FAILURE_TEXT };
+    if (result.reply.kind === 'text') return { outcome: 'answered', text: result.reply.text };
+    if (round === MAX_TOOL_ROUNDS) {
+      rounds.push({ ran: false, calls: result.reply.calls.map(describeNotRunCall) });
+      return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
+    }
+    turns = [...turns, ...(await runToolRound(result.reply.calls, runTool, rounds))];
   }
 }
 
-async function runToolRound(calls: ToolCall[], runTool: RunTool): Promise<ChatTurn[]> {
+function describeNotRunCall(call: ToolCall): LoggedCall {
+  return { ...describeToolCall(call), result: NOT_RUN };
+}
+
+async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedRound[]): Promise<ChatTurn[]> {
   const results: ChatTurn[] = [];
+  const logged: LoggedCall[] = [];
+  rounds.push({ calls: logged, ran: true });
   for (const [index, call] of calls.entries()) {
-    const output = index < MAX_CALLS_PER_ROUND ? await runTool(call) : failInvalidArgument('calls');
+    const output = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool, logged) : skipCall(call, logged);
     results.push({ role: 'tool_result', callId: call.id, output });
   }
   return [{ role: 'assistant_tool_calls', calls }, ...results];
+}
+
+async function runCall(call: ToolCall, runTool: RunTool, logged: LoggedCall[]): Promise<string> {
+  try {
+    const output = await runTool(call);
+    logged.push({ ...describeToolCall(call), result: describeToolOutput(output) });
+    return output;
+  } catch (error) {
+    logged.push({ ...describeToolCall(call), result: THREW });
+    throw error;
+  }
+}
+
+function skipCall(call: ToolCall, logged: LoggedCall[]): string {
+  logged.push(describeNotRunCall(call));
+  return failInvalidArgument('calls');
 }

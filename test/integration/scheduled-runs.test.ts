@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
@@ -62,6 +62,18 @@ describe('the ticker runs the due scheduled tasks', () => {
     await harness.sendQueuedTexts();
 
     expect(sentTexts()).toEqual([['zu-duy', 'Hôm nay Hùng gửi 3 mục.']]);
+  });
+
+  it('writes no admin-chat line for a due task', async () => {
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await insertDueTask();
+    harness.chat.replyWith('Hôm nay Hùng gửi 3 mục.');
+
+    await harness.runTick();
+
+    const lines = logged.mock.calls.map(([line]) => String(line));
+    logged.mockRestore();
+    expect(lines.filter((line) => line.startsWith('[admin-chat]'))).toEqual([]);
   });
 
   it("stores the result in the creator's chat with the task on its outbound row", async () => {
