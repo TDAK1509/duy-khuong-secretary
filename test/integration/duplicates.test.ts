@@ -99,6 +99,18 @@ describe('rejecting duplicate papers', () => {
     ]);
   });
 
+  it('does not save a copy of a saved paper whose details have no number keys', async () => {
+    const weight = { label: 'Trọng lượng hàng', value: '27,420 Kg' };
+    harness.reader.answerWith(makeReading([makeFuelItem({ details: [{ ...weight, number: null, unit: null }] })]));
+    await harness.receivePhoto('zu-hung');
+    await database.query(`UPDATE records SET details = '${JSON.stringify([weight])}'::jsonb`);
+    harness.reader.answerWith(makeReading([makeFuelItem({ details: [{ ...weight, number: 27420, unit: 'kg' }] })]));
+
+    await harness.receivePhoto('zu-lan');
+
+    expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
+  });
+
   it('rejects the whole message when one of its items is a duplicate', async () => {
     const toll = (documentNumber: string, amount: number) =>
       makeItem({ category: 'phí cầu đường', document_number: documentNumber, amount_vnd: amount, occurred_on: '2026-10-30' });
