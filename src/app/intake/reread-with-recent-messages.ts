@@ -4,12 +4,13 @@ import { findRecentMessages, type RecentMessages, type RecentPhoto } from './fin
 import type { IntakeContext } from './intake-context.ts';
 import { wrapRecentMessages } from './intake-texts.ts';
 import { planReply, type ReplyPlan } from './plan-reply.ts';
+import type { ReadAttempt } from '../reading/reading.ts';
 import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 
 export type RereadPhoto = RecentPhoto & { content: Photo };
 
-export type Reread = { plan: ReplyPlan; photo: RereadPhoto | null };
+export type Reread = { attempt: ReadAttempt; plan: ReplyPlan; photo: RereadPhoto | null };
 
 export async function rereadWithRecentMessages(context: IntakeContext, message: { id: string; text: string }): Promise<Reread | null> {
   const recent = await findRecentMessagesOf(context, message.id);
@@ -17,7 +18,7 @@ export async function rereadWithRecentMessages(context: IntakeContext, message: 
   const photo = await loadRecentPhoto(context, recent.photo);
   const text = wrapRecentMessages([...recent.texts, message.text]);
   const attempt = await readMessage(context, { text, photo: photo?.content ?? null });
-  return { plan: planReply(attempt, photo !== null), photo };
+  return { attempt, plan: planReply(attempt, photo !== null), photo };
 }
 
 function findRecentMessagesOf(context: IntakeContext, messageId: string): Promise<RecentMessages> {
@@ -32,7 +33,7 @@ export async function rereadPhotoWithRecentTexts(
   if (recent.texts.length === 0) return null;
   const caption = message.text === null ? [] : [message.text];
   const attempt = await readMessage(context, { text: wrapRecentMessages([...recent.texts, ...caption]), photo: message.photo });
-  return { plan: planReply(attempt, true), photo: null };
+  return { attempt, plan: planReply(attempt, true), photo: null };
 }
 
 async function loadRecentPhoto(context: IntakeContext, photo: RecentPhoto | null): Promise<RereadPhoto | null> {
