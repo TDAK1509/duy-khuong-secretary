@@ -21,7 +21,7 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
 }
 
 function buildTotalSql(groupBy: NumberGroup, recordSql: string, labelMatch: string): string {
-  const groupKey = buildGroupKey(groupBy);
+  const groupKey = GROUP_KEYS[groupBy];
   return `WITH matching AS (
       SELECT record.details, ${groupKey.id} AS group_id, ${groupKey.name} AS group_name
       FROM records record
@@ -37,14 +37,16 @@ function buildTotalSql(groupBy: NumberGroup, recordSql: string, labelMatch: stri
     ORDER BY group_name NULLS LAST, unit, group_id`;
 }
 
-function buildGroupKey(groupBy: NumberGroup): { id: string; name: string } {
-  if (groupBy === 'member') {
-    return {
-      id: 'record.user_id::text',
-      name: 'first_value(record.sender_name) OVER (PARTITION BY record.user_id ORDER BY record.created_at DESC, record.id DESC)',
-    };
-  }
-  if (groupBy === 'plate') return { id: 'record.vehicle_plate', name: 'record.vehicle_plate' };
-  if (groupBy === 'occurred_on') return { id: `to_char(record.occurred_on, 'YYYY-MM-DD')`, name: `to_char(record.occurred_on, 'YYYY-MM-DD')` };
-  return { id: 'NULL::text', name: 'NULL::text' };
-}
+type GroupKey = { id: string; name: string };
+
+const DOCUMENT_DATE = `to_char(record.occurred_on, 'YYYY-MM-DD')`;
+
+const LATEST_SENDER_NAME = 'first_value(record.sender_name) OVER (PARTITION BY record.user_id ORDER BY record.created_at DESC, record.id DESC)';
+
+const GROUP_KEYS: Record<NumberGroup, GroupKey> = {
+  none: { id: 'NULL::text', name: 'NULL::text' },
+  member: { id: 'record.user_id::text', name: LATEST_SENDER_NAME },
+  plate: { id: 'record.vehicle_plate', name: 'record.vehicle_plate' },
+  category: { id: 'record.category', name: 'record.category' },
+  occurred_on: { id: DOCUMENT_DATE, name: DOCUMENT_DATE },
+};

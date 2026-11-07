@@ -205,4 +205,16 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"29C12345","unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":"51D67890","unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
     );
   });
+
+  it('groups the total by category', async () => {
+    for (const [category, number] of [['nhận hàng', 200], ['giao hàng', 100]] as const) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category, details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng', 'category');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"giao hàng","unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":"nhận hàng","unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
+    );
+  });
 });
