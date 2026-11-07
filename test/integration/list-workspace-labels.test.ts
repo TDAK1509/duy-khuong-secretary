@@ -46,4 +46,12 @@ describe('listWorkspaceLabels', () => {
 
     expect(await listLabels()).toEqual(['Trọng lượng hàng', 'Nơi nhận']);
   });
+
+  it('counts a label repeated inside one record once', async () => {
+    await saveRecord(['Nơi nhận', 'Nơi nhận']);
+    await saveRecord(['Hàng hóa']);
+    await saveRecord(['Hàng hóa']);
+
+    expect(await listLabels()).toEqual(['Hàng hóa', 'Nơi nhận']);
+  });
 });
