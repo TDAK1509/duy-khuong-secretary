@@ -51,7 +51,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
-  list_number_labels: ({ database }) => runListNumberLabels(database),
+  list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {

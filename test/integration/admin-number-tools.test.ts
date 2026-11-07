@@ -83,4 +83,23 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":true,"labels":[]}');
   });
+
+  it('lists only the labels of the records that match the text filter', async () => {
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: [weight(27420), { label: 'Nơi nhận', value: 'Cheng Loong', number: null, unit: null }],
+    });
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: [weight(120, 'km', 'Số km'), { label: 'Nơi nhận', value: 'Chánh Dương', number: null, unit: null }],
+    });
+
+    const output = await runListNumberLabels({ text: 'cheng loong' });
+
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
+  });
 });
