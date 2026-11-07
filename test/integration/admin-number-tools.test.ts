@@ -177,4 +177,20 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"2026-11-05","unit":"kg","count":1,"sum":"27420","min":"27420","max":"27420"},{"group":"2026-11-06","unit":"kg","count":1,"sum":"27420","min":"27420","max":"27420"}],"without_number":0}',
     );
   });
+
+  it('groups the total by user, so two members with the same name stay apart, under the latest name of each', async () => {
+    const otherHungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung-2', displayName: 'Hùng' });
+    const records = [
+      { userId: hungUserId, senderName: 'Hùng cũ', number: 100, createdAt: new Date('2026-11-01T10:00:00+07:00') },
+      { userId: hungUserId, senderName: 'Hùng', number: 50, createdAt: new Date('2026-11-02T10:00:00+07:00') },
+      { userId: otherHungUserId, senderName: 'Hùng', number: 200, createdAt: new Date('2026-11-03T10:00:00+07:00') },
+    ];
+    for (const { number, ...record } of records) {
+      await insertRecordRow(database, { workspaceId, ...record, details: [weight(number)] });
+    }
+
+    const output = JSON.parse(await runTotalNumbers('Trọng lượng hàng', 'member')) as { groups: { group: string; sum: string }[] };
+
+    expect(output.groups.map((group) => [group.group, group.sum]).sort()).toEqual([['Hùng', '150'], ['Hùng', '200']]);
+  });
 });

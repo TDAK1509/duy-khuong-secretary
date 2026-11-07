@@ -16,19 +16,34 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
   const where = buildWhere(scope, request.filters);
   const recordSql = where.toSql();
   const labelMatch = buildAccentFreeEquals(where, `detail ->> 'label'`, request.label);
-  const { rows } = await database.query<NumberTotal>(
-    `SELECT ${buildGroupKey(request.groupBy)} AS "group", detail ->> 'unit' AS unit, count(*)::int AS count,
-       sum((detail -> 'number')::numeric)::text AS sum, min((detail -> 'number')::numeric)::text AS min, max((detail -> 'number')::numeric)::text AS max
-     FROM records record CROSS JOIN LATERAL jsonb_array_elements(record.details) detail
-     WHERE ${recordSql} AND ${labelMatch}
-     GROUP BY "group", unit
-     ORDER BY "group" NULLS LAST, unit`,
-    where.values,
-  );
+  const { rows } = await database.query<NumberTotal>(buildTotalSql(request.groupBy, recordSql, labelMatch), where.values);
   return { groups: rows, withoutNumber: 0 };
 }
 
-function buildGroupKey(groupBy: NumberGroup): string {
-  if (groupBy === 'occurred_on') return `to_char(record.occurred_on, 'YYYY-MM-DD')`;
-  return 'NULL::text';
+function buildTotalSql(groupBy: NumberGroup, recordSql: string, labelMatch: string): string {
+  const groupKey = buildGroupKey(groupBy);
+  return `WITH matching AS (
+      SELECT record.details, ${groupKey.id} AS group_id, ${groupKey.name} AS group_name
+      FROM records record
+      WHERE ${recordSql}
+    ), labelled AS (
+      SELECT matching.group_id, matching.group_name, detail ->> 'unit' AS unit, (detail -> 'number')::numeric AS amount
+      FROM matching CROSS JOIN LATERAL jsonb_array_elements(matching.details) detail
+      WHERE ${labelMatch}
+    )
+    SELECT group_name AS "group", unit, count(amount)::int AS count, sum(amount)::text AS sum, min(amount)::text AS min, max(amount)::text AS max
+    FROM labelled
+    GROUP BY group_id, group_name, unit
+    ORDER BY group_name NULLS LAST, unit, group_id`;
+}
+
+function buildGroupKey(groupBy: NumberGroup): { id: string; name: string } {
+  if (groupBy === 'member') {
+    return {
+      id: 'record.user_id::text',
+      name: 'first_value(record.sender_name) OVER (PARTITION BY record.user_id ORDER BY record.created_at DESC, record.id DESC)',
+    };
+  }
+  if (groupBy === 'occurred_on') return { id: `to_char(record.occurred_on, 'YYYY-MM-DD')`, name: `to_char(record.occurred_on, 'YYYY-MM-DD')` };
+  return { id: 'NULL::text', name: 'NULL::text' };
 }
