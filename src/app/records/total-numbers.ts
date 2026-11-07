@@ -27,6 +27,19 @@ const GROUP_KEYS: Record<NumberGroup, GroupKey> = {
   occurred_on: { id: DOCUMENT_DATE, name: DOCUMENT_DATE },
 };
 
+const SUMMARISE_LABELLED = `, totals AS (
+    SELECT group_id, group_name AS "group", unit, count(amount)::int AS count, sum(amount)::text AS sum,
+      min(amount)::text AS min, max(amount)::text AS max
+    FROM labelled
+    WHERE amount IS NOT NULL
+    GROUP BY group_id, group_name, unit
+  ), missing AS (
+    SELECT count(DISTINCT record_id)::int AS without_number FROM labelled WHERE amount IS NULL
+  )
+  SELECT totals."group", totals.unit, totals.count, totals.sum, totals.min, totals.max, missing.without_number
+  FROM missing LEFT JOIN totals ON true
+  ORDER BY totals."group" NULLS LAST, totals.unit, totals.group_id`;
+
 type TotalRow = { group: string | null; unit: string | null; count: number; sum: string; min: string; max: string; without_number: number };
 
 export async function totalNumbers(database: Database, scope: AccessScope, request: TotalRequest): Promise<NumberTotals> {
@@ -41,29 +54,22 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
 
 type TotalSqlParts = { groupBy: NumberGroup; recordSql: string; labelMatch: string; validNumberPair: string };
 
-function buildTotalSql({ groupBy, recordSql, labelMatch, validNumberPair }: TotalSqlParts): string {
+function buildTotalSql(parts: TotalSqlParts): string {
+  return `WITH matching AS (${buildMatching(parts)}), labelled AS (${buildLabelled(parts)}) ${SUMMARISE_LABELLED}`;
+}
+
+function buildMatching({ groupBy, recordSql }: TotalSqlParts): string {
   const groupKey = GROUP_KEYS[groupBy];
-  return `WITH matching AS (
-      SELECT record.id, record.details, ${groupKey.id} AS group_id, ${groupKey.name} AS group_name
-      FROM records record
-      WHERE ${recordSql}
-    ), labelled AS (
-      SELECT matching.id AS record_id, matching.group_id, matching.group_name, detail ->> 'unit' AS unit,
-        CASE WHEN ${validNumberPair} THEN (detail -> 'number')::numeric END AS amount
-      FROM matching CROSS JOIN LATERAL jsonb_array_elements(matching.details) detail
-      WHERE ${labelMatch}
-    ), totals AS (
-      SELECT group_id, group_name AS "group", unit, count(amount)::int AS count, sum(amount)::text AS sum,
-        min(amount)::text AS min, max(amount)::text AS max
-      FROM labelled
-      WHERE amount IS NOT NULL
-      GROUP BY group_id, group_name, unit
-    ), missing AS (
-      SELECT count(DISTINCT record_id)::int AS without_number FROM labelled WHERE amount IS NULL
-    )
-    SELECT totals."group", totals.unit, totals.count, totals.sum, totals.min, totals.max, missing.without_number
-    FROM missing LEFT JOIN totals ON true
-    ORDER BY totals."group" NULLS LAST, totals.unit, totals.group_id`;
+  return `SELECT record.id, record.details, ${groupKey.id} AS group_id, ${groupKey.name} AS group_name
+    FROM records record
+    WHERE ${recordSql}`;
+}
+
+function buildLabelled({ labelMatch, validNumberPair }: TotalSqlParts): string {
+  return `SELECT matching.id AS record_id, matching.group_id, matching.group_name, detail ->> 'unit' AS unit,
+      CASE WHEN ${validNumberPair} THEN (detail -> 'number')::numeric END AS amount
+    FROM matching CROSS JOIN LATERAL jsonb_array_elements(matching.details) detail
+    WHERE ${labelMatch}`;
 }
 
 function hasGroup(row: TotalRow): row is TotalRow & { unit: string } {
