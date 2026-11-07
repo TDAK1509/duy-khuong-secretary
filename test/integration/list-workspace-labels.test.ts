@@ -87,4 +87,16 @@ describe('listWorkspaceLabels', () => {
 
     expect(await listLabels()).toHaveLength(30);
   });
+
+  it('leaves out a label longer than 60 characters', async () => {
+    await saveRecord(['a'.repeat(61)]);
+
+    expect(await listLabels()).toEqual([]);
+  });
+
+  it('keeps a label of exactly 60 characters', async () => {
+    await saveRecord(['a'.repeat(60)]);
+
+    expect(await listLabels()).toEqual(['a'.repeat(60)]);
+  });
 });
