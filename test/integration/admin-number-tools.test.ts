@@ -322,6 +322,10 @@ describe('the number tools of an admin', () => {
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
   });
 
+  function buildNumberDetail(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
+    return { label, value: `${number} ${unit}`, number, unit };
+  }
+
   async function runListNumberLabels(filters: Filters = {}, scope: AccessScope = duy): Promise<string> {
     const args = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, occurred_from: null, occurred_to: null, ...filters };
     const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
@@ -332,9 +336,5 @@ describe('the number tools of an admin', () => {
     const args = { label, text: null, category: null, member: null, plate: null, added_from: null, added_to: null, occurred_from: null, occurred_to: null, ...filters, group_by: groupBy };
     const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, scope, { id: 'call_1', name: 'total_numbers', argumentsJson: JSON.stringify(args) });
-  }
-
-  function buildNumberDetail(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
-    return { label, value: `${number} ${unit}`, number, unit };
   }
 });
