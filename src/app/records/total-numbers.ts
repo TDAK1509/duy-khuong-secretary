@@ -27,13 +27,6 @@ const GROUP_KEYS: Record<NumberGroup, GroupKey> = {
   occurred_on: { id: DOCUMENT_DATE, name: DOCUMENT_DATE },
 };
 
-const SELECT_NEWEST_COPIES = `SELECT * FROM (
-    SELECT matching.*, CASE WHEN matching.document_number IS NULL THEN 1 ELSE row_number() OVER (
-      PARTITION BY matching.category, matching.document_number, matching.vehicle_plate, matching.occurred_on
-      ORDER BY matching.created_at DESC, matching.id DESC) END AS copy_rank
-    FROM matching
-  ) ranked WHERE copy_rank = 1`;
-
 const SUMMARISE_LABELLED = `, totals AS (
     SELECT group_id, group_name AS "group", unit, count(amount)::int AS count, sum(amount)::text AS sum,
       min(amount)::text AS min, max(amount)::text AS max
@@ -62,7 +55,7 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
 type TotalSqlParts = { groupBy: NumberGroup; recordSql: string; labelMatch: string; validNumberPair: string };
 
 function buildTotalSql(parts: TotalSqlParts): string {
-  return `WITH matching AS (${buildMatching(parts)}), newest AS (${SELECT_NEWEST_COPIES}), labelled AS (${buildLabelled(parts)}) ${SUMMARISE_LABELLED}`;
+  return `WITH matching AS (${buildMatching(parts)}), newest AS (${buildNewest(parts)}), labelled AS (${buildLabelled(parts)}) ${SUMMARISE_LABELLED}`;
 }
 
 function buildMatching({ groupBy, recordSql }: TotalSqlParts): string {
@@ -71,6 +64,16 @@ function buildMatching({ groupBy, recordSql }: TotalSqlParts): string {
       record.category, record.document_number, record.vehicle_plate, record.occurred_on, record.created_at
     FROM records record
     WHERE ${recordSql}`;
+}
+
+function buildNewest({ labelMatch }: TotalSqlParts): string {
+  return `SELECT * FROM (
+    SELECT matching.*, CASE WHEN matching.document_number IS NULL THEN 1 ELSE row_number() OVER (
+      PARTITION BY matching.category, matching.document_number, matching.vehicle_plate, matching.occurred_on
+      ORDER BY matching.created_at DESC, matching.id DESC) END AS copy_rank
+    FROM matching
+    WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(matching.details) detail WHERE ${labelMatch})
+  ) ranked WHERE copy_rank = 1`;
 }
 
 function buildLabelled({ labelMatch, validNumberPair }: TotalSqlParts): string {
