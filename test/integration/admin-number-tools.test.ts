@@ -92,6 +92,24 @@ describe('the number tools of an admin', () => {
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: null, count: 1 }] }));
   });
 
+  it('lists a label with a number in one record and none in another on two lines', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh')] });
+    const unreadWeight = { label: 'Trọng lượng tịnh', value: '26320', number: null, unit: null };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [unreadWeight] });
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe(
+      JSON.stringify({
+        ok: true,
+        labels: [
+          { label: 'Trọng lượng tịnh', unit: 'kg', count: 1 },
+          { label: 'Trọng lượng tịnh', unit: null, count: 1 },
+        ],
+      }),
+    );
+  });
+
   it('lists only the labels of the records that match the text filter', async () => {
     await insertRecordRow(database, {
       workspaceId,
