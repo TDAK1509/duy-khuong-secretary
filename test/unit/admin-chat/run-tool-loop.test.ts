@@ -53,4 +53,15 @@ describe('the tool loop', () => {
 
     expect(rounds[0]?.calls.map((call) => call.result)).toEqual(['1', '1', '1', '1', '1', 'not_run']);
   });
+
+  it('fails the chat when the first request fails and runs no round', async () => {
+    const chat = new FakeChatService();
+    chat.failWith('timeout');
+    const rounds: LoggedRound[] = [];
+
+    const result = await runToolLoop(chat, REQUEST, async () => '{}', rounds);
+
+    expect(result.outcome).toBe('chat_failed');
+    expect(rounds).toEqual([]);
+  });
 });
