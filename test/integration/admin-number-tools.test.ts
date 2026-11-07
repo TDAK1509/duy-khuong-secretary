@@ -391,6 +391,17 @@ describe('the number tools of an admin', () => {
     );
   });
 
+  it('counts two copies with no plate as one ticket', async () => {
+    await insertTicketCopy({ vehiclePlate: null });
+    await insertTicketCopy({ vehiclePlate: null });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
