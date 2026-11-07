@@ -309,4 +309,10 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: group_by"}');
   });
+
+  it.each(['  ', ''])('refuses the empty label %j with the invalid argument result', async (label) => {
+    const output = await runTotalNumbers(label);
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: label"}');
+  });
 });
