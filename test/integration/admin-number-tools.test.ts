@@ -285,4 +285,12 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":true,"label":"Trọng lượng hàng","groups":[],"without_number":1}');
   });
+
+  it('gives no groups when no record has the label', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
+
+    const output = await runTotalNumbers('Số km');
+
+    expect(output).toBe('{"ok":true,"label":"Số km","groups":[],"without_number":0}');
+  });
 });
