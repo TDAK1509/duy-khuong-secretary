@@ -15,7 +15,7 @@ export type NewRecordRow = {
   amountVnd?: number | null;
   identifiers?: string[];
   summary?: string;
-  details?: { label: string; value: string }[];
+  details?: { label: string; value: string; number?: unknown; unit?: unknown }[];
   createdAt?: Date;
   savedAt?: Date;
   hasPhoto?: boolean;
