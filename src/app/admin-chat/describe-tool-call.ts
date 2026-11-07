@@ -2,6 +2,7 @@ import type { ToolCall } from '../../services/chat/chat-service.ts';
 import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
+const INVALID_ARGUMENTS = 'invalid';
 
 const DATE_ARGUMENTS = ['added_from', 'added_to', 'occurred_from', 'occurred_to'];
 
@@ -10,12 +11,22 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 }
 
 function describeArguments(argumentsJson: string): string {
-  const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
+  const parsed = parseArguments(argumentsJson);
+  if (parsed === null) return INVALID_ARGUMENTS;
   return Object.keys(parsed)
     .filter((name) => !isEmptyArgument(parsed[name]))
     .sort()
     .map((name) => describeArgument(name, parsed[name]))
     .join(';');
+}
+
+function parseArguments(argumentsJson: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(argumentsJson);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 function isEmptyArgument(value: unknown): boolean {

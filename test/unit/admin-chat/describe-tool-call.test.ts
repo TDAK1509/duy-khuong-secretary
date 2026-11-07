@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { describeToolCall } from '../../../src/app/admin-chat/describe-tool-call.ts';
 
 function describeArguments(argumentsObject: unknown): string {
-  return describeToolCall({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(argumentsObject) }).arguments;
+  return describeArgumentsJson(JSON.stringify(argumentsObject));
+}
+
+function describeArgumentsJson(argumentsJson: string): string {
+  return describeToolCall({ id: 'call_1', name: 'search_records', argumentsJson }).arguments;
 }
 
 describe('describing a tool call for the log', () => {
@@ -34,5 +38,13 @@ describe('describing a tool call for the log', () => {
 
   it('sorts the argument names lexically', () => {
     expect(describeArguments({ text: 'a', added_to: '2026-11-06', category: 'b' })).toBe('added_to:2026-11-06;category;text');
+  });
+
+  it('shows invalid for arguments that cannot be parsed', () => {
+    expect(describeArgumentsJson('{')).toBe('invalid');
+  });
+
+  it.each(['null', '[]', '"text"', '5'])('shows invalid for arguments that are not an object: %s', (argumentsJson) => {
+    expect(describeArgumentsJson(argumentsJson)).toBe('invalid');
   });
 });
