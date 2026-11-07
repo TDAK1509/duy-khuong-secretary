@@ -74,4 +74,13 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 3 }] }));
   });
+
+  it('does not list a detail without a valid number', async () => {
+    const withoutNumber = { label: 'Nơi nhận', value: 'Cheng Loong', number: null, unit: null };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [withoutNumber] });
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe('{"ok":true,"labels":[]}');
+  });
 });
