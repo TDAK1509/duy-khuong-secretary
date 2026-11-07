@@ -8,7 +8,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { insertRecordRow } from './record-rows.ts';
+import { insertRecordRow, type NewRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -321,6 +321,31 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
   });
+
+  it('counts two copies of one ticket once', async () => {
+    await insertTicketCopy();
+    await insertTicketCopy();
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
+    return insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'nhận hàng',
+      documentNumber: '20261105054',
+      vehiclePlate: '93C04588',
+      occurredOn: '2026-11-05',
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh')],
+      ...copy,
+    });
+  }
 
   function buildNumberDetail(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
     return { label, value: `${number} ${unit}`, number, unit };
