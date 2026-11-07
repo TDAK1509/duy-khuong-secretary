@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
+export const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
 
 type StandardUnit = (typeof STANDARD_UNITS)[number];
 

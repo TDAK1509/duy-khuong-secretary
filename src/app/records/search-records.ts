@@ -7,7 +7,7 @@ import { WhereClause } from './where-clause.ts';
 
 const PAGE_SIZE = 50;
 
-export type SearchFilters = {
+export type RecordFilters = {
   text: string | null;
   category: string | null;
   member: string | null;
@@ -16,8 +16,9 @@ export type SearchFilters = {
   addedTo: string | null;
   occurredFrom: string | null;
   occurredTo: string | null;
-  cursor: SearchCursor | null;
 };
+
+export type SearchFilters = RecordFilters & { cursor: SearchCursor | null };
 
 export type FoundRecord = {
   id: string;
@@ -51,6 +52,7 @@ const SELECT_FOUND_ROWS = `SELECT record.id, record.sender_name AS member, recor
 
 export async function searchRecords(database: Database, scope: AccessScope, filters: SearchFilters): Promise<SearchPage> {
   const where = buildWhere(scope, filters);
+  addCursorCondition(where, filters.cursor);
   const { rows } = await database.query<FoundRow>(
     `${SELECT_FOUND_ROWS} WHERE ${where.toSql()}
      ORDER BY record.created_at DESC, record.id DESC
@@ -60,7 +62,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
   return toPage(rows);
 }
 
-function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
+export function buildWhere(scope: AccessScope, filters: RecordFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
@@ -69,9 +71,6 @@ function buildWhere(scope: AccessScope, filters: SearchFilters): WhereClause {
   if (filters.category !== null) where.require(buildAccentFreeEquals(where, 'record.category', filters.category));
   addDateConditions(where, filters);
   addDocumentDateConditions(where, filters);
-  if (filters.cursor !== null) {
-    where.require(`(record.created_at, record.id) < (${where.bind(filters.cursor.createdAt)}::timestamptz, ${where.bind(filters.cursor.id)}::uuid)`);
-  }
   return where;
 }
 
@@ -98,9 +97,14 @@ function buildCodeCondition(where: WhereClause, text: string): string {
     OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
 }
 
-function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
+export function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
   const bound = where.bind(toAccentFreeForm(text) ?? '');
   return `regexp_replace(trim(lower(unaccent(${column}))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function addCursorCondition(where: WhereClause, cursor: SearchCursor | null): void {
+  if (cursor === null) return;
+  where.require(`(record.created_at, record.id) < (${where.bind(cursor.createdAt)}::timestamptz, ${where.bind(cursor.id)}::uuid)`);
 }
 
 function toPage(rows: FoundRow[]): SearchPage {

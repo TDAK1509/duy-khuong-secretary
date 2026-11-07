@@ -43,8 +43,9 @@ describe('the rules about who may change things in the admin prompt', () => {
     'Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member. Nếu có hai người trùng tên, hỏi lại trước khi xóa và nêu ngày vào nhóm của từng người.',
     'Việc thay đổi:',
     '- Việc thay đổi là create_scheduled_task, cancel_scheduled_task, create_invite và remove_member. Chỉ làm khi quản lý viết yêu cầu đó trong tin nhắn.',
-    '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã gọi search_records hoặc maintenance_status.',
-    '- Khi quản lý nhờ một việc thay đổi, không gọi search_records hoặc maintenance_status. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
+    '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_number_labels và total_numbers.',
+    '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
     '- Nếu việc thay đổi bị từ chối, không gọi lại và không nói là đã làm. Hệ thống tự gửi hướng dẫn cho quản lý.',
     '- Câu "(Câu trả lời cũ đã được ẩn.)" là một câu trả lời trước của bạn. Mọi câu trả lời trước đều được ẩn. Nếu cần dữ liệu cũ, gọi lại công cụ. Không viết câu này trong câu trả lời.',
   ])('holds the line %s', (line) => {
@@ -84,5 +85,56 @@ describe('the rules about the date on the document in the admin prompt', () => {
     const start = prompt.split('\n').indexOf(dateLines[0] ?? '');
 
     expect(prompt.split('\n').slice(start, start + dateLines.length)).toEqual(dateLines);
+  });
+});
+
+describe('the rules about totals of stored numbers in the admin prompt', () => {
+  const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00') });
+  const lines = prompt.split('\n');
+  const countLine = '- Để đếm hoặc cộng tiền, dùng count_records. Không tự đếm từ kết quả search_records.';
+  const totalsLines = [
+    '- Để tổng hợp một số trong chi tiết đã lưu, dùng total_numbers.',
+    '- Nếu chưa biết nhãn phù hợp, gọi list_number_labels với cùng bộ lọc trước.',
+    '- Không tự cộng số từ value hoặc từ các trang search_records.',
+    '- Không tự gộp hai nhãn khác nhau.',
+    '- Nếu nhiều nhãn có thể phù hợp, nêu riêng kết quả từng nhãn. Không tự cộng các kết quả đó.',
+    '- Để lọc nhà máy, nơi nhận hoặc nơi giao, dùng text.',
+    '- Với nhiều nơi, gọi total_numbers riêng cho từng nơi. Không ghi nhiều tên nơi trong một text.',
+    '- Khi chia theo ngày trên giấy tờ, dùng group_by là "occurred_on".',
+    '- Nếu without_number lớn hơn 0, nêu số mục có nhãn nhưng thiếu số chuẩn.',
+    '- Nếu không có nhóm nào, nói rõ chưa đủ dữ liệu để tính. Không nói tổng là 0.',
+    '- Viết kết quả kèm đơn vị. Không cộng các đơn vị khác nhau.',
+  ];
+  const changeLines = [
+    '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_number_labels và total_numbers.',
+    '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
+  ];
+
+  it('holds the replaced search line', () => {
+    expect(lines).toContain('- Khi người dùng hỏi chi tiết dữ liệu đã lưu, gọi search_records rồi trả lời dựa trên kết quả.');
+  });
+
+  it('no longer holds the old search line', () => {
+    expect(lines).not.toContain('- Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.');
+  });
+
+  it('holds the eleven totals lines right after the count_records line, in order', () => {
+    const start = lines.indexOf(countLine);
+
+    expect(start).toBeGreaterThan(-1);
+    expect(lines.slice(start + 1, start + 1 + totalsLines.length)).toEqual(totalsLines);
+  });
+
+  it('holds the three change lines one after the other, in order', () => {
+    const start = lines.indexOf(changeLines[0] ?? '');
+
+    expect(start).toBeGreaterThan(-1);
+    expect(lines.slice(start, start + changeLines.length)).toEqual(changeLines);
+  });
+
+  it('no longer holds the two old change lines', () => {
+    expect(lines).not.toContain('- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã gọi search_records hoặc maintenance_status.');
+    expect(lines).not.toContain('- Khi quản lý nhờ một việc thay đổi, không gọi search_records hoặc maintenance_status. Để lấy id, dùng list_members hoặc list_scheduled_tasks.');
   });
 });
