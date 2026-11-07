@@ -8,7 +8,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { insertRecordRow } from './record-rows.ts';
+import { insertRecordRow, type NewRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -321,6 +321,163 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
   });
+
+  it('counts two copies of one ticket once', async () => {
+    await insertTicketCopy();
+    await insertTicketCopy();
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('takes the number of the newest copy of a ticket', async () => {
+    await insertTicketCopy({ createdAt: new Date('2026-11-06T09:00:00+07:00'), details: [buildNumberDetail(26000, 'kg', 'Trọng lượng tịnh')] });
+    await insertTicketCopy({ createdAt: new Date('2026-11-07T09:00:00+07:00') });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('takes the number of the copy with the highest record id when copies are saved at the same moment', async () => {
+    const savedAt = new Date('2026-11-07T09:00:00+07:00');
+    const copies: { id: string; weight: number }[] = [];
+    for (const weight of [26001, 26002, 26003, 26004, 26005]) {
+      const id = await insertTicketCopy({ createdAt: savedAt, details: [buildNumberDetail(weight, 'kg', 'Trọng lượng tịnh')] });
+      copies.push({ id, weight });
+    }
+    const highestIdCopy = copies.reduce((highest, copy) => (copy.id > highest.id ? copy : highest));
+
+    const output = JSON.parse(await runTotalNumbers('Trọng lượng tịnh')) as { groups: { count: number; sum: string }[] };
+
+    expect(output.groups).toEqual([expect.objectContaining({ count: 1, sum: String(highestIdCopy.weight) })]);
+  });
+
+  it('counts the same document number on two plates as two tickets', async () => {
+    await insertTicketCopy({ vehiclePlate: '93C04588' });
+    await insertTicketCopy({ vehiclePlate: '93C01619' });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('counts the same document number on two document dates as two tickets', async () => {
+    await insertTicketCopy({ occurredOn: '2026-11-05' });
+    await insertTicketCopy({ occurredOn: '2026-11-06' });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('counts the same document number in two categories as two tickets', async () => {
+    await insertTicketCopy({ category: 'nhận hàng' });
+    await insertTicketCopy({ category: 'giao hàng' });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('counts two copies with no plate as one ticket', async () => {
+    await insertTicketCopy({ vehiclePlate: null });
+    await insertTicketCopy({ vehiclePlate: null });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('counts every record that has no document number', async () => {
+    await insertTicketCopy({ documentNumber: null });
+    await insertTicketCopy({ documentNumber: null });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('keeps a ticket whose newer copy lacks the label', async () => {
+    await insertTicketCopy({ createdAt: new Date('2026-11-06T09:00:00+07:00') });
+    await insertTicketCopy({ createdAt: new Date('2026-11-07T09:00:00+07:00'), details: [buildNumberDetail(26380, 'kg', 'Tịnh trọng cuối cùng')] });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('keeps a ticket whose newer copy is outside the text filter', async () => {
+    const buildReceiverDetail = (factory: string) => ({ label: 'Nơi nhận', value: factory, number: null, unit: null });
+    await insertTicketCopy({
+      createdAt: new Date('2026-11-06T09:00:00+07:00'),
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), buildReceiverDetail('Cheng Loong')],
+    });
+    await insertTicketCopy({
+      createdAt: new Date('2026-11-07T09:00:00+07:00'),
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), buildReceiverDetail('Chánh Dương')],
+    });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh', 'none', { text: 'cheng loong' });
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('keeps a ticket whose newer copy is in another workspace', async () => {
+    await insertTicketCopy({ createdAt: new Date('2026-11-06T09:00:00+07:00') });
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertTicketCopy({ workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', createdAt: new Date('2026-11-07T09:00:00+07:00') });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
+  it('counts a ticket once in without_number', async () => {
+    const unreadWeight = { label: 'Trọng lượng tịnh', value: '26380', number: null, unit: null };
+    await insertTicketCopy({ details: [unreadWeight] });
+    await insertTicketCopy({ details: [unreadWeight] });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe('{"ok":true,"label":"Trọng lượng tịnh","groups":[],"without_number":1}');
+  });
+
+  function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
+    return insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      category: 'nhận hàng',
+      documentNumber: '20261105054',
+      vehiclePlate: '93C04588',
+      occurredOn: '2026-11-05',
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh')],
+      ...copy,
+    });
+  }
 
   function buildNumberDetail(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
     return { label, value: `${number} ${unit}`, number, unit };
