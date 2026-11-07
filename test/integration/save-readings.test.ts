@@ -387,6 +387,15 @@ describe('saving what the reader returns', () => {
     expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
   });
 
+  it('stores the label, printed value, number and unit of a detail', async () => {
+    const weight = { label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' as const };
+    harness.reader.answerWith(makeReading([makeFuelItem({ details: [weight] })]));
+
+    await harness.receiveText('zu-hung', 'Phiếu cân 27,420 Kg');
+
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details: [weight] }]);
+  });
+
   it('copies the display name of the sender onto the record', async () => {
     harness.reader.answerWith(makeReading([makeFuelItem()]));
 
