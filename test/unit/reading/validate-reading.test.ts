@@ -75,4 +75,13 @@ describe('validateReading', () => {
       reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' }] }] },
     });
   });
+
+  it('keeps zero as a valid number', () => {
+    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '0 l', number: 0, unit: 'l' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Số lít', value: '0 l', number: 0, unit: 'l' }] }] },
+    });
+  });
 });
