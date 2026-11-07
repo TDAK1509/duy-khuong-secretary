@@ -109,6 +109,20 @@ describe('the backfill-detail-numbers command', () => {
     ]);
   });
 
+  it('leaves a record unchanged when no detail gains a number', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [{ label: 'Ngày cấp', value: '01/11/2026', number: null, unit: null }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: null, unit: null }] });
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Checked 1 records. Added numbers to 0. Failed 0.']);
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
+  });
+
   it('asks the reader with the plan prompt, schema and schema name', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details: [{ label: 'Ngày cấp', value: '01/11/2026' }] });
@@ -214,14 +228,10 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     ]);
   });
 
-  it('stores null for an unknown unit and asks the reader again on the next run', async () => {
+  it('leaves a record unchanged for an unknown unit and asks the reader again on the next run', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await insertRecordRow(database, {
-      workspaceId,
-      userId,
-      senderName: 'Duy',
-      details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn' }],
-    });
+    const details = [{ label: 'Trọng lượng hàng', value: '27,41 tấn' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
     reader.answerWith({ details: [{ index: 0, number: 27.41, unit: 'tấn' }] });
     await runBackfill(workspaceId, reader);
@@ -230,9 +240,7 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
 
     await runBackfill(workspaceId, reader);
 
-    expect(detailsAfterFirstRun).toEqual([
-      { details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] },
-    ]);
+    expect(detailsAfterFirstRun).toEqual([{ details }]);
     expect(reader.requests).toHaveLength(callsAfterFirstRun + 1);
   });
 
@@ -393,24 +401,18 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     ).toEqual([{ details }]);
   });
 
-  it('stores null for a numeric string from the reader and finishes the record', async () => {
+  it('leaves a record unchanged for a numeric string from the reader', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await insertRecordRow(database, {
-      workspaceId,
-      userId,
-      senderName: 'Duy',
-      details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }],
-    });
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
     reader.answerWith({ details: [{ index: 0, number: '27420', unit: 'kg' }] });
 
     const { exitCode, lines } = await runBackfill(workspaceId, reader);
 
     expect(exitCode).toBe(0);
-    expect(lines).toEqual(['Checked 1 records. Added numbers to 1. Failed 0.']);
-    expect(await database.query('SELECT details FROM records')).toEqual([
-      { details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] },
-    ]);
+    expect(lines).toEqual(['Checked 1 records. Added numbers to 0. Failed 0.']);
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
   });
 
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
