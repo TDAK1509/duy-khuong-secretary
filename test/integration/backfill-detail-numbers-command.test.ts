@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runBackfillDetailNumbersCommand } from '../../src/bootstrap/backfill-detail-numbers.ts';
+import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { SHARED_NUMBER_RULE } from '../../src/app/reading/reader-prompt.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -314,6 +315,32 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     ).toEqual([{ id: recordIds[0], details }]);
   });
 
+  it('does not overwrite a record that changed during the run', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const recordId = await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }],
+    });
+    const concurrentDetails = [{ label: 'Trọng lượng hàng', value: '30,000 Kg' }];
+    const reader: ReaderService = {
+      read: async () => {
+        await database.query(`UPDATE records SET details = '${JSON.stringify(concurrentDetails)}'::jsonb`);
+        return { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+      },
+    };
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed record ${recordId}: changed_during_run`,
+      'Checked 1 records. Added numbers to 0. Failed 1.',
+    ]);
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details: concurrentDetails }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
@@ -322,7 +349,7 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
 
   async function runBackfill(
     workspaceId: string,
-    reader: FakeReader,
+    reader: ReaderService,
     { apply = true }: { apply?: boolean } = {},
   ): Promise<{ exitCode: number; lines: string[] }> {
     const lines: string[] = [];
