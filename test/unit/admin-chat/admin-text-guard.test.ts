@@ -14,7 +14,7 @@ describe('the kinds of admin tool', () => {
 
   it('names the tools of each kind', () => {
     expect(CHANGE_TOOLS).toEqual(['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member']);
-    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status']);
+    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status', 'total_numbers']);
     expect(ADMIN_TEXT_TOOLS).toEqual(['count_records', 'list_members', 'list_scheduled_tasks', 'attach_photos']);
   });
 });
@@ -36,6 +36,13 @@ describe('the admin text guard', () => {
   it('refuses a change after the maintenance status', () => {
     const guard = new AdminTextGuard(false);
     guard.noteCall('maintenance_status');
+
+    expect(guard.refuses('create_invite')).toBe(true);
+  });
+
+  it('refuses a change after the totals of numbers', () => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('total_numbers');
 
     expect(guard.refuses('create_invite')).toBe(true);
   });
