@@ -10,6 +10,7 @@ import { runCountRecords } from './count-records-tool.ts';
 import { runCreateScheduledTask } from './create-scheduled-task-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
+import { runListNumberLabels } from './list-number-labels-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
@@ -50,6 +51,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
+  list_number_labels: ({ database }) => runListNumberLabels(database),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
