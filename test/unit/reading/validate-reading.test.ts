@@ -84,4 +84,13 @@ describe('validateReading', () => {
       reading: { items: [{ details: [{ label: 'Số lít', value: '0 l', number: 0, unit: 'l' }] }] },
     });
   });
+
+  it('drops the number and unit of a detail with an unknown unit and keeps the reading', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: 27.41, unit: 'tấn' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] }] },
+    });
+  });
 });

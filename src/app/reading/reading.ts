@@ -2,12 +2,22 @@ import { z } from 'zod';
 
 const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
 
-const detailSchema = z.strictObject({
-  label: z.string(),
-  value: z.string(),
-  number: z.number().nullable(),
-  unit: z.enum(STANDARD_UNITS).nullable(),
-});
+type StandardUnit = (typeof STANDARD_UNITS)[number];
+
+const detailSchema = z
+  .strictObject({ label: z.string(), value: z.string(), number: z.unknown(), unit: z.unknown() })
+  .transform(({ label, value, number, unit }) => ({ label, value, ...readNumberPair(number, unit) }));
+
+type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
+
+function readNumberPair(number: unknown, unit: unknown): NumberPair {
+  if (typeof number === 'number' && isStandardUnit(unit)) return { number, unit };
+  return { number: null, unit: null };
+}
+
+function isStandardUnit(unit: unknown): unit is StandardUnit {
+  return STANDARD_UNITS.some((standardUnit) => standardUnit === unit);
+}
 
 const itemSchema = z.strictObject({
   category: z.string(),
