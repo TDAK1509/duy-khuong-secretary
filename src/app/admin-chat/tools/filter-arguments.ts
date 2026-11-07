@@ -20,7 +20,7 @@ export function hasUnrealDate(args: FilterArguments): boolean {
   return dates.some((date) => date !== null && !isRealIsoDate(date));
 }
 
-export function toRecordFilters(args: FilterArguments): RecordFilters {
+export function buildRecordFilters(args: FilterArguments): RecordFilters {
   return {
     text: args.text,
     category: args.category,

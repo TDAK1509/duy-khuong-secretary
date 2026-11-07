@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
-import { FILTER_ARGUMENTS, hasUnrealDate, toRecordFilters } from './filter-arguments.ts';
+import { FILTER_ARGUMENTS, hasUnrealDate, buildRecordFilters } from './filter-arguments.ts';
 import { failTool, INVALID_CURSOR_ERROR, INVALID_DATE_ERROR } from './tool-result.ts';
 import { decodeSearchCursor } from '../../records/search-cursor.ts';
 import { searchRecords } from '../../records/search-records.ts';
@@ -13,6 +13,6 @@ export async function runSearchRecords(database: Database, scope: AccessScope, p
   if (hasUnrealDate(args)) return failTool(INVALID_DATE_ERROR);
   const decodedCursor = args.cursor === null ? null : decodeSearchCursor(args.cursor);
   if (args.cursor !== null && decodedCursor === null) return failTool(INVALID_CURSOR_ERROR);
-  const page = await searchRecords(database, scope, { ...toRecordFilters(args), cursor: decodedCursor });
+  const page = await searchRecords(database, scope, { ...buildRecordFilters(args), cursor: decodedCursor });
   return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
 }

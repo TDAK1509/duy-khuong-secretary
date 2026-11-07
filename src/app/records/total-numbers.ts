@@ -49,7 +49,7 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
   const validNumberPair = buildValidNumberPair(where, 'detail');
   const sql = buildTotalSql({ groupBy: request.groupBy, recordSql, labelMatch, validNumberPair });
   const { rows } = await database.query<TotalRow>(sql, where.values);
-  return { groups: rows.filter(hasGroup).map(toNumberTotal), withoutNumber: rows[0]?.without_number ?? 0 };
+  return { groups: rows.filter(hasGroup).map(buildNumberTotal), withoutNumber: rows[0]?.without_number ?? 0 };
 }
 
 type TotalSqlParts = { groupBy: NumberGroup; recordSql: string; labelMatch: string; validNumberPair: string };
@@ -76,6 +76,6 @@ function hasGroup(row: TotalRow): row is TotalRow & { unit: string } {
   return row.unit !== null;
 }
 
-function toNumberTotal(row: TotalRow & { unit: string }): NumberTotal {
+function buildNumberTotal(row: TotalRow & { unit: string }): NumberTotal {
   return { group: row.group, unit: row.unit, count: row.count, sum: row.sum, min: row.min, max: row.max };
 }
