@@ -165,4 +165,16 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Số lượng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":null,"unit":"l","count":1,"sum":"50","min":"50","max":"50"}],"without_number":0}',
     );
   });
+
+  it('groups the total by the date on the document', async () => {
+    for (const occurredOn of ['2026-11-06', '2026-11-05']) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [weight(27420)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng', 'occurred_on');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"2026-11-05","unit":"kg","count":1,"sum":"27420","min":"27420","max":"27420"},{"group":"2026-11-06","unit":"kg","count":1,"sum":"27420","min":"27420","max":"27420"}],"without_number":0}',
+    );
+  });
 });

@@ -10,18 +10,25 @@ export type NumberTotal = { group: string | null; unit: string; count: number; s
 
 export type NumberTotals = { groups: NumberTotal[]; withoutNumber: number };
 
-export async function totalNumbers(database: Database, scope: AccessScope, label: string, filters: RecordFilters): Promise<NumberTotals> {
-  const where = buildWhere(scope, filters);
+export type TotalRequest = { label: string; filters: RecordFilters; groupBy: NumberGroup };
+
+export async function totalNumbers(database: Database, scope: AccessScope, request: TotalRequest): Promise<NumberTotals> {
+  const where = buildWhere(scope, request.filters);
   const recordSql = where.toSql();
-  const labelMatch = buildAccentFreeEquals(where, `detail ->> 'label'`, label);
+  const labelMatch = buildAccentFreeEquals(where, `detail ->> 'label'`, request.label);
   const { rows } = await database.query<NumberTotal>(
-    `SELECT NULL::text AS "group", detail ->> 'unit' AS unit, count(*)::int AS count,
+    `SELECT ${buildGroupKey(request.groupBy)} AS "group", detail ->> 'unit' AS unit, count(*)::int AS count,
        sum((detail -> 'number')::numeric)::text AS sum, min((detail -> 'number')::numeric)::text AS min, max((detail -> 'number')::numeric)::text AS max
      FROM records record CROSS JOIN LATERAL jsonb_array_elements(record.details) detail
      WHERE ${recordSql} AND ${labelMatch}
-     GROUP BY unit
-     ORDER BY unit`,
+     GROUP BY "group", unit
+     ORDER BY "group" NULLS LAST, unit`,
     where.values,
   );
   return { groups: rows, withoutNumber: 0 };
+}
+
+function buildGroupKey(groupBy: NumberGroup): string {
+  if (groupBy === 'occurred_on') return `to_char(record.occurred_on, 'YYYY-MM-DD')`;
+  return 'NULL::text';
 }
