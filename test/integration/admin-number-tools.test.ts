@@ -358,6 +358,17 @@ describe('the number tools of an admin', () => {
     expect(output.groups).toEqual([expect.objectContaining({ count: 1, sum: String(highestIdCopy.weight) })]);
   });
 
+  it('counts the same document number on two plates as two tickets', async () => {
+    await insertTicketCopy({ vehiclePlate: '93C04588' });
+    await insertTicketCopy({ vehiclePlate: '93C01619' });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
