@@ -65,13 +65,13 @@ describe('the number tools of an admin', () => {
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 3 }] }));
   });
 
-  it('does not list a detail without a valid number', async () => {
-    const withoutNumber = { label: 'Nơi nhận', value: 'Cheng Loong', number: null, unit: null };
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [withoutNumber] });
+  it('lists a label whose stored value has no number with unit null', async () => {
+    const unreadWeight = { label: 'Trọng lượng tịnh', value: '26380', number: null, unit: null };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [unreadWeight] });
 
     const output = await runListNumberLabels();
 
-    expect(output).toBe('{"ok":true,"labels":[]}');
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng tịnh', unit: null, count: 1 }] }));
   });
 
   it('lists only the labels of the records that match the text filter', async () => {
@@ -90,7 +90,15 @@ describe('the number tools of an admin', () => {
 
     const output = await runListNumberLabels({ text: 'cheng loong' });
 
-    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
+    expect(output).toBe(
+      JSON.stringify({
+        ok: true,
+        labels: [
+          { label: 'Nơi nhận', unit: null, count: 1 },
+          { label: 'Trọng lượng hàng', unit: 'kg', count: 1 },
+        ],
+      }),
+    );
   });
 
   it('never lists the labels of another workspace', async () => {
@@ -312,14 +320,22 @@ describe('the number tools of an admin', () => {
     );
   });
 
-  it('does not list a negative number among the labels', async () => {
+  it('lists a negative number with unit null', async () => {
     for (const number of [10, -5]) {
       await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
 
     const output = await runListNumberLabels();
 
-    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
+    expect(output).toBe(
+      JSON.stringify({
+        ok: true,
+        labels: [
+          { label: 'Trọng lượng hàng', unit: 'kg', count: 1 },
+          { label: 'Trọng lượng hàng', unit: null, count: 1 },
+        ],
+      }),
+    );
   });
 
   it('counts two copies of one ticket once', async () => {
