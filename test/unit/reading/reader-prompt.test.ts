@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildReaderPrompt } from '../../../src/app/reading/reader-prompt.ts';
 
+const NUMBER_AND_UNIT_LINE =
+  '10b. number và unit trong mỗi chi tiết: Nếu giá trị là khối lượng, thể tích, quãng đường hoặc tiền, chỉ ghi số khi đơn vị được ghi hoặc được ngữ cảnh xác định rõ. Ghi số đã đổi vào number và đơn vị chuẩn vào unit. Đơn vị chuẩn: "kg" cho khối lượng, "l" cho thể tích, "km" cho quãng đường, "vnd" cho tiền đồng. Đổi đơn vị: 1 tấn = 1000 kg; 1 m3 = 1000 l; 1000 ml = 1 l; 1000 m = 1 km. Đọc dấu chấm và dấu phẩy theo ngữ cảnh. Ví dụ: "27,420 Kg" là 27420 kg; "27.410 Tonne" là 27,41 tấn, tức 27410 kg. number là số không âm. Với ngày, mã, tên, số điện thoại, biển số, số chứng từ, số cái hoặc số chiếc, đặt cả number và unit là null. Nếu không chắc số hoặc đơn vị, đặt cả hai là null. Giữ nguyên label và value.';
+
 describe('buildReaderPrompt', () => {
   it("ends with today's Vietnam date", () => {
     const lateEveningUtc = new Date('2026-10-30T18:00:00Z');
@@ -42,5 +45,15 @@ describe('buildReaderPrompt', () => {
     const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'));
 
     expect(prompt).toContain('Nếu không phù hợp, ghi một tên ngắn khác theo nội dung thực tế.');
+  });
+
+  it('holds the number and unit line between the details line and the document number line', () => {
+    const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'));
+
+    const lines = prompt.split('\n');
+    const detailsIndex = lines.findIndex((line) => line.startsWith('10. details:'));
+    const documentNumberIndex = lines.findIndex((line) => line.startsWith('11. document_number:'));
+    expect(lines[detailsIndex + 1]).toBe(NUMBER_AND_UNIT_LINE);
+    expect(documentNumberIndex).toBe(detailsIndex + 2);
   });
 });

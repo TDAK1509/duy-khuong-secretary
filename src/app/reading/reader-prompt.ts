@@ -1,5 +1,8 @@
 import { formatVietnamDate } from '../time/format-vietnam-date.ts';
 
+export const SHARED_NUMBER_RULE =
+  'Nếu giá trị là khối lượng, thể tích, quãng đường hoặc tiền, chỉ ghi số khi đơn vị được ghi hoặc được ngữ cảnh xác định rõ. Ghi số đã đổi vào number và đơn vị chuẩn vào unit. Đơn vị chuẩn: "kg" cho khối lượng, "l" cho thể tích, "km" cho quãng đường, "vnd" cho tiền đồng. Đổi đơn vị: 1 tấn = 1000 kg; 1 m3 = 1000 l; 1000 ml = 1 l; 1000 m = 1 km. Đọc dấu chấm và dấu phẩy theo ngữ cảnh. Ví dụ: "27,420 Kg" là 27420 kg; "27.410 Tonne" là 27,41 tấn, tức 27410 kg. number là số không âm. Với ngày, mã, tên, số điện thoại, biển số, số chứng từ, số cái hoặc số chiếc, đặt cả number và unit là null. Nếu không chắc số hoặc đơn vị, đặt cả hai là null.';
+
 const READER_PROMPT_TEMPLATE = `Bạn đọc một tin nhắn công việc gửi cho Trợ lý của một nhóm xe tải. Tin nhắn có thể có một ảnh.
 Trả về đúng cấu trúc JSON được yêu cầu.
 
@@ -15,6 +18,7 @@ Trả về đúng cấu trúc JSON được yêu cầu.
 8. identifiers: các mã khác đọc được rõ: số seri, mã vận đơn. Không ghi số hóa đơn, số biên lai hoặc biển số xe vào đây. Chép đúng từng ký tự.
 8b. vehicle_plate: biển số xe ghi trên giấy tờ, trong tin nhắn hoặc thấy rõ trong ảnh, chép đúng từng ký tự, ví dụ "29C-123.45". Không dùng biển số của xe giao hàng hoặc xe khác làm biển số xe được bảo dưỡng. null nếu không thấy rõ.
 10. details: các thông tin quan trọng khác của giấy tờ này, mỗi thông tin một phần tử, dạng nhãn và giá trị. Tự chọn thông tin theo loại giấy tờ; các ví dụ không giới hạn thông tin được lưu. Dùng đúng một trong các nhãn sau nếu phù hợp: "Ngày cấp", "Ngày hết hạn", "Đơn vị kiểm định", "Số tem", "Số khung", "Số máy", "Người nhận", "Nơi nhận", "Nơi giao", "Hàng hóa", "Số lượng", "Người bán", "Mặt hàng", "Đơn giá". Nếu không phù hợp, ghi một nhãn ngắn khác bằng tiếng Việt. Giá trị chép đúng như trên giấy tờ; ngày ghi dạng dd/MM/yyyy. Không bỏ ngày hết hạn. Không lặp lại thông tin đã ghi ở các trường khác.
+10b. number và unit trong mỗi chi tiết: ${SHARED_NUMBER_RULE} Giữ nguyên label và value.
 11. document_number: số hóa đơn, số biên lai hoặc số phiếu in trên giấy tờ, chép đúng từng ký tự. Không dùng biển số xe, số điện thoại, mã số thuế hoặc số tiền. null nếu không có hoặc không đọc rõ.
 
 Quy tắc:
