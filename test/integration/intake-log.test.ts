@@ -73,6 +73,17 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs an unclear photo as needing an explanation', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=ok situation=needs_explanation items=0 has_question=false route=reply`,
+    ]);
+  });
+
   async function readUserMessageId(): Promise<string> {
     const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
     if (!message) throw new Error('no user message stored');
