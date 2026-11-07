@@ -80,4 +80,11 @@ describe('listWorkspaceLabels', () => {
 
     expect(labels).toEqual(['Trọng lượng hàng']);
   });
+
+  it('lists at most 30 labels', async () => {
+    const thirtyOneLabels = Array.from({ length: 31 }, (_, index) => `Nhãn ${String(index).padStart(2, '0')}`);
+    await saveRecord(thirtyOneLabels);
+
+    expect(await listLabels()).toHaveLength(30);
+  });
 });
