@@ -1,0 +1,12 @@
+import { describe, expect, it } from 'vitest';
+import { describeToolCall } from '../../../src/app/admin-chat/describe-tool-call.ts';
+
+function describeArguments(argumentsObject: unknown): string {
+  return describeToolCall({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(argumentsObject) }).arguments;
+}
+
+describe('describing a tool call for the log', () => {
+  it('shows the value of a real date argument', () => {
+    expect(describeArguments({ added_from: '2026-11-05' })).toContain('added_from:2026-11-05');
+  });
+});
