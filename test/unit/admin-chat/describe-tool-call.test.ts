@@ -9,4 +9,11 @@ describe('describing a tool call for the log', () => {
   it('shows the value of a real date argument', () => {
     expect(describeArguments({ added_from: '2026-11-05' })).toContain('added_from:2026-11-05');
   });
+
+  it('shows only the name of an impossible date argument', () => {
+    const described = describeArguments({ occurred_to: '2026-02-30' });
+
+    expect(described).toContain('occurred_to');
+    expect(described).not.toContain('2026-02-30');
+  });
 });

@@ -1,4 +1,5 @@
 import type { ToolCall } from '../../services/chat/chat-service.ts';
+import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
 
@@ -10,8 +11,12 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 
 function describeArguments(argumentsJson: string): string {
   const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
-  const described = Object.entries(parsed).map(([name, value]) => (DATE_ARGUMENTS.includes(name) ? `${name}:${String(value)}` : name));
-  return described.join(';');
+  return Object.entries(parsed).map(([name, value]) => describeArgument(name, value)).join(';');
+}
+
+function describeArgument(name: string, value: unknown): string {
+  const isRealDate = DATE_ARGUMENTS.includes(name) && typeof value === 'string' && isRealIsoDate(value);
+  return isRealDate ? `${name}:${value}` : name;
 }
 
 export function describeToolOutput(output: string): string {
