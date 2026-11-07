@@ -369,6 +369,17 @@ describe('the number tools of an admin', () => {
     );
   });
 
+  it('counts the same document number on two document dates as two tickets', async () => {
+    await insertTicketCopy({ occurredOn: '2026-11-05' });
+    await insertTicketCopy({ occurredOn: '2026-11-06' });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":2,"sum":"52760","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
