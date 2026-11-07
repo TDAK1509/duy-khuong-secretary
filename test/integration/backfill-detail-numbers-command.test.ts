@@ -193,6 +193,28 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     ]);
   });
 
+  it('stores null for an unknown unit and finishes the record', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn' }],
+    });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27.41, unit: 'tấn' }] });
+    await runBackfill(workspaceId, reader);
+    const detailsAfterFirstRun = await database.query('SELECT details FROM records');
+    const callsAfterFirstRun = reader.requests.length;
+
+    await runBackfill(workspaceId, reader);
+
+    expect(detailsAfterFirstRun).toEqual([
+      { details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] },
+    ]);
+    expect(reader.requests).toHaveLength(callsAfterFirstRun);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
