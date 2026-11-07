@@ -87,10 +87,6 @@ describe('listWorkspaceLabels', () => {
     expect(await listLabels()).toEqual(['a'.repeat(60)]);
   });
 
-  function listLabels(): Promise<string[]> {
-    return runInTransaction(pool, (transaction) => listWorkspaceLabels(transaction, workspaceId));
-  }
-
   function saveRecord(labels: string[]): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
@@ -98,5 +94,9 @@ describe('listWorkspaceLabels', () => {
       senderName: 'Hùng',
       details: labels.map((label) => ({ label, value: 'giá trị' })),
     });
+  }
+
+  function listLabels(): Promise<string[]> {
+    return runInTransaction(pool, (transaction) => listWorkspaceLabels(transaction, workspaceId));
   }
 });
