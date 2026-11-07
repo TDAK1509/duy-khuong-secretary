@@ -54,4 +54,18 @@ describe('listWorkspaceLabels', () => {
 
     expect(await listLabels()).toEqual(['Hàng hóa', 'Nơi nhận']);
   });
+
+  it('never loads the labels of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe khách Vy');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy' });
+    await insertRecordRow(database, {
+      workspaceId: otherWorkspaceId,
+      userId: vyUserId,
+      senderName: 'Vy',
+      details: [{ label: 'Số công tơ', value: '123' }],
+    });
+    await saveRecord(['Nơi nhận']);
+
+    expect(await listLabels()).toEqual(['Nơi nhận']);
+  });
 });
