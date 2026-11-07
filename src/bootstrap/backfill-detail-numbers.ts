@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { readRuntimeDatabaseUrl } from './config.ts';
+import { loadReaderConfig } from './reader-config.ts';
 
 const USAGE = 'Usage: node dist/bootstrap/backfill-detail-numbers.js <workspace-uuid> [--apply]';
 
@@ -20,8 +21,14 @@ export async function runBackfillDetailNumbersCommand(
     log('DATABASE_URL must be set to a database URL');
     return 1;
   }
-  if (parseArguments(args) === null) {
+  const parsedArguments = parseArguments(args);
+  if (parsedArguments === null) {
     log(USAGE);
+    return 1;
+  }
+  const readerConfig = loadReaderConfig(environment);
+  if (parsedArguments.apply && !readerConfig.ok) {
+    log(`Missing reader settings: ${readerConfig.missing.join(', ')}`);
     return 1;
   }
   return 0;

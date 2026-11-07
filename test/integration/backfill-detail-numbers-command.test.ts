@@ -33,4 +33,17 @@ describe('the backfill-detail-numbers command', () => {
     expect(exitCode).toBe(1);
     expect(lines).toEqual(['Usage: node dist/bootstrap/backfill-detail-numbers.js <workspace-uuid> [--apply]']);
   });
+
+  it('stops when the reader settings are missing', async () => {
+    const lines: string[] = [];
+
+    const exitCode = await runBackfillDetailNumbersCommand(
+      [SOME_WORKSPACE_ID, '--apply'],
+      { DATABASE_URL: database.runtimeUrl },
+      { log: (line) => lines.push(line) },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual(['Missing reader settings: READER_PROVIDER, READER_API_KEY']);
+  });
 });
