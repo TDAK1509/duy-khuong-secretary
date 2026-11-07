@@ -142,6 +142,26 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     );
   });
 
+  it('does nothing on a second run', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }],
+    });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] });
+    await runBackfill(workspaceId, reader);
+    const callsAfterFirstRun = reader.requests.length;
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Checked 0 records. Added numbers to 0. Failed 0.']);
+    expect(reader.requests).toHaveLength(callsAfterFirstRun);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
