@@ -16,34 +16,42 @@ export type BackfillDetailNumbersOptions = {
 
 type BackfillArguments = { workspaceId: string; apply: boolean };
 
+type BackfillSetup =
+  | { problem: string }
+  | { databaseUrl: string; workspaceId: string; reader: ReaderService | null };
+
 export async function runBackfillDetailNumbersCommand(
   args: string[],
   environment: NodeJS.ProcessEnv,
   options: BackfillDetailNumbersOptions = {},
 ): Promise<number> {
   const log = options.log ?? console.log;
-  const databaseUrl = z.url().safeParse(readRuntimeDatabaseUrl(environment));
-  if (!databaseUrl.success) {
-    log('DATABASE_URL must be set to a database URL');
+  const setup = readSetup(args, environment, options.buildReader ?? buildReader);
+  if ('problem' in setup) {
+    log(setup.problem);
     return 1;
   }
-  const parsedArguments = parseArguments(args);
-  if (parsedArguments === null) {
-    log(USAGE);
-    return 1;
-  }
-  const readerConfig = parsedArguments.apply ? loadReaderConfig(environment) : null;
-  if (readerConfig?.ok === false) {
-    log(`Missing reader settings: ${readerConfig.missing.join(', ')}`);
-    return 1;
-  }
-  const reader = readerConfig === null ? null : (options.buildReader ?? buildReader)(readerConfig.config);
-  const pool = createPostgresPool(databaseUrl.data);
+  const pool = createPostgresPool(setup.databaseUrl);
   try {
-    return await runBackfill(pool, parsedArguments.workspaceId, reader, log);
+    return await runBackfill(pool, setup.workspaceId, setup.reader, log);
   } finally {
     await pool.end();
   }
+}
+
+function readSetup(
+  args: string[],
+  environment: NodeJS.ProcessEnv,
+  buildReaderFrom: (config: ReaderConfig) => ReaderService,
+): BackfillSetup {
+  const databaseUrl = z.url().safeParse(readRuntimeDatabaseUrl(environment));
+  if (!databaseUrl.success) return { problem: 'DATABASE_URL must be set to a database URL' };
+  const parsedArguments = parseArguments(args);
+  if (parsedArguments === null) return { problem: USAGE };
+  const readerConfig = parsedArguments.apply ? loadReaderConfig(environment) : null;
+  if (readerConfig?.ok === false) return { problem: `Missing reader settings: ${readerConfig.missing.join(', ')}` };
+  const reader = readerConfig === null ? null : buildReaderFrom(readerConfig.config);
+  return { databaseUrl: databaseUrl.data, workspaceId: parsedArguments.workspaceId, reader };
 }
 
 function parseArguments(args: string[]): BackfillArguments | null {
