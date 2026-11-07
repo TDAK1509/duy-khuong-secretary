@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -276,6 +276,21 @@ describe('an admin asks the bot', () => {
   describe('with tool calls', () => {
     const LIST_MEMBERS_CALL = { id: 'call_1', name: 'list_members', argumentsJson: '{}' };
 
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function captureAdminChatLines(): () => string[] {
+      const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+      return () => logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
+    }
+
+    async function findQuestionId(): Promise<string> {
+      const [row] = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
+      if (!row) throw new Error('no question stored');
+      return row.id;
+    }
+
     it('sends the tool result back to the model with its call id', async () => {
       harness.chat.follow((_request, callNumber) =>
         callNumber === 1 ? replyWithToolCalls(LIST_MEMBERS_CALL) : replyWithText('Nhóm có 3 người.'),
@@ -324,6 +339,22 @@ describe('an admin asks the bot', () => {
 
       expect(sentTexts()).toEqual([['zu-duy', 'Xin lỗi, tôi chưa xử lý được. Bạn thử lại nhé.']]);
       expect(harness.chat.requests).toHaveLength(6);
+    });
+
+    it('writes one exact line for an answer that used a search', async () => {
+      const readLines = captureAdminChatLines();
+      const searchArguments = { text: null, category: null, member: null, plate: null, added_from: '2026-11-05', added_to: null, cursor: null };
+      harness.chat.follow((_request, callNumber) =>
+        callNumber === 1
+          ? replyWithToolCalls({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(searchArguments) })
+          : replyWithText('Không có mục nào.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Hôm nay ai gửi gì?');
+
+      expect(readLines()).toEqual([
+        `[admin-chat] message=${await findQuestionId()} outcome=answered rounds=1 calls=search_records(added_from:2026-11-05)=0`,
+      ]);
     });
 
     it('stores no answer built from tool results for an admin demoted during the answer', async () => {
