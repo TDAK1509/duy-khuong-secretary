@@ -377,14 +377,35 @@ describe('saving what the reader returns', () => {
 
   it('keeps every detail the reader returned', async () => {
     const details = [
-      { label: 'Số lít', value: '50' },
-      { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
+      { label: 'Số lít', value: '50', number: 50, unit: 'l' as const },
+      { label: 'Tên trạm', value: 'Petrolimex Long Biên', number: null, unit: null },
     ];
     harness.reader.answerWith(makeReading([makeFuelItem({ details })]));
 
     await harness.receiveText('zu-hung', 'Đổ dầu 1.250.000đ ngày 30/10, hóa đơn 0001234');
 
     expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
+  });
+
+  it('stores the label, printed value, number and unit of a detail', async () => {
+    const weight = { label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' as const };
+    harness.reader.answerWith(makeReading([makeFuelItem({ details: [weight] })]));
+
+    await harness.receiveText('zu-hung', 'Phiếu cân 27,420 Kg');
+
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details: [weight] }]);
+  });
+
+  it('saves the record with a null number and unit when the unit is unknown', async () => {
+    const reading = makeReading([makeFuelItem()]);
+    const detail = { label: 'Trọng lượng hàng', value: '27,41 tấn', number: 27.41, unit: 'tấn' };
+    harness.reader.answerWith({ ...reading, items: [{ ...reading.items[0], details: [detail] }] });
+
+    await harness.receiveText('zu-hung', 'Phiếu cân 27,41 tấn');
+
+    expect(await database.query('SELECT details FROM records')).toEqual([
+      { details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] },
+    ]);
   });
 
   it('copies the display name of the sender onto the record', async () => {

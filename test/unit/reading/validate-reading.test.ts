@@ -60,8 +60,82 @@ describe('validateReading', () => {
   });
 
   it('fails the read when a detail has an extra property', () => {
-    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '50', unit: 'l' }] });
+    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '50', number: 50, unit: 'l', currency: 'VND' }] });
 
     expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
+
+  it('keeps a valid number and unit of a detail', () => {
+    const json = makeFuelJson({
+      details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' }],
+    });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' }] }] },
+    });
+  });
+
+  it('keeps zero as a valid number', () => {
+    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '0 l', number: 0, unit: 'l' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Số lít', value: '0 l', number: 0, unit: 'l' }] }] },
+    });
+  });
+
+  it('drops the number and unit of a detail with an unknown unit and keeps the reading', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: 27.41, unit: 'tấn' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] }] },
+    });
+  });
+
+  it('drops a negative number and its unit', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '-5 Kg', number: -5, unit: 'kg' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '-5 Kg', number: null, unit: null }] }] },
+    });
+  });
+
+  it('drops a numeric string and its unit', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: '27,420', unit: 'kg' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
+    });
+  });
+
+  it('drops a number that has no unit', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: null }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
+    });
+  });
+
+  it('drops a unit that has no number', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: 'kg' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
+    });
+  });
+
+  it('accepts a detail without the number and unit keys', () => {
+    const json = makeFuelJson({ details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên', number: null, unit: null }] }] },
+    });
   });
 });
