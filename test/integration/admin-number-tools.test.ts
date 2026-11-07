@@ -217,4 +217,15 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"giao hàng","unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":"nhận hàng","unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
     );
   });
+
+  it('puts a record without a date on the document in its own group, after the dated groups', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: null, details: [weight(200)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-05', details: [weight(100)] });
+
+    const output = await runTotalNumbers('Trọng lượng hàng', 'occurred_on');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"2026-11-05","unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":null,"unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
+    );
+  });
 });
