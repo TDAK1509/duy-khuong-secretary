@@ -315,4 +315,26 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: label"}');
   });
+
+  it('does not total a negative number and counts its record in without_number', async () => {
+    for (const number of [10, -5]) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"10","min":"10","max":"10"}],"without_number":1}',
+    );
+  });
+
+  it('does not list a negative number among the labels', async () => {
+    for (const number of [10, -5]) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+    }
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
+  });
 });
