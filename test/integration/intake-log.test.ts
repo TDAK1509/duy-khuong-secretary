@@ -63,6 +63,16 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs a maintenance reading without a plate as unresolved', async () => {
+    harness.reader.answerWith(makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: null })]));
+
+    await harness.receiveText('zu-hung', 'Thay lốp 3.500.000đ');
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=ok situation=unresolved items=1 has_question=false route=reply`,
+    ]);
+  });
+
   async function readUserMessageId(): Promise<string> {
     const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
     if (!message) throw new Error('no user message stored');
