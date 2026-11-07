@@ -1,8 +1,10 @@
 import { z } from 'zod';
-import { countRecordsWithoutNumbers } from '../app/records/count-records-without-numbers.ts';
+import { backfillDetailNumbers } from '../app/records/backfill-detail-numbers.ts';
+import { countRecordsWithoutNumbers } from '../app/records/records-without-numbers.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import { readRuntimeDatabaseUrl } from './config.ts';
+import { buildReader } from './from-env.ts';
 import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
 
 const USAGE = 'Usage: node dist/bootstrap/backfill-detail-numbers.js <workspace-uuid> [--apply]';
@@ -30,14 +32,15 @@ export async function runBackfillDetailNumbersCommand(
     log(USAGE);
     return 1;
   }
-  const readerConfig = loadReaderConfig(environment);
-  if (parsedArguments.apply && !readerConfig.ok) {
+  const readerConfig = parsedArguments.apply ? loadReaderConfig(environment) : null;
+  if (readerConfig?.ok === false) {
     log(`Missing reader settings: ${readerConfig.missing.join(', ')}`);
     return 1;
   }
+  const reader = readerConfig === null ? null : (options.buildReader ?? buildReader)(readerConfig.config);
   const pool = createPostgresPool(databaseUrl.data);
   try {
-    return await reportRecordsWithoutNumbers(pool, parsedArguments.workspaceId, log);
+    return await runBackfill(pool, parsedArguments.workspaceId, reader, log);
   } finally {
     await pool.end();
   }
@@ -49,6 +52,18 @@ function parseArguments(args: string[]): BackfillArguments | null {
   const apply = flags.length === 1 && flags[0] === '--apply';
   if (!parsedId.success || (flags.length > 0 && !apply)) return null;
   return { workspaceId: parsedId.data, apply };
+}
+
+async function runBackfill(
+  pool: PostgresPool,
+  workspaceId: string,
+  reader: ReaderService | null,
+  log: (line: string) => void,
+): Promise<number> {
+  if (reader === null) return reportRecordsWithoutNumbers(pool, workspaceId, log);
+  const summary = await backfillDetailNumbers(pool, reader, workspaceId);
+  log(`Checked ${summary.checked} records. Added numbers to ${summary.added}. Failed 0.`);
+  return 0;
 }
 
 async function reportRecordsWithoutNumbers(

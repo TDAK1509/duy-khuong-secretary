@@ -10,7 +10,7 @@ const detailSchema = z
 
 type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
 
-function readNumberPair(number: unknown, unit: unknown): NumberPair {
+export function readNumberPair(number: unknown, unit: unknown): NumberPair {
   if (isNonNegativeNumber(number) && isStandardUnit(unit)) return { number, unit };
   return { number: null, unit: null };
 }
