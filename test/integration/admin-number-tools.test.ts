@@ -424,6 +424,24 @@ describe('the number tools of an admin', () => {
     );
   });
 
+  it('keeps a ticket whose newer copy is outside the text filter', async () => {
+    const receiver = (factory: string) => ({ label: 'Nơi nhận', value: factory, number: null, unit: null });
+    await insertTicketCopy({
+      createdAt: new Date('2026-11-06T09:00:00+07:00'),
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), receiver('Cheng Loong')],
+    });
+    await insertTicketCopy({
+      createdAt: new Date('2026-11-07T09:00:00+07:00'),
+      details: [buildNumberDetail(26380, 'kg', 'Trọng lượng tịnh'), receiver('Chánh Dương')],
+    });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh', 'none', { text: 'cheng loong' });
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng tịnh","groups":[{"group":null,"unit":"kg","count":1,"sum":"26380","min":"26380","max":"26380"}],"without_number":0}',
+    );
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
