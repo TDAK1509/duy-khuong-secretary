@@ -356,6 +356,23 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     expect(lines).toEqual(['Checked 51 records. Added numbers to 51. Failed 0.']);
   });
 
+  it('does not touch another workspace', async () => {
+    const workspaceA = await seedWorkspace();
+    const workspaceB = await seedWorkspace();
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { ...workspaceA, senderName: 'Duy', details });
+    await insertRecordRow(database, { ...workspaceB, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] });
+
+    const { lines } = await runBackfill(workspaceA.workspaceId, reader);
+
+    expect(lines).toEqual(['Checked 1 records. Added numbers to 1. Failed 0.']);
+    expect(
+      await database.query(`SELECT details FROM records WHERE workspace_id = '${workspaceB.workspaceId}'`),
+    ).toEqual([{ details }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
