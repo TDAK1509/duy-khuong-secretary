@@ -23,4 +23,12 @@ describe('describing a tool call for the log', () => {
     expect(described).toContain('text');
     expect(described).not.toContain('cheng');
   });
+
+  it('leaves out null and empty-array arguments', () => {
+    expect(describeArguments({ plate: null, ids: [], text: 'a' })).toBe('text');
+  });
+
+  it('keeps an array argument that has items', () => {
+    expect(describeArguments({ ids: ['x'] })).toBe('ids');
+  });
 });

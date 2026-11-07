@@ -11,7 +11,14 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 
 function describeArguments(argumentsJson: string): string {
   const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
-  return Object.entries(parsed).map(([name, value]) => describeArgument(name, value)).join(';');
+  return Object.entries(parsed)
+    .filter(([, value]) => !isEmptyArgument(value))
+    .map(([name, value]) => describeArgument(name, value))
+    .join(';');
+}
+
+function isEmptyArgument(value: unknown): boolean {
+  return value === null || (Array.isArray(value) && value.length === 0);
 }
 
 function describeArgument(name: string, value: unknown): string {
