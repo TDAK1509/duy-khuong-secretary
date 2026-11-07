@@ -193,4 +193,16 @@ describe('the number tools of an admin', () => {
 
     expect(output.groups.map((group) => [group.group, group.sum]).sort()).toEqual([['Hùng', '150'], ['Hùng', '200']]);
   });
+
+  it('groups the total by plate', async () => {
+    for (const [vehiclePlate, number] of [['51D67890', 200], ['29C12345', 100]] as const) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', vehiclePlate, details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng', 'plate');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":"29C12345","unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":"51D67890","unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
+    );
+  });
 });

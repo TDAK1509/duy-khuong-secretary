@@ -44,6 +44,7 @@ function buildGroupKey(groupBy: NumberGroup): { id: string; name: string } {
       name: 'first_value(record.sender_name) OVER (PARTITION BY record.user_id ORDER BY record.created_at DESC, record.id DESC)',
     };
   }
+  if (groupBy === 'plate') return { id: 'record.vehicle_plate', name: 'record.vehicle_plate' };
   if (groupBy === 'occurred_on') return { id: `to_char(record.occurred_on, 'YYYY-MM-DD')`, name: `to_char(record.occurred_on, 'YYYY-MM-DD')` };
   return { id: 'NULL::text', name: 'NULL::text' };
 }
