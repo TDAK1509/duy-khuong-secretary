@@ -18,6 +18,7 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
     "vehicle_plate":{"type":["string","null"]},
     "document_number":{"type":["string","null"]},
     "details":{"type":"array","items":{"type":"object","additionalProperties":false,
-      "properties":{"label":{"type":"string"},"value":{"type":"string"}},"required":["label","value"]}}},
+      "properties":{"label":{"type":"string"},"value":{"type":"string"},"number":{"type":["number","null"]},"unit":{"type":["string","null"]}},
+      "required":["label","value","number","unit"]}}},
    "required":["category","document_title","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","details"]}}},
  "required":["has_work_data","needs_explanation","has_question","items"]};
