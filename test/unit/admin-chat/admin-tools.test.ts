@@ -55,7 +55,7 @@ describe('the admin tool list', () => {
 
     expect(tool).toStrictEqual({
   "name": "list_number_labels",
-  "description": "Liệt kê các nhãn chi tiết có số chuẩn trong các mục phù hợp, kèm đơn vị và số giá trị. Lọc giống search_records. Gọi trước total_numbers khi chưa biết nhãn. Không tự coi hai nhãn khác nghĩa là một.",
+  "description": "Liệt kê các nhãn chi tiết trong các mục phù hợp, kèm đơn vị và số giá trị. unit là null khi giá trị chưa có cặp số và đơn vị hợp lệ. Một nhãn có thể có các dòng có đơn vị và một dòng có unit là null. Lọc giống search_records. Gọi trước total_numbers khi chưa biết nhãn. Không tự coi hai nhãn khác nghĩa là một.",
   "parameters": {
     "type": "object",
     "properties": {
