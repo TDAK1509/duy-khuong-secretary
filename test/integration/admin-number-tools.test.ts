@@ -64,4 +64,14 @@ describe('the number tools of an admin', () => {
       }),
     );
   });
+
+  it('lists spellings that differ only in accents and case as one label, shown as the most common spelling', async () => {
+    for (const label of ['trong luong hang', 'Trọng lượng hàng', 'Trọng lượng hàng']) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100, 'kg', label)] });
+    }
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 3 }] }));
+  });
 });
