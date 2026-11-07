@@ -293,4 +293,14 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":true,"label":"Số km","groups":[],"without_number":0}');
   });
+
+  it('never totals the numbers of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', details: [weight(1000)] });
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe('{"ok":true,"label":"Trọng lượng hàng","groups":[],"without_number":0}');
+  });
 });
