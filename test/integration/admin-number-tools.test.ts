@@ -303,4 +303,10 @@ describe('the number tools of an admin', () => {
 
     expect(output).toBe('{"ok":true,"label":"Trọng lượng hàng","groups":[],"without_number":0}');
   });
+
+  it('refuses an unknown group_by with the invalid argument result', async () => {
+    const output = await runTotalNumbers('Trọng lượng hàng', 'factory');
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: group_by"}');
+  });
 });
