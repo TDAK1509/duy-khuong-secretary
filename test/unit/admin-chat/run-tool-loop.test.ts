@@ -26,4 +26,20 @@ describe('the tool loop', () => {
     expect(result.outcome).toBe('answered');
     expect(rounds).toEqual([{ ran: true, calls: [{ tool: 'search_records', arguments: '', result: '2' }] }]);
   });
+
+  it('stops at the round limit and logs the sixth requested round as not run', async () => {
+    const chat = new FakeChatService();
+    chat.follow(() => replyWithToolCalls(SEARCH_CALL));
+    const rounds: LoggedRound[] = [];
+
+    const result = await runToolLoop(chat, REQUEST, async () => '{"items":[{}],"next_cursor":null}', rounds);
+
+    const ranCall = { tool: 'search_records', arguments: '', result: '1' };
+    const notRunCall = { tool: 'search_records', arguments: '', result: 'not_run' };
+    expect(result.outcome).toBe('tool_round_limit');
+    expect(rounds).toEqual([
+      ...Array(5).fill({ ran: true, calls: [ranCall] }),
+      { ran: false, calls: [notRunCall] },
+    ]);
+  });
 });

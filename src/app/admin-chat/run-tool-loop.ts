@@ -1,7 +1,7 @@
 import type { ChatRequest, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
 import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
-import { describeToolCall, describeToolOutput } from './describe-tool-call.ts';
+import { describeToolCall, describeToolOutput, NOT_RUN } from './describe-tool-call.ts';
 
 const MAX_TOOL_ROUNDS = 5;
 const MAX_CALLS_PER_ROUND = 5;
@@ -27,9 +27,16 @@ export async function runToolLoop(
     const result = await chat.respond({ ...request, turns });
     if (!result.ok) return { outcome: 'chat_failed', text: CHAT_FAILURE_TEXT };
     if (result.reply.kind === 'text') return { outcome: 'answered', text: result.reply.text };
-    if (round === MAX_TOOL_ROUNDS) return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
+    if (round === MAX_TOOL_ROUNDS) {
+      rounds.push({ ran: false, calls: result.reply.calls.map(describeNotRunCall) });
+      return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
+    }
     turns = [...turns, ...(await runToolRound(result.reply.calls, runTool, rounds))];
   }
+}
+
+function describeNotRunCall(call: ToolCall): LoggedCall {
+  return { ...describeToolCall(call), result: NOT_RUN };
 }
 
 async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedRound[]): Promise<ChatTurn[]> {

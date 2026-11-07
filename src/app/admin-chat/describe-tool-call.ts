@@ -1,5 +1,7 @@
 import type { ToolCall } from '../../services/chat/chat-service.ts';
 
+export const NOT_RUN = 'not_run';
+
 export function describeToolCall(call: ToolCall): { tool: string; arguments: string } {
   return { tool: call.name, arguments: '' };
 }
