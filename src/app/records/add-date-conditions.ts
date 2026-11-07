@@ -12,4 +12,5 @@ export function addDateConditions(where: WhereClause, range: AddedDateRange): vo
 
 export function addDocumentDateConditions(where: WhereClause, range: DocumentDateRange): void {
   if (range.occurredFrom !== null) where.require(`record.occurred_on >= ${where.bind(range.occurredFrom)}::date`);
+  if (range.occurredTo !== null) where.require(`record.occurred_on <= ${where.bind(range.occurredTo)}::date`);
 }

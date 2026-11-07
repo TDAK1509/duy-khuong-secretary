@@ -210,6 +210,14 @@ describe('the data tools of an admin', () => {
     expect(result.items.map((item) => item.id)).toEqual([dated]);
   });
 
+  it('leaves out a record dated after the end of the document date range', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-07' });
+
+    const result = await runSearch({ occurred_to: '2026-11-06' });
+
+    expect(result.items).toEqual([]);
+  });
+
   it('refuses an invalid date', async () => {
     const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
