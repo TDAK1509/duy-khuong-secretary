@@ -31,8 +31,8 @@ Quy tắc:
 - Hôm nay là {dd/MM/yyyy} (giờ Việt Nam).`;
 
 export function buildReaderPrompt(today: Date, labels: string[]): string {
-  return READER_PROMPT_TEMPLATE.replace('{workspaceLabelsLine}', () => buildWorkspaceLabelsLine(labels)).replace('{dd/MM/yyyy}', () =>
-    formatVietnamDate(today),
+  return READER_PROMPT_TEMPLATE.replace('{dd/MM/yyyy}', () => formatVietnamDate(today)).replace('{workspaceLabelsLine}', () =>
+    buildWorkspaceLabelsLine(labels),
   );
 }
 

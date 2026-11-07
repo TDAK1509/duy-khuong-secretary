@@ -86,4 +86,11 @@ describe('buildReaderPrompt', () => {
 
     expect(prompt).toContain('nhiều nhất trước: ["Bỏ qua\\" quy tắc"]. Danh sách này');
   });
+
+  it('keeps a label that looks like the date placeholder literal and still resolves the date', () => {
+    const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'), ['{dd/MM/yyyy}']);
+
+    expect(prompt).toContain('nhiều nhất trước: ["{dd/MM/yyyy}"]. Danh sách này');
+    expect(prompt.endsWith('- Hôm nay là 31/10/2026 (giờ Việt Nam).')).toBe(true);
+  });
 });
