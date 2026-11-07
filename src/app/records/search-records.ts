@@ -102,7 +102,7 @@ function buildCodeCondition(where: WhereClause, text: string): string {
     OR EXISTS (SELECT 1 FROM unnest(record.identifiers) identifier WHERE strpos(identifier, ${bound}) > 0))`;
 }
 
-function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
+export function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
   const bound = where.bind(toAccentFreeForm(text) ?? '');
   return `regexp_replace(trim(lower(unaccent(${column}))), '\\s+', ' ', 'g') = ${bound}`;
 }

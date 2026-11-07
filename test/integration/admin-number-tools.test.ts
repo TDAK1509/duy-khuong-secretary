@@ -131,4 +131,16 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":2,"sum":"54830","min":"27410","max":"27420"}],"without_number":0}',
     );
   });
+
+  it('matches the label ignoring accents and case', async () => {
+    for (const number of [27420, 27410]) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('trong luong hang');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"trong luong hang","groups":[{"group":null,"unit":"kg","count":2,"sum":"54830","min":"27410","max":"27420"}],"without_number":0}',
+    );
+  });
 });
