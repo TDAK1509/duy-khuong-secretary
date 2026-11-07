@@ -3,8 +3,8 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { failTool, INVALID_CURSOR_ERROR, INVALID_DATE_ERROR } from './tool-result.ts';
-import { decodeSearchCursor } from '../../records/search-cursor.ts';
-import { searchRecords } from '../../records/search-records.ts';
+import { decodeSearchCursor, type SearchCursor } from '../../records/search-cursor.ts';
+import { searchRecords, type SearchFilters } from '../../records/search-records.ts';
 
 const argumentsSchema = z.object({
   text: z.string().nullable(),
@@ -18,14 +18,24 @@ const argumentsSchema = z.object({
   cursor: z.string().nullable(),
 });
 
+type SearchArguments = z.infer<typeof argumentsSchema>;
+
 export async function runSearchRecords(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
-  if ([args.added_from, args.added_to, args.occurred_from, args.occurred_to].some((date) => date !== null && !isRealIsoDate(date))) {
-    return failTool(INVALID_DATE_ERROR);
-  }
+  if (hasUnrealDate(args)) return failTool(INVALID_DATE_ERROR);
   const decodedCursor = args.cursor === null ? null : decodeSearchCursor(args.cursor);
   if (args.cursor !== null && decodedCursor === null) return failTool(INVALID_CURSOR_ERROR);
-  const page = await searchRecords(database, scope, {
+  const page = await searchRecords(database, scope, toSearchFilters(args, decodedCursor));
+  return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
+}
+
+function hasUnrealDate(args: SearchArguments): boolean {
+  const dates = [args.added_from, args.added_to, args.occurred_from, args.occurred_to];
+  return dates.some((date) => date !== null && !isRealIsoDate(date));
+}
+
+function toSearchFilters(args: SearchArguments, cursor: SearchCursor | null): SearchFilters {
+  return {
     text: args.text,
     category: args.category,
     member: args.member,
@@ -34,7 +44,6 @@ export async function runSearchRecords(database: Database, scope: AccessScope, p
     addedTo: args.added_to,
     occurredFrom: args.occurred_from,
     occurredTo: args.occurred_to,
-    cursor: decodedCursor,
-  });
-  return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
+    cursor,
+  };
 }
