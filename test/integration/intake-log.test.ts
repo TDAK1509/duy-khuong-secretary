@@ -136,6 +136,24 @@ describe('logging how the reader classified a message', () => {
     loggedLines.length = 0;
   }
 
+  it('keeps message content out of every logged line', async () => {
+    const item = makeItem({
+      vehicle_plate: '29C-123.45',
+      amount_vnd: 500000,
+      details: [{ label: 'Nơi nhận', value: 'Cheng Loong' }],
+    });
+    harness.reader.answerWith(makeReading([item]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ xe 29C-123.45');
+
+    const messageId = await readUserMessageId();
+    const linesWithoutId = loggedLines.map((line) => line.replace(messageId, ''));
+    expect(linesWithoutId.length).toBeGreaterThan(0);
+    for (const secret of ['29C', '500', 'Cheng', 'Nơi']) {
+      expect(linesWithoutId.filter((line) => line.includes(secret))).toEqual([]);
+    }
+  });
+
   async function readUserMessageId(): Promise<string> {
     const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user' ORDER BY created_at DESC LIMIT 1`);
     if (!message) throw new Error('no user message stored');
