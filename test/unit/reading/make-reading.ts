@@ -1,6 +1,10 @@
 import type { ReadAttempt, Reading, ReadingItem } from '../../../src/app/reading/reading.ts';
 
-export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
+type ReadingDetail = ReadingItem['details'][number];
+type DetailInput = Pick<ReadingDetail, 'label' | 'value'> | ReadingDetail;
+type ItemOverrides = Partial<Omit<ReadingItem, 'details'>> & { details?: DetailInput[] };
+
+export function makeItem({ details = [], ...overrides }: ItemOverrides = {}): ReadingItem {
   return {
     category: 'đổ xăng dầu',
     document_title: null,
@@ -10,9 +14,13 @@ export function makeItem(overrides: Partial<ReadingItem> = {}): ReadingItem {
     identifiers: [],
     vehicle_plate: null,
     document_number: null,
-    details: [],
     ...overrides,
+    details: details.map(fillNumberAndUnit),
   };
+}
+
+function fillNumberAndUnit(detail: DetailInput): ReadingDetail {
+  return { number: null, unit: null, ...detail };
 }
 
 export function makeReading(items: ReadingItem[] = [makeItem()], overrides: Partial<Reading> = {}): Reading {
