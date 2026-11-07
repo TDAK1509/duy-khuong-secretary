@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { listWorkspaceLabels } from '../../src/app/records/list-workspace-labels.ts';
+import { toDatabaseScope } from '../../src/app/access/to-database-scope.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertRecordRow } from './record-rows.ts';
@@ -67,5 +69,15 @@ describe('listWorkspaceLabels', () => {
     await saveRecord(['Nơi nhận']);
 
     expect(await listLabels()).toEqual(['Nơi nhận']);
+  });
+
+  it('shows a member the labels saved by the other members of the workspace', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await saveRecord(['Trọng lượng hàng']);
+    const lanDatabase = scopeDatabase(pool, toDatabaseScope({ workspaceId, userId: lanUserId, role: 'member' }));
+
+    const labels = await runInTransaction(lanDatabase, (transaction) => listWorkspaceLabels(transaction, workspaceId));
+
+    expect(labels).toEqual(['Trọng lượng hàng']);
   });
 });
