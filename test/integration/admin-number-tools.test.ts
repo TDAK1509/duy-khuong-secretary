@@ -276,4 +276,13 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"}],"without_number":1}',
     );
   });
+
+  it('does not sum a number stored as a JSON string and does not fail', async () => {
+    const printedNumber = { label: 'Trọng lượng hàng', value: '27,420 Kg', number: '27420', unit: 'kg' };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [printedNumber] });
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe('{"ok":true,"label":"Trọng lượng hàng","groups":[],"without_number":1}');
+  });
 });

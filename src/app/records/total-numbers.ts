@@ -1,6 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { buildAccentFreeEquals, buildWhere, type RecordFilters } from './search-records.ts';
+import { buildValidNumberPair } from './valid-number-pair.ts';
 
 export const NUMBER_GROUPS = ['none', 'member', 'plate', 'category', 'occurred_on'] as const;
 
@@ -32,11 +33,15 @@ export async function totalNumbers(database: Database, scope: AccessScope, reque
   const where = buildWhere(scope, request.filters);
   const recordSql = where.toSql();
   const labelMatch = buildAccentFreeEquals(where, `detail ->> 'label'`, request.label);
-  const { rows } = await database.query<TotalRow>(buildTotalSql(request.groupBy, recordSql, labelMatch), where.values);
+  const validNumberPair = buildValidNumberPair(where, 'detail');
+  const sql = buildTotalSql({ groupBy: request.groupBy, recordSql, labelMatch, validNumberPair });
+  const { rows } = await database.query<TotalRow>(sql, where.values);
   return { groups: rows.filter(hasGroup).map(toNumberTotal), withoutNumber: rows[0]?.without_number ?? 0 };
 }
 
-function buildTotalSql(groupBy: NumberGroup, recordSql: string, labelMatch: string): string {
+type TotalSqlParts = { groupBy: NumberGroup; recordSql: string; labelMatch: string; validNumberPair: string };
+
+function buildTotalSql({ groupBy, recordSql, labelMatch, validNumberPair }: TotalSqlParts): string {
   const groupKey = GROUP_KEYS[groupBy];
   return `WITH matching AS (
       SELECT record.id, record.details, ${groupKey.id} AS group_id, ${groupKey.name} AS group_name
@@ -44,7 +49,7 @@ function buildTotalSql(groupBy: NumberGroup, recordSql: string, labelMatch: stri
       WHERE ${recordSql}
     ), labelled AS (
       SELECT matching.id AS record_id, matching.group_id, matching.group_name, detail ->> 'unit' AS unit,
-        (detail -> 'number')::numeric AS amount
+        CASE WHEN ${validNumberPair} THEN (detail -> 'number')::numeric END AS amount
       FROM matching CROSS JOIN LATERAL jsonb_array_elements(matching.details) detail
       WHERE ${labelMatch}
     ), totals AS (
