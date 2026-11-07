@@ -52,7 +52,7 @@ async function backfillBatch(
 }
 
 async function addNumbers(scoped: Database, reader: ReaderService, record: RecordWithoutNumbers): Promise<RecordOutcome> {
-  const reply = await reader.read(buildDetailNumbersRequest(record.details));
+  const reply = await reader.read(buildDetailNumbersRequest(record));
   if (!reply.ok) return 'reader_failed';
   const details = mergeDetailNumbers(record.details, reply.json);
   if (details === null) return 'invalid_output';

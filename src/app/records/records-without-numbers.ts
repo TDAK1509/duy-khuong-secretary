@@ -1,8 +1,8 @@
-import type { StoredDetail } from '../reading/detail-numbers-request.ts';
+import type { StoredDocument } from '../reading/detail-numbers-request.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database } from '../db/transaction.ts';
 
-export type RecordWithoutNumbers = { id: string; details: StoredDetail[] };
+export type RecordWithoutNumbers = StoredDocument & { id: string };
 
 export const FIRST_RECORD_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -26,7 +26,7 @@ export async function findRecordsWithoutNumbers(
   afterId: string,
 ): Promise<RecordWithoutNumbers[]> {
   const { rows } = await scopeDatabase(database, { workspaceId }).query<RecordWithoutNumbers>(
-    `SELECT id, details FROM records WHERE ${HAS_DETAIL_WITHOUT_NUMBER} AND id > $2 ORDER BY id LIMIT ${BATCH_SIZE}`,
+    `SELECT id, category, document_title AS "documentTitle", details FROM records WHERE ${HAS_DETAIL_WITHOUT_NUMBER} AND id > $2 ORDER BY id LIMIT ${BATCH_SIZE}`,
     [workspaceId, afterId],
   );
   return rows;
