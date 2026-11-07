@@ -12,7 +12,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 
-type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'cursor', string>>;
+type SearchFilters = Partial<Record<'text' | 'category' | 'member' | 'plate' | 'added_from' | 'added_to' | 'occurred_from' | 'occurred_to' | 'cursor', string>>;
 
 type SearchResult = { items: { id: string; member: string; plate: string | null; category: string; document_title: string | null; has_photo: boolean }[]; next_cursor: string | null };
 
@@ -187,6 +187,27 @@ describe('the data tools of an admin', () => {
     const result = await runSearch({ added_from: '2026-10-31' });
 
     expect(result.items).toEqual([]);
+  });
+
+  it('finds a record sent one day after the date printed on the document', async () => {
+    const dated = await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      occurredOn: '2026-11-05',
+      createdAt: new Date('2026-11-06T10:00:00+07:00'),
+    });
+    await insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      occurredOn: '2026-11-04',
+      createdAt: new Date('2026-11-05T10:00:00+07:00'),
+    });
+
+    const result = await runSearch({ occurred_from: '2026-11-05', occurred_to: '2026-11-05' });
+
+    expect(result.items.map((item) => item.id)).toEqual([dated]);
   });
 
   it('refuses an invalid date', async () => {

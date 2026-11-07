@@ -13,12 +13,14 @@ const argumentsSchema = z.object({
   plate: z.string().nullable(),
   added_from: z.string().nullable(),
   added_to: z.string().nullable(),
+  occurred_from: z.string().nullable().default(null),
+  occurred_to: z.string().nullable().default(null),
   cursor: z.string().nullable(),
 });
 
 export async function runSearchRecords(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
-  if ([args.added_from, args.added_to].some((date) => date !== null && !isRealIsoDate(date))) {
+  if ([args.added_from, args.added_to, args.occurred_from, args.occurred_to].some((date) => date !== null && !isRealIsoDate(date))) {
     return failTool(INVALID_DATE_ERROR);
   }
   const decodedCursor = args.cursor === null ? null : decodeSearchCursor(args.cursor);
@@ -30,6 +32,8 @@ export async function runSearchRecords(database: Database, scope: AccessScope, p
     plate: args.plate,
     addedFrom: args.added_from,
     addedTo: args.added_to,
+    occurredFrom: args.occurred_from,
+    occurredTo: args.occurred_to,
     cursor: decodedCursor,
   });
   return JSON.stringify({ items: page.items, next_cursor: page.nextCursor });
