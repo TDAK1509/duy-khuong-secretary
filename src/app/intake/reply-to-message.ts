@@ -10,7 +10,6 @@ import { rereadPhotoWithRecentTexts, rereadWithRecentMessages, type RereadPhoto,
 import { isReplied, runReplyStage } from './run-reply-stage.ts';
 import { saveRereadOnPhoto } from './save-on-photo.ts';
 import { logIntake, type LoggedReading } from './log-intake.ts';
-import { isQuestionPending } from './store-user-message.ts';
 
 type FirstReading = { attempt: ReadAttempt; plan: ReplyPlan };
 
@@ -20,7 +19,7 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
   const attempt = await readMessage(context, message);
   const firstPlan = planReply(attempt, message.photo !== null);
   const reread = await rereadUnclearMessage(context, message, { attempt, plan: firstPlan });
-  if (reread?.photo) return replyOnRereadPhoto(context, message, reread.plan, reread.photo);
+  if (reread?.photo) return replyOnRereadPhoto(context, message, { ...reread, photo: reread.photo });
   return replyWithPlan(context, message, reread ?? { attempt, plan: firstPlan });
 }
 
@@ -68,17 +67,14 @@ function isRereadable({ sender }: IntakeContext, { photo }: MessageToRead, { att
 async function replyOnRereadPhoto(
   context: IntakeContext,
   message: MessageToRead,
-  plan: ReplyPlan,
-  photo: RereadPhoto,
+  { attempt, plan, photo }: FirstReading & { photo: RereadPhoto },
 ): Promise<IntakeOutcome> {
   const target = { textId: message.id, photo };
   await context.stages.runStage({
     isDone: (transaction) => isReplied(transaction, message.id),
     write: (transaction) => saveRereadOnPhoto(transaction, context, target, plan),
   });
-  if (await isQuestionPending(context.dependencies.database, message.id)) {
-    await answerWithChat(context, message);
-  }
+  await answerPendingQuestion(context, message, toLoggedReading({ attempt, plan }), 'reply_then_admin_chat');
   return { kind: 'replied' };
 }
 

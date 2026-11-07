@@ -128,6 +128,23 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs the reread reading of a text saved on an earlier photo', async () => {
+    const withoutPlate = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: null })]);
+    const withPlate = makeReading([makeItem({ category: 'bảo dưỡng', maintenance_item: 'lốp', vehicle_plate: '29C-123.45' })]);
+    const reader = new FakeReader(({ text }) => ({ ok: true, json: text?.startsWith(RECENT_MESSAGES_HEADER) ? withPlate : withoutPlate }));
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    const sentAt = new Date(NOW.getTime() - 2 * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], sentAt });
+    await harness.runInbound({ reader });
+    loggedLines.length = 0;
+
+    await harness.receiveText('zu-hung', '29C-123.45', { reader });
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=ok situation=saved items=1 has_question=false route=reply`,
+    ]);
+  });
+
   async function sendUnclearPhoto(): Promise<void> {
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
     harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
