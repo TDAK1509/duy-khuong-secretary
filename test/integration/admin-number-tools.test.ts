@@ -42,6 +42,12 @@ describe('the number tools of an admin', () => {
     return runAdminTool(dependencies, scope, { id: 'call_1', name: 'list_number_labels', argumentsJson: JSON.stringify(args) });
   }
 
+  async function runTotalNumbers(label: string, groupBy = 'none', filters: Filters = {}, scope: AccessScope = duy): Promise<string> {
+    const args = { label, text: null, category: null, member: null, plate: null, added_from: null, added_to: null, occurred_from: null, occurred_to: null, ...filters, group_by: groupBy };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
+    return runAdminTool(dependencies, scope, { id: 'call_1', name: 'total_numbers', argumentsJson: JSON.stringify(args) });
+  }
+
   function weight(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
     return { label, value: `${number} ${unit}`, number, unit };
   }
@@ -112,5 +118,17 @@ describe('the number tools of an admin', () => {
     const output = await runListNumberLabels();
 
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: 'kg', count: 1 }] }));
+  });
+
+  it('totals the sum, count, min and max of a label as exact decimals', async () => {
+    for (const number of [27420, 27410]) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":2,"sum":"54830","min":"27410","max":"27420"}],"without_number":0}',
+    );
   });
 });

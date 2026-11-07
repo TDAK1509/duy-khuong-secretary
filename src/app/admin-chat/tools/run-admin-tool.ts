@@ -15,6 +15,7 @@ import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
+import { runTotalNumbers } from './total-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
@@ -52,6 +53,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
+  total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
