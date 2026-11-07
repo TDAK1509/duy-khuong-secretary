@@ -3,6 +3,7 @@ import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
 const INVALID_ARGUMENTS = 'invalid';
+const NO_COUNT = '-';
 
 const DATE_ARGUMENTS = ['added_from', 'added_to', 'occurred_from', 'occurred_to'];
 
@@ -11,7 +12,7 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 }
 
 function describeArguments(argumentsJson: string): string {
-  const parsed = parseArguments(argumentsJson);
+  const parsed = parseJsonObject(argumentsJson);
   if (parsed === null) return INVALID_ARGUMENTS;
   return Object.keys(parsed)
     .filter((name) => !isEmptyArgument(parsed[name]))
@@ -20,9 +21,9 @@ function describeArguments(argumentsJson: string): string {
     .join(';');
 }
 
-function parseArguments(argumentsJson: string): Record<string, unknown> | null {
+function parseJsonObject(json: string): Record<string, unknown> | null {
   try {
-    const parsed: unknown = JSON.parse(argumentsJson);
+    const parsed: unknown = JSON.parse(json);
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
   } catch {
     return null;
@@ -39,8 +40,9 @@ function describeArgument(name: string, value: unknown): string {
 }
 
 export function describeToolOutput(output: string): string {
-  const parsed = JSON.parse(output) as Record<string, unknown>;
+  const parsed = parseJsonObject(output);
+  if (parsed === null) return NO_COUNT;
   if (parsed['ok'] === false) return 'error';
   const list = Object.values(parsed).find(Array.isArray);
-  return String(list?.length);
+  return list === undefined ? NO_COUNT : String(list.length);
 }

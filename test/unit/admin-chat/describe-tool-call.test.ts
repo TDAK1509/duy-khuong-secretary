@@ -51,4 +51,16 @@ describe('describing a tool call for the log', () => {
   it('shows error for a tool output that says it failed', () => {
     expect(describeToolOutput('{"ok":false,"error":"Ngày không hợp lệ."}')).toBe('error');
   });
+
+  it('shows a dash for a tool output without a top-level array', () => {
+    expect(describeToolOutput('{"ok":true}')).toBe('-');
+  });
+
+  it.each(['not json', 'null', '[1,2]', '{"nested":{"items":[1]}}'])('shows a dash for an output that holds no top-level array: %s', (output) => {
+    expect(describeToolOutput(output)).toBe('-');
+  });
+
+  it('counts the first top-level array of the output', () => {
+    expect(describeToolOutput('{"ok":true,"labels":[1,2,3],"items":[1]}')).toBe('3');
+  });
 });
