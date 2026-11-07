@@ -27,19 +27,6 @@ describe('listWorkspaceLabels', () => {
     await database.drop();
   });
 
-  function listLabels(): Promise<string[]> {
-    return runInTransaction(pool, (transaction) => listWorkspaceLabels(transaction, workspaceId));
-  }
-
-  function saveRecord(labels: string[]): Promise<string> {
-    return insertRecordRow(database, {
-      workspaceId,
-      userId: hungUserId,
-      senderName: 'Hùng',
-      details: labels.map((label) => ({ label, value: 'giá trị' })),
-    });
-  }
-
   it('lists the labels used by most records first', async () => {
     await saveRecord(['Trọng lượng hàng']);
     await saveRecord(['Nơi nhận']);
@@ -99,4 +86,17 @@ describe('listWorkspaceLabels', () => {
 
     expect(await listLabels()).toEqual(['a'.repeat(60)]);
   });
+
+  function listLabels(): Promise<string[]> {
+    return runInTransaction(pool, (transaction) => listWorkspaceLabels(transaction, workspaceId));
+  }
+
+  function saveRecord(labels: string[]): Promise<string> {
+    return insertRecordRow(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      details: labels.map((label) => ({ label, value: 'giá trị' })),
+    });
+  }
 });
