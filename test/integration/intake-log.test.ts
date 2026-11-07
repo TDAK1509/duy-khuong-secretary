@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertMember } from './workspace-rows.ts';
 
 describe('logging how the reader classified a message', () => {
@@ -28,6 +28,17 @@ describe('logging how the reader classified a message', () => {
 
     expect(readIntakeLines()).toEqual([
       `[intake] message=${await readUserMessageId()} role=admin reader=ok situation=no_work_data items=0 has_question=true route=admin_chat`,
+    ]);
+  });
+
+  it('logs the photo of a member saved as a reply', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([makeItem()]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=ok situation=saved items=1 has_question=false route=reply`,
     ]);
   });
 
