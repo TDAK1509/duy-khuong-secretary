@@ -74,11 +74,6 @@ export function buildWhere(scope: AccessScope, filters: RecordFilters): WhereCla
   return where;
 }
 
-function addCursorCondition(where: WhereClause, cursor: SearchCursor | null): void {
-  if (cursor === null) return;
-  where.require(`(record.created_at, record.id) < (${where.bind(cursor.createdAt)}::timestamptz, ${where.bind(cursor.id)}::uuid)`);
-}
-
 function buildTextCondition(where: WhereClause, text: string): string {
   return `(${buildAccentFreeCondition(where, text)} OR ${buildCodeCondition(where, text)})`;
 }
@@ -105,6 +100,11 @@ function buildCodeCondition(where: WhereClause, text: string): string {
 export function buildAccentFreeEquals(where: WhereClause, column: string, text: string): string {
   const bound = where.bind(toAccentFreeForm(text) ?? '');
   return `regexp_replace(trim(lower(unaccent(${column}))), '\\s+', ' ', 'g') = ${bound}`;
+}
+
+function addCursorCondition(where: WhereClause, cursor: SearchCursor | null): void {
+  if (cursor === null) return;
+  where.require(`(record.created_at, record.id) < (${where.bind(cursor.createdAt)}::timestamptz, ${where.bind(cursor.id)}::uuid)`);
 }
 
 function toPage(rows: FoundRow[]): SearchPage {
