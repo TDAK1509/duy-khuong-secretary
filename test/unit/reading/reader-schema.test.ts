@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { READER_SCHEMA } from '../../../src/app/reading/reader-schema.ts';
 
-type ItemSchema = { properties: Record<string, unknown>; required: string[] };
-type DetailSchema = { properties: Record<string, unknown>; required: string[] };
-
-function readItemSchema(): ItemSchema {
-  const { items } = (READER_SCHEMA['properties'] as { items: { items: ItemSchema } }).items;
-  return items;
-}
-
-function readDetailSchema(): DetailSchema {
-  return (readItemSchema().properties['details'] as { items: DetailSchema }).items;
-}
-
 describe('READER_SCHEMA', () => {
   it('asks for a nullable number and unit on every detail', () => {
     const detail = readDetailSchema();
@@ -40,3 +28,14 @@ describe('READER_SCHEMA', () => {
     expect(readItemSchema().properties['category']).toEqual({ type: 'string' });
   });
 });
+
+type ObjectSchema = { properties: Record<string, unknown>; required: string[] };
+
+function readDetailSchema(): ObjectSchema {
+  return (readItemSchema().properties['details'] as { items: ObjectSchema }).items;
+}
+
+function readItemSchema(): ObjectSchema {
+  const { items } = (READER_SCHEMA['properties'] as { items: { items: ObjectSchema } }).items;
+  return items;
+}
