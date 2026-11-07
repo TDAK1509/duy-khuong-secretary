@@ -8,5 +8,10 @@ const detailNumbersReplySchema = z.strictObject({
 
 export function mergeDetailNumbers(details: StoredDetail[], reply: unknown): StoredDetail[] {
   const replied = detailNumbersReplySchema.parse(reply).details;
-  return details.map((detail, index) => ({ ...detail, ...readNumberPair(replied[index]?.number, replied[index]?.unit) }));
+  return details.map((detail, index) => addNumberPair(detail, replied[index]));
+}
+
+function addNumberPair(detail: StoredDetail, reply: { number: number | null; unit: string | null } | undefined): StoredDetail {
+  if ('number' in detail) return detail;
+  return { ...detail, ...readNumberPair(reply?.number, reply?.unit) };
 }
