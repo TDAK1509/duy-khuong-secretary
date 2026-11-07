@@ -19,6 +19,6 @@ function repliesToEachIndexOnce(details: StoredDetail[], replied: ReplyDetail[])
 }
 
 function addNumberPair(detail: StoredDetail, reply: ReplyDetail | undefined): StoredDetail {
-  if ('number' in detail) return detail;
+  if (detail.number !== undefined && detail.number !== null) return detail;
   return { ...detail, ...readNumberPair(reply?.number, reply?.unit) };
 }
