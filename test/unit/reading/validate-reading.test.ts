@@ -93,4 +93,13 @@ describe('validateReading', () => {
       reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,41 tấn', number: null, unit: null }] }] },
     });
   });
+
+  it('drops a negative number and its unit', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '-5 Kg', number: -5, unit: 'kg' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '-5 Kg', number: null, unit: null }] }] },
+    });
+  });
 });

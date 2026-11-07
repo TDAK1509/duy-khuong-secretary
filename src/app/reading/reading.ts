@@ -11,8 +11,12 @@ const detailSchema = z
 type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
 
 function readNumberPair(number: unknown, unit: unknown): NumberPair {
-  if (typeof number === 'number' && isStandardUnit(unit)) return { number, unit };
+  if (isNonNegativeNumber(number) && isStandardUnit(unit)) return { number, unit };
   return { number: null, unit: null };
+}
+
+function isNonNegativeNumber(number: unknown): number is number {
+  return typeof number === 'number' && Number.isFinite(number) && number >= 0;
 }
 
 function isStandardUnit(unit: unknown): unit is StandardUnit {
