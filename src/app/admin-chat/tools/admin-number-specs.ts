@@ -35,7 +35,7 @@ export const LIST_NUMBER_LABELS_SPEC: ToolSpec = {
 export const TOTAL_NUMBERS_SPEC: ToolSpec = {
   name: 'total_numbers',
   description:
-    'Tính tổng, số giá trị, nhỏ nhất và lớn nhất dưới một nhãn trong mọi mục phù hợp. Các đơn vị luôn tách riêng. Lọc giống search_records, không phân trang. Có thể nhóm theo thành viên, xe, loại hoặc ngày trên giấy tờ. Các kết quả tổng, nhỏ nhất và lớn nhất là chuỗi số thập phân. without_number đếm mục có nhãn này nhưng thiếu số chuẩn.',
+    'Tính tổng, số giá trị, nhỏ nhất và lớn nhất dưới một nhãn trong các mục phù hợp. Các bản lưu trùng loại, số chứng từ, biển số và ngày trên giấy tờ chỉ lấy bản mới nhất có nhãn đó trong các mục phù hợp. Mục không có số chứng từ luôn tính riêng. Các đơn vị luôn tách riêng. Lọc giống search_records, không phân trang. Có thể nhóm theo thành viên, xe, loại hoặc ngày trên giấy tờ. Các kết quả tổng, nhỏ nhất và lớn nhất là chuỗi số thập phân. without_number đếm mục được chọn có nhãn này nhưng thiếu số chuẩn.',
   parameters: {
     type: 'object',
     properties: { label: LABEL, ...FILTER_PROPERTIES, group_by: GROUP_BY },
