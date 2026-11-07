@@ -1,6 +1,6 @@
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
-import { answerPendingQuestionAfterReply } from './answer-pending-question.ts';
+import { answerPendingQuestion } from './answer-pending-question.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import type { ReadAttempt } from '../reading/reading.ts';
@@ -31,7 +31,7 @@ async function replyWithPlan(context: IntakeContext, message: MessageToRead, { a
     return { kind: 'replied' };
   }
   await runReplyStage(context, message, plan);
-  await answerPendingQuestionAfterReply(context, message, toLoggedReading({ attempt, plan }));
+  await answerPendingQuestion(context, message, toLoggedReading({ attempt, plan }), 'reply_then_admin_chat');
   return { kind: 'replied' };
 }
 

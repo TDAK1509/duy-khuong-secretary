@@ -4,12 +4,13 @@ import type { IntakeContext } from './intake-context.ts';
 import { logIntake, type LoggedReading } from './log-intake.ts';
 import { isQuestionPending } from './store-user-message.ts';
 
-export async function answerPendingQuestionAfterReply(
+export async function answerPendingQuestion(
   context: IntakeContext,
   message: ChatMessage,
   reading: LoggedReading,
+  routeWhenPending: 'admin_chat' | 'reply_then_admin_chat',
 ): Promise<void> {
   const isPending = await isQuestionPending(context.dependencies.database, message.id);
-  logIntake(context, message.id, reading, isPending ? 'reply_then_admin_chat' : 'reply');
+  logIntake(context, message.id, reading, isPending ? routeWhenPending : 'reply');
   if (isPending) await answerWithChat(context, message);
 }
