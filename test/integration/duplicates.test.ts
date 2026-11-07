@@ -99,15 +99,24 @@ describe('rejecting duplicate papers', () => {
     ]);
   });
 
-  it('does not save a copy of a saved paper whose details have no number keys', async () => {
+  it('tells the same driver that a saved paper without number keys is already in the group', async () => {
     const weight = { label: 'Trọng lượng hàng', value: '27,420 Kg' };
     harness.reader.answerWith(makeReading([makeFuelItem({ details: [{ ...weight, number: null, unit: null }] })]));
     await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+    harness.channel.texts.splice(0);
     await database.query(`UPDATE records SET details = '${JSON.stringify([weight])}'::jsonb`);
     harness.reader.answerWith(makeReading([makeFuelItem({ details: [{ ...weight, number: 27420, unit: 'kg' }] })]));
 
-    await harness.receivePhoto('zu-lan');
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
 
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      [
+        'zu-hung',
+        'Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.',
+      ],
+    ]);
     expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
   });
 
