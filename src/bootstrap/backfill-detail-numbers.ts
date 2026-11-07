@@ -1,11 +1,15 @@
 import { z } from 'zod';
+import { countRecordsWithoutNumbers } from '../app/records/count-records-without-numbers.ts';
+import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
+import type { ReaderService } from '../services/reading/reader-service.ts';
 import { readRuntimeDatabaseUrl } from './config.ts';
-import { loadReaderConfig } from './reader-config.ts';
+import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
 
 const USAGE = 'Usage: node dist/bootstrap/backfill-detail-numbers.js <workspace-uuid> [--apply]';
 
 export type BackfillDetailNumbersOptions = {
   log?: (line: string) => void;
+  buildReader?: (config: ReaderConfig) => ReaderService;
 };
 
 type BackfillArguments = { workspaceId: string; apply: boolean };
@@ -31,7 +35,12 @@ export async function runBackfillDetailNumbersCommand(
     log(`Missing reader settings: ${readerConfig.missing.join(', ')}`);
     return 1;
   }
-  return 0;
+  const pool = createPostgresPool(databaseUrl.data);
+  try {
+    return await reportRecordsWithoutNumbers(pool, parsedArguments.workspaceId, log);
+  } finally {
+    await pool.end();
+  }
 }
 
 function parseArguments(args: string[]): BackfillArguments | null {
@@ -40,6 +49,16 @@ function parseArguments(args: string[]): BackfillArguments | null {
   const apply = flags.length === 1 && flags[0] === '--apply';
   if (!parsedId.success || (flags.length > 0 && !apply)) return null;
   return { workspaceId: parsedId.data, apply };
+}
+
+async function reportRecordsWithoutNumbers(
+  pool: PostgresPool,
+  workspaceId: string,
+  log: (line: string) => void,
+): Promise<number> {
+  const total = await countRecordsWithoutNumbers(pool, workspaceId);
+  log(`Records without numbers in workspace ${workspaceId}: ${total}. Nothing changed. Run again with --apply to add numbers.`);
+  return 0;
 }
 
 if (import.meta.main) {
