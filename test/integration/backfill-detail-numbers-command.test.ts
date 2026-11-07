@@ -287,6 +287,33 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
   });
 
+  it('fails one record when the reader fails and goes on with the next', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    const recordIds = [
+      await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details }),
+      await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details }),
+    ].sort();
+    let calls = 0;
+    const reader = new FakeReader(() => {
+      calls += 1;
+      return calls === 1
+        ? { ok: false, reason: 'unavailable' }
+        : { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+    });
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed record ${recordIds[0]}: reader_failed`,
+      'Checked 2 records. Added numbers to 1. Failed 1.',
+    ]);
+    expect(
+      await database.query(`SELECT id, details FROM records WHERE id = '${recordIds[0]}'`),
+    ).toEqual([{ id: recordIds[0], details }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });

@@ -32,7 +32,7 @@ async function addNumbers(
   record: RecordWithoutNumbers,
 ): Promise<BackfillFailureReason | null> {
   const reply = await reader.read(buildDetailNumbersRequest(record.details));
-  if (!reply.ok) return null;
+  if (!reply.ok) return 'reader_failed';
   const details = mergeDetailNumbers(record.details, reply.json);
   if (details === null) return 'invalid_output';
   await scoped.query('UPDATE records SET details = $1::jsonb WHERE id = $2', [JSON.stringify(details), record.id]);
