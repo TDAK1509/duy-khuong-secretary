@@ -3,7 +3,7 @@ import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database } from '../db/transaction.ts';
 import { buildDetailNumbersRequest, type StoredDetail } from '../reading/detail-numbers-request.ts';
 import { mergeDetailNumbers } from './merge-detail-numbers.ts';
-import { findRecordsWithoutNumbers, type RecordWithoutNumbers } from './records-without-numbers.ts';
+import { FIRST_RECORD_ID, findRecordsWithoutNumbers, type RecordWithoutNumbers } from './records-without-numbers.ts';
 
 export type BackfillFailureReason = 'reader_failed' | 'invalid_output' | 'changed_during_run';
 
@@ -17,13 +17,30 @@ export async function backfillDetailNumbers(
   workspaceId: string,
 ): Promise<BackfillSummary> {
   const scoped = scopeDatabase(database, { workspaceId });
-  const records = await findRecordsWithoutNumbers(database, workspaceId);
   const failures: BackfillFailure[] = [];
-  for (const record of records) {
+  let checked = 0;
+  let afterId = FIRST_RECORD_ID;
+  for (;;) {
+    const batch = await findRecordsWithoutNumbers(database, workspaceId, afterId);
+    const lastRecord = batch.at(-1);
+    if (lastRecord === undefined) return { checked, added: checked - failures.length, failures };
+    failures.push(...(await backfillBatch(scoped, reader, batch)));
+    checked += batch.length;
+    afterId = lastRecord.id;
+  }
+}
+
+async function backfillBatch(
+  scoped: Database,
+  reader: ReaderService,
+  batch: RecordWithoutNumbers[],
+): Promise<BackfillFailure[]> {
+  const failures: BackfillFailure[] = [];
+  for (const record of batch) {
     const reason = await addNumbers(scoped, reader, record);
     if (reason !== null) failures.push({ recordId: record.id, reason });
   }
-  return { checked: records.length, added: records.length - failures.length, failures };
+  return failures;
 }
 
 async function addNumbers(
