@@ -455,6 +455,16 @@ describe('the number tools of an admin', () => {
     );
   });
 
+  it('counts a ticket once in without_number', async () => {
+    const unreadWeight = { label: 'Trọng lượng tịnh', value: '26380', number: null, unit: null };
+    await insertTicketCopy({ details: [unreadWeight] });
+    await insertTicketCopy({ details: [unreadWeight] });
+
+    const output = await runTotalNumbers('Trọng lượng tịnh');
+
+    expect(output).toBe('{"ok":true,"label":"Trọng lượng tịnh","groups":[],"without_number":1}');
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
