@@ -226,6 +226,14 @@ describe('the data tools of an admin', () => {
     expect(result.items).toEqual([]);
   });
 
+  it('leaves out a record without a document date when a document date bound is set', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: null });
+
+    const result = await runSearch({ occurred_from: '2026-11-01' });
+
+    expect(result.items).toEqual([]);
+  });
+
   it('refuses an invalid date', async () => {
     const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
