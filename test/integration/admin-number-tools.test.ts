@@ -83,6 +83,15 @@ describe('the number tools of an admin', () => {
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: null, count: 1 }] }));
   });
 
+  it('lists a number stored as text with unit null', async () => {
+    const textWeight = { label: 'Trọng lượng hàng', value: '27,420 Kg', number: '27420', unit: 'kg' };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [textWeight] });
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: null, count: 1 }] }));
+  });
+
   it('lists only the labels of the records that match the text filter', async () => {
     await insertRecordRow(database, {
       workspaceId,
