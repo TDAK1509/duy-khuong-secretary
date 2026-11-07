@@ -95,6 +95,11 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
   const totalsLines = [
     '- Để tổng hợp một số trong chi tiết đã lưu, dùng total_numbers.',
     '- Nếu chưa biết nhãn phù hợp, gọi list_number_labels với cùng bộ lọc trước.',
+    '- list_number_labels liệt kê cả nhãn chưa có số chuẩn, với unit là null.',
+    '- Chỉ dùng nhãn có trong list_number_labels để gọi total_numbers. Không đoán nhãn khác.',
+    '- Nếu nhãn phù hợp chỉ có unit là null, gọi total_numbers một lần với nhãn đó rồi nêu without_number.',
+    '- Khi báo số mục của một tổng, dùng count và without_number của total_numbers. Không dùng số trong list_number_labels, count_records hoặc search_records.',
+    '- Khối lượng hàng trên phiếu cân là trọng lượng tịnh của hàng. Không dùng tổng trọng lượng hoặc trọng lượng xe.',
     '- Không tự cộng số từ value hoặc từ các trang search_records.',
     '- Không tự gộp hai nhãn khác nhau.',
     '- Nếu nhiều nhãn có thể phù hợp, nêu riêng kết quả từng nhãn. Không tự cộng các kết quả đó.',
@@ -103,6 +108,7 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
     '- Khi chia theo ngày trên giấy tờ, dùng group_by là "occurred_on".',
     '- Nếu without_number lớn hơn 0, nêu số mục có nhãn nhưng thiếu số chuẩn.',
     '- Nếu không có nhóm nào, nói rõ chưa đủ dữ liệu để tính. Không nói tổng là 0.',
+    '- Với cùng bộ lọc và cùng nhãn, chỉ gọi total_numbers một lần trong một lượt trả lời. Nếu thiếu số chuẩn hoặc không có nhóm, nêu rõ kết quả đó. Không thử nhãn khác chỉ để tìm một tổng có số.',
     '- Viết kết quả kèm đơn vị. Không cộng các đơn vị khác nhau.',
   ];
   const changeLines = [
@@ -119,7 +125,7 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
     expect(lines).not.toContain('- Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.');
   });
 
-  it('holds the eleven totals lines right after the count_records line, in order', () => {
+  it('holds the seventeen totals lines right after the count_records line, in order', () => {
     const start = lines.indexOf(countLine);
 
     expect(start).toBeGreaterThan(-1);
