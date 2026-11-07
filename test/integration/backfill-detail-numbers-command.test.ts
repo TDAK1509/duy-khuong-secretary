@@ -24,4 +24,13 @@ describe('the backfill-detail-numbers command', () => {
     expect(exitCode).toBe(1);
     expect(lines).toEqual(['DATABASE_URL must be set to a database URL']);
   });
+
+  it('prints the usage when the workspace id is missing', async () => {
+    const lines: string[] = [];
+
+    const exitCode = await runBackfillDetailNumbersCommand([], { DATABASE_URL: database.runtimeUrl }, { log: (line) => lines.push(line) });
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual(['Usage: node dist/bootstrap/backfill-detail-numbers.js <workspace-uuid> [--apply]']);
+  });
 });
