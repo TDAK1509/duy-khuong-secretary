@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeToolCall } from '../../../src/app/admin-chat/describe-tool-call.ts';
+import { describeToolCall, describeToolOutput } from '../../../src/app/admin-chat/describe-tool-call.ts';
 
 function describeArguments(argumentsObject: unknown): string {
   return describeArgumentsJson(JSON.stringify(argumentsObject));
@@ -46,5 +46,9 @@ describe('describing a tool call for the log', () => {
 
   it.each(['null', '[]', '"text"', '5'])('shows invalid for arguments that are not an object: %s', (argumentsJson) => {
     expect(describeArgumentsJson(argumentsJson)).toBe('invalid');
+  });
+
+  it('shows error for a tool output that says it failed', () => {
+    expect(describeToolOutput('{"ok":false,"error":"Ngày không hợp lệ."}')).toBe('error');
   });
 });

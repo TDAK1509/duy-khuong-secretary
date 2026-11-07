@@ -40,6 +40,7 @@ function describeArgument(name: string, value: unknown): string {
 
 export function describeToolOutput(output: string): string {
   const parsed = JSON.parse(output) as Record<string, unknown>;
+  if (parsed['ok'] === false) return 'error';
   const list = Object.values(parsed).find(Array.isArray);
   return String(list?.length);
 }
