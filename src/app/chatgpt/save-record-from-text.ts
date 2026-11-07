@@ -25,7 +25,7 @@ export type SaveRecordRuntime = { database: Database; clock: Clock; reader: Read
 
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
-  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null });
+  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, []);
   if (!attempt.ok) return { text: READER_FAILED_TEXT, isError: true };
   const plan = planReply(attempt, false);
   if (!plan.saved) return { text: plan.isUnclear ? UNCLEAR_TEXT : NO_WORK_DATA_TEXT, isError: false };

@@ -30,6 +30,6 @@ Quy tắc:
 - Phân biệt ngày công việc, ngày cấp, ngày hết hạn và ngày gửi.
 - Hôm nay là {dd/MM/yyyy} (giờ Việt Nam).`;
 
-export function buildReaderPrompt(today: Date): string {
+export function buildReaderPrompt(today: Date, labels: string[]): string {
   return READER_PROMPT_TEMPLATE.replace('{dd/MM/yyyy}', formatVietnamDate(today));
 }
