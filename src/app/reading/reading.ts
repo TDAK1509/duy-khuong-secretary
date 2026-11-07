@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
+
+const detailSchema = z.strictObject({
+  label: z.string(),
+  value: z.string(),
+  number: z.number().nullable(),
+  unit: z.enum(STANDARD_UNITS).nullable(),
+});
+
 const itemSchema = z.strictObject({
   category: z.string(),
   document_title: z.string().nullable(),
@@ -9,7 +18,7 @@ const itemSchema = z.strictObject({
   identifiers: z.array(z.string()),
   vehicle_plate: z.string().nullable(),
   document_number: z.string().nullable(),
-  details: z.array(z.strictObject({ label: z.string(), value: z.string() })),
+  details: z.array(detailSchema),
 });
 
 const readingSchema = z.strictObject({

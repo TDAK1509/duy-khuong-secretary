@@ -60,8 +60,19 @@ describe('validateReading', () => {
   });
 
   it('fails the read when a detail has an extra property', () => {
-    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '50', unit: 'l' }] });
+    const json = makeFuelJson({ details: [{ label: 'Số lít', value: '50', number: 50, unit: 'l', currency: 'VND' }] });
 
     expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
+
+  it('keeps a valid number and unit of a detail', () => {
+    const json = makeFuelJson({
+      details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' }],
+    });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' }] }] },
+    });
   });
 });

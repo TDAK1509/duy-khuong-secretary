@@ -377,8 +377,8 @@ describe('saving what the reader returns', () => {
 
   it('keeps every detail the reader returned', async () => {
     const details = [
-      { label: 'Số lít', value: '50' },
-      { label: 'Tên trạm', value: 'Petrolimex Long Biên' },
+      { label: 'Số lít', value: '50', number: 50, unit: 'l' as const },
+      { label: 'Tên trạm', value: 'Petrolimex Long Biên', number: null, unit: null },
     ];
     harness.reader.answerWith(makeReading([makeFuelItem({ details })]));
 
