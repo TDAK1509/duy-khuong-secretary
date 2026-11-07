@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
+import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertMember } from './workspace-rows.ts';
+
+const MINUTE_IN_MS = 60 * 1000;
+const RECENT_MESSAGES_HEADER = 'Các tin nhắn gần đây';
 
 describe('logging how the reader classified a message', () => {
   let harness: IntakeHarness;
@@ -84,8 +89,26 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs the reading of the reread when a text is saved only after it', async () => {
+    const unclear = makeReading([], { has_work_data: false, needs_explanation: true });
+    const reader = new FakeReader(({ text }) => ({
+      ok: true,
+      json: text?.startsWith(RECENT_MESSAGES_HEADER) ? makeReading([makeItem()]) : unclear,
+    }));
+    const sentAt = new Date(NOW.getTime() - 2 * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: 'Đổ dầu', sentAt });
+    await harness.runInbound({ reader });
+    loggedLines.length = 0;
+
+    await harness.receiveText('zu-hung', '500.000đ', { reader });
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=ok situation=saved items=1 has_question=false route=reply`,
+    ]);
+  });
+
   async function readUserMessageId(): Promise<string> {
-    const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
+    const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user' ORDER BY created_at DESC LIMIT 1`);
     if (!message) throw new Error('no user message stored');
     return message.id;
   }
