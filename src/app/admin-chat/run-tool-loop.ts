@@ -44,9 +44,18 @@ async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedR
   const logged: LoggedCall[] = [];
   rounds.push({ calls: logged, ran: true });
   for (const [index, call] of calls.entries()) {
-    const output = index < MAX_CALLS_PER_ROUND ? await runTool(call) : failInvalidArgument('calls');
-    logged.push({ ...describeToolCall(call), result: describeToolOutput(output) });
-    results.push({ role: 'tool_result', callId: call.id, output });
+    const run = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool) : skipCall(call);
+    logged.push(run.logged);
+    results.push({ role: 'tool_result', callId: call.id, output: run.output });
   }
   return [{ role: 'assistant_tool_calls', calls }, ...results];
+}
+
+async function runCall(call: ToolCall, runTool: RunTool): Promise<{ output: string; logged: LoggedCall }> {
+  const output = await runTool(call);
+  return { output, logged: { ...describeToolCall(call), result: describeToolOutput(output) } };
+}
+
+function skipCall(call: ToolCall): { output: string; logged: LoggedCall } {
+  return { output: failInvalidArgument('calls'), logged: describeNotRunCall(call) };
 }

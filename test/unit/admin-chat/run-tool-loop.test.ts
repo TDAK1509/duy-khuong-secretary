@@ -42,4 +42,15 @@ describe('the tool loop', () => {
       { ran: false, calls: [notRunCall] },
     ]);
   });
+
+  it('logs the sixth call of one round as not run', async () => {
+    const calls = Array.from({ length: 6 }, (_, index) => ({ ...SEARCH_CALL, id: `call_${index}` }));
+    const chat = new FakeChatService();
+    chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(...calls) : replyWithText('Xong')));
+    const rounds: LoggedRound[] = [];
+
+    await runToolLoop(chat, REQUEST, async () => '{"items":[{}],"next_cursor":null}', rounds);
+
+    expect(rounds[0]?.calls.map((call) => call.result)).toEqual(['1', '1', '1', '1', '1', 'not_run']);
+  });
 });
