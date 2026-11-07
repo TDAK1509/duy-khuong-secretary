@@ -67,3 +67,22 @@ describe('the search section of the admin prompt', () => {
     expect(prompt.split('\n').some((line) => line.includes('Khi người dùng gửi ảnh để hỏi'))).toBe(false);
   });
 });
+
+describe('the rules about the date on the document in the admin prompt', () => {
+  const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00') });
+
+  it('holds the six date lines one after the other, in order', () => {
+    const dateLines = [
+      '- Ngày trên giấy tờ khác với ngày gửi. Nói rõ ngày nào là ngày nào.',
+      '- Khi hỏi ngày vận chuyển, ngày cân hoặc ngày trên phiếu, dùng occurred_from và occurred_to.',
+      '- Nếu hỏi công việc trong một ngày mà không nói ngày gửi, dùng ngày trên giấy tờ.',
+      '- Khi hỏi ngày gửi hoặc ngày tải lên, dùng added_from và added_to.',
+      '- Nếu dùng cả hai khoảng ngày, kết quả phải thỏa cả hai.',
+      '- Không thay ngày trên giấy tờ còn thiếu bằng ngày gửi.',
+    ];
+
+    const start = prompt.split('\n').indexOf(dateLines[0] ?? '');
+
+    expect(prompt.split('\n').slice(start, start + dateLines.length)).toEqual(dateLines);
+  });
+});
