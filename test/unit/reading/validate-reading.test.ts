@@ -129,4 +129,13 @@ describe('validateReading', () => {
       reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
     });
   });
+
+  it('accepts a detail without the number and unit keys', () => {
+    const json = makeFuelJson({ details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Tên trạm', value: 'Petrolimex Long Biên', number: null, unit: null }] }] },
+    });
+  });
 });

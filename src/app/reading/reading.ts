@@ -5,7 +5,7 @@ const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
 type StandardUnit = (typeof STANDARD_UNITS)[number];
 
 const detailSchema = z
-  .strictObject({ label: z.string(), value: z.string(), number: z.unknown(), unit: z.unknown() })
+  .strictObject({ label: z.string(), value: z.string(), number: z.unknown().optional(), unit: z.unknown().optional() })
   .transform(({ label, value, number, unit }) => ({ label, value, ...readNumberPair(number, unit) }));
 
 type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
