@@ -53,6 +53,16 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs a reader timeout as unresolved', async () => {
+    harness.reader.failWith('timeout');
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=timeout situation=unresolved items=0 has_question=false route=reply`,
+    ]);
+  });
+
   async function readUserMessageId(): Promise<string> {
     const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
     if (!message) throw new Error('no user message stored');
