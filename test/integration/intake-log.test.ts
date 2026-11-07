@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -114,6 +115,16 @@ describe('logging how the reader classified a message', () => {
 
     expect(readIntakeLines()).toEqual([
       `[intake] message=${await readUserMessageId()} role=member reader=ok situation=saved items=1 has_question=false route=reply`,
+    ]);
+  });
+
+  it('logs a waiting photo whose stored file is missing as not run', async () => {
+    await sendUnclearPhoto();
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ', { photoStorage: new FakePhotoStorage() });
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=member reader=not_run situation=unresolved items=0 has_question=false route=reply`,
     ]);
   });
 
