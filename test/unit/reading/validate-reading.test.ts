@@ -120,4 +120,13 @@ describe('validateReading', () => {
       reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
     });
   });
+
+  it('drops a unit that has no number', () => {
+    const json = makeFuelJson({ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: 'kg' }] });
+
+    expect(validateReading(json)).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg', number: null, unit: null }] }] },
+    });
+  });
 });
