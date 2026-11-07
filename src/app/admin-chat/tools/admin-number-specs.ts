@@ -20,6 +20,18 @@ const GROUP_BY = {
   description: 'none: không chia nhóm. member: theo thành viên. plate: theo xe. category: theo loại. occurred_on: theo ngày trên giấy tờ.',
 };
 
+export const LIST_NUMBER_LABELS_SPEC: ToolSpec = {
+  name: 'list_number_labels',
+  description:
+    'Liệt kê các nhãn chi tiết có số chuẩn trong các mục phù hợp, kèm đơn vị và số giá trị. Lọc giống search_records. Gọi trước total_numbers khi chưa biết nhãn. Không tự coi hai nhãn khác nghĩa là một.',
+  parameters: {
+    type: 'object',
+    properties: FILTER_PROPERTIES,
+    required: FILTER_NAMES,
+    additionalProperties: false,
+  },
+};
+
 export const TOTAL_NUMBERS_SPEC: ToolSpec = {
   name: 'total_numbers',
   description:
