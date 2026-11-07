@@ -253,4 +253,16 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
     );
   });
+
+  it('totals more records than fit in one search page', async () => {
+    for (let record = 0; record < 60; record += 1) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(1)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":60,"sum":"60","min":"1","max":"1"}],"without_number":0}',
+    );
+  });
 });
