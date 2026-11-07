@@ -256,10 +256,11 @@ Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` b
 
 ### SQL from a local terminal
 
-Copy the External Database URL from the Render dashboard (database `secretary-db`, Connect, External). Then run:
+Copy the External Database URL from the Render dashboard (database `secretary-db`, Connect, External). Run the first command, paste the URL and press Enter. Then run the second command:
 
 ```sh
-docker run --rm -it postgres:17 psql "$EXTERNAL_DATABASE_URL"
+read -rs EXTERNAL_DATABASE_URL
+docker run --rm -it postgres:17 psql "${EXTERNAL_DATABASE_URL:?paste the External Database URL first}"
 ```
 
 The URL holds the database password. Never commit or paste it.
