@@ -60,5 +60,5 @@ databases:
     region: singapore
     postgresMajorVersion: "17"
     ipAllowList:
-      - source: 187.15.122.199/32
+      - source: 187.15.122.223/32
         description: owner machine
