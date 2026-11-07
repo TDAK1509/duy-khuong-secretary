@@ -253,6 +253,18 @@ describe('the data tools of an admin', () => {
     expect(result.items).toEqual([]);
   });
 
+  it('does not filter by document date when the arguments have no occurred_from or occurred_to key', async () => {
+    const dated = await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-05' });
+
+    const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
+      id: 'call_1',
+      name: 'search_records',
+      argumentsJson: JSON.stringify({ text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null }),
+    });
+
+    expect((JSON.parse(output) as SearchResult).items.map((item) => item.id)).toEqual([dated]);
+  });
+
   it('refuses an invalid date', async () => {
     const output = await runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, duy, {
       id: 'call_1',
