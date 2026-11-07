@@ -59,4 +59,6 @@ databases:
     plan: 0.1c-256mb
     region: singapore
     postgresMajorVersion: "17"
-    ipAllowList: []
+    ipAllowList:
+      - source: 15.235.203.116/32
+        description: owner machine

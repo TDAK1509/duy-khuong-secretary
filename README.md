@@ -235,7 +235,7 @@ Then, in a Render Hobby workspace, allow Render's GitHub app on this repository,
 | `ZALO_APP_ID`, `ZALO_APP_SECRET` | The Zalo app's id and secret key |
 | `ZALO_OA_SECRET` | The OA secret key |
 
-Click Deploy Blueprint. Render fills `MIGRATION_DATABASE_URL` from the database's internal connection string and generates `APP_RUNTIME_PASSWORD` and `CHANNEL_TOKEN_ENCRYPTION_KEY`. The providers, models, base URLs and the bucket name are fixed values in `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. The database has `ipAllowList: []`, so only Render services in the same account and region reach it. An operator who needs external SQL adds their IP in the Render dashboard.
+Click Deploy Blueprint. Render fills `MIGRATION_DATABASE_URL` from the database's internal connection string and generates `APP_RUNTIME_PASSWORD` and `CHANNEL_TOKEN_ENCRYPTION_KEY`. The providers, models, base URLs and the bucket name are fixed values in `render.yaml`. No deploy hook, deploy workflow or GitHub secret is involved. The database accepts external connections only from the owner's machine (`15.235.203.116/32` in `ipAllowList`). Render services in the same account and region reach it over the private network. To allow another machine, add its IP to `ipAllowList` in `render.yaml`; a change made only in the dashboard is replaced on the next Blueprint sync.
 
 Never regenerate or edit `APP_RUNTIME_PASSWORD` or `CHANNEL_TOKEN_ENCRYPTION_KEY` in the dashboard. A new encryption key makes the stored Zalo keys unreadable, and `connect-zalo` must run again. A Blueprint sync resets dashboard edits of the fixed values (models, base URLs, providers, the bucket name). Change them in `render.yaml`.
 
@@ -253,6 +253,16 @@ A sync cannot create these. Do them by hand:
 Check a deploy: `curl https://<service>.onrender.com/health` returns `200` and a `commit` equal to `git rev-parse origin/main`. Every deploy log holds a `[migrate]` line, then `[migrate] app_runtime password set`. The start log has no `database role owns the tables` line.
 
 Another host needs only the `Dockerfile`: run `node dist/bootstrap/migrate.js` before `node dist/bootstrap/main.js`, set `GIT_COMMIT`, and set `DATABASE_URL` (or `APP_RUNTIME_PASSWORD`, so that `migrate.js` sets the password).
+
+### SQL from a local terminal
+
+Copy the External Database URL from the Render dashboard (database `secretary-db`, Connect, External). Then run:
+
+```sh
+docker run --rm -it postgres:17 psql "$EXTERNAL_DATABASE_URL"
+```
+
+The URL holds the database password. Never commit or paste it.
 
 ## Check your change
 
