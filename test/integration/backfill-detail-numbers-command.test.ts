@@ -69,6 +69,21 @@ describe('the backfill-detail-numbers command', () => {
     expect(reader.requests).toEqual([]);
   });
 
+  it('counts a record whose detail has number null in a dry run', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [{ label: 'Trọng lượng tịnh', value: '26380', number: null, unit: null }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader, { apply: false });
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual([
+      `Records without numbers in workspace ${workspaceId}: 1. Nothing changed. Run again with --apply to add numbers.`,
+    ]);
+    expect(reader.requests).toEqual([]);
+  });
+
   it('adds the number and unit and keeps the label and value', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     await insertRecordRow(database, {
