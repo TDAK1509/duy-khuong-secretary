@@ -241,4 +241,16 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"}],"without_number":0}',
     );
   });
+
+  it('totals only the records inside the date range on the document', async () => {
+    for (const [occurredOn, number] of [['2026-11-04', 100], ['2026-11-05', 200]] as const) {
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [weight(number)] });
+    }
+
+    const output = await runTotalNumbers('Trọng lượng hàng', 'none', { occurred_from: '2026-11-05', occurred_to: '2026-11-06' });
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"200","min":"200","max":"200"}],"without_number":0}',
+    );
+  });
 });
