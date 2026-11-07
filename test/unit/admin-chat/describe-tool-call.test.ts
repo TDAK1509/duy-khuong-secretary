@@ -16,4 +16,11 @@ describe('describing a tool call for the log', () => {
     expect(described).toContain('occurred_to');
     expect(described).not.toContain('2026-02-30');
   });
+
+  it('shows only the name of a text argument', () => {
+    const described = describeArguments({ text: 'cheng loong' });
+
+    expect(described).toContain('text');
+    expect(described).not.toContain('cheng');
+  });
 });
