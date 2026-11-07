@@ -31,4 +31,8 @@ describe('describing a tool call for the log', () => {
   it('keeps an array argument that has items', () => {
     expect(describeArguments({ ids: ['x'] })).toBe('ids');
   });
+
+  it('sorts the argument names lexically', () => {
+    expect(describeArguments({ text: 'a', added_to: '2026-11-06', category: 'b' })).toBe('added_to:2026-11-06;category;text');
+  });
 });

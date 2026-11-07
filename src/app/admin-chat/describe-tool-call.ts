@@ -11,9 +11,10 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 
 function describeArguments(argumentsJson: string): string {
   const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
-  return Object.entries(parsed)
-    .filter(([, value]) => !isEmptyArgument(value))
-    .map(([name, value]) => describeArgument(name, value))
+  return Object.keys(parsed)
+    .filter((name) => !isEmptyArgument(parsed[name]))
+    .sort()
+    .map((name) => describeArgument(name, parsed[name]))
     .join(';');
 }
 
