@@ -48,15 +48,15 @@ describe('the number tools of an admin', () => {
     return runAdminTool(dependencies, scope, { id: 'call_1', name: 'total_numbers', argumentsJson: JSON.stringify(args) });
   }
 
-  function weight(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
+  function buildNumberDetail(number: number, unit = 'kg', label = 'Trọng lượng hàng') {
     return { label, value: `${number} ${unit}`, number, unit };
   }
 
   it('lists each label with its unit and count, most first', async () => {
     for (const number of [27420, 27410, 100]) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(120, 'km', 'Số km')] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(120, 'km', 'Số km')] });
 
     const output = await runListNumberLabels();
 
@@ -73,7 +73,7 @@ describe('the number tools of an admin', () => {
 
   it('lists spellings that differ only in accents and case as one label, shown as the most common spelling', async () => {
     for (const label of ['trong luong hang', 'Trọng lượng hàng', 'Trọng lượng hàng']) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100, 'kg', label)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(100, 'kg', label)] });
     }
 
     const output = await runListNumberLabels();
@@ -95,13 +95,13 @@ describe('the number tools of an admin', () => {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
-      details: [weight(27420), { label: 'Nơi nhận', value: 'Cheng Loong', number: null, unit: null }],
+      details: [buildNumberDetail(27420), { label: 'Nơi nhận', value: 'Cheng Loong', number: null, unit: null }],
     });
     await insertRecordRow(database, {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
-      details: [weight(120, 'km', 'Số km'), { label: 'Nơi nhận', value: 'Chánh Dương', number: null, unit: null }],
+      details: [buildNumberDetail(120, 'km', 'Số km'), { label: 'Nơi nhận', value: 'Chánh Dương', number: null, unit: null }],
     });
 
     const output = await runListNumberLabels({ text: 'cheng loong' });
@@ -110,10 +110,10 @@ describe('the number tools of an admin', () => {
   });
 
   it('never lists the labels of another workspace', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(27420)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(27420)] });
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
     const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
-    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', details: [weight(120, 'km', 'Số km')] });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', details: [buildNumberDetail(120, 'km', 'Số km')] });
 
     const output = await runListNumberLabels();
 
@@ -122,7 +122,7 @@ describe('the number tools of an admin', () => {
 
   it('totals the sum, count, min and max of a label as exact decimals', async () => {
     for (const number of [27420, 27410]) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng');
@@ -134,7 +134,7 @@ describe('the number tools of an admin', () => {
 
   it('matches the label ignoring accents and case', async () => {
     for (const number of [27420, 27410]) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('trong luong hang');
@@ -145,8 +145,8 @@ describe('the number tools of an admin', () => {
   });
 
   it('does not add the numbers of a different label', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(50, 'kg', 'Trọng lượng tịnh')] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(50, 'kg', 'Trọng lượng tịnh')] });
 
     const output = await runTotalNumbers('Trọng lượng hàng');
 
@@ -156,8 +156,8 @@ describe('the number tools of an admin', () => {
   });
 
   it('keeps the units apart in separate groups', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(50, 'l', 'Số lượng')] });
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100, 'kg', 'Số lượng')] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(50, 'l', 'Số lượng')] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(100, 'kg', 'Số lượng')] });
 
     const output = await runTotalNumbers('Số lượng');
 
@@ -168,7 +168,7 @@ describe('the number tools of an admin', () => {
 
   it('groups the total by the date on the document', async () => {
     for (const occurredOn of ['2026-11-06', '2026-11-05']) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [weight(27420)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [buildNumberDetail(27420)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'occurred_on');
@@ -186,7 +186,7 @@ describe('the number tools of an admin', () => {
       { userId: otherHungUserId, senderName: 'Hùng', number: 200, createdAt: new Date('2026-11-03T10:00:00+07:00') },
     ];
     for (const { number, ...record } of records) {
-      await insertRecordRow(database, { workspaceId, ...record, details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, ...record, details: [buildNumberDetail(number)] });
     }
 
     const output = JSON.parse(await runTotalNumbers('Trọng lượng hàng', 'member')) as { groups: { group: string; sum: string }[] };
@@ -196,7 +196,7 @@ describe('the number tools of an admin', () => {
 
   it('groups the total by plate', async () => {
     for (const [vehiclePlate, number] of [['51D67890', 200], ['29C12345', 100]] as const) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', vehiclePlate, details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', vehiclePlate, details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'plate');
@@ -208,7 +208,7 @@ describe('the number tools of an admin', () => {
 
   it('groups the total by category', async () => {
     for (const [category, number] of [['nhận hàng', 200], ['giao hàng', 100]] as const) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category, details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', category, details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'category');
@@ -219,8 +219,8 @@ describe('the number tools of an admin', () => {
   });
 
   it('puts a record without a date on the document in its own group, after the dated groups', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: null, details: [weight(200)] });
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-05', details: [weight(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: null, details: [buildNumberDetail(200)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn: '2026-11-05', details: [buildNumberDetail(100)] });
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'occurred_on');
 
@@ -232,7 +232,7 @@ describe('the number tools of an admin', () => {
   it('totals only the records that match the text filter', async () => {
     for (const [factory, number] of [['Cheng Loong', 100], ['Chánh Dương', 200]] as const) {
       const receiver = { label: 'Nơi nhận', value: factory, number: null, unit: null };
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number), receiver] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number), receiver] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'none', { text: 'cheng loong' });
@@ -244,7 +244,7 @@ describe('the number tools of an admin', () => {
 
   it('totals only the records inside the date range on the document', async () => {
     for (const [occurredOn, number] of [['2026-11-04', 100], ['2026-11-05', 200]] as const) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', occurredOn, details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng', 'none', { occurred_from: '2026-11-05', occurred_to: '2026-11-06' });
@@ -256,7 +256,7 @@ describe('the number tools of an admin', () => {
 
   it('totals more records than fit in one search page', async () => {
     for (let record = 0; record < 60; record += 1) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(1)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(1)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng');
@@ -267,7 +267,7 @@ describe('the number tools of an admin', () => {
   });
 
   it('counts the records that have the label but no number in without_number', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(100)] });
     await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }] });
 
     const output = await runTotalNumbers('Trọng lượng hàng');
@@ -287,7 +287,7 @@ describe('the number tools of an admin', () => {
   });
 
   it('gives no groups when no record has the label', async () => {
-    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(100)] });
 
     const output = await runTotalNumbers('Số km');
 
@@ -297,7 +297,7 @@ describe('the number tools of an admin', () => {
   it('never totals the numbers of another workspace', async () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
     const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
-    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', details: [weight(1000)] });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy', details: [buildNumberDetail(1000)] });
 
     const output = await runTotalNumbers('Trọng lượng hàng');
 
@@ -318,7 +318,7 @@ describe('the number tools of an admin', () => {
 
   it('does not total a negative number and counts its record in without_number', async () => {
     for (const number of [10, -5]) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
 
     const output = await runTotalNumbers('Trọng lượng hàng');
@@ -330,7 +330,7 @@ describe('the number tools of an admin', () => {
 
   it('does not list a negative number among the labels', async () => {
     for (const number of [10, -5]) {
-      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(number)] });
+      await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [buildNumberDetail(number)] });
     }
 
     const output = await runListNumberLabels();
