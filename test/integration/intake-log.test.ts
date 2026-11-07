@@ -42,6 +42,17 @@ describe('logging how the reader classified a message', () => {
     ]);
   });
 
+  it('logs the text of an admin with work data and a question as a reply then the admin chat', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    harness.reader.answerWith(makeReading([makeItem()], { has_question: true }));
+
+    await harness.receiveText('zu-duy', 'Đổ dầu 1.250.000đ. Hôm nay tổng bao nhiêu?');
+
+    expect(readIntakeLines()).toEqual([
+      `[intake] message=${await readUserMessageId()} role=admin reader=ok situation=saved items=1 has_question=true route=reply_then_admin_chat`,
+    ]);
+  });
+
   async function readUserMessageId(): Promise<string> {
     const [message] = await harness.database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
     if (!message) throw new Error('no user message stored');
