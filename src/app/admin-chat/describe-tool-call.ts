@@ -1,14 +1,20 @@
 import type { ToolCall } from '../../services/chat/chat-service.ts';
+import { ADMIN_TOOLS } from './tools/admin-tools.ts';
 import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
 const INVALID_ARGUMENTS = 'invalid';
 const NO_COUNT = '-';
+const UNKNOWN_TOOL = 'unknown';
 
 const DATE_ARGUMENTS = ['added_from', 'added_to', 'occurred_from', 'occurred_to'];
 
 export function describeToolCall(call: ToolCall): { tool: string; arguments: string } {
-  return { tool: call.name, arguments: describeArguments(call.argumentsJson) };
+  return { tool: nameTool(call.name), arguments: describeArguments(call.argumentsJson) };
+}
+
+function nameTool(name: string): string {
+  return ADMIN_TOOLS.some((tool) => tool.name === name) ? name : UNKNOWN_TOOL;
 }
 
 function describeArguments(argumentsJson: string): string {

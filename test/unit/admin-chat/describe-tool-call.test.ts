@@ -63,4 +63,16 @@ describe('describing a tool call for the log', () => {
   it('counts the first top-level array of the output', () => {
     expect(describeToolOutput('{"ok":true,"labels":[1,2,3],"items":[1]}')).toBe('3');
   });
+
+  it('names an unregistered tool unknown', () => {
+    const described = describeToolCall({ id: 'call_1', name: 'find cheng loong', argumentsJson: '{}' });
+
+    expect(described.tool).toBe('unknown');
+  });
+
+  it('names a registered admin tool by its name', () => {
+    const described = describeToolCall({ id: 'call_1', name: 'count_records', argumentsJson: '{}' });
+
+    expect(described.tool).toBe('count_records');
+  });
 });
