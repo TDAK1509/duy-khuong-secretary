@@ -5,7 +5,11 @@ import { buildDetailNumbersRequest } from '../reading/detail-numbers-request.ts'
 import { mergeDetailNumbers } from './merge-detail-numbers.ts';
 import { findRecordsWithoutNumbers, type RecordWithoutNumbers } from './records-without-numbers.ts';
 
-export type BackfillSummary = { checked: number; added: number };
+export type BackfillFailureReason = 'reader_failed' | 'invalid_output' | 'changed_during_run';
+
+export type BackfillFailure = { recordId: string; reason: BackfillFailureReason };
+
+export type BackfillSummary = { checked: number; added: number; failures: BackfillFailure[] };
 
 export async function backfillDetailNumbers(
   database: Database,
@@ -14,13 +18,23 @@ export async function backfillDetailNumbers(
 ): Promise<BackfillSummary> {
   const scoped = scopeDatabase(database, { workspaceId });
   const records = await findRecordsWithoutNumbers(database, workspaceId);
-  for (const record of records) await addNumbers(scoped, reader, record);
-  return { checked: records.length, added: records.length };
+  const failures: BackfillFailure[] = [];
+  for (const record of records) {
+    const reason = await addNumbers(scoped, reader, record);
+    if (reason !== null) failures.push({ recordId: record.id, reason });
+  }
+  return { checked: records.length, added: records.length - failures.length, failures };
 }
 
-async function addNumbers(scoped: Database, reader: ReaderService, record: RecordWithoutNumbers): Promise<void> {
+async function addNumbers(
+  scoped: Database,
+  reader: ReaderService,
+  record: RecordWithoutNumbers,
+): Promise<BackfillFailureReason | null> {
   const reply = await reader.read(buildDetailNumbersRequest(record.details));
-  if (!reply.ok) return;
+  if (!reply.ok) return null;
   const details = mergeDetailNumbers(record.details, reply.json);
+  if (details === null) return 'invalid_output';
   await scoped.query('UPDATE records SET details = $1::jsonb WHERE id = $2', [JSON.stringify(details), record.id]);
+  return null;
 }

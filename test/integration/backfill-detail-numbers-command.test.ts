@@ -215,6 +215,57 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     expect(reader.requests).toHaveLength(callsAfterFirstRun);
   });
 
+  it('leaves a record unchanged when the reader skips an index', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [
+      { label: 'Trọng lượng hàng', value: '27,420 Kg' },
+      { label: 'Người nhận', value: 'Anh Hùng' },
+    ];
+    const recordId = await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] });
+
+    const { exitCode, lines } = await runBackfill(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed record ${recordId}: invalid_output`,
+      'Checked 1 records. Added numbers to 0. Failed 1.',
+    ]);
+    expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
+  });
+
+  it('matches the reply to the details by index and not by position', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      details: [
+        { label: 'Trọng lượng hàng', value: '27,420 Kg' },
+        { label: 'Người nhận', value: 'Anh Hùng' },
+      ],
+    });
+    const reader = new FakeReader();
+    reader.answerWith({
+      details: [
+        { index: 1, number: null, unit: null },
+        { index: 0, number: 27420, unit: 'kg' },
+      ],
+    });
+
+    await runBackfill(workspaceId, reader);
+
+    expect(await database.query('SELECT details FROM records')).toEqual([
+      {
+        details: [
+          { label: 'Trọng lượng hàng', value: '27,420 Kg', number: 27420, unit: 'kg' },
+          { label: 'Người nhận', value: 'Anh Hùng', number: null, unit: null },
+        ],
+      },
+    ]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });

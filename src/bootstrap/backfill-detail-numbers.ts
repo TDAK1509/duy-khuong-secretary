@@ -62,8 +62,9 @@ async function runBackfill(
 ): Promise<number> {
   if (reader === null) return reportRecordsWithoutNumbers(pool, workspaceId, log);
   const summary = await backfillDetailNumbers(pool, reader, workspaceId);
-  log(`Checked ${summary.checked} records. Added numbers to ${summary.added}. Failed 0.`);
-  return 0;
+  for (const failure of summary.failures) log(`Failed record ${failure.recordId}: ${failure.reason}`);
+  log(`Checked ${summary.checked} records. Added numbers to ${summary.added}. Failed ${summary.failures.length}.`);
+  return summary.failures.length === 0 ? 0 : 1;
 }
 
 async function reportRecordsWithoutNumbers(
