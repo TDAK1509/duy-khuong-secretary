@@ -19,7 +19,8 @@ export async function totalNumbers(database: Database, scope: AccessScope, label
        sum((detail -> 'number')::numeric)::text AS sum, min((detail -> 'number')::numeric)::text AS min, max((detail -> 'number')::numeric)::text AS max
      FROM records record CROSS JOIN LATERAL jsonb_array_elements(record.details) detail
      WHERE ${recordSql} AND ${labelMatch}
-     GROUP BY unit`,
+     GROUP BY unit
+     ORDER BY unit`,
     where.values,
   );
   return { groups: rows, withoutNumber: 0 };

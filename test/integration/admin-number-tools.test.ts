@@ -154,4 +154,15 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"}],"without_number":0}',
     );
   });
+
+  it('keeps the units apart in separate groups', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(50, 'l', 'Số lượng')] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100, 'kg', 'Số lượng')] });
+
+    const output = await runTotalNumbers('Số lượng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Số lượng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"},{"group":null,"unit":"l","count":1,"sum":"50","min":"50","max":"50"}],"without_number":0}',
+    );
+  });
 });
