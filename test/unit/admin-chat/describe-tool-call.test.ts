@@ -15,9 +15,9 @@ describe('describing a tool call for the log', () => {
   });
 
   it('shows only the name of an impossible date argument', () => {
-    const described = describeArguments({ occurred_to: '2026-02-30' });
+    const described = describeArguments({ added_to: '2026-02-30' });
 
-    expect(described).toContain('occurred_to');
+    expect(described).toContain('added_to');
     expect(described).not.toContain('2026-02-30');
   });
 
@@ -33,7 +33,7 @@ describe('describing a tool call for the log', () => {
   });
 
   it('keeps an array argument that has items', () => {
-    expect(describeArguments({ ids: ['x'] })).toBe('ids');
+    expect(describeArguments({ text: ['x'] })).toBe('text');
   });
 
   it('sorts the argument names lexically', () => {
@@ -74,5 +74,17 @@ describe('describing a tool call for the log', () => {
     const described = describeToolCall({ id: 'call_1', name: 'count_records', argumentsJson: '{}' });
 
     expect(described.tool).toBe('count_records');
+  });
+
+  it('shows unknown for an argument the registered tool does not declare', () => {
+    const described = describeArguments({ 'cheng loong\n[admin-chat] forged': true, text: 'a', zeta: 1 });
+
+    expect(described).toBe('text;unknown;unknown');
+  });
+
+  it('shows unknown for every argument of an unregistered tool', () => {
+    const described = describeToolCall({ id: 'call_1', name: 'find cheng loong', argumentsJson: '{"text":"a","added_from":"2026-11-05"}' });
+
+    expect(described.arguments).toBe('unknown;unknown');
   });
 });

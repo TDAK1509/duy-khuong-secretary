@@ -6,25 +6,30 @@ export const NOT_RUN = 'not_run';
 export const THREW = 'threw';
 const INVALID_ARGUMENTS = 'invalid';
 const NO_COUNT = '-';
-const UNKNOWN_TOOL = 'unknown';
+const UNKNOWN = 'unknown';
 
 const DATE_ARGUMENTS = ['added_from', 'added_to', 'occurred_from', 'occurred_to'];
 
 export function describeToolCall(call: ToolCall): { tool: string; arguments: string } {
-  return { tool: nameTool(call.name), arguments: describeArguments(call.argumentsJson) };
+  return { tool: nameTool(call.name), arguments: describeArguments(call.argumentsJson, listDeclaredArguments(call.name)) };
 }
 
 function nameTool(name: string): string {
-  return ADMIN_TOOLS.some((tool) => tool.name === name) ? name : UNKNOWN_TOOL;
+  return ADMIN_TOOLS.some((tool) => tool.name === name) ? name : UNKNOWN;
 }
 
-function describeArguments(argumentsJson: string): string {
+function listDeclaredArguments(toolName: string): string[] {
+  const tool = ADMIN_TOOLS.find((candidate) => candidate.name === toolName);
+  return Object.keys((tool?.parameters['properties'] ?? {}) as Record<string, unknown>);
+}
+
+function describeArguments(argumentsJson: string, declaredArguments: string[]): string {
   const parsed = parseJsonObject(argumentsJson);
   if (parsed === null) return INVALID_ARGUMENTS;
   return Object.keys(parsed)
     .filter((name) => !isEmptyArgument(parsed[name]))
+    .map((name) => (declaredArguments.includes(name) ? describeArgument(name, parsed[name]) : UNKNOWN))
     .sort()
-    .map((name) => describeArgument(name, parsed[name]))
     .join(';');
 }
 
