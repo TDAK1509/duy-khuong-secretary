@@ -265,4 +265,15 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":60,"sum":"60","min":"1","max":"1"}],"without_number":0}',
     );
   });
+
+  it('counts the records that have the label but no number in without_number', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }] });
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"}],"without_number":1}',
+    );
+  });
 });
