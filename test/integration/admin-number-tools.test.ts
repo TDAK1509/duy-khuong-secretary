@@ -74,6 +74,15 @@ describe('the number tools of an admin', () => {
     expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng tịnh', unit: null, count: 1 }] }));
   });
 
+  it('lists a detail saved before numbers existed with unit null', async () => {
+    const legacyWeight = { label: 'Trọng lượng hàng', value: '27,420 Kg' };
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [legacyWeight] });
+
+    const output = await runListNumberLabels();
+
+    expect(output).toBe(JSON.stringify({ ok: true, labels: [{ label: 'Trọng lượng hàng', unit: null, count: 1 }] }));
+  });
+
   it('lists only the labels of the records that match the text filter', async () => {
     await insertRecordRow(database, {
       workspaceId,
