@@ -344,6 +344,20 @@ describe('the number tools of an admin', () => {
     );
   });
 
+  it('takes the number of the copy with the highest record id when copies are saved at the same moment', async () => {
+    const savedAt = new Date('2026-11-07T09:00:00+07:00');
+    const copies: { id: string; weight: number }[] = [];
+    for (const weight of [26001, 26002, 26003, 26004, 26005]) {
+      const id = await insertTicketCopy({ createdAt: savedAt, details: [buildNumberDetail(weight, 'kg', 'Trọng lượng tịnh')] });
+      copies.push({ id, weight });
+    }
+    const highestIdCopy = copies.reduce((highest, copy) => (copy.id > highest.id ? copy : highest));
+
+    const output = JSON.parse(await runTotalNumbers('Trọng lượng tịnh')) as { groups: { count: number; sum: string }[] };
+
+    expect(output.groups).toEqual([expect.objectContaining({ count: 1, sum: String(highestIdCopy.weight) })]);
+  });
+
   function insertTicketCopy(copy: Partial<NewRecordRow> = {}): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
