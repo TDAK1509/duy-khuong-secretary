@@ -3,6 +3,7 @@ import { ADMIN_TOOLS } from './tools/admin-tools.ts';
 import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
+export const THREW = 'threw';
 const INVALID_ARGUMENTS = 'invalid';
 const NO_COUNT = '-';
 const UNKNOWN_TOOL = 'unknown';

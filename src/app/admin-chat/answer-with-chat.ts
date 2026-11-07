@@ -54,9 +54,14 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
 
 async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
   const rounds: LoggedRound[] = [];
-  const result = await runToolLoop(requireChat(context), request, runTool, rounds);
-  console.log(formatAdminChatLine(message.id, result.outcome, rounds));
-  return result;
+  try {
+    const result = await runToolLoop(requireChat(context), request, runTool, rounds);
+    console.log(formatAdminChatLine(message.id, result.outcome, rounds));
+    return result;
+  } catch (error) {
+    console.log(formatAdminChatLine(message.id, 'chat_failed', rounds));
+    throw error;
+  }
 }
 
 async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<ChatRequest> {

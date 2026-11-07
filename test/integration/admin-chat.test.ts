@@ -357,6 +357,20 @@ describe('an admin asks the bot', () => {
       ]);
     });
 
+    it('writes the line with chat_failed and threw for a tool that throws, and the error still propagates', async () => {
+      const readLines = captureAdminChatLines();
+      const searchArguments = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
+      harness.chat.follow(async () => {
+        await database.query('ALTER TABLE records RENAME TO records_renamed');
+        return replyWithToolCalls({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(searchArguments) });
+      });
+
+      await harness.receiveText('zu-duy', 'Hôm nay ai gửi gì?');
+
+      expect(readLines()).toEqual([`[admin-chat] message=${await findQuestionId()} outcome=chat_failed rounds=1 calls=search_records()=threw`]);
+      expect(await database.query('SELECT status, last_error FROM inbound_events')).toEqual([{ status: 'queued', last_error: 'error' }]);
+    });
+
     it('stores no answer built from tool results for an admin demoted during the answer', async () => {
       const hungUserId = await findUserId('Hùng');
       await insertRecordRow(database, {

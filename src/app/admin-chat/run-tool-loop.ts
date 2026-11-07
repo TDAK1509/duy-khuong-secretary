@@ -1,7 +1,7 @@
 import type { ChatRequest, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
 import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
-import { describeToolCall, describeToolOutput, NOT_RUN } from './describe-tool-call.ts';
+import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
 
 const MAX_TOOL_ROUNDS = 5;
 const MAX_CALLS_PER_ROUND = 5;
@@ -44,18 +44,24 @@ async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedR
   const logged: LoggedCall[] = [];
   rounds.push({ calls: logged, ran: true });
   for (const [index, call] of calls.entries()) {
-    const run = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool) : skipCall(call);
-    logged.push(run.logged);
-    results.push({ role: 'tool_result', callId: call.id, output: run.output });
+    const output = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool, logged) : skipCall(call, logged);
+    results.push({ role: 'tool_result', callId: call.id, output });
   }
   return [{ role: 'assistant_tool_calls', calls }, ...results];
 }
 
-async function runCall(call: ToolCall, runTool: RunTool): Promise<{ output: string; logged: LoggedCall }> {
-  const output = await runTool(call);
-  return { output, logged: { ...describeToolCall(call), result: describeToolOutput(output) } };
+async function runCall(call: ToolCall, runTool: RunTool, logged: LoggedCall[]): Promise<string> {
+  try {
+    const output = await runTool(call);
+    logged.push({ ...describeToolCall(call), result: describeToolOutput(output) });
+    return output;
+  } catch (error) {
+    logged.push({ ...describeToolCall(call), result: THREW });
+    throw error;
+  }
 }
 
-function skipCall(call: ToolCall): { output: string; logged: LoggedCall } {
-  return { output: failInvalidArgument('calls'), logged: describeNotRunCall(call) };
+function skipCall(call: ToolCall, logged: LoggedCall[]): string {
+  logged.push(describeNotRunCall(call));
+  return failInvalidArgument('calls');
 }
