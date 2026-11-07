@@ -143,4 +143,15 @@ describe('the number tools of an admin', () => {
       '{"ok":true,"label":"trong luong hang","groups":[{"group":null,"unit":"kg","count":2,"sum":"54830","min":"27410","max":"27420"}],"without_number":0}',
     );
   });
+
+  it('does not add the numbers of a different label', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(100)] });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', details: [weight(50, 'kg', 'Trọng lượng tịnh')] });
+
+    const output = await runTotalNumbers('Trọng lượng hàng');
+
+    expect(output).toBe(
+      '{"ok":true,"label":"Trọng lượng hàng","groups":[{"group":null,"unit":"kg","count":1,"sum":"100","min":"100","max":"100"}],"without_number":0}',
+    );
+  });
 });
