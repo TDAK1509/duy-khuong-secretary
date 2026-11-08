@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runBackfillDetailNumbersCommand } from '../../src/bootstrap/backfill-detail-numbers.ts';
 import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { SHARED_NUMBER_RULE } from '../../src/app/reading/reader-prompt.ts';
@@ -18,6 +18,7 @@ describe('the backfill-detail-numbers command', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await database.drop();
   });
 
@@ -122,6 +123,19 @@ describe('the backfill-detail-numbers command', () => {
     expect(await database.query('SELECT details FROM records')).toEqual([
       { details: [{ label: 'Trọng lượng tịnh', value: '26380', number: 26380, unit: 'kg' }] },
     ]);
+  });
+
+  it('logs one reader line with the token counts for each record read', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, { input: 100, output: 40, reasoning: 10 });
+    const loggedLines = spyOnConsoleLog();
+
+    await runBackfill(workspaceId, reader);
+
+    expect(loggedLines).toEqual(['[reader] outcome=ok input_tokens=100 output_tokens=40 reasoning_tokens=10']);
   });
 
   it('leaves a record unchanged when no detail gains a number', async () => {
@@ -423,6 +437,14 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     expect(lines).toEqual(['Checked 1 records. Added numbers to 0. Failed 0.']);
     expect(await database.query('SELECT details FROM records')).toEqual([{ details }]);
   });
+
+  function spyOnConsoleLog(): string[] {
+    const loggedLines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: string) => {
+      loggedLines.push(line);
+    });
+    return loggedLines;
+  }
 
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');

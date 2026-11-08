@@ -26,6 +26,6 @@ export async function readWithReader(reader: ReaderService, now: Date, message: 
     schema: READER_SCHEMA,
   });
   const attempt = result.ok ? validateReading(result.json) : result;
-  logReaderCall(attempt, result);
+  logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);
   return attempt;
 }
