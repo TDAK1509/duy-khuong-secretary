@@ -286,6 +286,26 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 3 }]);
   });
 
+  it('answers already handled and creates nothing when a reply 0 meets a spelling that was confirmed', async () => {
+    const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty TNHH Cheng Loong Hà Nội' });
+    await waitForMisreadParty();
+    await waitForSecondMisreadParty('Công ty TNHH Cheng Loong Hà Nội');
+    await holdProposalChoice('zu-duy', [
+      { printedName: CHONG_LOONG, organizationId: chengLoongId },
+      { printedName: CHONG_LOONG, organizationId: otherChengLoongId },
+    ]);
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: otherChengLoongId }]);
+
+    await harness.receiveText('zu-duy', '0');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM organizations')).toEqual([{ count: 2 }]);
+  });
+
   it('says the pairs are already handled when a reply 0 finds no waiting party', async () => {
     await insertMember(database, {
       workspaceId: harness.workspaceId,
