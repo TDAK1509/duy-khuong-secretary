@@ -334,6 +334,17 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
   });
 
+  it('stops before any change when the reader settings are missing', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+
+    const { exitCode, lines } = await runWithEnvironment([workspaceId, '--apply'], PHOTO_STORAGE_SETTINGS);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual(['Missing reader settings: READER_PROVIDER, READER_API_KEY']);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   it('needs no reader and no photo storage settings for a dry run', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
