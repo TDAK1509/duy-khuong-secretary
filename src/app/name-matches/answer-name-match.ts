@@ -9,7 +9,10 @@ import { insertOrganization } from '../documents/insert-organization.ts';
 import { insertRow } from '../documents/insert-row.ts';
 import type { Chooser } from '../workspaces/switch-workspace.ts';
 
+const ALREADY_HANDLED_TEXT = 'Cặp tên này đã được xử lý. Không đổi gì.';
 const KEPT_APART_TEXT = 'Đã lưu các tên này là bên riêng.';
+
+type LinkedParty = { document_id: string };
 
 type NameMatchChoice = Extract<PendingChoice, { kind: 'name_match' }>;
 
@@ -47,7 +50,8 @@ async function createOrganizationForWaitingParties(transaction: Transaction, wor
 }
 
 async function confirmPair(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
-  const documentCount = await linkWaitingParties(transaction, workspaceId, pair);
+  const linked = await linkWaitingParties(transaction, workspaceId, pair);
+  if (linked.length === 0) return { text: ALREADY_HANDLED_TEXT };
   await insertRow(transaction, 'organization_aliases', {
     workspace_id: workspaceId,
     organization_id: pair.organizationId,
@@ -55,15 +59,18 @@ async function confirmPair(transaction: Transaction, workspaceId: string, pair: 
     match_key: pair.matchKey,
   });
   const [organization] = await transaction.query<{ name: string }>('SELECT name FROM organizations WHERE id = $1', [pair.organizationId]);
-  return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${documentCount} giấy tờ).` };
+  return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${countDocuments(linked)} giấy tờ).` };
 }
 
-async function linkWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<number> {
-  const linked = await transaction.query<{ document_id: string }>(
+async function linkWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<LinkedParty[]> {
+  return transaction.query<LinkedParty>(
     `UPDATE document_parties SET organization_id = proposed_organization_id, proposed_organization_id = NULL
      WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id = $3
      RETURNING document_id`,
     [workspaceId, pair.matchKey, pair.organizationId],
   );
-  return new Set(linked.map((party) => party.document_id)).size;
+}
+
+function countDocuments(parties: LinkedParty[]): number {
+  return new Set(parties.map((party) => party.document_id)).size;
 }

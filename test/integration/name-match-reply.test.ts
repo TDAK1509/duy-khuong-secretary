@@ -136,6 +136,30 @@ describe('the number reply of an admin to the name proposal', () => {
       { workspace_id: harness.workspaceId, organization_id: chengLoongId, proposed_organization_id: null },
     ]);
   });
+
+  it('changes nothing when another admin already handled the pair', async () => {
+    await insertMember(database, {
+      workspaceId: harness.workspaceId,
+      externalUserId: 'zu-khuong',
+      displayName: 'Khương',
+      role: 'admin',
+      lastInboundAt: ADMIN_LAST_WROTE_AT,
+    });
+    await waitForMisreadParty();
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await holdProposalChoice('zu-khuong', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+
+    await harness.receiveText('zu-khuong', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-khuong', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 2 }]);
+  });
 });
 
 function makeParty(role: string, printedName: string, knownName: string | null = null) {
