@@ -144,6 +144,22 @@ describe('the reread-documents command', () => {
     expect(reader.requests[0]?.text).toBe('Các tin nhắn gần đây của người gửi, từ cũ đến mới:\n- sớm 9 phút\n- trước khi lưu');
   });
 
+  it('gives the reader the latest 10 texts up to 10 minutes after a photo with no record', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    for (let count = 1; count <= 12; count += 1) {
+      const sentAt = new Date(Date.parse('2026-11-02T10:00:00+07:00') + count * 30_000).toISOString();
+      await insertSentMessage(database, { workspaceId, userId, sentAt, text: `tin ${String(count).padStart(2, '0')}` });
+    }
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:11:00+07:00', text: 'tin muộn' });
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    const expectedTexts = ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map((count) => `- tin ${count}`);
+    expect(reader.requests[0]?.text).toBe(['Các tin nhắn gần đây của người gửi, từ cũ đến mới:', ...expectedTexts].join('\n'));
+  });
+
   it('gives the reader the date the message was sent as today', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
