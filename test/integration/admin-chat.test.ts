@@ -8,6 +8,8 @@ import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
+const ADMIN_FUEL_SAVED_REPLY =
+  'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.\n\nDữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số phiếu: 0001234\n- Ngày trên giấy tờ: 30/10/2026\n- Số tiền: 1.250.000đ';
 const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 1.250.000đ ngày 30/10/2026, số 0001234. Hôm nay tổng bao nhiêu?';
 
 describe('an admin asks the bot', () => {
@@ -427,7 +429,7 @@ describe('an admin asks the bot', () => {
       await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
       await harness.sendAllQueuedTexts();
 
-      expect(sentTexts()[0]).toEqual(['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']);
+      expect(sentTexts()[0]).toEqual(['zu-duy', ADMIN_FUEL_SAVED_REPLY]);
     });
 
     it('sends the answer of the chat model second', async () => {
@@ -530,7 +532,7 @@ describe('an admin asks the bot', () => {
       await harness.sendAllQueuedTexts();
 
       expect(harness.chat.requests).toEqual([]);
-      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+      expect(sentTexts()).toEqual([['zu-duy', ADMIN_FUEL_SAVED_REPLY]]);
     });
 
     it('sends one saved reply when an admin photo with a question is processed again after a crash', async () => {
@@ -546,7 +548,7 @@ describe('an admin asks the bot', () => {
       await harness.runInbound();
       await harness.sendAllQueuedTexts();
 
-      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+      expect(sentTexts()).toEqual([['zu-duy', ADMIN_FUEL_SAVED_REPLY]]);
     });
 
     it('never sends an admin\'s data without a question to the chat model', async () => {

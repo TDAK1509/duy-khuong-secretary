@@ -26,6 +26,7 @@ const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const HOURS_IN_MS = 60 * 60 * 1000;
 const TIRE_EXPLANATION = 'Lốp mới thay cho xe 29C-123.45, giá 3.500.000đ';
 const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const ADMIN_TIRE_SAVED_REPLY = `${TIRE_SAVED_REPLY}\n\nDữ liệu đã đọc:\nMục 1: bảo dưỡng\n- Biển số: 29C12345\n- Số tiền: 3.500.000đ\n- Bảo dưỡng: lốp`;
 const QUESTION_ABOUT_TIRE = 'Lốp này đã lắp cho xe nào chưa?';
 const QUESTION = makeReading([], { has_work_data: false, has_question: true });
 const WEAK = makeReading([], { has_work_data: false });
@@ -258,7 +259,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
-    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect((await readTextsTo('zu-duy')).at(-1)).toEqual({ text: ADMIN_TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
     expect(harness.chat.requests).toEqual([]);
   });
@@ -362,7 +363,7 @@ describe('asking what an unclear photo is for', () => {
 
     expect(await readRecordedEvents()).toEqual([{ event: 'zmsg-1' }]);
     const sent = await readTextsTo('zu-duy');
-    expect(sent.at(-2)).toEqual({ text: TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
+    expect(sent.at(-2)).toEqual({ text: ADMIN_TIRE_SAVED_REPLY, quoteMessageId: 'zmsg-1' });
     expect(sent.at(-1)).toEqual({ text: 'Đã lưu lốp cho xe 29C-123.45.', quoteMessageId: undefined });
     const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
     expect(lastTurn).toMatchObject({
@@ -532,7 +533,7 @@ describe('asking what an unclear photo is for', () => {
     expect(notices).toEqual([
       formatNotice(ASK_EXPLANATION_TEXT),
       formatNotice(ASK_LATER_TEXT),
-      formatNotice(TIRE_SAVED_REPLY),
+      formatNotice(ADMIN_TIRE_SAVED_REPLY),
     ]);
   });
 
