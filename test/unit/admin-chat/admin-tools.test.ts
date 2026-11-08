@@ -318,4 +318,24 @@ describe('the admin tool list', () => {
       },
     });
   });
+
+  it('offers list_organizations with the exact text and the text filter', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'list_organizations');
+
+    expect(tool).toStrictEqual({
+      name: 'list_organizations',
+      description: 'Liệt kê các công ty và nơi chốn đã lưu trong nhóm: tên, loại, các cách viết đã gặp và số giấy tờ. Lọc theo text nếu có.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: ['string', 'null'],
+            description: 'Một phần tên cần tìm, không phân biệt dấu và chữ hoa. null để lấy tất cả.',
+          },
+        },
+        required: ['text'],
+        additionalProperties: false,
+      },
+    });
+  });
 });
