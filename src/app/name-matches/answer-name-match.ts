@@ -35,12 +35,6 @@ export async function answerNameMatch(transaction: Transaction, chooser: Chooser
   return addNextProposal(transaction, workspaceId, { ...reply, adminMembershipId });
 }
 
-async function addNextProposal(transaction: Transaction, workspaceId: string, reply: Reply): Promise<Reply> {
-  const proposal = await findNameProposal(transaction, workspaceId);
-  if (proposal === null) return reply;
-  return { ...reply, followUpText: proposal.text, followUpChoice: buildNameMatchChoice(workspaceId, proposal) };
-}
-
 async function keepApart(transaction: Transaction, workspaceId: string, pairs: NamePair[]): Promise<Reply> {
   let partyCount = 0;
   for (const pair of pairs) partyCount += await createOrganizationForWaitingParties(transaction, workspaceId, pair);
@@ -62,6 +56,15 @@ async function createOrganizationForWaitingParties(transaction: Transaction, wor
   const organizationId = await insertOrganization(transaction, workspaceId, { type: waiting.type, printedName: pair.printedName, matchKey: pair.matchKey });
   const linked = await linkAllWaitingParties(transaction, workspaceId, { matchKey: pair.matchKey, organizationId });
   return linked.length;
+}
+
+async function linkAllWaitingParties(transaction: Transaction, workspaceId: string, { matchKey, organizationId }: SpellingOwner): Promise<LinkedParty[]> {
+  return transaction.query<LinkedParty>(
+    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
+     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
+     RETURNING document_id`,
+    [workspaceId, matchKey, organizationId],
+  );
 }
 
 function logAppliedReply(workspaceId: string, partyCount: number): void {
@@ -91,15 +94,12 @@ async function hasWaitingParty(transaction: Transaction, workspaceId: string, pa
   return waiting.length > 0;
 }
 
-async function linkAllWaitingParties(transaction: Transaction, workspaceId: string, { matchKey, organizationId }: SpellingOwner): Promise<LinkedParty[]> {
-  return transaction.query<LinkedParty>(
-    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
-     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
-     RETURNING document_id`,
-    [workspaceId, matchKey, organizationId],
-  );
-}
-
 function countDocuments(parties: LinkedParty[]): number {
   return new Set(parties.map((party) => party.document_id)).size;
+}
+
+async function addNextProposal(transaction: Transaction, workspaceId: string, reply: Reply): Promise<Reply> {
+  const proposal = await findNameProposal(transaction, workspaceId);
+  if (proposal === null) return reply;
+  return { ...reply, followUpText: proposal.text, followUpChoice: buildNameMatchChoice(workspaceId, proposal) };
 }
