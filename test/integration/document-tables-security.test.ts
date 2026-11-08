@@ -53,6 +53,15 @@ describe('the document tables for the runtime role', () => {
     expect(count).toBe(1);
   });
 
+  it('hides the organizations from a member scope', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertOrganization(workspaceId, 'Cheng Loong');
+
+    const count = await countRows('organizations', { workspaceId, ownerUserId: lanUserId });
+
+    expect(count).toBe(0);
+  });
+
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
     const documentId = await insertDocument(inWorkspaceId);
     const messageId = await insertChatMessage(database, {
@@ -76,6 +85,15 @@ describe('the document tables for the runtime role', () => {
        VALUES (${literal(inWorkspaceId)}, 'phiếu cân', 'Phiếu cân xe') RETURNING id`,
     );
     if (!row) throw new Error('document not inserted');
+    return row.id;
+  }
+
+  async function insertOrganization(inWorkspaceId: string, name: string): Promise<string> {
+    const [row] = await database.query<{ id: string }>(
+      `INSERT INTO organizations (workspace_id, type, name)
+       VALUES (${literal(inWorkspaceId)}, 'company', ${literal(name)}) RETURNING id`,
+    );
+    if (!row) throw new Error('organization not inserted');
     return row.id;
   }
 
