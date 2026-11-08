@@ -11,10 +11,17 @@ function makeFuelJson(overrides: Record<string, unknown> = {}): unknown {
     identifiers: [],
     vehicle_plate: null,
     document_number: null,
+    document_kind: '',
+    stage: null,
+    parties: [],
     details: [],
     ...overrides,
   };
-  return { has_work_data: true, needs_explanation: false, has_question: false, items: [item] };
+  return { has_work_data: true, needs_explanation: false, has_question: false, items: [{ ...item, details: fillDocumentFields(item.details) }] };
+}
+
+function fillDocumentFields(details: unknown): unknown[] {
+  return (details as object[]).map((detail) => ({ meaning: null, item: null, date_time: null, ...detail }));
 }
 
 describe('validateReading', () => {

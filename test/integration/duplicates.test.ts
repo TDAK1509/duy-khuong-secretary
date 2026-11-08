@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ReadingItem } from '../../src/app/reading/reading.ts';
-import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { holdReaderUntilArrivals } from './reader-barrier.ts';
@@ -174,7 +173,7 @@ describe('rejecting duplicate papers', () => {
     await Promise.all([harness.runInbound(), harness.runInbound()]);
   }
 
-  function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
+  function makeFuelItem(overrides: ItemOverrides = {}) {
     return makeItem({
       category: 'đổ xăng dầu',
       amount_vnd: 1250000,
