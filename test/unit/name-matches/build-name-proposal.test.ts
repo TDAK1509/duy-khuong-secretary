@@ -22,6 +22,19 @@ describe('buildNameProposal', () => {
       ].join('\n'),
     );
   });
+
+  it('lists nine pairs and tells how many more wait when eleven pairs wait', () => {
+    const waiting = Array.from({ length: 11 }, (_, index) =>
+      makePair({ matchKey: `key${index}`, printedName: `printed ${index}`, documentCount: 11 - index }),
+    );
+
+    const { listed, text } = buildNameProposal(waiting);
+
+    const lines = text.split('\n');
+    expect(listed.map((pair) => pair.matchKey)).toEqual(waiting.slice(0, 9).map((pair) => pair.matchKey));
+    expect(lines.filter((line) => /^\d+\. /.test(line))).toHaveLength(9);
+    expect(lines.at(-1)).toBe('Còn 2 cặp nữa sẽ gửi sau khi bạn trả lời.');
+  });
 });
 
 function makePair(overrides: Partial<WaitingPair>): WaitingPair {

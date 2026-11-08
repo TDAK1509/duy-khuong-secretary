@@ -8,14 +8,20 @@ export type WaitingPair = {
 
 export type NameProposal = { listed: WaitingPair[]; text: string };
 
+const MAX_LISTED_PAIRS = 9;
 const HEADER = 'Tên mới đọc được gần giống tên đã lưu:';
 const INSTRUCTION =
   'Trả lời số để xác nhận là cùng một bên. Trả lời 0 nếu không có cặp nào đúng. Khi chưa xác nhận, các giấy tờ này chưa được tính theo tên đó.';
 
 export function buildNameProposal(waiting: WaitingPair[]): NameProposal {
-  const listed = [...waiting].sort(compareByDocumentCount);
+  const sorted = [...waiting].sort(compareByDocumentCount);
+  const listed = sorted.slice(0, MAX_LISTED_PAIRS);
   const lines = listed.map((pair, index) => `${index + 1}. "${pair.printedName}" → "${pair.organizationName}" (${pair.documentCount} giấy tờ)`);
-  return { listed, text: [HEADER, ...lines, INSTRUCTION].join('\n') };
+  return { listed, text: [HEADER, ...lines, INSTRUCTION, ...describeRemainder(sorted.length - listed.length)].join('\n') };
+}
+
+function describeRemainder(remainingCount: number): string[] {
+  return remainingCount > 0 ? [`Còn ${remainingCount} cặp nữa sẽ gửi sau khi bạn trả lời.`] : [];
 }
 
 function compareByDocumentCount(first: WaitingPair, second: WaitingPair): number {
