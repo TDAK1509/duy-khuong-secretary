@@ -40,6 +40,7 @@ async function addNextProposal(transaction: Transaction, workspaceId: string, re
 async function keepApart(transaction: Transaction, workspaceId: string, pairs: NamePair[]): Promise<Reply> {
   let partyCount = 0;
   for (const pair of pairs) partyCount += await createOrganizationForWaitingParties(transaction, workspaceId, pair);
+  if (partyCount === 0) return { text: ALREADY_HANDLED_TEXT };
   logAppliedReply(workspaceId, partyCount);
   return { text: KEPT_APART_TEXT };
 }
