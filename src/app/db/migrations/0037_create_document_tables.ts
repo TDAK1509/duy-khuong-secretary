@@ -133,6 +133,7 @@ function createDocumentLines(pgm: MigrationBuilder): void {
       at timestamp without time zone,
       meaning_id uuid,
       CHECK ((number IS NULL) = (unit IS NULL) AND (unit IS NULL OR btrim(unit) <> '')),
+      CONSTRAINT document_lines_number_and_at_need_meaning CHECK (meaning_id IS NOT NULL OR (number IS NULL AND at IS NULL)),
       FOREIGN KEY (document_id, workspace_id) REFERENCES documents (id, workspace_id) ON DELETE CASCADE,
       FOREIGN KEY (meaning_id, workspace_id) REFERENCES meanings (id, workspace_id) ON DELETE RESTRICT
     )

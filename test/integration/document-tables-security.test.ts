@@ -8,6 +8,7 @@ import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const CHECK_VIOLATION = '23514';
 const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
 const ROW_LEVEL_SECURITY_VIOLATION = '42501';
@@ -133,6 +134,23 @@ describe('the document tables for the runtime role', () => {
     const insert = insertNumberedDocumentAsRuntime('2027-11-05');
 
     await expect(insert).resolves.toBeDefined();
+  });
+
+  it('refuses a line that has a number and no meaning', async () => {
+    const documentId = await insertDocument(workspaceId);
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO document_lines (workspace_id, document_id, line_no, label, value, number, unit)
+         VALUES ($1, $2, 0, 'Khối lượng', '26380', 26380, 'kg')`,
+        [workspaceId, documentId],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({
+      code: CHECK_VIOLATION,
+      constraint: 'document_lines_number_and_at_need_meaning',
+    });
   });
 
   async function insertNumberedDocument(documentDate: string): Promise<void> {
