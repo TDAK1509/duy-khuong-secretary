@@ -78,4 +78,11 @@ describe('an admin asks for the names waiting for confirmation', () => {
       },
     ]);
   });
+
+  it('returns 0 and sends no proposal when no pair waits', async () => {
+    const toolResults = await askForNames();
+
+    expect(JSON.parse(toolResults[0] ?? 'null')).toEqual({ ok: true, waiting_pairs: 0 });
+    expect(harness.channel.sends.map((sent) => [sent.to, sent.kind === 'text' ? sent.text : sent.kind])).toEqual([['zu-duy', ANSWER_TEXT]]);
+  });
 });
