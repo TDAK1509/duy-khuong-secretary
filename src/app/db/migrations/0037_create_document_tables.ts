@@ -15,12 +15,14 @@ export function up(pgm: MigrationBuilder): void {
   createDocuments(pgm);
   createDocumentSources(pgm);
   createDocumentLines(pgm);
+  createDocumentParties(pgm);
   protectTable(pgm, 'organizations', WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'organization_aliases', WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'meanings', WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'documents', scopeToDocumentsWithVisibleSource('documents.id'));
   protectTable(pgm, 'document_sources', `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${MESSAGE_IS_OWNED})`);
   protectTable(pgm, 'document_lines', scopeToDocumentsWithVisibleSource('document_lines.document_id'));
+  protectTable(pgm, 'document_parties', scopeToDocumentsWithVisibleSource('document_parties.document_id'));
 }
 
 function scopeToDocumentsWithVisibleSource(documentIdColumn: string): string {
@@ -133,6 +135,35 @@ function createDocumentLines(pgm: MigrationBuilder): void {
   `);
   pgm.sql('CREATE UNIQUE INDEX document_lines_document_id_line_no_key ON document_lines (document_id, line_no)');
   pgm.sql('CREATE INDEX document_lines_workspace_id_meaning_id_idx ON document_lines (workspace_id, meaning_id)');
+}
+
+function createDocumentParties(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    CREATE TABLE document_parties (
+      id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id uuid NOT NULL,
+      document_id uuid NOT NULL,
+      role text NOT NULL CHECK (role IN ('issuer', 'supplier', 'customer', 'carrier', 'place')),
+      type text NOT NULL CHECK (type IN ('company', 'place')),
+      printed_name text NOT NULL CHECK (btrim(printed_name) <> ''),
+      match_key text NOT NULL CHECK (match_key ~ '^[a-z0-9]+$'),
+      organization_id uuid,
+      proposed_organization_id uuid,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CHECK ((organization_id IS NULL) <> (proposed_organization_id IS NULL)),
+      FOREIGN KEY (document_id, workspace_id) REFERENCES documents (id, workspace_id) ON DELETE CASCADE,
+      FOREIGN KEY (organization_id, workspace_id) REFERENCES organizations (id, workspace_id) ON DELETE RESTRICT,
+      FOREIGN KEY (proposed_organization_id, workspace_id) REFERENCES organizations (id, workspace_id) ON DELETE RESTRICT
+    )
+  `);
+  pgm.sql(
+    'CREATE INDEX document_parties_workspace_id_organization_id_role_idx ON document_parties (workspace_id, organization_id, role)',
+  );
+  pgm.sql(`
+    CREATE INDEX document_parties_workspace_id_match_key_idx ON document_parties (workspace_id, match_key)
+    WHERE proposed_organization_id IS NOT NULL
+  `);
+  pgm.sql('CREATE INDEX document_parties_document_id_idx ON document_parties (document_id)');
 }
 
 function protectTable(pgm: MigrationBuilder, table: string, condition: string): void {

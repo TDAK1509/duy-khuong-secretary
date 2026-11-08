@@ -99,6 +99,25 @@ describe('the document tables for the runtime role', () => {
     });
   });
 
+  it('refuses a party that points at an organization of another workspace', async () => {
+    const documentId = await insertDocument(workspaceId);
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const organizationId = await insertOrganization(otherWorkspaceId, 'Cheng Loong');
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO document_parties (workspace_id, document_id, role, type, printed_name, match_key, organization_id)
+         VALUES ($1, $2, 'customer', 'company', 'Cheng Loong', 'chengloong', $3)`,
+        [workspaceId, documentId, organizationId],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({
+      code: FOREIGN_KEY_VIOLATION,
+      constraint: 'document_parties_organization_id_workspace_id_fkey',
+    });
+  });
+
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
     const documentId = await insertDocument(inWorkspaceId);
     const messageId = await insertChatMessage(database, {
