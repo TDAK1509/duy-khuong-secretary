@@ -18,6 +18,7 @@ type TotalArguments = Record<string, string | null>;
 
 type TotalOutput = {
   ok: boolean;
+  pending_name_documents: number;
   groups: { group: string | null; unit: string; count: number; sum: string; min: string; max: string }[];
 };
 
@@ -72,6 +73,18 @@ describe('the document number tools of an admin', () => {
     const total = await runTotal({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper', stage: 'receipt' });
 
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
+  it('leaves out a document whose company awaits confirmation and counts it', async () => {
+    await insertWeighing({ documentNumber: '0005', netKg: 26380, stage: 'receipt' });
+    const proposed = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0006', stage: 'receipt' });
+    await insertNumberLine(database, { workspaceId, documentId: proposed, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27790, unit: 'kg' });
+    await insertParty(database, { workspaceId, documentId: proposed, role: 'customer', organizationId: chengLoongId, printedName: 'Chống Loong', isConfirmed: false });
+
+    const total = await runTotal({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper' });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+    expect(total.pending_name_documents).toBe(1);
   });
 
   async function insertWeighing(row: { documentNumber: string; netKg: number; stage?: 'dispatch' | 'receipt' }): Promise<string> {

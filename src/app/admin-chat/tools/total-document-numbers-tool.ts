@@ -13,5 +13,5 @@ export async function runTotalDocumentNumbers(database: Database, parsedArgument
   const args = argumentsSchema.parse(parsedArguments);
   const filters = { organization: args.organization, stage: args.stage };
   const totals = await totalDocumentNumbers(database, { meaning: args.meaning, filters });
-  return JSON.stringify({ ok: true, meaning: args.meaning, groups: totals.groups });
+  return JSON.stringify({ ok: true, meaning: args.meaning, groups: totals.groups, pending_name_documents: totals.pendingNameDocuments });
 }
