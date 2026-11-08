@@ -52,4 +52,25 @@ describe('the data read from a photo in the reply', () => {
     expect(memberTexts).toHaveLength(1);
     expect(memberTexts[0]).not.toContain('Dữ liệu đã đọc:');
   });
+
+  it('loses no line of a block longer than one message', async () => {
+    const details = Array.from({ length: 80 }, (_, index) => ({ label: `Dòng ${index + 1}`, value: `giá trị số ${index + 1} của phiếu cân` }));
+    harness.reader.answerWith(
+      makeReading([makeItem({ category: 'phiếu cân', amount_vnd: null, occurred_on: null, document_number: '20261105062', details })]),
+    );
+
+    await harness.receivePhoto('zu-duy');
+    await harness.sendAllQueuedTexts();
+
+    const parts = readTextsTo('zu-duy');
+    const expectedBlock = [
+      'Dữ liệu đã đọc:',
+      'Mục 1: phiếu cân',
+      '- Số phiếu: 20261105062',
+      ...details.map(({ label, value }) => `- ${label}: ${value}`),
+    ].join('\n');
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.every((part) => Array.from(part).length <= harness.channel.maxTextLength)).toBe(true);
+    expect(parts.join('\n')).toBe(`Đã lưu: Phiếu cân, số 20261105062.\n\n${expectedBlock}`);
+  });
 });
