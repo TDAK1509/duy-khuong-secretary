@@ -11,12 +11,13 @@ export type NewDocumentRow = {
   documentDate: string;
   vehiclePlate: string | null;
   status?: 'accepted' | 'needs_review';
+  kind?: string;
 };
 
 export async function insertDocumentWithSource(database: TemporaryDatabase, row: NewDocumentRow): Promise<string> {
   const [document] = await database.query<{ id: string }>(
     `INSERT INTO documents (workspace_id, kind, status, document_number, issuer_key, document_date, vehicle_plate, summary)
-     VALUES (${literal(row.workspaceId)}, 'phiếu cân xe', ${literal(row.status ?? 'accepted')}, ${literal(row.documentNumber)},
+     VALUES (${literal(row.workspaceId)}, ${literal(row.kind ?? 'phiếu cân xe')}, ${literal(row.status ?? 'accepted')}, ${literal(row.documentNumber)},
        ${literal(row.issuerKey)}, ${literal(row.documentDate)}, ${row.vehiclePlate === null ? 'NULL' : literal(row.vehiclePlate)}, 'Phiếu cân')
      RETURNING id`,
   );
@@ -54,4 +55,11 @@ export async function insertOrganizationWithAlias(database: TemporaryDatabase, r
      VALUES (${literal(row.workspaceId)}, ${literal(organization.id)}, ${literal(aliasPrintedName)}, ${literal(buildMatchKey(aliasPrintedName))})`,
   );
   return organization.id;
+}
+
+export async function insertMeaning(database: TemporaryDatabase, workspaceId: string, name: string): Promise<void> {
+  await database.query(
+    `INSERT INTO meanings (workspace_id, value_type, name, match_key)
+     VALUES (${literal(workspaceId)}, 'number', ${literal(name)}, ${literal(buildMatchKey(name))})`,
+  );
 }

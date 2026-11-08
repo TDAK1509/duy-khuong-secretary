@@ -9,6 +9,7 @@ import { REFUSAL_ERROR } from '../admin-chat/tools/tool-result.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import { planReply, type ReplyPlan } from '../intake/plan-reply.ts';
+import { EMPTY_READER_CATALOG } from '../reading/document-rules.ts';
 import { readWithReader } from '../intake/read-message.ts';
 import { rejectDuplicates } from '../intake/run-reply-stage.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
@@ -25,7 +26,7 @@ export type SaveRecordRuntime = { database: Database; clock: Clock; reader: Read
 
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
-  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, []);
+  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, [], EMPTY_READER_CATALOG);
   if (!attempt.ok) return { text: READER_FAILED_TEXT, isError: true };
   const plan = planReply(attempt, false);
   if (!plan.saved) return { text: plan.isUnclear ? UNCLEAR_TEXT : NO_WORK_DATA_TEXT, isError: false };
