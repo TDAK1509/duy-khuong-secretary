@@ -4,6 +4,7 @@ import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-
 import { insertDocumentWithSource, insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember } from './workspace-rows.ts';
 
 describe('storing the documents of a saved message', () => {
   let harness: IntakeHarness;
@@ -214,6 +215,28 @@ describe('storing the documents of a saved message', () => {
 
     expect(await database.query('SELECT count(*)::int AS count FROM document_parties')).toEqual([{ count: 0 }]);
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+  });
+
+  it('matches a document that came from the photo of another member', async () => {
+    const lanUserId = await insertMember(database, { workspaceId: harness.workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertDocumentWithSource(database, {
+      workspaceId: harness.workspaceId,
+      userId: lanUserId,
+      issuerKey: 'congtytnhhchengloongbinhduongpaper',
+      documentNumber: '20261105054',
+      documentDate: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(
+      await database.query(
+        `SELECT message.user_id FROM document_sources source JOIN messages message ON message.id = source.message_id ORDER BY message.created_at`,
+      ),
+    ).toEqual([{ user_id: lanUserId }, { user_id: harness.hungUserId }]);
   });
 });
 
