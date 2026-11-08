@@ -56,6 +56,22 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
+  it('counts a document once when the same company appears in two roles', async () => {
+    const documentId = await insertWeighing({ documentNumber: '0002', netKg: 26380 });
+    await insertParty(database, { workspaceId, documentId, role: 'issuer', organizationId: chengLoongId, printedName: 'Cheng Loong' });
+
+    const total = await runTotal({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper', role: null });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
+  async function insertWeighing(row: { documentNumber: string; netKg: number }): Promise<string> {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: row.documentNumber });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: row.netKg, unit: 'kg' });
+    await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName: 'Cheng Loong' });
+    return documentId;
+  }
+
   async function runTotal(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<TotalOutput> {
     const args = {
       meaning: 'Trọng lượng hàng',
