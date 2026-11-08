@@ -153,6 +153,32 @@ describe('the document tables for the runtime role', () => {
     });
   });
 
+  it('refuses a member scope a source that links its own message to a document', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const lanDocumentId = await insertDocumentFromMember(workspaceId, lanUserId);
+    const hungMessageId = await insertChatMessage(database, {
+      workspaceId,
+      userId: hungUserId,
+      author: 'user',
+      text: null,
+      imageKey: 'b.jpg',
+      createdAt: new Date('2026-11-05T11:00:00+07:00'),
+    });
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId, ownerUserId: hungUserId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO document_sources (workspace_id, document_id, message_id, item_index) VALUES ($1, $2, $3, 0)`,
+        [workspaceId, lanDocumentId, hungMessageId],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({
+      code: ROW_LEVEL_SECURITY_VIOLATION,
+      message: expect.stringContaining('"document_sources"'),
+    });
+  });
+
   async function insertNumberedDocument(documentDate: string): Promise<void> {
     await database.query(
       `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, summary)

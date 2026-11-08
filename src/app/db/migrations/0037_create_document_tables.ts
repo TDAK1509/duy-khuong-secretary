@@ -20,7 +20,8 @@ export function up(pgm: MigrationBuilder): void {
   protectTable(pgm, 'organization_aliases', WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'meanings', WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'documents', scopeToDocumentsWithVisibleSource('documents.id'));
-  protectTable(pgm, 'document_sources', `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${MESSAGE_IS_OWNED})`);
+  const sourcesVisibleToTheirOwner = `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${MESSAGE_IS_OWNED})`;
+  protectTable(pgm, 'document_sources', sourcesVisibleToTheirOwner, WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE);
   protectTable(pgm, 'document_lines', scopeToDocumentsWithVisibleSource('document_lines.document_id'));
   protectTable(pgm, 'document_parties', scopeToDocumentsWithVisibleSource('document_parties.document_id'));
 }
@@ -171,7 +172,7 @@ function createDocumentParties(pgm: MigrationBuilder): void {
   pgm.sql('CREATE INDEX document_parties_document_id_idx ON document_parties (document_id)');
 }
 
-function protectTable(pgm: MigrationBuilder, table: string, condition: string): void {
+function protectTable(pgm: MigrationBuilder, table: string, condition: string, writeCondition: string = condition): void {
   pgm.sql(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
-  pgm.sql(`CREATE POLICY in_scope ON ${table} USING (${condition}) WITH CHECK (${condition})`);
+  pgm.sql(`CREATE POLICY in_scope ON ${table} USING (${condition}) WITH CHECK (${writeCondition})`);
 }
