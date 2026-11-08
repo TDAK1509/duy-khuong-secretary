@@ -117,6 +117,29 @@ describe('asking what an unclear photo is for', () => {
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'accepted', hasBotReply: true });
   });
 
+  it('ends the admin notice with the data read after a member explains the photo', async () => {
+    readerReturns(UNCLEAR);
+    await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
+    readerReturns(TIRE_ITEM);
+
+    await harness.receiveText('zu-hung', TIRE_EXPLANATION);
+    await harness.sendAllQueuedTexts();
+
+    expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe(
+      [
+        'Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.',
+        'Trợ lý đã trả lời Hùng:',
+        'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.',
+        '',
+        'Dữ liệu đã đọc:',
+        'Mục 1: bảo dưỡng',
+        '- Biển số: 29C12345',
+        '- Số tiền: 3.500.000đ',
+        '- Bảo dưỡng: lốp',
+      ].join('\n'),
+    );
+  });
+
   it('asks about the next waiting photo after a good answer', async () => {
     readerReturns(UNCLEAR);
     await sendPhoto('zu-hung', 'zmsg-1', PHOTO_A_URL);
