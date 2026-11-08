@@ -246,6 +246,23 @@ describe('the reread-documents command', () => {
     ]);
   });
 
+  it('creates no document for a rejected duplicate photo that matches no document', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertReadTicketRecord(workspaceId, userId);
+    const duplicateId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-06T10:00:00+07:00', 'duplicate');
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeChengLoongTicket()]));
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Re-read 1 messages. Stored 0 documents. No document in 1. Test photos: 0. Failed 0.']);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(await database.query(`SELECT outcome FROM document_reads WHERE message_id = '${duplicateId}'`)).toEqual([
+      { outcome: 'no_document' },
+    ]);
+  });
+
   async function insertReadTicketRecord(workspaceId: string, userId: string): Promise<void> {
     const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-01T09:00:00+07:00', 'accepted');
     await insertRecordRow(database, {
