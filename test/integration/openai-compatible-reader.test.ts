@@ -120,6 +120,15 @@ describe('OpenAiCompatibleReader', () => {
     expect(result).toMatchObject({ ok: true, usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' } });
   });
 
+  it('keeps the token counts of a reply that is not JSON', async () => {
+    const usage = { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 };
+    const server = await startServer(makeCompletionReply('not json', usage));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_output', usage: { input: 100 } });
+  });
+
   it('turns a slow reply into a timeout', async () => {
     const server = await startServer({ ...VALID_REPLY, delayMs: 500 });
 
@@ -133,7 +142,11 @@ describe('OpenAiCompatibleReader', () => {
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toEqual({ ok: false, reason: 'invalid_output' });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'invalid_output',
+      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
+    });
   });
 
   it('turns a server error into unavailable', async () => {

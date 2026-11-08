@@ -53,10 +53,11 @@ export class OpenAiCompatibleReader implements ReaderService {
 }
 
 function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
+  const usage = readUsage(completion.usage);
   try {
-    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? ''), usage: readUsage(completion.usage) };
+    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? ''), usage };
   } catch {
-    return { ok: false, reason: 'invalid_output' };
+    return { ok: false, reason: 'invalid_output', usage };
   }
 }
 
