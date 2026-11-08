@@ -9,6 +9,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
+import { insertRecordRow } from './record-rows.ts';
 import { insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -21,6 +22,7 @@ type TotalOutput = {
   pending_name_documents: number;
   review_documents: number;
   without_number: number;
+  not_reread_messages: number;
   groups: { group: string | null; unit: string; count: number; sum: string; min: string; max: string }[];
 };
 
@@ -139,6 +141,14 @@ describe('the document number tools of an admin', () => {
       { group: null, unit: 'cái', count: 1, sum: '3', min: '3', max: '3' },
       { group: null, unit: 'hộp', count: 1, sum: '2', min: '2', max: '2' },
     ]);
+  });
+
+  it('counts the saved messages that were not read again', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+
+    const total = await runTotal();
+
+    expect(total.not_reread_messages).toBe(1);
   });
 
   async function insertWeighedAfterMidnight(): Promise<void> {

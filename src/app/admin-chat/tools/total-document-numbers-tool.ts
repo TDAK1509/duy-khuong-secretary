@@ -23,5 +23,6 @@ export async function runTotalDocumentNumbers(database: Database, parsedArgument
     pending_name_documents: totals.pendingNameDocuments,
     review_documents: totals.reviewDocuments,
     without_number: totals.withoutNumber,
+    not_reread_messages: totals.notRereadMessages,
   });
 }

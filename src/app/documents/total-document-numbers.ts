@@ -3,6 +3,7 @@ import { WhereClause } from '../records/where-clause.ts';
 import { addDocumentFilters, type DocumentFilters, type OrganizationLink } from './add-document-filters.ts';
 import { buildDocumentDateSql } from './build-document-date.ts';
 import { buildMatchKey } from './build-match-key.ts';
+import { countNotRereadMessages } from './count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from './document-groups.ts';
 
 export type DocumentNumberTotal = { group: string | null; unit: string; count: number; sum: string; min: string; max: string };
@@ -12,6 +13,7 @@ export type DocumentNumberTotals = {
   pendingNameDocuments: number;
   reviewDocuments: number;
   withoutNumber: number;
+  notRereadMessages: number;
 };
 
 export type LineLevel = 'document' | 'item';
@@ -37,6 +39,7 @@ export async function totalDocumentNumbers(database: Database, request: TotalReq
     pendingNameDocuments: await countPendingNameDocuments(database, request),
     reviewDocuments: await countDocuments(database, request, { status: 'needs_review', link: 'organization_id' }),
     withoutNumber: await countWithoutNumber(database, request),
+    notRereadMessages: await countNotRereadMessages(database),
   };
 }
 
