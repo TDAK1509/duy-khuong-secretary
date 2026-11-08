@@ -8,10 +8,21 @@ export const DOCUMENT_FILTER_ARGUMENTS = {
   kind: z.string().nullable(),
   plate: z.string().nullable(),
   date_meaning: z.string().nullable(),
+  date_from: z.string().nullable(),
+  date_to: z.string().nullable(),
 };
 
 export type DocumentFilterArguments = z.infer<z.ZodObject<typeof DOCUMENT_FILTER_ARGUMENTS>>;
 
 export function buildDocumentFilters(args: DocumentFilterArguments): DocumentFilters {
-  return { organization: args.organization, role: args.role, stage: args.stage, kind: args.kind, plate: args.plate, dateMeaning: args.date_meaning };
+  return {
+    organization: args.organization,
+    role: args.role,
+    stage: args.stage,
+    kind: args.kind,
+    plate: args.plate,
+    dateMeaning: args.date_meaning,
+    dateFrom: args.date_from,
+    dateTo: args.date_to,
+  };
 }

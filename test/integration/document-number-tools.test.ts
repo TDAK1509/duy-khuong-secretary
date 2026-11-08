@@ -259,6 +259,18 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
+  it('keeps only the documents whose date falls in the range, and drops those without that date', async () => {
+    for (const [documentNumber, netKg, at] of [['0025', 26380, '2026-11-05 08:00'], ['0026', 27790, '2026-11-06 08:00']] as const) {
+      const documentId = await insertWeighing({ documentNumber, netKg, organizationId: null });
+      await insertDateLine(database, { workspaceId, documentId, lineNo: 1, meaning: 'Thời điểm cân lần 2', at });
+    }
+    await insertWeighing({ documentNumber: '0027', netKg: 100, organizationId: null });
+
+    const total = await runTotal({ date_meaning: 'Thời điểm cân lần 2', date_from: '2026-11-05', date_to: '2026-11-05' });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -285,7 +297,7 @@ describe('the document number tools of an admin', () => {
   }
 
   async function runList(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<ListOutput> {
-    const args = { organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, ...overrides };
+    const args = { organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, date_from: null, date_to: null, ...overrides };
     return JSON.parse(await runTool('list_document_numbers', args, scope)) as ListOutput;
   }
 
