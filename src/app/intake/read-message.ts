@@ -2,6 +2,7 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
+import { EMPTY_READER_CATALOG } from '../reading/document-rules.ts';
 import { buildReaderPrompt } from '../reading/reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import { validateReading, type ReadAttempt } from '../reading/reading.ts';
@@ -18,7 +19,7 @@ export async function readMessage(context: IntakeContext, message: MessageConten
 
 export async function readWithReader(reader: ReaderService, now: Date, message: MessageContent, labels: string[]): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels),
+    system: buildReaderPrompt(now, labels, EMPTY_READER_CATALOG),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,
