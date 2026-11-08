@@ -8,6 +8,7 @@ export type NewSentMessage = {
   sentAt: string;
   text?: string | null;
   imageKey?: string | null;
+  eventStatus?: 'queued' | 'processing' | 'done' | 'failed';
   submissionStatus?: 'pending' | 'accepted' | 'duplicate' | 'unresolved' | 'needs_explanation' | 'asked_again';
   createdAt?: Date;
 };
@@ -15,7 +16,7 @@ export type NewSentMessage = {
 export async function insertSentMessage(database: TemporaryDatabase, message: NewSentMessage): Promise<string> {
   const imageKey = message.imageKey ?? null;
   const eventId = await insertInboundEvent(database, {
-    status: 'done',
+    status: message.eventStatus ?? 'done',
     kind: imageKey === null ? 'text' : 'images',
     sentAt: message.sentAt,
   });

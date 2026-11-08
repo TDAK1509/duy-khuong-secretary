@@ -160,6 +160,25 @@ describe('the reread-documents command', () => {
     expect(reader.requests[0]?.text).toBe(['Các tin nhắn gần đây của người gửi, từ cũ đến mới:', ...expectedTexts].join('\n'));
   });
 
+  it('skips a photo whose inbound event live intake has not finished', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertSentMessage(database, {
+      workspaceId,
+      userId,
+      sentAt: '2026-11-02T10:00:00+07:00',
+      imageKey: `${workspaceId}/${randomUUID()}.jpg`,
+      eventStatus: 'processing',
+    });
+    const reader = new FakeReader();
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Re-read 0 messages. Stored 0 documents. No document in 0. Test photos: 0. Failed 0.']);
+    expect(reader.requests).toEqual([]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   it('reads a ChatGPT text with its created time as the sent time and no photo', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const [message] = await database.query<{ id: string }>(
