@@ -83,6 +83,20 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT message_id FROM document_sources')).toEqual([{ message_id: messageId }]);
   });
 
+  it('records no document for a message with no work data', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+
+    const { exitCode, lines } = await runReread(workspaceId, new FakeReader());
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Re-read 1 messages. Stored 0 documents. No document in 1. Test photos: 0. Failed 0.']);
+    expect(await database.query('SELECT message_id, outcome FROM document_reads')).toEqual([
+      { message_id: messageId, outcome: 'no_document' },
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
