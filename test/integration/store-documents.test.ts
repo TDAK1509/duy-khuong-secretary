@@ -52,6 +52,27 @@ describe('storing the documents of a saved message', () => {
       { line_no: 0, label: 'Hàng hóa', value: 'Giấy phế liệu' },
     ]);
   });
+
+  it('makes one document with the lines of both jobs of one maintenance invoice', async () => {
+    const issuer = [makeParty('issuer', 'Gara Hòa Phát')];
+    const makeJob = (job: string) =>
+      makeTicketItem({
+        category: 'bảo dưỡng',
+        maintenance_item: job,
+        vehicle_plate: '93C04588',
+        parties: issuer,
+        details: [{ label: 'Thành tiền', value: '1.000.000', item: job, meaning: 'Thành tiền' }],
+      });
+    harness.reader.answerWith(makeReading([makeJob('dầu máy'), makeJob('lốp')]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(await database.query(`SELECT item FROM document_lines WHERE label = 'Thành tiền' ORDER BY line_no`)).toEqual([
+      { item: 'dầu máy' },
+      { item: 'lốp' },
+    ]);
+  });
 });
 
 function makeTicketItem(overrides: ItemOverrides = {}) {
