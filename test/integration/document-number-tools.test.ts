@@ -424,6 +424,22 @@ describe('the document number tools of an admin', () => {
     expect(list.organizations.map((organization) => organization.name)).toEqual(['Công ty TNHH Cheng Loong Bình Dương Paper']);
   });
 
+  it('lists every company with the number of documents it is confirmed on', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Hòa Phát', type: 'place' });
+    await insertWeighing({ documentNumber: '0044', netKg: 26380 });
+    const twice = await insertWeighing({ documentNumber: '0045', netKg: 27790 });
+    await insertParty(database, { workspaceId, documentId: twice, role: 'issuer', organizationId: chengLoongId, printedName: 'Cheng Loong' });
+    const waiting = await insertWeighing({ documentNumber: '0046', netKg: 100, organizationId: null });
+    await insertParty(database, { workspaceId, documentId: waiting, role: 'customer', organizationId: chengLoongId, printedName: 'Chống Loong', isConfirmed: false });
+
+    const list = await runListOrganizations({ text: null });
+
+    expect(list.organizations.map(({ name, type, document_count: count }) => ({ name, type, count }))).toEqual([
+      { name: 'Công ty Hòa Phát', type: 'place', count: 0 },
+      { name: 'Công ty TNHH Cheng Loong Bình Dương Paper', type: 'company', count: 2 },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
