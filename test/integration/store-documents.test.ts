@@ -107,6 +107,30 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
     expect(await database.query('SELECT count(DISTINCT message_id)::int AS count FROM document_sources')).toEqual([{ count: 2 }]);
   });
+
+  it('keeps a different plate on the same ticket number and date apart for review', async () => {
+    await insertDocumentWithSource(database, {
+      workspaceId: harness.workspaceId,
+      userId: harness.hungUserId,
+      issuerKey: 'chengloong',
+      documentNumber: '20261105054',
+      documentDate: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    const otherPlate = makeTicketItem({
+      document_number: '20261105054',
+      vehicle_plate: '93H00316',
+      parties: [makeParty('issuer', 'Cheng Loong')],
+    });
+    harness.reader.answerWith(makeReading([otherPlate]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY created_at')).toEqual([
+      { vehicle_plate: '93C04588', status: 'accepted' },
+      { vehicle_plate: '93H00316', status: 'needs_review' },
+    ]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {

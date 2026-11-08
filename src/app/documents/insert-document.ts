@@ -5,19 +5,27 @@ import type { DocumentMessage } from './store-documents.ts';
 
 const FALLBACK_KIND = 'khác';
 
-export async function insertDocument(transaction: Transaction, message: DocumentMessage, draft: DocumentDraft): Promise<string> {
-  const documentId = await insertRow(transaction, 'documents', buildDocumentRow(message, draft));
+export type DocumentStatus = 'accepted' | 'needs_review';
+
+export async function insertDocument(
+  transaction: Transaction,
+  message: DocumentMessage,
+  draft: DocumentDraft,
+  status: DocumentStatus,
+): Promise<string> {
+  const documentId = await insertRow(transaction, 'documents', buildDocumentRow(message, draft, status));
   await insertLines(transaction, message, documentId, draft);
   await insertSources(transaction, message, documentId, draft);
   return documentId;
 }
 
-function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft): Record<string, unknown> {
+function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft, status: DocumentStatus): Record<string, unknown> {
   const { item, record } = draft.items[0] ?? failEmptyDraft();
   return {
     workspace_id: workspaceId,
     kind: item.document_kind.trim() === '' ? FALLBACK_KIND : item.document_kind,
     stage: item.stage,
+    status,
     document_number: draft.documentNumber,
     issuer_key: draft.issuerKey,
     document_date: draft.documentDate,
