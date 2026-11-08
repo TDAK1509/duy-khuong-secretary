@@ -259,6 +259,19 @@ describe('storing the documents of a saved message', () => {
       { vehicle_plate: '93H00316', status: 'needs_review' },
     ]);
   });
+
+  it('keeps the meaning of a line whose number cannot be read', async () => {
+    const unreadable = { label: 'TL tịnh', value: '2?.950', meaning: 'Trọng lượng hàng' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ details: [unreadable] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(
+        `SELECT meaning.name, line.number FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`,
+      ),
+    ).toEqual([{ name: 'Trọng lượng hàng', number: null }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
