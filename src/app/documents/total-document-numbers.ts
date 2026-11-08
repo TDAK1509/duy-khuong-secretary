@@ -1,6 +1,7 @@
 import type { Database } from '../db/transaction.ts';
-import { WhereClause } from '../records/where-clause.ts';
-import { addDocumentFilters, type DocumentFilters, type OrganizationLink } from './add-document-filters.ts';
+import type { WhereClause } from '../records/where-clause.ts';
+import type { DocumentFilters } from './add-document-filters.ts';
+import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from './build-document-where.ts';
 import { buildDocumentDateSql } from './build-document-date.ts';
 import { buildMatchKey } from './build-match-key.ts';
 import { countNotRereadMessages } from './count-not-reread-messages.ts';
@@ -20,8 +21,6 @@ export type LineLevel = 'document' | 'item';
 
 export type TotalRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters; groupBy: DocumentGroup };
 
-type DocumentRule = { status: 'accepted' | 'needs_review'; link: OrganizationLink };
-
 const FROM_NUMBER_LINES = `FROM documents document
   JOIN document_lines line ON line.document_id = document.id
   JOIN meanings meaning ON meaning.id = line.meaning_id`;
@@ -30,8 +29,6 @@ const FROM_MEANING_LINES = `FROM document_lines line JOIN meanings meaning ON me
 
 const SUM_NUMBERS = `line.unit AS unit, count(line.number)::int AS count, sum(line.number)::text AS sum,
     min(line.number)::text AS min, max(line.number)::text AS max`;
-
-const ACCEPTED_CONFIRMED: DocumentRule = { status: 'accepted', link: 'organization_id' };
 
 export async function totalDocumentNumbers(database: Database, request: TotalRequest): Promise<DocumentNumberTotals> {
   return {
@@ -68,7 +65,7 @@ async function countDocuments(database: Database, request: TotalRequest, rule: D
 }
 
 async function countWithoutNumber(database: Database, request: TotalRequest): Promise<number> {
-  const where = buildDocumentWhere(request, ACCEPTED_CONFIRMED);
+  const where = buildDocumentWhere(request.filters, ACCEPTED_CONFIRMED);
   where.require(`EXISTS (SELECT 1 ${FROM_MEANING_LINES} WHERE ${buildMeaningCondition(where, request.meaning)})`);
   where.require(`NOT EXISTS (SELECT 1 ${FROM_MEANING_LINES} WHERE ${buildNumberCondition(where, request)})`);
   const { rows } = await database.query<{ count: number }>(`SELECT count(*)::int AS count FROM documents document WHERE ${where.toSql()}`, where.values);
@@ -76,15 +73,8 @@ async function countWithoutNumber(database: Database, request: TotalRequest): Pr
 }
 
 function buildNumberWhere(request: TotalRequest, rule: DocumentRule): WhereClause {
-  const where = buildDocumentWhere(request, rule);
+  const where = buildDocumentWhere(request.filters, rule);
   where.require(buildNumberCondition(where, request));
-  return where;
-}
-
-function buildDocumentWhere(request: TotalRequest, rule: DocumentRule): WhereClause {
-  const where = new WhereClause();
-  where.require(`document.status = ${where.bind(rule.status)}`);
-  addDocumentFilters(where, request.filters, rule.link);
   return where;
 }
 

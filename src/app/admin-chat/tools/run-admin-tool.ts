@@ -9,6 +9,7 @@ import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateScheduledTask } from './create-scheduled-task-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
+import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
 import { runListNumberLabels } from './list-number-labels-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
@@ -57,6 +58,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   review_name_matches: runReviewNameMatches,
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
+  list_document_numbers: ({ database }, _scope, args) => runListDocumentNumbers(database, args),
   total_document_numbers: ({ database }, _scope, args) => runTotalDocumentNumbers(database, args),
 };
 

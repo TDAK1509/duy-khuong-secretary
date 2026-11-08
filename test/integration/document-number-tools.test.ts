@@ -26,6 +26,11 @@ type TotalOutput = {
   groups: { group: string | null; unit: string; count: number; sum: string; min: string; max: string }[];
 };
 
+type ListOutput = {
+  ok: boolean;
+  numbers: { meaning: string; value_type: string; unit: string | null; document_count: number; item_document_count: number }[];
+};
+
 describe('the document number tools of an admin', () => {
   const clock = new FakeClock(new Date('2026-11-07T10:00:00+07:00'));
   let database: TemporaryDatabase;
@@ -151,6 +156,19 @@ describe('the document number tools of an admin', () => {
     expect(total.not_reread_messages).toBe(1);
   });
 
+  it('lists each meaning with the number of documents that hold it', async () => {
+    await insertWeighing({ documentNumber: '0013', netKg: 26380 });
+    const second = await insertWeighing({ documentNumber: '0014', netKg: 27790 });
+    await insertNumberLine(database, { workspaceId, documentId: second, lineNo: 1, meaning: 'Trọng lượng hàng sau khấu trừ', number: 27700, unit: 'kg' });
+
+    const list = await runList();
+
+    expect(list.numbers).toEqual([
+      { meaning: 'Trọng lượng hàng', value_type: 'number', unit: 'kg', document_count: 2, item_document_count: 0 },
+      { meaning: 'Trọng lượng hàng sau khấu trừ', value_type: 'number', unit: 'kg', document_count: 1, item_document_count: 0 },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -174,6 +192,11 @@ describe('the document number tools of an admin', () => {
     return documentId;
   }
 
+  async function runList(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<ListOutput> {
+    const args = { organization: null, stage: null, date_meaning: null, ...overrides };
+    return JSON.parse(await runTool('list_document_numbers', args, scope)) as ListOutput;
+  }
+
   async function runTotal(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<TotalOutput> {
     const args = {
       meaning: 'Trọng lượng hàng',
@@ -189,8 +212,11 @@ describe('the document number tools of an admin', () => {
       group_by: 'none',
       ...overrides,
     };
+    return JSON.parse(await runTool('total_document_numbers', args, scope)) as TotalOutput;
+  }
+
+  async function runTool(name: string, args: object, scope: AccessScope): Promise<string> {
     const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
-    const output = await runAdminTool(dependencies, scope, { id: 'call_1', name: 'total_document_numbers', argumentsJson: JSON.stringify(args) });
-    return JSON.parse(output) as TotalOutput;
+    return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 });
