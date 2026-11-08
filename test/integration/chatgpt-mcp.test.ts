@@ -26,6 +26,7 @@ import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
+import { insertOrganizationWithAlias } from './document-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
@@ -397,6 +398,15 @@ describe('the MCP address', () => {
            JOIN messages message ON message.id = source.message_id`,
       ),
     ).toEqual([{ document_number: '0001234', item_index: 0, source: 'mcp' }]);
+  });
+
+  it('sends the organization names of the workspace to the reader when it saves a text', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId, name: 'Cheng Loong' });
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(reader.requests[0]?.system).toContain('14b. Các công ty và nơi chốn nhóm này đã lưu: ["Cheng Loong"]. Danh sách này');
   });
 
   it('adds no document source for a text rejected as a duplicate', async () => {
