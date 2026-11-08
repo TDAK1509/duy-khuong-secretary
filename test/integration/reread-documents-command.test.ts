@@ -310,6 +310,17 @@ describe('the reread-documents command', () => {
     });
   }
 
+  it('refuses a test photo id that is not a photo message in a dry run too', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const textMessageId = await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:01:00+07:00', text: 'xin chào' });
+
+    const { exitCode, lines } = await runReread(workspaceId, new FakeReader(), { apply: false, testPhotoIds: [textMessageId] });
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([`Not a photo message in this workspace: ${textMessageId}`]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
