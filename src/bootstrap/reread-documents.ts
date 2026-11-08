@@ -1,11 +1,18 @@
 import { z } from 'zod';
+import { findMessagesToReread } from '../app/document-reads/find-messages-to-reread.ts';
+import { findTestPhotosToRemove } from '../app/document-reads/find-test-photos-to-remove.ts';
+import { scopeDatabase } from '../app/db/scoped-database.ts';
+import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
+import type { ReaderService } from '../services/reading/reader-service.ts';
 import { readRuntimeDatabaseUrl } from './config.ts';
+import type { ReaderConfig } from './reader-config.ts';
 
 const USAGE =
   'Usage: node dist/bootstrap/reread-documents.js <workspace-uuid> [--test-photo <message-uuid>]... [--apply]';
 
 export type RereadDocumentsOptions = {
   log?: (line: string) => void;
+  buildReader?: (config: ReaderConfig) => ReaderService;
 };
 
 type RereadArguments = { workspaceId: string; testPhotoIds: string[]; apply: boolean };
@@ -26,6 +33,21 @@ export async function runRereadDocumentsCommand(
     log(USAGE);
     return 1;
   }
+  const pool = createPostgresPool(databaseUrl.data);
+  try {
+    return await printDryRun(pool, parsedArguments, log);
+  } finally {
+    await pool.end();
+  }
+}
+
+async function printDryRun(pool: PostgresPool, { workspaceId, testPhotoIds }: RereadArguments, log: (line: string) => void): Promise<number> {
+  const scoped = scopeDatabase(pool, { workspaceId });
+  const messageIds = await findMessagesToReread(scoped, workspaceId, testPhotoIds);
+  const testPhotos = await findTestPhotosToRemove(scoped, workspaceId, testPhotoIds);
+  log(
+    `Messages to re-read: ${messageIds.length}. Test photos: ${testPhotos.messageIds.length}, with ${testPhotos.recordCount} records to remove. Nothing changed. Run again with --apply.`,
+  );
   return 0;
 }
 
