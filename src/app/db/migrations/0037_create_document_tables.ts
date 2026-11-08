@@ -93,6 +93,10 @@ function createDocuments(pgm: MigrationBuilder): void {
     )
   `);
   pgm.sql('CREATE UNIQUE INDEX documents_id_workspace_id_key ON documents (id, workspace_id)');
+  pgm.sql(`
+    CREATE UNIQUE INDEX documents_issuer_number_date_key ON documents (workspace_id, issuer_key, document_number, document_date)
+    WHERE status = 'accepted' AND issuer_key IS NOT NULL AND document_number IS NOT NULL AND document_date IS NOT NULL
+  `);
   pgm.sql('CREATE INDEX documents_workspace_id_document_date_idx ON documents (workspace_id, document_date)');
   pgm.sql('CREATE INDEX documents_workspace_id_kind_idx ON documents (workspace_id, kind)');
 }

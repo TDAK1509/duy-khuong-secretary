@@ -8,6 +8,7 @@ import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
 const ROW_LEVEL_SECURITY_VIOLATION = '42501';
 
@@ -117,6 +118,31 @@ describe('the document tables for the runtime role', () => {
       constraint: 'document_parties_organization_id_workspace_id_fkey',
     });
   });
+
+  it('refuses a second accepted document with the same issuer key, number and date', async () => {
+    await insertNumberedDocument('2026-11-05');
+
+    const insert = insertNumberedDocumentAsRuntime('2026-11-05');
+
+    await expect(insert).rejects.toMatchObject({ code: UNIQUE_VIOLATION, constraint: 'documents_issuer_number_date_key' });
+  });
+
+  async function insertNumberedDocument(documentDate: string): Promise<void> {
+    await database.query(
+      `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, summary)
+       VALUES (${literal(workspaceId)}, 'phiếu cân', 'chengloong', '20261105054', ${literal(documentDate)}, 'Phiếu cân xe')`,
+    );
+  }
+
+  function insertNumberedDocumentAsRuntime(documentDate: string): Promise<unknown> {
+    return runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, summary)
+         VALUES ($1, 'phiếu cân', 'chengloong', '20261105054', $2, 'Phiếu cân xe')`,
+        [workspaceId, documentDate],
+      ),
+    );
+  }
 
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
     const documentId = await insertDocument(inWorkspaceId);
