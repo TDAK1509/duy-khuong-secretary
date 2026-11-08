@@ -118,6 +118,24 @@ describe('the reread-documents command', () => {
     );
   });
 
+  it('gives the reader the date the message was sent as today', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
+    await photoStorage.put(imageKey, { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+    await insertSentMessage(database, {
+      workspaceId,
+      userId,
+      imageKey,
+      sentAt: '2026-11-05T13:30:00+07:00',
+      createdAt: new Date('2026-11-06T09:00:00+07:00'),
+    });
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests[0]?.system).toContain('Hôm nay là 05/11/2026');
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
