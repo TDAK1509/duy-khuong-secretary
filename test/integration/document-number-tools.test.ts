@@ -11,7 +11,8 @@ import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { INVALID_DATE_ERROR } from '../../src/app/admin-chat/tools/tool-result.ts';
-import { insertAlias, insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
+import { insertAlias, insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty, insertReadOfMessage, insertSourceOfMessage } from './document-number-rows.ts';
+import { insertChatMessage } from './message-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -356,6 +357,20 @@ describe('the document number tools of an admin', () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
     const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
     await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy' });
+
+    const total = await runTotal();
+
+    expect(total.not_reread_messages).toBe(0);
+  });
+
+  it('does not count a saved message that has a document source or a re-read row', async () => {
+    const documentId = await insertWeighing({ documentNumber: '0038', netKg: 26380 });
+    const read = await insertChatMessage(database, { workspaceId, userId: hungUserId, author: 'user', text: 'tin nhắn', createdAt: new Date('2026-11-05T10:00:00+07:00') });
+    const sourced = await insertChatMessage(database, { workspaceId, userId: hungUserId, author: 'user', text: 'tin nhắn', createdAt: new Date('2026-11-05T10:00:00+07:00') });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', messageId: read });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', messageId: sourced });
+    await insertReadOfMessage(database, { workspaceId, messageId: read });
+    await insertSourceOfMessage(database, { workspaceId, documentId, messageId: sourced });
 
     const total = await runTotal();
 

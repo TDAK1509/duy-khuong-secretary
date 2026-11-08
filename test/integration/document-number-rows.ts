@@ -110,3 +110,16 @@ export async function insertAlias(database: TemporaryDatabase, row: { workspaceI
      VALUES (${literal(row.workspaceId)}, ${literal(row.organizationId)}, ${literal(row.printedName)}, ${literal(buildMatchKey(row.printedName))})`,
   );
 }
+
+export async function insertSourceOfMessage(database: TemporaryDatabase, row: { workspaceId: string; documentId: string; messageId: string }): Promise<void> {
+  await database.query(
+    `INSERT INTO document_sources (workspace_id, document_id, message_id, item_index)
+     VALUES (${literal(row.workspaceId)}, ${literal(row.documentId)}, ${literal(row.messageId)}, 1)`,
+  );
+}
+
+export async function insertReadOfMessage(database: TemporaryDatabase, row: { workspaceId: string; messageId: string }): Promise<void> {
+  await database.query(
+    `INSERT INTO document_reads (workspace_id, message_id, outcome) VALUES (${literal(row.workspaceId)}, ${literal(row.messageId)}, 'no_document')`,
+  );
+}
