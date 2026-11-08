@@ -138,6 +138,19 @@ describe('the backfill-detail-numbers command', () => {
     expect(loggedLines).toEqual(['[reader] outcome=ok input_tokens=100 output_tokens=40 reasoning_tokens=10']);
   });
 
+  it('logs invalid output when the reply does not fit the record', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ unexpected: true }, { input: 100, output: 40, reasoning: 10 });
+    const loggedLines = spyOnConsoleLog();
+
+    await runBackfill(workspaceId, reader);
+
+    expect(loggedLines).toEqual(['[reader] outcome=invalid_output input_tokens=100 output_tokens=40 reasoning_tokens=10']);
+  });
+
   it('leaves a record unchanged when no detail gains a number', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const details = [{ label: 'Ngày cấp', value: '01/11/2026', number: null, unit: null }];

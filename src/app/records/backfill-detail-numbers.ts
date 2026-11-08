@@ -58,8 +58,8 @@ async function addNumbers(scoped: Database, reader: ReaderService, record: Recor
     logReaderCall(reply.reason, reply);
     return 'reader_failed';
   }
-  logReaderCall('ok', reply);
   const details = mergeDetailNumbers(record.details, reply.json);
+  logReaderCall(details === null ? 'invalid_output' : 'ok', reply);
   if (details === null) return 'invalid_output';
   if (!gainsNumber(record.details, details)) return 'unchanged';
   const updated = await replaceDetailsIfUnchanged(scoped, record, details);
