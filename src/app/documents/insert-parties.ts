@@ -6,13 +6,19 @@ import { insertRow } from './insert-row.ts';
 import { linkParty, type PartyLink } from './link-party.ts';
 import type { DocumentMessage } from './store-documents.ts';
 
+type KeyedParty = { party: ReadingParty; matchKey: string };
+
 export async function insertParties(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
-  for (const party of draft.lineItems.flatMap(({ item }) => item.parties)) {
-    const matchKey = buildMatchKey(party.printed_name);
-    if (matchKey === '') continue;
+  for (const { party, matchKey } of listDistinctParties(draft)) {
     const link = await linkParty(transaction, message.workspaceId, party, matchKey);
     await insertRow(transaction, 'document_parties', buildPartyRow(message, documentId, party, matchKey, link));
   }
+}
+
+function listDistinctParties(draft: DocumentDraft): KeyedParty[] {
+  const keyed = draft.lineItems.flatMap(({ item }) => item.parties).map((party) => ({ party, matchKey: buildMatchKey(party.printed_name) }));
+  const distinct = new Map(keyed.map((entry) => [`${entry.party.role}|${entry.party.type}|${entry.matchKey}`, entry]));
+  return [...distinct.values()].filter(({ matchKey }) => matchKey !== '');
 }
 
 function buildPartyRow(

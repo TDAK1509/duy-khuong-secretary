@@ -77,6 +77,19 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
+  it('stores a party shared by both jobs of one maintenance invoice once', async () => {
+    const issuer = [makeParty('issuer', 'Gara Hòa Phát')];
+    const makeJob = (job: string) =>
+      makeTicketItem({ category: 'bảo dưỡng', maintenance_item: job, vehicle_plate: '93C04588', parties: issuer });
+    harness.reader.answerWith(makeReading([makeJob('dầu máy'), makeJob('lốp')]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT role, printed_name FROM document_parties')).toEqual([
+      { role: 'issuer', printed_name: 'Gara Hòa Phát' },
+    ]);
+  });
+
   it('adds only a source when a second photo shows an accepted document', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,
