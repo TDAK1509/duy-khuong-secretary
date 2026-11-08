@@ -167,6 +167,30 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
   });
 
+  it('reads nothing on a second run', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T11:00:00+07:00');
+    const reader = answerFirstCallWithAnItem();
+    await runReread(workspaceId, reader);
+    const callsAfterFirstRun = reader.requests.length;
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual(['Re-read 0 messages. Stored 0 documents. No document in 0. Test photos: 0. Failed 0.']);
+    expect(reader.requests).toHaveLength(callsAfterFirstRun);
+  });
+
+  function answerFirstCallWithAnItem(): FakeReader {
+    const noWorkData = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
+    let calls = 0;
+    return new FakeReader(() => {
+      calls += 1;
+      return { ok: true, json: calls === 1 ? makeReading([makeItem({ document_kind: 'hóa đơn' })]) : noWorkData };
+    });
+  }
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
