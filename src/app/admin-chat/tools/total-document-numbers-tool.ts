@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { DOCUMENT_GROUPS } from '../../documents/document-groups.ts';
 import { totalDocumentNumbers } from '../../documents/total-document-numbers.ts';
@@ -11,10 +12,10 @@ const argumentsSchema = z.object({
   group_by: z.enum(DOCUMENT_GROUPS),
 });
 
-export async function runTotalDocumentNumbers(database: Database, parsedArguments: unknown): Promise<string> {
+export async function runTotalDocumentNumbers(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const request = { meaning: args.meaning, lines: args.lines, filters: buildDocumentFilters(args), groupBy: args.group_by };
-  const totals = await totalDocumentNumbers(database, request);
+  const totals = await totalDocumentNumbers(database, scope, request);
   return JSON.stringify({
     ok: true,
     meaning: args.meaning,

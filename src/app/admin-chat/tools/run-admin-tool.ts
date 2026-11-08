@@ -59,9 +59,9 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   review_name_matches: runReviewNameMatches,
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
-  list_document_numbers: ({ database }, _scope, args) => runListDocumentNumbers(database, args),
+  list_document_numbers: ({ database }, scope, args) => runListDocumentNumbers(database, scope, args),
   list_organizations: ({ database }, _scope, args) => runListOrganizations(database, args),
-  total_document_numbers: ({ database }, _scope, args) => runTotalDocumentNumbers(database, args),
+  total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {

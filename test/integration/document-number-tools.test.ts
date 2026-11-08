@@ -190,6 +190,18 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('never reads the documents of another workspace', async () => {
+    await insertWeighing({ documentNumber: '0015', netKg: 26380 });
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    const otherDocumentId = await insertNumberedDocument(database, { workspaceId: otherWorkspaceId, userId: vyUserId, documentNumber: '0016' });
+    await insertNumberLine(database, { workspaceId: otherWorkspaceId, documentId: otherDocumentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 26380, unit: 'kg' });
+
+    const total = await runTotal();
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
