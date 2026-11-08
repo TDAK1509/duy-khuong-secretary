@@ -316,6 +316,20 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('groups by the stage of the document', async () => {
+    await insertWeighing({ documentNumber: '0032', netKg: 26380, stage: 'receipt' });
+    await insertWeighing({ documentNumber: '0033', netKg: 26470, stage: 'dispatch' });
+    await insertWeighing({ documentNumber: '0034', netKg: 100 });
+
+    const total = await runTotal({ group_by: 'stage' });
+
+    expect(total.groups).toEqual([
+      { group: 'dispatch', unit: 'kg', count: 1, sum: '26470', min: '26470', max: '26470' },
+      { group: 'receipt', unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' },
+      { group: null, unit: 'kg', count: 1, sum: '100', min: '100', max: '100' },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
