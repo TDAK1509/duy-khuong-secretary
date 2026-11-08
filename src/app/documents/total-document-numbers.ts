@@ -36,7 +36,7 @@ export async function totalDocumentNumbers(database: Database, scope: AccessScop
     pendingNameDocuments: await countPendingNameDocuments(database, scope, request),
     reviewDocuments: await countReviewDocuments(database, scope, request),
     withoutNumber: await countWithoutNumber(database, scope, request),
-    notRereadMessages: await countNotRereadMessages(database),
+    notRereadMessages: await countNotRereadMessages(database, scope),
   };
 }
 

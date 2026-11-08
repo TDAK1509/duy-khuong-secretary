@@ -352,6 +352,16 @@ describe('the document number tools of an admin', () => {
     expect(JSON.parse(output)).toEqual({ ok: false, error: `Dữ liệu không hợp lệ: ${field}` });
   });
 
+  it('never counts the messages of another workspace as not read again', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    const vyUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: vyUserId, senderName: 'Vy' });
+
+    const total = await runTotal();
+
+    expect(total.not_reread_messages).toBe(0);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
