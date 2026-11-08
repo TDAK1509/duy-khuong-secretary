@@ -153,6 +153,20 @@ describe('the reread-documents command', () => {
     expect(reader.requests).toEqual([]);
   });
 
+  it('refuses a test photo id from another workspace and changes nothing', async () => {
+    const workspaceA = await seedWorkspace();
+    const workspaceB = await seedWorkspace();
+    const otherMessageId = await insertSavedPhoto(workspaceB.workspaceId, workspaceB.userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+
+    const { exitCode, lines } = await runReread(workspaceA.workspaceId, reader, { testPhotoIds: [otherMessageId] });
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([`Not a photo message in this workspace: ${otherMessageId}`]);
+    expect(await database.query('SELECT count(*)::int AS count FROM records')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { scopeDatabase } from '../app/db/scoped-database.ts';
 import { findMessagesToReread } from '../app/document-reads/find-messages-to-reread.ts';
+import { findNonPhotoMessage } from '../app/document-reads/find-non-photo-message.ts';
 import { findTestPhotosToRemove } from '../app/document-reads/find-test-photos-to-remove.ts';
 import { rereadDocuments, type RereadSummary } from '../app/document-reads/reread-documents.ts';
 import type { RereadServices } from '../app/document-reads/reread-message.ts';
@@ -90,10 +91,17 @@ async function runReread(
   services: RereadServices | null,
   log: (line: string) => void,
 ): Promise<number> {
+  const notAPhoto = await findNonPhotoMessage(scopeDatabase(pool, { workspaceId }), workspaceId, testPhotoIds);
+  if (notAPhoto !== null) return refuse(`Not a photo message in this workspace: ${notAPhoto}`, log);
   if (services === null) return printDryRun(pool, workspaceId, testPhotoIds, log);
   const summary = await rereadDocuments(pool, services, workspaceId, testPhotoIds);
   printSummary(summary, log);
   return summary.failures.length === 0 ? 0 : 1;
+}
+
+function refuse(problem: string, log: (line: string) => void): number {
+  log(problem);
+  return 1;
 }
 
 async function printDryRun(pool: PostgresPool, workspaceId: string, testPhotoIds: string[], log: (line: string) => void): Promise<number> {
