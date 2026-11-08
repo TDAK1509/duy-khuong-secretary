@@ -57,7 +57,8 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Nếu kết quả có "next_cursor" khác null và cần thêm dữ liệu, gọi lại công cụ với cursor đó. Nếu không đọc hết, nói rõ kết quả chưa đầy đủ.
 - Để xem lần bảo dưỡng gần nhất, dùng maintenance_status.
 - Khi người dùng muốn xem ảnh, hoặc khi ảnh giúp trả lời (ví dụ tình trạng lốp), gọi attach_photos với id các mục liên quan. Ảnh được gửi ngay sau câu trả lời.
-- Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."`;
+- Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."
+- Để xem các tên đang chờ xác nhận, gọi review_name_matches. Hệ thống tự gửi danh sách ngay sau câu trả lời. Nếu kết quả là 0, trả lời: "Không có tên nào đang chờ xác nhận." Không tự xác nhận thay quản lý.`;
 
 const ADMIN_SECTION = `Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.
 Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý. Không viết mã mời trong câu trả lời. Hệ thống tự gửi mã mời thành một tin nhắn riêng ngay sau câu trả lời. Dặn quản lý chuyển tin nhắn mã cho người được mời. Người được mời mở Zalo của Trợ lý rồi nhắn đúng mã đó.
