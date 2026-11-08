@@ -35,6 +35,24 @@ describe('buildNameProposal', () => {
     expect(lines.filter((line) => /^\d+\. /.test(line))).toHaveLength(9);
     expect(lines.at(-1)).toBe('Còn 2 cặp nữa sẽ gửi sau khi bạn trả lời.');
   });
+
+  it('orders pairs with equal counts by printed name, then match key, then organization id', () => {
+    const waiting = [
+      makePair({ printedName: 'b', matchKey: 'k1', organizationId: 'o1' }),
+      makePair({ printedName: 'a', matchKey: 'k2', organizationId: 'o1' }),
+      makePair({ printedName: 'a', matchKey: 'k1', organizationId: 'o2' }),
+      makePair({ printedName: 'a', matchKey: 'k1', organizationId: 'o1' }),
+    ];
+
+    const { listed } = buildNameProposal(waiting);
+
+    expect(listed.map((pair) => [pair.printedName, pair.matchKey, pair.organizationId])).toEqual([
+      ['a', 'k1', 'o1'],
+      ['a', 'k1', 'o2'],
+      ['a', 'k2', 'o1'],
+      ['b', 'k1', 'o1'],
+    ]);
+  });
 });
 
 function makePair(overrides: Partial<WaitingPair>): WaitingPair {

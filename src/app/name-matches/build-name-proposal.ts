@@ -25,5 +25,15 @@ function describeRemainder(remainingCount: number): string[] {
 }
 
 function compareByDocumentCount(first: WaitingPair, second: WaitingPair): number {
-  return second.documentCount - first.documentCount;
+  return (
+    second.documentCount - first.documentCount ||
+    compareText(first.printedName, second.printedName) ||
+    compareText(first.matchKey, second.matchKey) ||
+    compareText(first.organizationId, second.organizationId)
+  );
+}
+
+function compareText(first: string, second: string): number {
+  if (first === second) return 0;
+  return first < second ? -1 : 1;
 }
