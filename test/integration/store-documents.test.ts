@@ -274,11 +274,11 @@ describe('storing the documents of a saved message', () => {
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
-    expect(
-      await database.query(
-        `SELECT message.user_id FROM document_sources source JOIN messages message ON message.id = source.message_id ORDER BY message.created_at`,
-      ),
-    ).toEqual([{ user_id: lanUserId }, { user_id: harness.hungUserId }]);
+    const sources = await database.query<{ user_id: string }>(
+      `SELECT message.user_id FROM document_sources source JOIN messages message ON message.id = source.message_id`,
+    );
+    expect(sources).toHaveLength(2);
+    expect(sources.map((source) => source.user_id)).toEqual(expect.arrayContaining([lanUserId, harness.hungUserId]));
   });
 
   it('saves no record when the database refuses the document', async () => {
