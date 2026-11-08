@@ -302,4 +302,20 @@ describe('the admin tool list', () => {
       },
     });
   });
+
+  it('offers list_document_numbers with the exact text and the filters', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'list_document_numbers');
+
+    expect(tool).toStrictEqual({
+      name: 'list_document_numbers',
+      description:
+        'Liệt kê các ý nghĩa số và ý nghĩa ngày có trong các giấy tờ phù hợp, kèm loại (số hoặc ngày), đơn vị, số giấy tờ có số của cả giấy tờ và số giấy tờ có số theo từng dòng. Gọi trước total_document_numbers khi câu hỏi chưa nói rõ số nào hoặc ngày nào.',
+      parameters: {
+        type: 'object',
+        properties: DOCUMENT_FILTER_PROPERTIES,
+        required: Object.keys(DOCUMENT_FILTER_PROPERTIES),
+        additionalProperties: false,
+      },
+    });
+  });
 });
