@@ -346,6 +346,12 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it.each([['group_by', 'weekly'], ['lines', 'all'], ['role', 'boss'], ['stage', 'storage']])('refuses an unknown value of %s', async (field, value) => {
+    const output = await runTool('total_document_numbers', { ...buildTotalArguments(), [field]: value }, duy);
+
+    expect(JSON.parse(output)).toEqual({ ok: false, error: `Dữ liệu không hợp lệ: ${field}` });
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
