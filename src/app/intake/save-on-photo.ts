@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
+import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
@@ -22,6 +23,7 @@ export async function saveRereadOnPhoto(
   await setSubmissionStatus(transaction, target.photo.id, reply.status);
   await enqueueReplyToMessage(transaction, context, target.photo.id, reply.replyText);
   await notifyAdminsOfPhoto(transaction, context, target.photo.id, reply.replyText);
+  if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
 }
 
 export async function saveReplyOnPhoto(
