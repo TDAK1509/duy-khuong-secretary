@@ -202,6 +202,17 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
+  it('counts a document with two dates of one meaning once, on the earliest date', async () => {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0017' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
+    await insertDateLine(database, { workspaceId, documentId, lineNo: 1, meaning: 'Thời điểm cân lần 1', at: '2026-10-31 23:50' });
+    await insertDateLine(database, { workspaceId, documentId, lineNo: 2, meaning: 'Thời điểm cân lần 1', at: '2026-11-01 00:10' });
+
+    const total = await runTotal({ group_by: 'day', date_meaning: 'Thời điểm cân lần 1' });
+
+    expect(total.groups).toEqual([{ group: '2026-10-31', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
