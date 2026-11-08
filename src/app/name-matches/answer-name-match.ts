@@ -17,6 +17,8 @@ const KEPT_APART_TEXT = 'Đã lưu các tên này là bên riêng.';
 
 type LinkedParty = { document_id: string };
 
+type SpellingOwner = { matchKey: string; organizationId: string };
+
 type NameMatchChoice = Extract<PendingChoice, { kind: 'name_match' }>;
 
 export async function answerNameMatch(transaction: Transaction, chooser: Chooser, choice: NameMatchChoice, number: number): Promise<Reply> {
@@ -47,6 +49,11 @@ async function keepApart(transaction: Transaction, workspaceId: string, pairs: N
 }
 
 async function createOrganizationForWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<number> {
+  const aliasedOrganizationId = await findAliasedOrganization(transaction, workspaceId, pair.matchKey);
+  if (aliasedOrganizationId !== null) {
+    await linkAllWaitingParties(transaction, workspaceId, { matchKey: pair.matchKey, organizationId: aliasedOrganizationId });
+    return 0;
+  }
   const [waiting] = await transaction.query<{ type: string }>(
     `SELECT type FROM document_parties
      WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
@@ -55,12 +62,7 @@ async function createOrganizationForWaitingParties(transaction: Transaction, wor
   );
   if (waiting === undefined) return 0;
   const organizationId = await insertOrganization(transaction, workspaceId, { type: waiting.type, printedName: pair.printedName, matchKey: pair.matchKey });
-  const linked = await transaction.query(
-    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
-     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
-     RETURNING id`,
-    [workspaceId, pair.matchKey, organizationId],
-  );
+  const linked = await linkAllWaitingParties(transaction, workspaceId, { matchKey: pair.matchKey, organizationId });
   return linked.length;
 }
 
@@ -70,7 +72,7 @@ function logAppliedReply(workspaceId: string, partyCount: number): void {
 
 async function confirmPair(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
   const aliasedOrganizationId = await findAliasedOrganization(transaction, workspaceId, pair.matchKey);
-  if (aliasedOrganizationId !== null) return linkToConfirmedSpelling(transaction, workspaceId, { ...pair, organizationId: aliasedOrganizationId });
+  if (aliasedOrganizationId !== null) return linkToConfirmedSpelling(transaction, workspaceId, { matchKey: pair.matchKey, organizationId: aliasedOrganizationId });
   const linked = await linkWaitingParties(transaction, workspaceId, pair);
   if (linked.length === 0) return { text: ALREADY_HANDLED_TEXT };
   await insertRow(transaction, 'organization_aliases', {
@@ -84,13 +86,18 @@ async function confirmPair(transaction: Transaction, workspaceId: string, pair: 
   return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${countDocuments(linked)} giấy tờ).` };
 }
 
-async function linkToConfirmedSpelling(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
-  await transaction.query(
-    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
-     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL`,
-    [workspaceId, pair.matchKey, pair.organizationId],
-  );
+async function linkToConfirmedSpelling(transaction: Transaction, workspaceId: string, spelling: SpellingOwner): Promise<Reply> {
+  await linkAllWaitingParties(transaction, workspaceId, spelling);
   return { text: ALREADY_HANDLED_TEXT };
+}
+
+async function linkAllWaitingParties(transaction: Transaction, workspaceId: string, { matchKey, organizationId }: SpellingOwner): Promise<LinkedParty[]> {
+  return transaction.query<LinkedParty>(
+    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
+     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
+     RETURNING document_id`,
+    [workspaceId, matchKey, organizationId],
+  );
 }
 
 async function linkWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<LinkedParty[]> {

@@ -235,6 +235,29 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
   });
 
+  it('links a waiting party to the organization of its confirmed spelling when the admin replies 0', async () => {
+    const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty TNHH Cheng Loong Hà Nội' });
+    await waitForMisreadParty();
+    harness.reader.answerWith(
+      makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeParty('issuer', CHONG_LOONG, 'Công ty TNHH Cheng Loong Hà Nội')] })]),
+    );
+    await harness.receivePhoto('zu-hung');
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: otherChengLoongId }]);
+
+    await harness.receiveText('zu-duy', '0');
+    await harness.sendAllQueuedTexts();
+
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: chengLoongId, proposed_organization_id: null },
+      { organization_id: chengLoongId, proposed_organization_id: null },
+    ]);
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
+  });
+
   it('says the pairs are already handled when a reply 0 finds no waiting party', async () => {
     await insertMember(database, {
       workspaceId: harness.workspaceId,
