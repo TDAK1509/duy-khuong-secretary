@@ -69,3 +69,15 @@ export const TOTAL_DOCUMENT_NUMBERS_SPEC: ToolSpec = {
     additionalProperties: false,
   },
 };
+
+export const LIST_DOCUMENT_NUMBERS_SPEC: ToolSpec = {
+  name: 'list_document_numbers',
+  description:
+    'Liệt kê các ý nghĩa số và ý nghĩa ngày có trong các giấy tờ phù hợp, kèm loại (số hoặc ngày), đơn vị, số giấy tờ có số của cả giấy tờ và số giấy tờ có số theo từng dòng. Gọi trước total_document_numbers khi câu hỏi chưa nói rõ số nào hoặc ngày nào.',
+  parameters: {
+    type: 'object',
+    properties: FILTER_PROPERTIES,
+    required: FILTER_NAMES,
+    additionalProperties: false,
+  },
+};
