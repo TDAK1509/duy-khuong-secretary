@@ -105,6 +105,19 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Đã lưu các tên này là bên riêng.' }]);
   });
 
+  it('sends nothing of a queued reply to a person who is demoted before the send', async () => {
+    await waitForMisreadParty();
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await harness.receiveText('zu-duy', '1');
+    await database.query(`UPDATE memberships SET role = 'member' WHERE display_name = 'Duy'`);
+
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([]);
+  });
+
   it('refuses a person who is no longer an admin of the workspace', async () => {
     await waitForMisreadParty();
     await harness.sendAllQueuedTexts();

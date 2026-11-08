@@ -1,4 +1,4 @@
-import { isCurrentWorkspaceAdmin } from '../access/is-current-admin.ts';
+import { findAdminMembershipId } from '../access/is-current-admin.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { Reply } from '../delivery/reply.ts';
 import { clearPendingChoice } from '../identities/clear-pending-choice.ts';
@@ -24,14 +24,15 @@ type NameMatchChoice = Extract<PendingChoice, { kind: 'name_match' }>;
 export async function answerNameMatch(transaction: Transaction, chooser: Chooser, choice: NameMatchChoice, number: number): Promise<Reply> {
   await clearPendingChoice(transaction, chooser.identity);
   const { workspaceId } = choice;
-  if (!(await isCurrentWorkspaceAdmin(transaction, { workspaceId, userId: chooser.userId }))) return { text: NO_PENDING_CHOICE_TEXT };
+  const adminMembershipId = await findAdminMembershipId(transaction, { workspaceId, userId: chooser.userId });
+  if (adminMembershipId === null) return { text: NO_PENDING_CHOICE_TEXT };
   const pair = choice.pairs[number - 1];
   if (number !== 0 && pair === undefined) return { text: NO_PENDING_CHOICE_TEXT };
   const reply = await transaction.withScope({ workspaceId }, async () => {
     await lockWorkspaceRecords(transaction, workspaceId);
     return pair === undefined ? keepApart(transaction, workspaceId, choice.pairs) : confirmPair(transaction, workspaceId, pair);
   });
-  return addNextProposal(transaction, workspaceId, reply);
+  return addNextProposal(transaction, workspaceId, { ...reply, adminMembershipId });
 }
 
 async function addNextProposal(transaction: Transaction, workspaceId: string, reply: Reply): Promise<Reply> {
