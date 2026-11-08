@@ -238,6 +238,16 @@ describe('storing the documents of a saved message', () => {
       ),
     ).toEqual([{ user_id: lanUserId }, { user_id: harness.hungUserId }]);
   });
+
+  it('saves no record when the database refuses the document', async () => {
+    const refusedParty = { ...makeParty('customer', 'Nguyễn Văn A'), type: 'person' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [refusedParty] })]));
+
+    await harness.receivePhoto('zu-hung').catch(() => undefined);
+
+    expect(await database.query('SELECT count(*)::int AS count FROM records')).toEqual([{ count: 0 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {

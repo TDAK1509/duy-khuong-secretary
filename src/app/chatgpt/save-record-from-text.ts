@@ -43,6 +43,6 @@ function saveReadRecords(database: Database, scope: AccessScope, text: string, p
 
 async function storeRecords(transaction: Transaction, { workspaceId, userId }: AccessScope, text: string, plan: ReplyPlan): Promise<void> {
   const messageId = await storeMcpMessage(transaction, { workspaceId, userId }, text);
-  await storeDocuments(transaction, { id: messageId, workspaceId }, plan);
   if (plan.saved) await insertRecords(transaction, { id: messageId, workspaceId, userId }, plan.saved);
+  await storeDocuments(transaction, { id: messageId, workspaceId }, plan);
 }
