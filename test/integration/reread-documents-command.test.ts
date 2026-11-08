@@ -6,8 +6,10 @@ import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { insertDocumentWithSource } from './document-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
-import { insertSentMessage } from './sent-message-rows.ts';
+import { insertSentMessage, type NewSentMessage } from './sent-message-rows.ts';
+import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -217,6 +219,50 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
   });
 
+  it('links a rejected duplicate photo to the document of the original and creates no second one', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertReadTicketRecord(workspaceId, userId);
+    const documentId = await insertDocumentWithSource(database, {
+      workspaceId,
+      userId,
+      issuerKey: 'congtytnhhchengloongbinhduongpaper',
+      documentNumber: '20261105054',
+      documentDate: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    const duplicateId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-06T10:00:00+07:00', 'duplicate');
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeChengLoongTicket()]));
+
+    const { exitCode } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(await database.query(`SELECT document_id FROM document_sources WHERE message_id = '${duplicateId}'`)).toEqual([
+      { document_id: documentId },
+    ]);
+    expect(await database.query(`SELECT outcome FROM document_reads WHERE message_id = '${duplicateId}'`)).toEqual([
+      { outcome: 'saved' },
+    ]);
+  });
+
+  async function insertReadTicketRecord(workspaceId: string, userId: string): Promise<void> {
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-01T09:00:00+07:00', 'accepted');
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      messageId,
+      category: 'phiếu cân',
+      documentNumber: '20261105054',
+      occurredOn: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    await database.query(
+      `INSERT INTO document_reads (workspace_id, message_id, outcome) VALUES (${literal(workspaceId)}, ${literal(messageId)}, 'saved')`,
+    );
+  }
+
   function answerFirstCallWithAnItem(): FakeReader {
     const noWorkData = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
     let calls = 0;
@@ -242,7 +288,7 @@ describe('the reread-documents command', () => {
     workspaceId: string,
     userId: string,
     sentAt: string,
-    submissionStatus: 'accepted' | 'unresolved' = 'unresolved',
+    submissionStatus: NewSentMessage['submissionStatus'] = 'unresolved',
   ): Promise<string> {
     const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
     await photoStorage.put(imageKey, { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
@@ -264,3 +310,15 @@ describe('the reread-documents command', () => {
     return { exitCode, lines };
   }
 });
+
+function makeChengLoongTicket() {
+  return makeItem({
+    category: 'phiếu cân',
+    amount_vnd: null,
+    occurred_on: '2026-11-05',
+    document_number: '20261105054',
+    document_kind: 'phiếu cân xe',
+    vehicle_plate: '93C04588',
+    parties: [{ role: 'issuer', type: 'company', printed_name: 'Công ty TNHH Cheng Loong Bình Dương Paper', known_name: null }],
+  });
+}
