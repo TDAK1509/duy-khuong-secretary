@@ -17,6 +17,6 @@ function formatTail(record: Pick<NewRecord, 'amountVnd' | 'occurredOn'>, amountS
   return amount + date;
 }
 
-function formatAmount(amountVnd: number): string {
+export function formatAmount(amountVnd: number): string {
   return `${amountVnd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}đ`;
 }

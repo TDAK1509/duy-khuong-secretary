@@ -5,6 +5,7 @@ import { answerPendingQuestion } from './answer-pending-question.ts';
 import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { findEarlierAnswers } from './find-earlier-answers.ts';
+import { formatReplyForSender } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
@@ -97,7 +98,7 @@ async function saveAnswer(
   const reply = await saveReplyOnPhoto(transaction, context, target, answer.reply);
   const photoStatus = findPhotoStatus(answer, reply);
   if (photoStatus !== null) await setSubmissionStatus(transaction, answered.asked.id, photoStatus);
-  await enqueueReplyToMessage(transaction, context, answered.asked.id, reply.replyText);
+  await enqueueReplyToMessage(transaction, context, answered.asked.id, formatReplyForSender(reply, context.sender.role));
   if (endsWait(answer)) await endWait(transaction, context, answered.asked, reply);
 }
 
@@ -111,7 +112,7 @@ function endsWait({ photoAfter }: ReplyAnswer): boolean {
 }
 
 async function endWait(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, reply: SavedReply): Promise<void> {
-  await notifyAdminsOfPhoto(transaction, context, asked.id, reply.replyText);
+  await notifyAdminsOfPhoto(transaction, context, asked.id, reply);
   if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
   await askNextWaitingPhoto(transaction, context);
 }

@@ -3,6 +3,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { enqueueImage } from '../delivery/enqueue-image.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { IntakeContext } from './intake-context.ts';
+import { formatReplyWithReadData, type RepliedPlan } from './format-reply-with-read-data.ts';
 import { formatPhotoNotice } from './intake-texts.ts';
 
 type PhotoFacts = { image_key: string; display_name: string; workspace_name: string; sent_at: Date };
@@ -11,7 +12,7 @@ export async function notifyAdminsOfPhoto(
   transaction: Transaction,
   context: IntakeContext,
   messageId: string,
-  replyText: string,
+  reply: RepliedPlan,
 ): Promise<void> {
   const { sender } = context;
   if (sender.role !== 'member') return;
@@ -21,7 +22,7 @@ export async function notifyAdminsOfPhoto(
     senderName: facts.display_name,
     workspaceName: facts.workspace_name,
     sentAt: facts.sent_at,
-    replyText,
+    replyText: formatReplyWithReadData(reply),
   });
   for (const admin of await listWorkspaceAdmins(transaction, sender.workspaceId)) {
     await enqueueNotice(transaction, context, admin, { text: notice, photoKey: facts.image_key });

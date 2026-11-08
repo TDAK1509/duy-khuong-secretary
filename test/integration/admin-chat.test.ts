@@ -8,6 +8,8 @@ import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
+const ADMIN_FUEL_SAVED_REPLY =
+  'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.\n\nDữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số phiếu: 0001234\n- Ngày trên giấy tờ: 30/10/2026\n- Số tiền: 1.250.000đ';
 const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 1.250.000đ ngày 30/10/2026, số 0001234. Hôm nay tổng bao nhiêu?';
 
 describe('an admin asks the bot', () => {
@@ -29,18 +31,6 @@ describe('an admin asks the bot', () => {
   function answerQuestionOnly(): void {
     const reading = makeReading([], { has_work_data: false, has_question: true });
     harness.reader.answerWith(reading);
-  }
-
-  async function findUserId(displayName: string): Promise<string> {
-    const [row] = await database.query<{ user_id: string }>(
-      `SELECT user_id FROM memberships WHERE display_name = '${displayName}'`,
-    );
-    if (!row) throw new Error(`no member named ${displayName}`);
-    return row.user_id;
-  }
-
-  function sentTexts(): string[][] {
-    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
   }
 
   it('gives an admin message without work data the answer of the chat model', async () => {
@@ -280,17 +270,6 @@ describe('an admin asks the bot', () => {
       vi.restoreAllMocks();
     });
 
-    function captureAdminChatLines(): () => string[] {
-      const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
-      return () => logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
-    }
-
-    async function findQuestionId(): Promise<string> {
-      const [row] = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
-      if (!row) throw new Error('no question stored');
-      return row.id;
-    }
-
     it('sends the tool result back to the model with its call id', async () => {
       harness.chat.follow((_request, callNumber) =>
         callNumber === 1 ? replyWithToolCalls(LIST_MEMBERS_CALL) : replyWithText('Nhóm có 3 người.'),
@@ -396,6 +375,17 @@ describe('an admin asks the bot', () => {
 
       expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
     });
+
+    function captureAdminChatLines(): () => string[] {
+      const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+      return () => logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
+    }
+
+    async function findQuestionId(): Promise<string> {
+      const [row] = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
+      if (!row) throw new Error('no question stored');
+      return row.id;
+    }
   });
 
   describe('with data and a question', () => {
@@ -404,10 +394,6 @@ describe('an admin asks the bot', () => {
       const reading = makeReading([makeFuelItem()], { has_question: true });
       harness.reader.answerWith(reading);
     });
-
-    function makeFuelItem() {
-      return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
-    }
 
     it('commits the data before the chat model runs', async () => {
       let recordsSeenByModel = -1;
@@ -427,7 +413,7 @@ describe('an admin asks the bot', () => {
       await harness.receiveText('zu-duy', FUEL_TEXT_WITH_QUESTION);
       await harness.sendAllQueuedTexts();
 
-      expect(sentTexts()[0]).toEqual(['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']);
+      expect(sentTexts()[0]).toEqual(['zu-duy', ADMIN_FUEL_SAVED_REPLY]);
     });
 
     it('sends the answer of the chat model second', async () => {
@@ -530,7 +516,7 @@ describe('an admin asks the bot', () => {
       await harness.sendAllQueuedTexts();
 
       expect(harness.chat.requests).toEqual([]);
-      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+      expect(sentTexts()).toEqual([['zu-duy', ADMIN_FUEL_SAVED_REPLY]]);
     });
 
     it('sends one saved reply when an admin photo with a question is processed again after a crash', async () => {
@@ -546,7 +532,7 @@ describe('an admin asks the bot', () => {
       await harness.runInbound();
       await harness.sendAllQueuedTexts();
 
-      expect(sentTexts()).toEqual([['zu-duy', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+      expect(sentTexts()).toEqual([['zu-duy', ADMIN_FUEL_SAVED_REPLY]]);
     });
 
     it('never sends an admin\'s data without a question to the chat model', async () => {
@@ -574,7 +560,23 @@ describe('an admin asks the bot', () => {
       expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
       expect(harness.chat.requests).toEqual([]);
     });
+
+    function makeFuelItem() {
+      return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+    }
   });
+
+  async function findUserId(displayName: string): Promise<string> {
+    const [row] = await database.query<{ user_id: string }>(
+      `SELECT user_id FROM memberships WHERE display_name = '${displayName}'`,
+    );
+    if (!row) throw new Error(`no member named ${displayName}`);
+    return row.user_id;
+  }
+
+  function sentTexts(): string[][] {
+    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
+  }
 });
 
 async function crashBeforeFinishing(): Promise<void> {
