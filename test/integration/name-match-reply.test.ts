@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_PENDING_CHOICE_TEXT } from '../../src/app/processing/conversation-texts.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
@@ -26,6 +26,7 @@ describe('the number reply of an admin to the name proposal', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await harness.close();
   });
 
@@ -172,6 +173,19 @@ describe('the number reply of an admin to the name proposal', () => {
         },
       },
     ]);
+  });
+
+  it('logs one line with the workspace and the party count, and no name, for an applied reply', async () => {
+    const logged: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: string) => {
+      logged.push(line);
+    });
+    await waitForMisreadParty();
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+
+    await harness.receiveText('zu-duy', '1');
+
+    expect(logged.filter((line) => line.startsWith('[name-match]'))).toEqual([`[name-match] workspace=${harness.workspaceId} parties=1`]);
   });
 
   it('changes nothing when another admin already handled the pair', async () => {

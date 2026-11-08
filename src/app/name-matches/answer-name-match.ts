@@ -38,24 +38,32 @@ async function addNextProposal(transaction: Transaction, workspaceId: string, re
 }
 
 async function keepApart(transaction: Transaction, workspaceId: string, pairs: NamePair[]): Promise<Reply> {
-  for (const pair of pairs) await createOrganizationForWaitingParties(transaction, workspaceId, pair);
+  let partyCount = 0;
+  for (const pair of pairs) partyCount += await createOrganizationForWaitingParties(transaction, workspaceId, pair);
+  logAppliedReply(workspaceId, partyCount);
   return { text: KEPT_APART_TEXT };
 }
 
-async function createOrganizationForWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<void> {
+async function createOrganizationForWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<number> {
   const [waiting] = await transaction.query<{ type: string }>(
     `SELECT type FROM document_parties
      WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
      ORDER BY created_at, id LIMIT 1`,
     [workspaceId, pair.matchKey],
   );
-  if (waiting === undefined) return;
+  if (waiting === undefined) return 0;
   const organizationId = await insertOrganization(transaction, workspaceId, { type: waiting.type, printedName: pair.printedName, matchKey: pair.matchKey });
-  await transaction.query(
+  const linked = await transaction.query(
     `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
-     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL`,
+     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
+     RETURNING id`,
     [workspaceId, pair.matchKey, organizationId],
   );
+  return linked.length;
+}
+
+function logAppliedReply(workspaceId: string, partyCount: number): void {
+  console.log(`[name-match] workspace=${workspaceId} parties=${partyCount}`);
 }
 
 async function confirmPair(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
@@ -67,6 +75,7 @@ async function confirmPair(transaction: Transaction, workspaceId: string, pair: 
     printed_name: pair.printedName,
     match_key: pair.matchKey,
   });
+  logAppliedReply(workspaceId, linked.length);
   const [organization] = await transaction.query<{ name: string }>('SELECT name FROM organizations WHERE id = $1', [pair.organizationId]);
   return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${countDocuments(linked)} giấy tờ).` };
 }
