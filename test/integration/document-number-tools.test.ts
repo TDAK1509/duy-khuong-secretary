@@ -127,6 +127,20 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: '2026-10-31', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
   });
 
+  it('keeps different count units apart', async () => {
+    const pieces = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0011' });
+    await insertNumberLine(database, { workspaceId, documentId: pieces, lineNo: 0, meaning: 'Số lượng', number: 3, unit: 'cái', item: 'Lốp' });
+    const boxes = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0012' });
+    await insertNumberLine(database, { workspaceId, documentId: boxes, lineNo: 0, meaning: 'Số lượng', number: 2, unit: 'hộp', item: 'Nhớt' });
+
+    const total = await runTotal({ meaning: 'Số lượng', lines: 'item' });
+
+    expect(total.groups).toEqual([
+      { group: null, unit: 'cái', count: 1, sum: '3', min: '3', max: '3' },
+      { group: null, unit: 'hộp', count: 1, sum: '2', min: '2', max: '2' },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
