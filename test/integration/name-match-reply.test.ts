@@ -137,6 +137,43 @@ describe('the number reply of an admin to the name proposal', () => {
     ]);
   });
 
+  it('sends the next proposal with its offer after a reply while other pairs still wait', async () => {
+    const hoaPhatId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty Hòa Phát' });
+    await waitForMisreadParty();
+    harness.reader.answerWith(
+      makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeParty('issuer', 'Cty Hoa Phat', 'Công ty Hòa Phát')] })]),
+    );
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-duy', text: `Đã xác nhận "${CHONG_LOONG}" là "${CHENG_LOONG}" (1 giấy tờ).` },
+      {
+        kind: 'text',
+        to: 'zu-duy',
+        text: [
+          'Tên mới đọc được gần giống tên đã lưu:',
+          '1. "Cty Hoa Phat" → "Công ty Hòa Phát" (1 giấy tờ)',
+          'Trả lời số để xác nhận là cùng một bên. Trả lời 0 nếu không có cặp nào đúng. Khi chưa xác nhận, các giấy tờ này chưa được tính theo tên đó.',
+        ].join('\n'),
+      },
+    ]);
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-duy'`)).toEqual([
+      {
+        pending_choice: {
+          kind: 'name_match',
+          workspace_id: harness.workspaceId,
+          pairs: [{ match_key: buildMatchKey('Cty Hoa Phat'), organization_id: hoaPhatId, printed_name: 'Cty Hoa Phat' }],
+        },
+      },
+    ]);
+  });
+
   it('changes nothing when another admin already handled the pair', async () => {
     await insertMember(database, {
       workspaceId: harness.workspaceId,

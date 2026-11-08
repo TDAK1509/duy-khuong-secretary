@@ -114,7 +114,10 @@ async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMess
     text: reply.text,
     ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
-  if (reply.followUpText !== undefined) await enqueueText(transaction, { ...common, text: reply.followUpText });
+  if (reply.followUpText !== undefined) {
+    const offeredChoice = reply.followUpChoice && { choice: reply.followUpChoice, sourceEventId: message.event.id };
+    await enqueueText(transaction, { ...common, text: reply.followUpText, ...(offeredChoice && { offeredChoice }) });
+  }
 }
 
 type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxTextLength: number };

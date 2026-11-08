@@ -7,6 +7,8 @@ import { NO_PENDING_CHOICE_TEXT } from '../processing/conversation-texts.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { insertOrganization } from '../documents/insert-organization.ts';
 import { insertRow } from '../documents/insert-row.ts';
+import { buildNameMatchChoice } from './build-name-match-choice.ts';
+import { findNameProposal } from './find-name-proposal.ts';
 import type { Chooser } from '../workspaces/switch-workspace.ts';
 
 const ALREADY_HANDLED_TEXT = 'Cặp tên này đã được xử lý. Không đổi gì.';
@@ -22,10 +24,17 @@ export async function answerNameMatch(transaction: Transaction, chooser: Chooser
   if (!(await isCurrentWorkspaceAdmin(transaction, { workspaceId, userId: chooser.userId }))) return { text: NO_PENDING_CHOICE_TEXT };
   const pair = choice.pairs[number - 1];
   if (number !== 0 && pair === undefined) return { text: NO_PENDING_CHOICE_TEXT };
-  return transaction.withScope({ workspaceId }, async () => {
+  const reply = await transaction.withScope({ workspaceId }, async () => {
     await lockWorkspaceRecords(transaction, workspaceId);
     return pair === undefined ? keepApart(transaction, workspaceId, choice.pairs) : confirmPair(transaction, workspaceId, pair);
   });
+  return addNextProposal(transaction, workspaceId, reply);
+}
+
+async function addNextProposal(transaction: Transaction, workspaceId: string, reply: Reply): Promise<Reply> {
+  const proposal = await findNameProposal(transaction, workspaceId);
+  if (proposal === null) return reply;
+  return { ...reply, followUpText: proposal.text, followUpChoice: buildNameMatchChoice(workspaceId, proposal) };
 }
 
 async function keepApart(transaction: Transaction, workspaceId: string, pairs: NamePair[]): Promise<Reply> {
