@@ -19,5 +19,5 @@ export async function placeUnclearPhoto(
   if (!isWaitingForItsTurn) await storeBotReply(transaction, photoId, { text, kind: askPlan.replyKind });
   await setSubmissionStatus(transaction, photoId, askPlan.status);
   await enqueueReplyToMessage(transaction, context, photoId, text);
-  await notifyAdminsOfPhoto(transaction, context, photoId, text);
+  await notifyAdminsOfPhoto(transaction, context, photoId, { replyText: text, saved: null });
 }
