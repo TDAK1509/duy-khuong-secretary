@@ -96,7 +96,11 @@ describe('OpenAiCompatibleReader', () => {
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toEqual({ ok: true, json: { has_work_data: false, has_question: true, items: [] } });
+    expect(result).toEqual({
+      ok: true,
+      json: { has_work_data: false, has_question: true, items: [] },
+      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
+    });
   });
 
   it('returns the token counts of a reply with usage', async () => {
@@ -106,6 +110,14 @@ describe('OpenAiCompatibleReader', () => {
     const result = await makeReader(server).read(REQUEST);
 
     expect(result).toMatchObject({ ok: true, usage: { input: 100, output: 40, reasoning: 10 } });
+  });
+
+  it('returns unknown token counts for a reply without usage', async () => {
+    const server = await startServer(VALID_REPLY);
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' } });
   });
 
   it('turns a slow reply into a timeout', async () => {

@@ -60,12 +60,11 @@ function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
   }
 }
 
-function readUsage(usage: OpenAI.CompletionUsage | undefined): TokenUsage | undefined {
-  if (usage === undefined) return undefined;
+function readUsage(usage: OpenAI.CompletionUsage | undefined): TokenUsage {
   return {
-    input: usage.prompt_tokens,
-    output: usage.completion_tokens,
-    reasoning: usage.completion_tokens_details?.reasoning_tokens ?? 'unknown',
+    input: usage?.prompt_tokens ?? 'unknown',
+    output: usage?.completion_tokens ?? 'unknown',
+    reasoning: usage?.completion_tokens_details?.reasoning_tokens ?? 'unknown',
   };
 }
 
