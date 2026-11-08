@@ -415,6 +415,15 @@ describe('the document number tools of an admin', () => {
     expect(list.numbers.map((entry) => entry.meaning)).toEqual(['Trọng lượng hàng']);
   });
 
+  it('never lists the companies of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    await insertOrganizationWithAlias(database, { workspaceId: otherWorkspaceId, name: 'Công ty Hòa Phát' });
+
+    const list = await runListOrganizations();
+
+    expect(list.organizations.map((organization) => organization.name)).toEqual(['Công ty TNHH Cheng Loong Bình Dương Paper']);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });

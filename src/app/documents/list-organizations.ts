@@ -1,3 +1,4 @@
+import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { buildMatchKey } from './build-match-key.ts';
 
@@ -11,11 +12,12 @@ const SELECT_ORGANIZATIONS = `SELECT organization.name, organization.type,
     (SELECT count(DISTINCT party.document_id)::int FROM document_parties party WHERE party.organization_id = organization.id) AS document_count
   FROM organizations organization
   JOIN organization_aliases alias ON alias.organization_id = organization.id
+  WHERE organization.workspace_id = $1
   GROUP BY organization.id
   ORDER BY organization.name, organization.id`;
 
-export async function listOrganizations(database: Database, text: string | null): Promise<ListedOrganization[]> {
-  const { rows } = await database.query<OrganizationRow>(SELECT_ORGANIZATIONS);
+export async function listOrganizations(database: Database, scope: AccessScope, text: string | null): Promise<ListedOrganization[]> {
+  const { rows } = await database.query<OrganizationRow>(SELECT_ORGANIZATIONS, [scope.workspaceId]);
   const textKey = buildMatchKey(text ?? '');
   return rows.filter((row) => matchesText(row, textKey)).map(({ name, type, aliases, document_count }) => ({ name, type, aliases, document_count }));
 }

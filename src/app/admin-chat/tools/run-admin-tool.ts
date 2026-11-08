@@ -60,7 +60,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
   list_document_numbers: ({ database }, scope, args) => runListDocumentNumbers(database, scope, args),
-  list_organizations: ({ database }, _scope, args) => runListOrganizations(database, args),
+  list_organizations: ({ database }, scope, args) => runListOrganizations(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
 };
 
