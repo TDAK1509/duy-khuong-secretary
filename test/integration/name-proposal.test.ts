@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
+const ADMINS_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const CHENG_LOONG = 'Công ty TNHH Cheng Loong Bình Dương Paper';
 const CHONG_LOONG = 'Công ty TNHH Chống Loong Bình Dương Paper';
 const PROPOSAL_TEXT = [
@@ -30,7 +32,7 @@ describe('the proposal of names spelled close to a known company', () => {
   });
 
   function insertAdmin(externalUserId: string, displayName: string): Promise<string> {
-    return insertMember(database, { workspaceId: harness.workspaceId, externalUserId, displayName, role: 'admin' });
+    return insertMember(database, { workspaceId: harness.workspaceId, externalUserId, displayName, role: 'admin', lastInboundAt: ADMINS_LAST_WROTE_AT });
   }
 
   function readProposalsQueued() {
@@ -48,6 +50,26 @@ describe('the proposal of names spelled close to a known company', () => {
     expect(await readProposalsQueued()).toEqual([
       { external_user_id: 'zu-duy', body: PROPOSAL_TEXT },
       { external_user_id: 'zu-khuong', body: PROPOSAL_TEXT },
+    ]);
+  });
+
+  it('stores the sent proposal as the pending choice of each admin', async () => {
+    const chengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    const choice = {
+      kind: 'name_match',
+      workspace_id: harness.workspaceId,
+      pairs: [{ match_key: buildMatchKey(CHONG_LOONG), organization_id: chengLoongId, printed_name: CHONG_LOONG }],
+    };
+    expect(
+      await database.query(`SELECT external_user_id, pending_choice FROM channel_identities WHERE external_user_id IN ('zu-duy', 'zu-khuong') ORDER BY external_user_id`),
+    ).toEqual([
+      { external_user_id: 'zu-duy', pending_choice: choice },
+      { external_user_id: 'zu-khuong', pending_choice: choice },
     ]);
   });
 
