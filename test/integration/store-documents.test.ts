@@ -131,6 +131,20 @@ describe('storing the documents of a saved message', () => {
       { vehicle_plate: '93H00316', status: 'needs_review' },
     ]);
   });
+
+  it('links a line to the workspace meaning of its known name', async () => {
+    const weight = { label: 'Trọng lượng tịnh', value: '26380 kg', number: 26380, unit: 'kg' as const, meaning: 'trọng lượng hàng' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ details: [weight] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(
+        `SELECT meaning.name, meaning.value_type, line.number::int AS number, line.unit
+         FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`,
+      ),
+    ).toEqual([{ name: 'Trọng lượng hàng', value_type: 'number', number: 26380, unit: 'kg' }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
