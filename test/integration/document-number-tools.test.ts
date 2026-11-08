@@ -231,6 +231,16 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
+  it('does not count a document as waiting when another party of it is already confirmed', async () => {
+    const documentId = await insertWeighing({ documentNumber: '0020', netKg: 26380 });
+    await insertParty(database, { workspaceId, documentId, role: 'issuer', organizationId: chengLoongId, printedName: 'Chống Loong', isConfirmed: false });
+
+    const total = await runTotal({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper' });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+    expect(total.pending_name_documents).toBe(0);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });

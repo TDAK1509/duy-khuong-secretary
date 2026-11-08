@@ -6,11 +6,11 @@ export type DocumentFilters = { organization: string | null; role: string | null
 export type OrganizationLink = 'organization_id' | 'proposed_organization_id';
 
 export function addDocumentFilters(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): void {
-  if (filters.organization !== null || filters.role !== null) where.require(buildPartyCondition(where, filters, link));
+  if (filters.organization !== null || filters.role !== null) where.require(buildPartyExists(where, filters, link));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
 }
 
-function buildPartyCondition(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
+export function buildPartyExists(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
   const conditions = [
     'party.document_id = document.id',
     `party.${link} IS NOT NULL`,
