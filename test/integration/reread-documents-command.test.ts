@@ -160,6 +160,24 @@ describe('the reread-documents command', () => {
     expect(reader.requests[0]?.text).toBe(['Các tin nhắn gần đây của người gửi, từ cũ đến mới:', ...expectedTexts].join('\n'));
   });
 
+  it('reads a ChatGPT text with its created time as the sent time and no photo', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const [message] = await database.query<{ id: string }>(
+      `INSERT INTO messages (workspace_id, user_id, author, source, text, submission_status, created_at)
+       VALUES (${literal(workspaceId)}, ${literal(userId)}, 'user', 'mcp', 'đổ dầu 1.250.000đ', 'accepted', '2026-11-05T13:30:00+07:00')
+       RETURNING id`,
+    );
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', messageId: message?.id ?? '' });
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests).toHaveLength(1);
+    expect(reader.requests[0]?.text).toBe('đổ dầu 1.250.000đ');
+    expect(reader.requests[0]?.image).toBeNull();
+    expect(reader.requests[0]?.system).toContain('Hôm nay là 05/11/2026');
+  });
+
   it('gives the reader the date the message was sent as today', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
