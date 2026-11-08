@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
+import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
@@ -29,7 +30,7 @@ describe('what a removed person can still do', () => {
       `SELECT id FROM memberships WHERE user_id = '${hungUserId}' AND workspace_id = '${workspaceId}'`,
     );
     const call = { id: 'call_1', name: 'remove_member', argumentsJson: JSON.stringify({ member_id: hung?.id }) };
-    await runAdminTool({ database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, { workspaceId, userId: duyUserId, role: 'admin' }, call);
+    await runAdminTool({ database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) }, { workspaceId, userId: duyUserId, role: 'admin' }, call);
   }
 
   it('continues in their other workspace', async () => {

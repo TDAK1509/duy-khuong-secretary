@@ -14,6 +14,7 @@ import { runListNumberLabels } from './list-number-labels-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
+import { runReviewNameMatches } from './review-name-matches-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runTotalNumbers } from './total-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -52,6 +53,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
+  review_name_matches: runReviewNameMatches,
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
 };

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
+import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
@@ -537,13 +538,13 @@ describe('the number tools of an admin', () => {
 
   async function runListNumberLabels(filters: Filters = {}, scope: AccessScope = duy): Promise<string> {
     const args = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, occurred_from: null, occurred_to: null, ...filters };
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, scope, { id: 'call_1', name: 'list_number_labels', argumentsJson: JSON.stringify(args) });
   }
 
   async function runTotalNumbers(label: string, groupBy = 'none', filters: Filters = {}, scope: AccessScope = duy): Promise<string> {
     const args = { label, text: null, category: null, member: null, plate: null, added_from: null, added_to: null, occurred_from: null, occurred_to: null, ...filters, group_by: groupBy };
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
+    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
     return runAdminTool(dependencies, scope, { id: 'call_1', name: 'total_numbers', argumentsJson: JSON.stringify(args) });
   }
 });
