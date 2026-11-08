@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { validateReading } from '../../../src/app/reading/reading.ts';
 
+describe('validateReading for documents', () => {
+  it('keeps a percent unit for the document line and drops it for the record', () => {
+    const attempt = validateReading(makeJson([makeDetail({ number: 5, unit: '%', meaning: 'Độ ẩm' })]));
+
+    expect(attempt).toMatchObject({
+      ok: true,
+      reading: { items: [{ details: [{ number: null, unit: null, line_number: 5, line_unit: '%' }] }] },
+    });
+  });
+});
+
 function makeJson(details: unknown[]): unknown {
   const item = {
     category: 'phiếu cân',
@@ -22,14 +33,3 @@ function makeJson(details: unknown[]): unknown {
 function makeDetail(overrides: Record<string, unknown>): Record<string, unknown> {
   return { label: 'Độ ẩm', value: '5%', number: null, unit: null, meaning: null, item: null, date_time: null, ...overrides };
 }
-
-describe('validateReading for documents', () => {
-  it('keeps a percent unit for the document line and drops it for the record', () => {
-    const attempt = validateReading(makeJson([makeDetail({ number: 5, unit: '%', meaning: 'Độ ẩm' })]));
-
-    expect(attempt).toMatchObject({
-      ok: true,
-      reading: { items: [{ details: [{ number: null, unit: null, line_number: 5, line_unit: '%' }] }] },
-    });
-  });
-});
