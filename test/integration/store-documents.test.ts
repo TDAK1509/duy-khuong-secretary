@@ -145,6 +145,20 @@ describe('storing the documents of a saved message', () => {
       ),
     ).toEqual([{ name: 'Trọng lượng hàng', value_type: 'number', number: 26380, unit: 'kg' }]);
   });
+
+  it('stores the date and time of a date line and gives its meaning the date type', async () => {
+    const weighing = { label: 'Giờ cân lần 1', value: '05/11/2026 13:03:55', meaning: 'Thời điểm cân lần 1', date_time: '2026-11-05T13:03:55' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ details: [weighing] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(
+        `SELECT to_char(line.at, 'YYYY-MM-DD HH24:MI:SS') AS at, meaning.value_type
+         FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`,
+      ),
+    ).toEqual([{ at: '2026-11-05 13:03:55', value_type: 'date' }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {

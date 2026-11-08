@@ -3,6 +3,7 @@ import type { ReadingDetail } from '../reading/reading.ts';
 import type { DocumentDraft } from './document-draft.ts';
 import { findOrInsertMeaning } from './find-or-insert-meaning.ts';
 import { insertRow } from './insert-row.ts';
+import { parseDateTime } from './parse-date-time.ts';
 import type { DocumentMessage } from './store-documents.ts';
 
 export async function insertLines(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
@@ -29,6 +30,7 @@ function buildLineRow(
     item: detail.item,
     number: meaningId && detail.line_number,
     unit: meaningId && detail.line_unit,
+    at: meaningId && parseDateTime(detail.date_time),
     meaning_id: meaningId,
   };
 }
