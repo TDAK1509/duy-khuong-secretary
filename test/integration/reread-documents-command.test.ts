@@ -321,6 +321,19 @@ describe('the reread-documents command', () => {
     expect(lines).toEqual([`Not a photo message in this workspace: ${textMessageId}`]);
   });
 
+  it('stops before any change when the photo storage settings are missing', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+
+    const { exitCode, lines } = await runWithEnvironment([workspaceId, '--apply'], READER_SETTINGS);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      'Missing photo storage settings: PHOTO_STORAGE, S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY',
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
@@ -342,6 +355,15 @@ describe('the reread-documents command', () => {
     const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
     await photoStorage.put(imageKey, { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
     return insertSentMessage(database, { workspaceId, userId, sentAt, imageKey, submissionStatus });
+  }
+
+  async function runWithEnvironment(
+    args: string[],
+    settings: Record<string, string>,
+  ): Promise<{ exitCode: number; lines: string[] }> {
+    const lines: string[] = [];
+    const exitCode = await runRereadDocumentsCommand(args, { DATABASE_URL: database.runtimeUrl, ...settings }, { log: (line) => lines.push(line) });
+    return { exitCode, lines };
   }
 
   async function runReread(
