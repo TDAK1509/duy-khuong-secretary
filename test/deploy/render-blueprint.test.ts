@@ -128,9 +128,10 @@ describe('render.yaml with every prompt left blank', () => {
 });
 
 describe('render.yaml database access', () => {
-  it("allows external connections only from the owner's machine", () => {
+  it("allows external connections only from the owner's machines", () => {
     expect(blueprint.databases[0]?.['ipAllowList']).toEqual([
       { source: '187.15.122.223/32', description: 'owner machine' },
+      { source: '15.235.203.116/32', description: 'owner dev machine' },
     ]);
   });
 });
