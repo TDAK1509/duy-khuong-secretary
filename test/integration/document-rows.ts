@@ -1,3 +1,4 @@
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { insertChatMessage } from './message-rows.ts';
 import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -37,4 +38,20 @@ async function insertSourceMessage(database: TemporaryDatabase, row: NewDocument
     `INSERT INTO document_sources (workspace_id, document_id, message_id, item_index)
      VALUES (${literal(row.workspaceId)}, ${literal(documentId)}, ${literal(messageId)}, 0)`,
   );
+}
+
+export type NewOrganizationRow = { workspaceId: string; name: string; type?: 'company' | 'place'; aliasPrintedName?: string };
+
+export async function insertOrganizationWithAlias(database: TemporaryDatabase, row: NewOrganizationRow): Promise<string> {
+  const [organization] = await database.query<{ id: string }>(
+    `INSERT INTO organizations (workspace_id, type, name) VALUES (${literal(row.workspaceId)}, ${literal(row.type ?? 'company')}, ${literal(row.name)})
+     RETURNING id`,
+  );
+  if (!organization) throw new Error('organization not inserted');
+  const aliasPrintedName = row.aliasPrintedName ?? row.name;
+  await database.query(
+    `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key)
+     VALUES (${literal(row.workspaceId)}, ${literal(organization.id)}, ${literal(aliasPrintedName)}, ${literal(buildMatchKey(aliasPrintedName))})`,
+  );
+  return organization.id;
 }

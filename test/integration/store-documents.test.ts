@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
-import { insertDocumentWithSource } from './document-rows.ts';
+import { insertDocumentWithSource, insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
@@ -158,6 +158,21 @@ describe('storing the documents of a saved message', () => {
          FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`,
       ),
     ).toEqual([{ at: '2026-11-05 13:03:55', value_type: 'date' }]);
+  });
+
+  it('links a printed name that equals an alias at once', async () => {
+    const organizationId = await insertOrganizationWithAlias(database, {
+      workspaceId: harness.workspaceId,
+      name: 'Công ty TNHH Cheng Loong Bình Dương Paper',
+    });
+    const printedInCapitals = makeParty('issuer', 'CÔNG TY TNHH CHENG LOONG BÌNH DƯƠNG PAPER');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [printedInCapitals] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: organizationId, proposed_organization_id: null },
+    ]);
   });
 });
 

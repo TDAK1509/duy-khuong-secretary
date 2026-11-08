@@ -1,6 +1,7 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { DocumentDraft } from './document-draft.ts';
 import { insertLines } from './insert-lines.ts';
+import { insertParties } from './insert-parties.ts';
 import { insertRow } from './insert-row.ts';
 import type { DocumentMessage } from './store-documents.ts';
 
@@ -16,6 +17,7 @@ export async function insertDocument(
 ): Promise<string> {
   const documentId = await insertRow(transaction, 'documents', buildDocumentRow(message, draft, status));
   await insertLines(transaction, message, documentId, draft);
+  await insertParties(transaction, message, documentId, draft);
   await insertSources(transaction, message, documentId, draft);
   return documentId;
 }
