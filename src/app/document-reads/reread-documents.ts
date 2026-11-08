@@ -1,6 +1,7 @@
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database } from '../db/transaction.ts';
 import { findMessagesToReread } from './find-messages-to-reread.ts';
+import { removeTestPhotoData } from './remove-test-photo-data.ts';
 import { rereadMessage, type MessageOutcome, type RereadFailureReason, type RereadServices } from './reread-message.ts';
 
 export type RereadFailure = { messageId: string; reason: RereadFailureReason };
@@ -14,7 +15,8 @@ export async function rereadDocuments(
   testPhotoIds: string[],
 ): Promise<RereadSummary> {
   const scoped = scopeDatabase(database, { workspaceId });
-  const summary: RereadSummary = { stored: 0, noDocument: 0, testPhotos: 0, failures: [] };
+  const testPhotos = await removeTestPhotoData(scoped, workspaceId, testPhotoIds);
+  const summary: RereadSummary = { stored: 0, noDocument: 0, testPhotos, failures: [] };
   for (const messageId of await findMessagesToReread(scoped, workspaceId, testPhotoIds)) {
     countOutcome(summary, messageId, await rereadMessage(scoped, services, messageId));
   }
