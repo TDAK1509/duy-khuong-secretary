@@ -12,6 +12,7 @@ import { runCreateInvite } from './create-invite-tool.ts';
 import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
 import { runListNumberLabels } from './list-number-labels-tool.ts';
+import { runListOrganizations } from './list-organizations-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
@@ -59,6 +60,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
   list_document_numbers: ({ database }, _scope, args) => runListDocumentNumbers(database, args),
+  list_organizations: ({ database }, _scope, args) => runListOrganizations(database, args),
   total_document_numbers: ({ database }, _scope, args) => runTotalDocumentNumbers(database, args),
 };
 

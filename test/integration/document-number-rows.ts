@@ -103,3 +103,10 @@ export async function insertParty(database: TemporaryDatabase, party: NewParty):
        ${literal(buildMatchKey(party.printedName))}, ${literal(party.organizationId)})`,
   );
 }
+
+export async function insertAlias(database: TemporaryDatabase, row: { workspaceId: string; organizationId: string; printedName: string }): Promise<void> {
+  await database.query(
+    `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key)
+     VALUES (${literal(row.workspaceId)}, ${literal(row.organizationId)}, ${literal(row.printedName)}, ${literal(buildMatchKey(row.printedName))})`,
+  );
+}

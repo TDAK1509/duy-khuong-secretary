@@ -10,7 +10,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
-import { insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
+import { insertAlias, insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -29,6 +29,11 @@ type TotalOutput = {
 type ListOutput = {
   ok: boolean;
   numbers: { meaning: string; value_type: string; unit: string | null; document_count: number; item_document_count: number }[];
+};
+
+type OrganizationsOutput = {
+  ok: boolean;
+  organizations: { name: string; type: string; aliases: string[]; document_count: number }[];
 };
 
 describe('the document number tools of an admin', () => {
@@ -169,6 +174,22 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('shows each spelling of a company that matches the text', async () => {
+    await insertAlias(database, { workspaceId, organizationId: chengLoongId, printedName: 'Công ty TNHH Chống Loong Bình Dương Paper' });
+    await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Hòa Phát' });
+
+    const list = await runListOrganizations({ text: 'cheng' });
+
+    expect(list.organizations).toEqual([
+      {
+        name: 'Công ty TNHH Cheng Loong Bình Dương Paper',
+        type: 'company',
+        aliases: ['Công ty TNHH Cheng Loong Bình Dương Paper', 'Công ty TNHH Chống Loong Bình Dương Paper'],
+        document_count: 0,
+      },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -195,6 +216,10 @@ describe('the document number tools of an admin', () => {
   async function runList(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { organization: null, stage: null, date_meaning: null, ...overrides };
     return JSON.parse(await runTool('list_document_numbers', args, scope)) as ListOutput;
+  }
+
+  async function runListOrganizations(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<OrganizationsOutput> {
+    return JSON.parse(await runTool('list_organizations', { text: null, ...overrides }, scope)) as OrganizationsOutput;
   }
 
   async function runTotal(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<TotalOutput> {
