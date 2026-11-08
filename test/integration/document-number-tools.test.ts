@@ -65,8 +65,17 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
-  async function insertWeighing(row: { documentNumber: string; netKg: number }): Promise<string> {
-    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: row.documentNumber });
+  it('leaves out the port ticket of the same load when the stage is receipt', async () => {
+    await insertWeighing({ documentNumber: '0003', netKg: 26380, stage: 'receipt' });
+    await insertWeighing({ documentNumber: '0004', netKg: 26470, stage: 'dispatch' });
+
+    const total = await runTotal({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper', stage: 'receipt' });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
+  async function insertWeighing(row: { documentNumber: string; netKg: number; stage?: 'dispatch' | 'receipt' }): Promise<string> {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: row.documentNumber, stage: row.stage });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: row.netKg, unit: 'kg' });
     await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName: 'Cheng Loong' });
     return documentId;
