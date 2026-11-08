@@ -3,6 +3,7 @@ import { storeDocuments } from '../documents/store-documents.ts';
 import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
+import { formatReplyForSender } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
@@ -21,8 +22,8 @@ export async function saveRereadOnPhoto(
 ): Promise<void> {
   const reply = await saveReplyOnPhoto(transaction, context, target, plan);
   await setSubmissionStatus(transaction, target.photo.id, reply.status);
-  await enqueueReplyToMessage(transaction, context, target.photo.id, reply.replyText);
-  await notifyAdminsOfPhoto(transaction, context, target.photo.id, reply.replyText);
+  await enqueueReplyToMessage(transaction, context, target.photo.id, formatReplyForSender(reply, context.sender.role));
+  await notifyAdminsOfPhoto(transaction, context, target.photo.id, reply);
   if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
 }
 
