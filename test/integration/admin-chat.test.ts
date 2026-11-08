@@ -33,18 +33,6 @@ describe('an admin asks the bot', () => {
     harness.reader.answerWith(reading);
   }
 
-  async function findUserId(displayName: string): Promise<string> {
-    const [row] = await database.query<{ user_id: string }>(
-      `SELECT user_id FROM memberships WHERE display_name = '${displayName}'`,
-    );
-    if (!row) throw new Error(`no member named ${displayName}`);
-    return row.user_id;
-  }
-
-  function sentTexts(): string[][] {
-    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
-  }
-
   it('gives an admin message without work data the answer of the chat model', async () => {
     harness.chat.replyWith('Chào anh');
 
@@ -282,17 +270,6 @@ describe('an admin asks the bot', () => {
       vi.restoreAllMocks();
     });
 
-    function captureAdminChatLines(): () => string[] {
-      const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
-      return () => logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
-    }
-
-    async function findQuestionId(): Promise<string> {
-      const [row] = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
-      if (!row) throw new Error('no question stored');
-      return row.id;
-    }
-
     it('sends the tool result back to the model with its call id', async () => {
       harness.chat.follow((_request, callNumber) =>
         callNumber === 1 ? replyWithToolCalls(LIST_MEMBERS_CALL) : replyWithText('Nhóm có 3 người.'),
@@ -398,6 +375,17 @@ describe('an admin asks the bot', () => {
 
       expect(await database.query(`SELECT 1 FROM messages WHERE author = 'bot'`)).toEqual([]);
     });
+
+    function captureAdminChatLines(): () => string[] {
+      const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+      return () => logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
+    }
+
+    async function findQuestionId(): Promise<string> {
+      const [row] = await database.query<{ id: string }>(`SELECT id FROM messages WHERE author = 'user'`);
+      if (!row) throw new Error('no question stored');
+      return row.id;
+    }
   });
 
   describe('with data and a question', () => {
@@ -406,10 +394,6 @@ describe('an admin asks the bot', () => {
       const reading = makeReading([makeFuelItem()], { has_question: true });
       harness.reader.answerWith(reading);
     });
-
-    function makeFuelItem() {
-      return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
-    }
 
     it('commits the data before the chat model runs', async () => {
       let recordsSeenByModel = -1;
@@ -576,7 +560,23 @@ describe('an admin asks the bot', () => {
       expect(await database.query('SELECT 1 FROM records')).toHaveLength(1);
       expect(harness.chat.requests).toEqual([]);
     });
+
+    function makeFuelItem() {
+      return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
+    }
   });
+
+  async function findUserId(displayName: string): Promise<string> {
+    const [row] = await database.query<{ user_id: string }>(
+      `SELECT user_id FROM memberships WHERE display_name = '${displayName}'`,
+    );
+    if (!row) throw new Error(`no member named ${displayName}`);
+    return row.user_id;
+  }
+
+  function sentTexts(): string[][] {
+    return harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text]);
+  }
 });
 
 async function crashBeforeFinishing(): Promise<void> {

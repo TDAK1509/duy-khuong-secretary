@@ -35,37 +35,12 @@ describe('notices to admins about a member photo', () => {
     await harness.close();
   });
 
-  function insertAdmin(
-    externalUserId: string,
-    displayName: string,
-    joinedAt: Date,
-    inWorkspaceId: string = workspaceId,
-  ): Promise<string> {
-    return insertMember(database, {
-      workspaceId: inWorkspaceId,
-      joinedAt,
-      externalUserId,
-      displayName,
-      role: 'admin',
-      lastInboundAt: ADMINS_LAST_WROTE_AT,
-    });
-  }
-
   function answerWithFuelItem(): void {
     harness.reader.answerWith(makeReading([makeFuelItem()]));
   }
 
   function makeFuelItem() {
     return makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: '0001234' });
-  }
-
-  function describeSend(sent: RecordedSend): string | number {
-    if (sent.kind === 'text') return sent.text.split('\n')[2] ?? '';
-    return sent.kind === 'image' ? sent.photo.bytes.length : sent.templateId;
-  }
-
-  function readSendsTo(externalUserId: string) {
-    return harness.channel.sends.filter((sent) => sent.to === externalUserId);
   }
 
   it('sends each admin the notice and then the photo, after the member reply', async () => {
@@ -283,4 +258,29 @@ describe('notices to admins about a member photo', () => {
     expect(request?.turns.filter((turn) => turn.role === 'assistant')).toEqual([]);
     expect(await database.query("SELECT 1 FROM messages WHERE text LIKE '%gửi ảnh vào nhóm%'")).toEqual([]);
   });
+
+  function insertAdmin(
+    externalUserId: string,
+    displayName: string,
+    joinedAt: Date,
+    inWorkspaceId: string = workspaceId,
+  ): Promise<string> {
+    return insertMember(database, {
+      workspaceId: inWorkspaceId,
+      joinedAt,
+      externalUserId,
+      displayName,
+      role: 'admin',
+      lastInboundAt: ADMINS_LAST_WROTE_AT,
+    });
+  }
+
+  function describeSend(sent: RecordedSend): string | number {
+    if (sent.kind === 'text') return sent.text.split('\n')[2] ?? '';
+    return sent.kind === 'image' ? sent.photo.bytes.length : sent.templateId;
+  }
+
+  function readSendsTo(externalUserId: string) {
+    return harness.channel.sends.filter((sent) => sent.to === externalUserId);
+  }
 });
