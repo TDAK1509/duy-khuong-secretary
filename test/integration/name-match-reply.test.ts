@@ -254,6 +254,38 @@ describe('the number reply of an admin to the name proposal', () => {
     });
   });
 
+  it('answers already handled and changes nothing for a pair whose spelling was confirmed for another organization', async () => {
+    await insertMember(database, {
+      workspaceId: harness.workspaceId,
+      externalUserId: 'zu-khuong',
+      displayName: 'Khương',
+      role: 'admin',
+      lastInboundAt: ADMIN_LAST_WROTE_AT,
+    });
+    const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty TNHH Cheng Loong Hà Nội' });
+    await waitForMisreadParty();
+    await waitForSecondMisreadParty('Công ty TNHH Cheng Loong Hà Nội');
+    const oldChoice = [
+      { printedName: CHONG_LOONG, organizationId: chengLoongId },
+      { printedName: CHONG_LOONG, organizationId: otherChengLoongId },
+    ];
+    await holdProposalChoice('zu-duy', oldChoice);
+    await holdProposalChoice('zu-khuong', oldChoice);
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+
+    await harness.receiveText('zu-khuong', '2');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-khuong', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([
+      { organization_id: chengLoongId },
+      { organization_id: chengLoongId },
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 3 }]);
+  });
+
   it('says the pairs are already handled when a reply 0 finds no waiting party', async () => {
     await insertMember(database, {
       workspaceId: harness.workspaceId,
