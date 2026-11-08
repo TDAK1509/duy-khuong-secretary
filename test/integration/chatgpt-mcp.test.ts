@@ -384,6 +384,30 @@ describe('the MCP address', () => {
     ]);
   });
 
+  it('stores the document of a saved text with a source for the stored message', async () => {
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45', document_number: '0001234' })]));
+
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(
+      await database.query(
+        `SELECT document.document_number, source.item_index, message.source
+         FROM documents document
+           JOIN document_sources source ON source.document_id = document.id
+           JOIN messages message ON message.id = source.message_id`,
+      ),
+    ).toEqual([{ document_number: '0001234', item_index: 0, source: 'mcp' }]);
+  });
+
+  it('adds no document source for a text rejected as a duplicate', async () => {
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45', document_number: '0001234' })]));
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(await database.query('SELECT count(*)::int AS count FROM document_sources')).toEqual([{ count: 1 }]);
+  });
+
   it('saves the same text twice as one record', async () => {
     reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
     await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });

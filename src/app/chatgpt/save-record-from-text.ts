@@ -11,8 +11,8 @@ import { scopeDatabase } from '../db/scoped-database.ts';
 import { planReply, type ReplyPlan } from '../intake/plan-reply.ts';
 import { readWithReader } from '../intake/read-message.ts';
 import { rejectDuplicates } from '../intake/run-reply-stage.ts';
+import { storeDocuments } from '../documents/store-documents.ts';
 import { insertRecords } from '../records/insert-records.ts';
-import type { NewRecord } from '../records/new-record.ts';
 import { storeMcpMessage } from './store-mcp-message.ts';
 
 const NO_WORK_DATA_TEXT = 'Không có dữ liệu công việc để lưu.';
@@ -36,12 +36,13 @@ function saveReadRecords(database: Database, scope: AccessScope, text: string, p
   return runInTransaction(scopeDatabase(database, toDatabaseScope(scope)), async (transaction) => {
     if (!(await isCurrentWorkspaceAdmin(transaction, scope))) return { text: REFUSAL_ERROR, isError: true };
     const { saved, replyText } = await rejectDuplicates(transaction, scope.workspaceId, plan);
-    if (saved) await storeRecords(transaction, scope, text, saved);
+    if (saved) await storeRecords(transaction, scope, text, plan);
     return { text: replyText, isError: false };
   });
 }
 
-async function storeRecords(transaction: Transaction, { workspaceId, userId }: AccessScope, text: string, records: NewRecord[]): Promise<void> {
+async function storeRecords(transaction: Transaction, { workspaceId, userId }: AccessScope, text: string, plan: ReplyPlan): Promise<void> {
   const messageId = await storeMcpMessage(transaction, { workspaceId, userId }, text);
-  await insertRecords(transaction, { id: messageId, workspaceId, userId }, records);
+  await storeDocuments(transaction, { id: messageId, workspaceId }, plan);
+  if (plan.saved) await insertRecords(transaction, { id: messageId, workspaceId, userId }, plan.saved);
 }
