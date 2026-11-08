@@ -6,6 +6,7 @@ import { buildReaderPrompt } from '../reading/reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import { validateReading, type ReadAttempt } from '../reading/reading.ts';
 import type { IntakeContext } from './intake-context.ts';
+import { logReaderCall } from './log-reader-call.ts';
 
 type MessageContent = { text: string | null; photo: Photo | null };
 
@@ -24,5 +25,7 @@ export async function readWithReader(reader: ReaderService, now: Date, message: 
     schemaName: READER_SCHEMA_NAME,
     schema: READER_SCHEMA,
   });
-  return result.ok ? validateReading(result.json) : result;
+  const attempt = result.ok ? validateReading(result.json) : result;
+  logReaderCall(attempt, result);
+  return attempt;
 }
