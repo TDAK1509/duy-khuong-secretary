@@ -189,6 +189,32 @@ describe('storing the documents of a saved message', () => {
       { organization_id: null, proposed_organization_id: organizationId },
     ]);
   });
+
+  it('creates an organization with an alias for a new name and links the party to it', async () => {
+    const customer = makeParty('customer', 'C.Ty CHANH DUONG');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [customer] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT id, name, type FROM organizations')).toEqual([
+      { id: expect.any(String), name: 'C.Ty CHANH DUONG', type: 'company' },
+    ]);
+    expect(
+      await database.query(
+        `SELECT alias.printed_name, party.role
+         FROM organization_aliases alias JOIN document_parties party ON party.organization_id = alias.organization_id`,
+      ),
+    ).toEqual([{ printed_name: 'C.Ty CHANH DUONG', role: 'customer' }]);
+  });
+
+  it('leaves out a party whose name holds no letter or digit', async () => {
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('customer', '...')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT count(*)::int AS count FROM document_parties')).toEqual([{ count: 0 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {

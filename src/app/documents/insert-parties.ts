@@ -9,8 +9,9 @@ import type { DocumentMessage } from './store-documents.ts';
 export async function insertParties(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
   for (const party of draft.lineItems.flatMap(({ item }) => item.parties)) {
     const matchKey = buildMatchKey(party.printed_name);
+    if (matchKey === '') continue;
     const link = await linkParty(transaction, message.workspaceId, party, matchKey);
-    if (link) await insertRow(transaction, 'document_parties', buildPartyRow(message, documentId, party, matchKey, link));
+    await insertRow(transaction, 'document_parties', buildPartyRow(message, documentId, party, matchKey, link));
   }
 }
 
