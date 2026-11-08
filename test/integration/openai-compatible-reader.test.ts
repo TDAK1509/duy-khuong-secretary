@@ -25,25 +25,6 @@ describe('OpenAiCompatibleReader', () => {
     await Promise.all(servers.splice(0).map((server) => server.close()));
   });
 
-  async function startServer(reply: StubReply): Promise<StubChatServer> {
-    const server = await startStubChatServer(reply);
-    servers.push(server);
-    return server;
-  }
-
-  function makeReader(
-    server: StubChatServer,
-    overrides: Partial<OpenAiCompatibleReaderSettings> = {},
-  ): OpenAiCompatibleReader {
-    return new OpenAiCompatibleReader({
-      baseUrl: server.baseUrl,
-      apiKey: 'test-key',
-      model: 'gpt-6-luna',
-      timeoutMs: 5000,
-      ...overrides,
-    });
-  }
-
   it('sends the model id of its slot', async () => {
     const server = await startServer(VALID_REPLY);
 
@@ -164,6 +145,25 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(result).toEqual({ ok: false, reason: 'unavailable' });
   });
+
+  async function startServer(reply: StubReply): Promise<StubChatServer> {
+    const server = await startStubChatServer(reply);
+    servers.push(server);
+    return server;
+  }
+
+  function makeReader(
+    server: StubChatServer,
+    overrides: Partial<OpenAiCompatibleReaderSettings> = {},
+  ): OpenAiCompatibleReader {
+    return new OpenAiCompatibleReader({
+      baseUrl: server.baseUrl,
+      apiKey: 'test-key',
+      model: 'gpt-6-luna',
+      timeoutMs: 5000,
+      ...overrides,
+    });
+  }
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {
