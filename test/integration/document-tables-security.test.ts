@@ -8,6 +8,7 @@ import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const FOREIGN_KEY_VIOLATION = '23503';
 const ROW_LEVEL_SECURITY_VIOLATION = '42501';
 
 describe('the document tables for the runtime role', () => {
@@ -79,6 +80,25 @@ describe('the document tables for the runtime role', () => {
     });
   });
 
+  it('refuses a line that uses a meaning of another workspace', async () => {
+    const documentId = await insertDocument(workspaceId);
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+    const meaningId = await insertMeaning(otherWorkspaceId, 'khối lượng');
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO document_lines (workspace_id, document_id, line_no, label, value, meaning_id)
+         VALUES ($1, $2, 0, 'Khối lượng', '26380', $3)`,
+        [workspaceId, documentId, meaningId],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({
+      code: FOREIGN_KEY_VIOLATION,
+      constraint: 'document_lines_meaning_id_workspace_id_fkey',
+    });
+  });
+
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
     const documentId = await insertDocument(inWorkspaceId);
     const messageId = await insertChatMessage(database, {
@@ -111,6 +131,15 @@ describe('the document tables for the runtime role', () => {
        VALUES (${literal(inWorkspaceId)}, 'company', ${literal(name)}) RETURNING id`,
     );
     if (!row) throw new Error('organization not inserted');
+    return row.id;
+  }
+
+  async function insertMeaning(inWorkspaceId: string, name: string): Promise<string> {
+    const [row] = await database.query<{ id: string }>(
+      `INSERT INTO meanings (workspace_id, value_type, name, match_key)
+       VALUES (${literal(inWorkspaceId)}, 'number', ${literal(name)}, 'khoiluong') RETURNING id`,
+    );
+    if (!row) throw new Error('meaning not inserted');
     return row.id;
   }
 

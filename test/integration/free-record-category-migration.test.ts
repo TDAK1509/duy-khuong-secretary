@@ -8,7 +8,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
-  DROP TABLE document_sources, documents, organization_aliases, organizations;
+  DROP TABLE document_lines, document_sources, documents, meanings, organization_aliases, organizations;
   DELETE FROM pgmigrations WHERE name = '0037_create_document_tables';
   ALTER TABLE messages DROP CONSTRAINT messages_zalo_event_check;
   ALTER TABLE messages DROP CONSTRAINT messages_user_event_check;
