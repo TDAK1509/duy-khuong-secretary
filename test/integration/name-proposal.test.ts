@@ -87,6 +87,20 @@ describe('the proposal of names spelled close to a known company', () => {
     ]);
   });
 
+  it('queues the proposal to each admin when a photo is saved after its explanation text', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receiveText('zu-hung', 'Phiếu cân xe 93C04588');
+
+    expect(await readProposalsQueued()).toEqual([
+      { external_user_id: 'zu-duy', body: PROPOSAL_TEXT },
+      { external_user_id: 'zu-khuong', body: PROPOSAL_TEXT },
+    ]);
+  });
+
   it('queues no new proposal after a save whose names are all new, while an earlier pair still waits', async () => {
     await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));

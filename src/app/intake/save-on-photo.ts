@@ -8,6 +8,8 @@ import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
+export type SavedReply = ReplyPlan & { hasProposedParty: boolean };
+
 export type TextOnPhoto = { textId: string; photo: { id: string } };
 
 export async function saveRereadOnPhoto(
@@ -27,15 +29,15 @@ export async function saveReplyOnPhoto(
   context: IntakeContext,
   target: TextOnPhoto,
   plan: ReplyPlan,
-): Promise<ReplyPlan> {
+): Promise<SavedReply> {
   const { sender } = context;
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   await saveRecordsAndReply(transaction, context, target, reply);
-  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
+  const hasProposedParty = await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
     await markQuestionPending(transaction, target.textId);
   }
-  return reply;
+  return { ...reply, hasProposedParty };
 }
 
 async function saveRecordsAndReply(
