@@ -3,11 +3,13 @@ import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.t
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
+import { wrapRecentMessages } from '../intake/intake-texts.ts';
 import { planReply, type ReplyPlan } from '../intake/plan-reply.ts';
 import { readWithReader } from '../intake/read-message.ts';
 import { rejectDuplicates } from '../intake/run-reply-stage.ts';
 import type { ReadAttempt } from '../reading/reading.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
+import { findContextTexts } from './find-context-texts.ts';
 import { loadMessageToReread, type MessageToReread } from './load-message-to-reread.ts';
 import { recordDocumentRead } from './record-document-read.ts';
 
@@ -36,7 +38,13 @@ async function readAgain(scoped: Database, reader: ReaderService, message: Messa
     labels: await listWorkspaceLabels(transaction, message.workspaceId),
     catalog: await listReaderCatalog(transaction, message.workspaceId),
   }));
-  return readWithReader(reader, message.sentAt, { text: message.text, photo }, labels, catalog);
+  const text = wrapWithContextTexts(message, await findContextTexts(scoped, message));
+  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog);
+}
+
+function wrapWithContextTexts(message: MessageToReread, contextTexts: string[]): string | null {
+  if (contextTexts.length === 0) return message.text;
+  return wrapRecentMessages([...contextTexts, ...(message.text === null ? [] : [message.text])]);
 }
 
 async function recordEmptyRead(scoped: Database, message: MessageToReread): Promise<MessageOutcome> {

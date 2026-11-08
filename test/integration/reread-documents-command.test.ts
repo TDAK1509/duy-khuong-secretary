@@ -97,6 +97,27 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
   });
 
+  it('gives the reader the explanation the member sent after the photo', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const photoId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00', 'accepted');
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      messageId: photoId,
+      createdAt: new Date('2026-11-02T10:04:00+07:00'),
+    });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:03:00+07:00', text: 'lốp xe 29C-123.45, 3.500.000đ' });
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests).toHaveLength(1);
+    expect(reader.requests[0]?.text).toBe(
+      'Các tin nhắn gần đây của người gửi, từ cũ đến mới:\n- lốp xe 29C-123.45, 3.500.000đ',
+    );
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
