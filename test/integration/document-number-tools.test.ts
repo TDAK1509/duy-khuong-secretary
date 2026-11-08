@@ -241,6 +241,15 @@ describe('the document number tools of an admin', () => {
     expect(total.pending_name_documents).toBe(0);
   });
 
+  it('keeps only the documents of the given kind, whatever the accents and case', async () => {
+    await insertWeighing({ documentNumber: '0021', netKg: 26380, kind: 'phiếu cân xe' });
+    await insertWeighing({ documentNumber: '0022', netKg: 27790, kind: 'hóa đơn' });
+
+    const total = await runTotal({ kind: 'PHIEU CAN XE' });
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -253,11 +262,13 @@ describe('the document number tools of an admin', () => {
     stage?: 'dispatch' | 'receipt';
     status?: 'accepted' | 'needs_review';
     organizationId?: string | null;
+    kind?: string;
+    vehiclePlate?: string;
   };
 
   async function insertWeighing(row: Weighing): Promise<string> {
-    const { documentNumber, stage, status } = row;
-    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber, stage, status });
+    const { documentNumber, stage, status, kind, vehiclePlate } = row;
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber, stage, status, kind, vehiclePlate });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: row.netKg, unit: 'kg' });
     const organizationId = row.organizationId === undefined ? chengLoongId : row.organizationId;
     if (organizationId !== null) await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId, printedName: 'Cheng Loong' });
@@ -265,7 +276,7 @@ describe('the document number tools of an admin', () => {
   }
 
   async function runList(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<ListOutput> {
-    const args = { organization: null, role: null, stage: null, date_meaning: null, ...overrides };
+    const args = { organization: null, role: null, stage: null, kind: null, date_meaning: null, ...overrides };
     return JSON.parse(await runTool('list_document_numbers', args, scope)) as ListOutput;
   }
 

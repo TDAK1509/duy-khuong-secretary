@@ -1,13 +1,15 @@
+import { buildAccentFreeEquals } from '../records/search-records.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 import { buildMatchKey } from './build-match-key.ts';
 
-export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; dateMeaning: string | null };
+export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; kind: string | null; dateMeaning: string | null };
 
 export type OrganizationLink = 'organization_id' | 'proposed_organization_id';
 
 export function addDocumentFilters(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): void {
   if (filters.organization !== null || filters.role !== null) where.require(buildPartyExists(where, filters, link));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
+  if (filters.kind !== null) where.require(buildAccentFreeEquals(where, 'document.kind', filters.kind));
 }
 
 export function buildPartyExists(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
