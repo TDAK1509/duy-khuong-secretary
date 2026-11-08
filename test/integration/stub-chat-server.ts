@@ -11,10 +11,10 @@ export type StubChatServer = {
   close(): Promise<void>;
 };
 
-export function makeCompletionReply(content: string): StubReply {
+export function makeCompletionReply(content: string, usage?: unknown): StubReply {
   const message = { role: 'assistant', content };
   const choice = { index: 0, finish_reason: 'stop', message };
-  return { status: 200, body: { id: 'chatcmpl-1', object: 'chat.completion', created: 0, model: 'stub', choices: [choice] } };
+  return { status: 200, body: { id: 'chatcmpl-1', object: 'chat.completion', created: 0, model: 'stub', choices: [choice], usage } };
 }
 
 export function makeToolCallReply(calls: { id: string; name: string; arguments: string }[]): StubReply {

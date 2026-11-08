@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { Photo } from '../../services/storage/photo-storage.ts';
-import type { ReaderRequest, ReaderResult, ReaderService } from '../../services/reading/reader-service.ts';
+import type { ReaderRequest, ReaderResult, ReaderService, TokenUsage } from '../../services/reading/reader-service.ts';
 
 export type OpenAiCompatibleReaderSettings = {
   baseUrl: string;
@@ -54,10 +54,19 @@ export class OpenAiCompatibleReader implements ReaderService {
 
 function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
   try {
-    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? '') };
+    return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? ''), usage: readUsage(completion.usage) };
   } catch {
     return { ok: false, reason: 'invalid_output' };
   }
+}
+
+function readUsage(usage: OpenAI.CompletionUsage | undefined): TokenUsage | undefined {
+  if (usage === undefined) return undefined;
+  return {
+    input: usage.prompt_tokens,
+    output: usage.completion_tokens,
+    reasoning: usage.completion_tokens_details?.reasoning_tokens ?? 'unknown',
+  };
 }
 
 function buildUserContent(request: ReaderRequest): OpenAI.Chat.ChatCompletionContentPart[] {

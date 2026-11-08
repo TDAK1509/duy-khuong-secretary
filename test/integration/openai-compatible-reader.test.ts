@@ -7,7 +7,8 @@ import type { Photo } from '../../src/services/storage/photo-storage.ts';
 import type { ReaderRequest } from '../../src/services/reading/reader-service.ts';
 import { makeCompletionReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
 
-const VALID_REPLY = makeCompletionReply('{"has_work_data":false,"has_question":true,"items":[]}');
+const VALID_JSON = '{"has_work_data":false,"has_question":true,"items":[]}';
+const VALID_REPLY = makeCompletionReply(VALID_JSON);
 
 const REQUEST: ReaderRequest = {
   system: 'system prompt',
@@ -96,6 +97,15 @@ describe('OpenAiCompatibleReader', () => {
     const result = await makeReader(server).read(REQUEST);
 
     expect(result).toEqual({ ok: true, json: { has_work_data: false, has_question: true, items: [] } });
+  });
+
+  it('returns the token counts of a reply with usage', async () => {
+    const usage = { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140, completion_tokens_details: { reasoning_tokens: 10 } };
+    const server = await startServer(makeCompletionReply(VALID_JSON, usage));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 100, output: 40, reasoning: 10 } });
   });
 
   it('turns a slow reply into a timeout', async () => {
