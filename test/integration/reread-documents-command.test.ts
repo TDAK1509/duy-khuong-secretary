@@ -71,6 +71,18 @@ describe('the reread-documents command', () => {
     );
   });
 
+  it('reads a photo that was never saved too', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn' })]));
+
+    await runReread(workspaceId, reader);
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT message_id FROM document_sources')).toEqual([{ message_id: messageId }]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
@@ -78,11 +90,20 @@ describe('the reread-documents command', () => {
   }
 
   async function insertSavedPhoto(workspaceId: string, userId: string, sentAt: string): Promise<string> {
-    const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
-    await photoStorage.put(imageKey, { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
-    const messageId = await insertSentMessage(database, { workspaceId, userId, sentAt, imageKey });
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, sentAt, 'accepted');
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', messageId, createdAt: new Date(sentAt) });
     return messageId;
+  }
+
+  async function insertUnsavedPhoto(
+    workspaceId: string,
+    userId: string,
+    sentAt: string,
+    submissionStatus: 'accepted' | 'unresolved' = 'unresolved',
+  ): Promise<string> {
+    const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
+    await photoStorage.put(imageKey, { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+    return insertSentMessage(database, { workspaceId, userId, sentAt, imageKey, submissionStatus });
   }
 
   async function runReread(
