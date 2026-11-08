@@ -64,6 +64,22 @@ describe('the number reply of an admin to the name proposal', () => {
       { kind: 'text', to: 'zu-duy', text: `Đã xác nhận "${CHONG_LOONG}" là "${CHENG_LOONG}" (1 giấy tờ).` },
     ]);
   });
+
+  it('links the next document with a confirmed spelling to the organization at once', async () => {
+    await waitForMisreadParty();
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await harness.receiveText('zu-duy', '1');
+    harness.reader.answerWith(
+      makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeParty('issuer', CHONG_LOONG, CHENG_LOONG)] })]),
+    );
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties ORDER BY created_at')).toEqual([
+      { organization_id: chengLoongId, proposed_organization_id: null },
+      { organization_id: chengLoongId, proposed_organization_id: null },
+    ]);
+  });
 });
 
 function makeParty(role: string, printedName: string, knownName: string | null = null) {
