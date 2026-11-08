@@ -38,7 +38,7 @@ async function saveReply(
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
-  await storeDocuments(transaction, message, plannedReply);
+  await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, plan.replyText);

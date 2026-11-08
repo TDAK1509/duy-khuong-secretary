@@ -122,6 +122,19 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(DISTINCT message_id)::int AS count FROM document_sources')).toEqual([{ count: 2 }]);
   });
 
+  it('keeps one document when a photo of a sheet without a number is sent again', async () => {
+    harness.reader.answerWith(makeReading([makeTicketItem({ document_number: null })]));
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+    harness.channel.texts.splice(0);
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([DUPLICATE_TEXT]);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+  });
+
   it('keeps a different plate on the same ticket number and date apart for review', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,

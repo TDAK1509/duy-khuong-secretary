@@ -31,7 +31,7 @@ export async function saveReplyOnPhoto(
   const { sender } = context;
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   await saveRecordsAndReply(transaction, context, target, reply);
-  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan);
+  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
     await markQuestionPending(transaction, target.textId);
   }
