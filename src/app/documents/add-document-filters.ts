@@ -17,13 +17,16 @@ export function addDocumentFilters(where: WhereClause, filters: DocumentFilters,
 }
 
 export function buildPartyExists(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
-  const conditions = [
+  return `EXISTS (SELECT 1 FROM document_parties party WHERE ${listPartyConditions(where, filters, link).join(' AND ')})`;
+}
+
+export function listPartyConditions(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string[] {
+  return [
     'party.document_id = document.id',
     `party.${link} IS NOT NULL`,
     ...listRoleCondition(where, filters.role),
     ...listOrganizationCondition(where, filters.organization, link),
   ];
-  return `EXISTS (SELECT 1 FROM document_parties party WHERE ${conditions.join(' AND ')})`;
 }
 
 function listRoleCondition(where: WhereClause, role: string | null): string[] {

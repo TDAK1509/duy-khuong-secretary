@@ -330,6 +330,22 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('groups by the confirmed company, one group per document', async () => {
+    const hoaPhatId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Hòa Phát' });
+    await insertWeighing({ documentNumber: '0035', netKg: 26380 });
+    const shared = await insertWeighing({ documentNumber: '0036', netKg: 100 });
+    await insertParty(database, { workspaceId, documentId: shared, role: 'issuer', organizationId: hoaPhatId, printedName: 'Hòa Phát' });
+    await insertWeighing({ documentNumber: '0037', netKg: 7, organizationId: null });
+
+    const total = await runTotal({ group_by: 'organization' });
+
+    expect(total.groups).toEqual([
+      { group: 'Công ty Hòa Phát', unit: 'kg', count: 1, sum: '100', min: '100', max: '100' },
+      { group: 'Công ty TNHH Cheng Loong Bình Dương Paper', unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' },
+      { group: null, unit: 'kg', count: 1, sum: '7', min: '7', max: '7' },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
