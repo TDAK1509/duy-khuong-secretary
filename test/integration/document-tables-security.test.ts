@@ -8,6 +8,8 @@ import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const ROW_LEVEL_SECURITY_VIOLATION = '42501';
+
 describe('the document tables for the runtime role', () => {
   let database: TemporaryDatabase;
   let runtimePool: PostgresPool;
@@ -60,6 +62,21 @@ describe('the document tables for the runtime role', () => {
     const count = await countRows('organizations', { workspaceId, ownerUserId: lanUserId });
 
     expect(count).toBe(0);
+  });
+
+  it('refuses an organization written into another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(`INSERT INTO organizations (workspace_id, type, name) VALUES ($1, 'company', 'Cheng Loong')`, [
+        otherWorkspaceId,
+      ]),
+    );
+
+    await expect(insert).rejects.toMatchObject({
+      code: ROW_LEVEL_SECURITY_VIOLATION,
+      message: expect.stringContaining('"organizations"'),
+    });
   });
 
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
