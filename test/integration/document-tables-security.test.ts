@@ -34,6 +34,16 @@ describe('the document tables for the runtime role', () => {
     expect(count).toBe(0);
   });
 
+  it('hides a document from a member whose message did not produce it', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertDocumentFromMember(workspaceId, lanUserId);
+
+    const count = await countRows('documents', { workspaceId, ownerUserId: hungUserId });
+
+    expect(count).toBe(0);
+  });
+
   async function insertDocumentFromMember(inWorkspaceId: string, userId: string): Promise<string> {
     const documentId = await insertDocument(inWorkspaceId);
     const messageId = await insertChatMessage(database, {

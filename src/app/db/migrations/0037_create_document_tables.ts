@@ -1,12 +1,18 @@
 import type { MigrationBuilder } from '../migration-builder.ts';
 
 const WORKSPACE_IS_SET = `workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid`;
+const OWNER_IS_SET = `nullif(current_setting('app.owner_user_id', true), '') IS NOT NULL`;
+const OWNER_ID = `nullif(current_setting('app.owner_user_id', true), '')::uuid`;
+const DOCUMENT_HAS_VISIBLE_SOURCE = `EXISTS (SELECT 1 FROM document_sources source WHERE source.document_id = documents.id)`;
+const MESSAGE_IS_OWNED = `EXISTS (
+  SELECT 1 FROM messages message WHERE message.id = document_sources.message_id AND message.user_id = ${OWNER_ID}
+)`;
 
 export function up(pgm: MigrationBuilder): void {
   createDocuments(pgm);
   createDocumentSources(pgm);
-  protectTable(pgm, 'documents', WORKSPACE_IS_SET);
-  protectTable(pgm, 'document_sources', WORKSPACE_IS_SET);
+  protectTable(pgm, 'documents', `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${DOCUMENT_HAS_VISIBLE_SOURCE})`);
+  protectTable(pgm, 'document_sources', `${WORKSPACE_IS_SET} AND (NOT ${OWNER_IS_SET} OR ${MESSAGE_IS_OWNED})`);
 }
 
 function createDocuments(pgm: MigrationBuilder): void {
