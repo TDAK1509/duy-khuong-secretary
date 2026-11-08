@@ -304,6 +304,18 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('groups by the plate of the vehicle', async () => {
+    await insertWeighing({ documentNumber: '0030', netKg: 26380, vehiclePlate: '29C12345' });
+    await insertWeighing({ documentNumber: '0031', netKg: 27790, vehiclePlate: '30H67890' });
+
+    const total = await runTotal({ group_by: 'plate' });
+
+    expect(total.groups).toEqual([
+      { group: '29C12345', unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' },
+      { group: '30H67890', unit: 'kg', count: 1, sum: '27790', min: '27790', max: '27790' },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
