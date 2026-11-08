@@ -25,10 +25,6 @@ describe('the data read from a photo in the reply', () => {
     await harness.close();
   });
 
-  function readTextsTo(externalUserId: string): string[] {
-    return harness.channel.sends.flatMap((sent) => (sent.kind === 'text' && sent.to === externalUserId ? [sent.text] : []));
-  }
-
   it("ends an admin's own photo reply with the data read", async () => {
     harness.reader.answerWith(
       makeReading([makeItem({ category: 'phiếu cân', amount_vnd: null, occurred_on: '2026-11-05', document_number: '20261105062' })]),
@@ -73,4 +69,8 @@ describe('the data read from a photo in the reply', () => {
     expect(parts.every((part) => Array.from(part).length <= harness.channel.maxTextLength)).toBe(true);
     expect(parts.join('\n')).toBe(`Đã lưu: Phiếu cân, số 20261105062.\n\n${expectedBlock}`);
   });
+
+  function readTextsTo(externalUserId: string): string[] {
+    return harness.channel.sends.flatMap((sent) => (sent.kind === 'text' && sent.to === externalUserId ? [sent.text] : []));
+  }
 });
