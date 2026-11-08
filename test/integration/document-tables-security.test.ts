@@ -127,6 +127,14 @@ describe('the document tables for the runtime role', () => {
     await expect(insert).rejects.toMatchObject({ code: UNIQUE_VIOLATION, constraint: 'documents_issuer_number_date_key' });
   });
 
+  it('allows the same issuer key and number on another date', async () => {
+    await insertNumberedDocument('2026-11-05');
+
+    const insert = insertNumberedDocumentAsRuntime('2027-11-05');
+
+    await expect(insert).resolves.toBeDefined();
+  });
+
   async function insertNumberedDocument(documentDate: string): Promise<void> {
     await database.query(
       `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, summary)
