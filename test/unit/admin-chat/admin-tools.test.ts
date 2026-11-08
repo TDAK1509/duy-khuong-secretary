@@ -1,6 +1,44 @@
 import { describe, expect, it } from 'vitest';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
 
+const DOCUMENT_FILTER_PROPERTIES = {
+  organization: {
+    type: ['string', 'null'],
+    description: 'Tên công ty hoặc nơi chốn, chép đúng từ list_organizations. null nếu không lọc theo tên.',
+  },
+  role: {
+    type: ['string', 'null'],
+    enum: ['issuer', 'supplier', 'customer', 'carrier', 'place', null],
+    description:
+      'Vai trò của tên trên giấy tờ. issuer: bên phát hành. supplier: bên bán. customer: bên nhận hàng hoặc mua hàng. carrier: bên vận chuyển. place: nơi chốn. null để chấp nhận mọi vai trò.',
+  },
+  stage: {
+    type: ['string', 'null'],
+    enum: ['dispatch', 'receipt', null],
+    description: 'dispatch: giấy tờ lúc hàng rời nơi giao. receipt: giấy tờ lúc hàng đến nơi nhận. null nếu không lọc.',
+  },
+  kind: {
+    type: ['string', 'null'],
+    description: 'Loại giấy tờ đã lưu, ví dụ "phiếu cân xe". null để lấy mọi loại.',
+  },
+  plate: {
+    type: ['string', 'null'],
+    description: 'Biển số xe cần lọc, ví dụ "29C-123.45". null nếu không lọc theo xe.',
+  },
+  date_meaning: {
+    type: ['string', 'null'],
+    description: 'Ý nghĩa ngày dùng để lọc và chia nhóm, chép từ list_document_numbers. null để dùng ngày trên giấy tờ.',
+  },
+  date_from: {
+    type: ['string', 'null'],
+    description: 'Từ ngày này, dạng YYYY-MM-DD, tính cả ngày này. null nếu không giới hạn.',
+  },
+  date_to: {
+    type: ['string', 'null'],
+    description: 'Đến hết ngày này, dạng YYYY-MM-DD. null nếu không giới hạn.',
+  },
+};
+
 describe('the admin tool list', () => {
   it('offers create_scheduled_task with its description', () => {
     const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'create_scheduled_task');
@@ -233,5 +271,35 @@ describe('the admin tool list', () => {
 
   it('lists the two number tools at the end, after the existing tools', () => {
     expect(ADMIN_TOOLS.map((tool) => tool.name).slice(-2)).toEqual(['list_number_labels', 'total_numbers']);
+  });
+
+  it('offers total_document_numbers with the exact text, the filters and group_by', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'total_document_numbers');
+
+    expect(tool).toStrictEqual({
+      name: 'total_document_numbers',
+      description:
+        'Tính tổng, số giá trị, nhỏ nhất và lớn nhất của một ý nghĩa số trên các giấy tờ đã chấp nhận và phù hợp. Mỗi giấy tờ chỉ tính một lần dù có nhiều ảnh. Các đơn vị luôn tách riêng. Chỉ tính tên đã xác nhận. pending_name_documents đếm giấy tờ bị bỏ qua vì tên đang chờ xác nhận. review_documents đếm giấy tờ đang chờ xem lại. without_number đếm giấy tờ phù hợp nhưng không có số này. not_reread_messages đếm tin nhắn đã lưu nhưng chưa được đọc lại thành giấy tờ.',
+      parameters: {
+        type: 'object',
+        properties: {
+          meaning: { type: 'string', description: 'Ý nghĩa số cần tính, chép đúng từ list_document_numbers.' },
+          lines: {
+            type: 'string',
+            enum: ['document', 'item'],
+            description: 'document: chỉ tính số của cả giấy tờ. item: chỉ tính số của từng dòng hàng hoặc từng việc.',
+          },
+          ...DOCUMENT_FILTER_PROPERTIES,
+          group_by: {
+            type: 'string',
+            enum: ['none', 'organization', 'kind', 'plate', 'stage', 'day', 'month'],
+            description:
+              'none: không chia nhóm. organization: theo tên công ty hoặc nơi chốn ở vai trò đã lọc. kind: theo loại giấy tờ. plate: theo xe. stage: theo giao hoặc nhận. day: theo ngày. month: theo tháng.',
+          },
+        },
+        required: ['meaning', 'lines', ...Object.keys(DOCUMENT_FILTER_PROPERTIES), 'group_by'],
+        additionalProperties: false,
+      },
+    });
   });
 });
