@@ -35,6 +35,12 @@ describe('the number reply of an admin to the name proposal', () => {
     await harness.receivePhoto('zu-hung');
   }
 
+  async function waitForSecondMisreadParty(knownName: string): Promise<void> {
+    const printed = makeParty('issuer', CHONG_LOONG, knownName);
+    harness.reader.answerWith(makeReading([makeTicketItem({ document_number: '20261105099', parties: [printed] })]));
+    await harness.receivePhoto('zu-hung');
+  }
+
   function holdProposalChoice(externalUserId: string, pairs: { printedName: string; organizationId: string }[]): Promise<unknown> {
     const choice = {
       kind: 'name_match',
@@ -225,18 +231,14 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 2 }]);
   });
 
-  it('links a pair to the organization of its confirmed spelling when the spelling was proposed for two organizations', async () => {
+  it('links every waiting party of the confirmed spelling to the organization and counts all their documents', async () => {
     const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty TNHH Cheng Loong Hà Nội' });
     await waitForMisreadParty();
-    harness.reader.answerWith(
-      makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeParty('issuer', CHONG_LOONG, 'Công ty TNHH Cheng Loong Hà Nội')] })]),
-    );
-    await harness.receivePhoto('zu-hung');
-    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
-    await harness.receiveText('zu-duy', '1');
-    await harness.sendAllQueuedTexts();
-    harness.channel.sends.splice(0);
-    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: otherChengLoongId }]);
+    await waitForSecondMisreadParty('Công ty TNHH Cheng Loong Hà Nội');
+    await holdProposalChoice('zu-duy', [
+      { printedName: CHONG_LOONG, organizationId: chengLoongId },
+      { printedName: CHONG_LOONG, organizationId: otherChengLoongId },
+    ]);
 
     await harness.receiveText('zu-duy', '1');
     await harness.sendAllQueuedTexts();
@@ -245,30 +247,11 @@ describe('the number reply of an admin to the name proposal', () => {
       { organization_id: chengLoongId, proposed_organization_id: null },
       { organization_id: chengLoongId, proposed_organization_id: null },
     ]);
-    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
-  });
-
-  it('links a waiting party to the organization of its confirmed spelling when the admin replies 0', async () => {
-    const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty TNHH Cheng Loong Hà Nội' });
-    await waitForMisreadParty();
-    harness.reader.answerWith(
-      makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeParty('issuer', CHONG_LOONG, 'Công ty TNHH Cheng Loong Hà Nội')] })]),
-    );
-    await harness.receivePhoto('zu-hung');
-    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
-    await harness.receiveText('zu-duy', '1');
-    await harness.sendAllQueuedTexts();
-    harness.channel.sends.splice(0);
-    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: otherChengLoongId }]);
-
-    await harness.receiveText('zu-duy', '0');
-    await harness.sendAllQueuedTexts();
-
-    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
-      { organization_id: chengLoongId, proposed_organization_id: null },
-      { organization_id: chengLoongId, proposed_organization_id: null },
-    ]);
-    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' }]);
+    expect(harness.channel.sends.at(-1)).toEqual({
+      kind: 'text',
+      to: 'zu-duy',
+      text: `Đã xác nhận "${CHONG_LOONG}" là "${CHENG_LOONG}" (2 giấy tờ).`,
+    });
   });
 
   it('says the pairs are already handled when a reply 0 finds no waiting party', async () => {

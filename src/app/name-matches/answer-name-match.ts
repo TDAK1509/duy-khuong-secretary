@@ -51,10 +51,7 @@ async function keepApart(transaction: Transaction, workspaceId: string, pairs: N
 
 async function createOrganizationForWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<number> {
   const aliasedOrganizationId = await findAliasedOrganization(transaction, workspaceId, pair.matchKey);
-  if (aliasedOrganizationId !== null) {
-    await linkAllWaitingParties(transaction, workspaceId, { matchKey: pair.matchKey, organizationId: aliasedOrganizationId });
-    return 0;
-  }
+  if (aliasedOrganizationId !== null) return 0;
   const [waiting] = await transaction.query<{ type: string }>(
     `SELECT type FROM document_parties
      WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
@@ -72,24 +69,26 @@ function logAppliedReply(workspaceId: string, partyCount: number): void {
 }
 
 async function confirmPair(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
-  const aliasedOrganizationId = await findAliasedOrganization(transaction, workspaceId, pair.matchKey);
-  if (aliasedOrganizationId !== null) return linkToConfirmedSpelling(transaction, workspaceId, { matchKey: pair.matchKey, organizationId: aliasedOrganizationId });
-  const linked = await linkWaitingParties(transaction, workspaceId, pair);
-  if (linked.length === 0) return { text: ALREADY_HANDLED_TEXT };
+  const isConfirmed = (await findAliasedOrganization(transaction, workspaceId, pair.matchKey)) !== null;
+  if (isConfirmed || !(await hasWaitingParty(transaction, workspaceId, pair))) return { text: ALREADY_HANDLED_TEXT };
   await insertRow(transaction, 'organization_aliases', {
     workspace_id: workspaceId,
     organization_id: pair.organizationId,
     printed_name: pair.printedName,
     match_key: pair.matchKey,
   });
+  const linked = await linkAllWaitingParties(transaction, workspaceId, pair);
   logAppliedReply(workspaceId, linked.length);
   const [organization] = await transaction.query<{ name: string }>('SELECT name FROM organizations WHERE id = $1', [pair.organizationId]);
   return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${countDocuments(linked)} giấy tờ).` };
 }
 
-async function linkToConfirmedSpelling(transaction: Transaction, workspaceId: string, spelling: SpellingOwner): Promise<Reply> {
-  await linkAllWaitingParties(transaction, workspaceId, spelling);
-  return { text: ALREADY_HANDLED_TEXT };
+async function hasWaitingParty(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<boolean> {
+  const waiting = await transaction.query(
+    'SELECT 1 FROM document_parties WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id = $3 LIMIT 1',
+    [workspaceId, pair.matchKey, pair.organizationId],
+  );
+  return waiting.length > 0;
 }
 
 async function linkAllWaitingParties(transaction: Transaction, workspaceId: string, { matchKey, organizationId }: SpellingOwner): Promise<LinkedParty[]> {
@@ -98,15 +97,6 @@ async function linkAllWaitingParties(transaction: Transaction, workspaceId: stri
      WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL
      RETURNING document_id`,
     [workspaceId, matchKey, organizationId],
-  );
-}
-
-async function linkWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<LinkedParty[]> {
-  return transaction.query<LinkedParty>(
-    `UPDATE document_parties SET organization_id = proposed_organization_id, proposed_organization_id = NULL
-     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id = $3
-     RETURNING document_id`,
-    [workspaceId, pair.matchKey, pair.organizationId],
   );
 }
 
