@@ -80,6 +80,28 @@ describe('the number reply of an admin to the name proposal', () => {
       { organization_id: chengLoongId, proposed_organization_id: null },
     ]);
   });
+
+  it('keeps the listed names apart as new organizations of the stored type when the admin replies 0', async () => {
+    const placeId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Kho than Phú Mỹ', type: 'place' });
+    const printedPlace = { role: 'place', type: 'place', printed_name: 'KHO THAN CẢNG PHÚ MỸ', known_name: 'Kho than Phú Mỹ' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [printedPlace] })]));
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: 'KHO THAN CẢNG PHÚ MỸ', organizationId: placeId }]);
+
+    await harness.receiveText('zu-duy', '0');
+    await harness.sendAllQueuedTexts();
+
+    const created = await database.query<{ id: string }>(
+      `SELECT id FROM organizations WHERE name = 'KHO THAN CẢNG PHÚ MỸ' AND type = 'place'`,
+    );
+    expect(created).toHaveLength(1);
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: created[0]?.id, proposed_organization_id: null },
+    ]);
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Đã lưu các tên này là bên riêng.' }]);
+  });
 });
 
 function makeParty(role: string, printedName: string, knownName: string | null = null) {

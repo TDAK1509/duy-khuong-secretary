@@ -1,9 +1,7 @@
 import type { Transaction } from '../db/transaction.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
 import type { ReadingParty } from '../reading/reading.ts';
-import { insertRow } from './insert-row.ts';
-
-const MAX_ORGANIZATION_NAME_LENGTH = 200;
+import { insertOrganization } from './insert-organization.ts';
 
 export type PartyLink = { organization_id: string | null; proposed_organization_id: string | null };
 
@@ -12,7 +10,8 @@ export async function linkParty(transaction: Transaction, workspaceId: string, p
   if (aliased) return { organization_id: aliased, proposed_organization_id: null };
   const proposed = await findOrganizationNamed(transaction, workspaceId, party.known_name);
   if (proposed) return { organization_id: null, proposed_organization_id: proposed };
-  return { organization_id: await insertOrganization(transaction, workspaceId, party, matchKey), proposed_organization_id: null };
+  const created = await insertOrganization(transaction, workspaceId, { type: party.type, printedName: party.printed_name, matchKey });
+  return { organization_id: created, proposed_organization_id: null };
 }
 
 async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {
@@ -31,20 +30,4 @@ async function findOrganizationNamed(transaction: Transaction, workspaceId: stri
     [workspaceId],
   );
   return organizations.find((organization) => toAccentFreeForm(organization.name) === wanted)?.id ?? null;
-}
-
-async function insertOrganization(transaction: Transaction, workspaceId: string, party: ReadingParty, matchKey: string): Promise<string> {
-  const printedName = party.printed_name.trim();
-  const organizationId = await insertRow(transaction, 'organizations', {
-    workspace_id: workspaceId,
-    type: party.type,
-    name: printedName.slice(0, MAX_ORGANIZATION_NAME_LENGTH),
-  });
-  await insertRow(transaction, 'organization_aliases', {
-    workspace_id: workspaceId,
-    organization_id: organizationId,
-    printed_name: printedName,
-    match_key: matchKey,
-  });
-  return organizationId;
 }
