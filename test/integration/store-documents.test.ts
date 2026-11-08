@@ -174,6 +174,21 @@ describe('storing the documents of a saved message', () => {
       { organization_id: organizationId, proposed_organization_id: null },
     ]);
   });
+
+  it('proposes the organization of a known name when the printed name is not an alias', async () => {
+    const organizationId = await insertOrganizationWithAlias(database, {
+      workspaceId: harness.workspaceId,
+      name: 'Công ty TNHH Cheng Loong Bình Dương Paper',
+    });
+    const misread = makeParty('issuer', 'Công ty TNHH Chống Loong Bình Dương Paper', 'Công ty TNHH Cheng Loong Bình Dương Paper');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [misread] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: null, proposed_organization_id: organizationId },
+    ]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
