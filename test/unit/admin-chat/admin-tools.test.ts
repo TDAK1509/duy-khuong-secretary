@@ -338,4 +338,30 @@ describe('the admin tool list', () => {
       },
     });
   });
+
+  it('offers search_records with the exact text, member, plate and date sent filters', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'search_records');
+    const properties = tool?.parameters['properties'] as Record<string, unknown>;
+
+    expect(properties['text']).toStrictEqual({
+      type: ['string', 'null'],
+      description: 'Từ khóa tìm trong mô tả, mã, biển số và chi tiết. Không phân biệt dấu và chữ hoa. null nếu không lọc theo từ khóa.',
+    });
+    expect(properties['member']).toStrictEqual({
+      type: ['string', 'null'],
+      description: 'Tên của thành viên cần lọc. null để lấy mọi thành viên.',
+    });
+    expect(properties['plate']).toStrictEqual({
+      type: ['string', 'null'],
+      description: 'Biển số xe cần lọc, ví dụ "29C-123.45". null nếu không lọc theo xe.',
+    });
+    expect(properties['added_from']).toStrictEqual({
+      type: ['string', 'null'],
+      description: 'Lấy mục gửi từ ngày này, dạng YYYY-MM-DD, giờ Việt Nam. null nếu không giới hạn.',
+    });
+    expect(properties['added_to']).toStrictEqual({
+      type: ['string', 'null'],
+      description: 'Lấy mục gửi đến hết ngày này, dạng YYYY-MM-DD, giờ Việt Nam. null nếu không giới hạn.',
+    });
+  });
 });
