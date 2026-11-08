@@ -263,6 +263,27 @@ describe('the reread-documents command', () => {
     ]);
   });
 
+  it('fails a photo that photo storage no longer holds and writes nothing', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertSentMessage(database, {
+      workspaceId,
+      userId,
+      sentAt: '2026-11-02T10:00:00+07:00',
+      imageKey: `${workspaceId}/${randomUUID()}.jpg`,
+    });
+    const reader = new FakeReader();
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed message ${messageId}: photo_missing`,
+      'Re-read 1 messages. Stored 0 documents. No document in 0. Test photos: 0. Failed 1.',
+    ]);
+    expect(reader.requests).toEqual([]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   async function insertReadTicketRecord(workspaceId: string, userId: string): Promise<void> {
     const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-01T09:00:00+07:00', 'accepted');
     await insertRecordRow(database, {
