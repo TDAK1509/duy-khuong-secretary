@@ -203,6 +203,20 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT message_id FROM document_reads')).toEqual([{ message_id: secondMessageId }]);
   });
 
+  it('fails a message with records that the reader now reads as empty', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+
+    const { exitCode, lines } = await runReread(workspaceId, new FakeReader());
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed message ${messageId}: no_items`,
+      'Re-read 1 messages. Stored 0 documents. No document in 0. Test photos: 0. Failed 1.',
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   function answerFirstCallWithAnItem(): FakeReader {
     const noWorkData = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
     let calls = 0;
