@@ -306,6 +306,21 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM organizations')).toEqual([{ count: 2 }]);
   });
 
+  it('answers already handled and writes nothing when the spelling of a pair already has an alias', async () => {
+    await waitForMisreadParty();
+    await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Cheng Loong Hà Nội', aliasPrintedName: CHONG_LOONG });
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends[0]).toEqual({ kind: 'text', to: 'zu-duy', text: 'Cặp tên này đã được xử lý. Không đổi gì.' });
+    expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 2 }]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: null }]);
+  });
+
   it('says the pairs are already handled when a reply 0 finds no waiting party', async () => {
     await insertMember(database, {
       workspaceId: harness.workspaceId,
