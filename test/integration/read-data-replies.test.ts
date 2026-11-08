@@ -41,4 +41,15 @@ describe('the data read from a photo in the reply', () => {
       'Đã lưu: Phiếu cân, số 20261105062, ngày 05/11/2026.\n\nDữ liệu đã đọc:\nMục 1: phiếu cân\n- Số phiếu: 20261105062\n- Ngày trên giấy tờ: 05/11/2026',
     ]);
   });
+
+  it("keeps the data read out of a member's own reply", async () => {
+    harness.reader.answerWith(makeReading([makeItem({ category: 'phiếu cân', amount_vnd: null, document_number: '20261105062' })]));
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    const memberTexts = readTextsTo('zu-hung');
+    expect(memberTexts).toHaveLength(1);
+    expect(memberTexts[0]).not.toContain('Dữ liệu đã đọc:');
+  });
 });
