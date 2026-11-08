@@ -14,7 +14,7 @@ export async function linkParty(transaction: Transaction, workspaceId: string, p
   return { organization_id: created, proposed_organization_id: null };
 }
 
-async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {
+export async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {
   const [alias] = await transaction.query<{ organization_id: string }>(
     'SELECT organization_id FROM organization_aliases WHERE workspace_id = $1 AND match_key = $2',
     [workspaceId, matchKey],

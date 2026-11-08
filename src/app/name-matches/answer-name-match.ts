@@ -5,6 +5,7 @@ import { clearPendingChoice } from '../identities/clear-pending-choice.ts';
 import type { NamePair, PendingChoice } from '../identities/pending-choice.ts';
 import { NO_PENDING_CHOICE_TEXT } from '../processing/conversation-texts.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
+import { findAliasedOrganization } from '../documents/link-party.ts';
 import { insertOrganization } from '../documents/insert-organization.ts';
 import { insertRow } from '../documents/insert-row.ts';
 import { buildNameMatchChoice } from './build-name-match-choice.ts';
@@ -68,6 +69,8 @@ function logAppliedReply(workspaceId: string, partyCount: number): void {
 }
 
 async function confirmPair(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
+  const aliasedOrganizationId = await findAliasedOrganization(transaction, workspaceId, pair.matchKey);
+  if (aliasedOrganizationId !== null) return linkToConfirmedSpelling(transaction, workspaceId, { ...pair, organizationId: aliasedOrganizationId });
   const linked = await linkWaitingParties(transaction, workspaceId, pair);
   if (linked.length === 0) return { text: ALREADY_HANDLED_TEXT };
   await insertRow(transaction, 'organization_aliases', {
@@ -79,6 +82,15 @@ async function confirmPair(transaction: Transaction, workspaceId: string, pair: 
   logAppliedReply(workspaceId, linked.length);
   const [organization] = await transaction.query<{ name: string }>('SELECT name FROM organizations WHERE id = $1', [pair.organizationId]);
   return { text: `Đã xác nhận "${pair.printedName}" là "${organization?.name}" (${countDocuments(linked)} giấy tờ).` };
+}
+
+async function linkToConfirmedSpelling(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<Reply> {
+  await transaction.query(
+    `UPDATE document_parties SET organization_id = $3, proposed_organization_id = NULL
+     WHERE workspace_id = $1 AND match_key = $2 AND proposed_organization_id IS NOT NULL`,
+    [workspaceId, pair.matchKey, pair.organizationId],
+  );
+  return { text: ALREADY_HANDLED_TEXT };
 }
 
 async function linkWaitingParties(transaction: Transaction, workspaceId: string, pair: NamePair): Promise<LinkedParty[]> {
