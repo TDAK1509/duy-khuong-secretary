@@ -10,6 +10,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
+import { INVALID_DATE_ERROR } from '../../src/app/admin-chat/tools/tool-result.ts';
 import { insertAlias, insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -271,6 +272,12 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
   });
 
+  it.each(['date_from', 'date_to'])('refuses an impossible %s', async (field) => {
+    const output = await runTool('total_document_numbers', { ...buildTotalArguments(), [field]: '2026-02-30' }, duy);
+
+    expect(JSON.parse(output)).toEqual({ ok: false, error: INVALID_DATE_ERROR });
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -306,7 +313,11 @@ describe('the document number tools of an admin', () => {
   }
 
   async function runTotal(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<TotalOutput> {
-    const args = {
+    return JSON.parse(await runTool('total_document_numbers', { ...buildTotalArguments(), ...overrides }, scope)) as TotalOutput;
+  }
+
+  function buildTotalArguments(): TotalArguments {
+    return {
       meaning: 'Trọng lượng hàng',
       lines: 'document',
       organization: null,
@@ -318,9 +329,7 @@ describe('the document number tools of an admin', () => {
       date_from: null,
       date_to: null,
       group_by: 'none',
-      ...overrides,
     };
-    return JSON.parse(await runTool('total_document_numbers', args, scope)) as TotalOutput;
   }
 
   async function runTool(name: string, args: object, scope: AccessScope): Promise<string> {

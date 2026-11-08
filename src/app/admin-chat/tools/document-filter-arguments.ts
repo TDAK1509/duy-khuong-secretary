@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DocumentFilters } from '../../documents/add-document-filters.ts';
+import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 
 export const DOCUMENT_FILTER_ARGUMENTS = {
   organization: z.string().nullable(),
@@ -13,6 +14,10 @@ export const DOCUMENT_FILTER_ARGUMENTS = {
 };
 
 export type DocumentFilterArguments = z.infer<z.ZodObject<typeof DOCUMENT_FILTER_ARGUMENTS>>;
+
+export function hasUnrealDate(args: DocumentFilterArguments): boolean {
+  return [args.date_from, args.date_to].some((date) => date !== null && !isRealIsoDate(date));
+}
 
 export function buildDocumentFilters(args: DocumentFilterArguments): DocumentFilters {
   return {
