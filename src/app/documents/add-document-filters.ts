@@ -1,17 +1,31 @@
-import { WhereClause } from '../records/where-clause.ts';
+import type { WhereClause } from '../records/where-clause.ts';
 import { buildMatchKey } from './build-match-key.ts';
 
-export type DocumentFilters = { organization: string | null; stage: string | null; dateMeaning: string | null };
+export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; dateMeaning: string | null };
 
 export type OrganizationLink = 'organization_id' | 'proposed_organization_id';
 
 export function addDocumentFilters(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): void {
-  if (filters.organization !== null) where.require(buildOrganizationCondition(where, filters.organization, link));
+  if (filters.organization !== null || filters.role !== null) where.require(buildPartyCondition(where, filters, link));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
 }
 
-function buildOrganizationCondition(where: WhereClause, organization: string, link: OrganizationLink): string {
-  return `EXISTS (
-    SELECT 1 FROM document_parties party JOIN organization_aliases alias ON alias.organization_id = party.${link}
-    WHERE party.document_id = document.id AND alias.match_key = ${where.bind(buildMatchKey(organization))})`;
+function buildPartyCondition(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
+  const conditions = [
+    'party.document_id = document.id',
+    `party.${link} IS NOT NULL`,
+    ...listRoleCondition(where, filters.role),
+    ...listOrganizationCondition(where, filters.organization, link),
+  ];
+  return `EXISTS (SELECT 1 FROM document_parties party WHERE ${conditions.join(' AND ')})`;
+}
+
+function listRoleCondition(where: WhereClause, role: string | null): string[] {
+  return role === null ? [] : [`party.role = ${where.bind(role)}`];
+}
+
+function listOrganizationCondition(where: WhereClause, organization: string | null, link: OrganizationLink): string[] {
+  if (organization === null) return [];
+  const matchKey = where.bind(buildMatchKey(organization));
+  return [`party.${link} IN (SELECT alias.organization_id FROM organization_aliases alias WHERE alias.match_key = ${matchKey})`];
 }
