@@ -81,3 +81,19 @@ export const LIST_DOCUMENT_NUMBERS_SPEC: ToolSpec = {
     additionalProperties: false,
   },
 };
+
+export const LIST_ORGANIZATIONS_SPEC: ToolSpec = {
+  name: 'list_organizations',
+  description: 'Liệt kê các công ty và nơi chốn đã lưu trong nhóm: tên, loại, các cách viết đã gặp và số giấy tờ. Lọc theo text nếu có.',
+  parameters: {
+    type: 'object',
+    properties: {
+      text: {
+        type: ['string', 'null'],
+        description: 'Một phần tên cần tìm, không phân biệt dấu và chữ hoa. null để lấy tất cả.',
+      },
+    },
+    required: ['text'],
+    additionalProperties: false,
+  },
+};

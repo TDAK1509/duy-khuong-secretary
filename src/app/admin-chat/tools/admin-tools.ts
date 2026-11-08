@@ -1,5 +1,5 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
-import { LIST_DOCUMENT_NUMBERS_SPEC, TOTAL_DOCUMENT_NUMBERS_SPEC } from './document-number-specs.ts';
+import { LIST_DOCUMENT_NUMBERS_SPEC, LIST_ORGANIZATIONS_SPEC, TOTAL_DOCUMENT_NUMBERS_SPEC } from './document-number-specs.ts';
 import { LIST_NUMBER_LABELS_SPEC, TOTAL_NUMBERS_SPEC } from './admin-number-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import {
@@ -29,6 +29,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   REVIEW_NAME_MATCHES_SPEC,
   LIST_DOCUMENT_NUMBERS_SPEC,
   TOTAL_DOCUMENT_NUMBERS_SPEC,
+  LIST_ORGANIZATIONS_SPEC,
   LIST_NUMBER_LABELS_SPEC,
   TOTAL_NUMBERS_SPEC,
 ];
