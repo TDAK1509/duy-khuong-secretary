@@ -1,3 +1,4 @@
+import { storeDocuments } from '../documents/store-documents.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { hasDuplicateRecord } from '../records/has-duplicate-record.ts';
 import { insertRecords } from '../records/insert-records.ts';
@@ -36,6 +37,7 @@ async function saveReply(
   const { sender } = context;
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
+  await storeDocuments(transaction, message, plannedReply);
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
   await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
