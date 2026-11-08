@@ -1,0 +1,55 @@
+import type { MigrationBuilder } from '../migration-builder.ts';
+
+const WORKSPACE_IS_SET = `workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid`;
+
+export function up(pgm: MigrationBuilder): void {
+  createDocuments(pgm);
+  createDocumentSources(pgm);
+  protectTable(pgm, 'documents', WORKSPACE_IS_SET);
+  protectTable(pgm, 'document_sources', WORKSPACE_IS_SET);
+}
+
+function createDocuments(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    CREATE TABLE documents (
+      id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id uuid NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+      kind text NOT NULL CHECK (btrim(kind) <> ''),
+      stage text CHECK (stage IN ('dispatch', 'receipt')),
+      status text NOT NULL DEFAULT 'accepted' CHECK (status IN ('accepted', 'needs_review')),
+      document_number text,
+      issuer_key text,
+      document_date date,
+      title text CHECK (title IS NULL OR btrim(title) <> ''),
+      vehicle_plate text,
+      summary text NOT NULL CHECK (char_length(summary) > 0),
+      details jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(details) = 'array'),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  pgm.sql('CREATE UNIQUE INDEX documents_id_workspace_id_key ON documents (id, workspace_id)');
+  pgm.sql('CREATE INDEX documents_workspace_id_document_date_idx ON documents (workspace_id, document_date)');
+  pgm.sql('CREATE INDEX documents_workspace_id_kind_idx ON documents (workspace_id, kind)');
+}
+
+function createDocumentSources(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    CREATE TABLE document_sources (
+      id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id uuid NOT NULL,
+      document_id uuid NOT NULL,
+      message_id uuid NOT NULL,
+      item_index smallint NOT NULL CHECK (item_index >= 0),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      FOREIGN KEY (document_id, workspace_id) REFERENCES documents (id, workspace_id) ON DELETE CASCADE,
+      FOREIGN KEY (message_id, workspace_id) REFERENCES messages (id, workspace_id) ON DELETE CASCADE
+    )
+  `);
+  pgm.sql('CREATE UNIQUE INDEX document_sources_message_id_item_index_key ON document_sources (message_id, item_index)');
+  pgm.sql('CREATE INDEX document_sources_document_id_idx ON document_sources (document_id)');
+}
+
+function protectTable(pgm: MigrationBuilder, table: string, condition: string): void {
+  pgm.sql(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+  pgm.sql(`CREATE POLICY in_scope ON ${table} USING (${condition}) WITH CHECK (${condition})`);
+}
