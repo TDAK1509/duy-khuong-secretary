@@ -50,7 +50,23 @@ describe('the proposal of names spelled close to a known company', () => {
       { external_user_id: 'zu-khuong', body: PROPOSAL_TEXT },
     ]);
   });
+
+  it('queues no new proposal after a save whose names are all new, while an earlier pair still waits', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+    await harness.receivePhoto('zu-hung');
+    const proposalsBefore = await readProposalsQueued();
+    harness.reader.answerWith(makeReading([makeTicketItem({ document_number: '20261105099', parties: [makeNewIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await readProposalsQueued()).toEqual(proposalsBefore);
+  });
 });
+
+function makeNewIssuer() {
+  return { role: 'issuer', type: 'company', printed_name: 'Công ty Mới Hoàn Toàn', known_name: null };
+}
 
 function makeMisreadIssuer() {
   return { role: 'issuer', type: 'company', printed_name: CHONG_LOONG, known_name: CHENG_LOONG };
