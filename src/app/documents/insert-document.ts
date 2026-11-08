@@ -9,17 +9,19 @@ const FALLBACK_KIND = 'khác';
 
 export type DocumentStatus = 'accepted' | 'needs_review';
 
+export type InsertedDocument = { documentId: string; proposedPartyCount: number };
+
 export async function insertDocument(
   transaction: Transaction,
   message: DocumentMessage,
   draft: DocumentDraft,
   status: DocumentStatus,
-): Promise<string> {
+): Promise<InsertedDocument> {
   const documentId = await insertRow(transaction, 'documents', buildDocumentRow(message, draft, status));
   await insertLines(transaction, message, documentId, draft);
-  await insertParties(transaction, message, documentId, draft);
+  const proposedPartyCount = await insertParties(transaction, message, documentId, draft);
   await insertSources(transaction, message, documentId, draft);
-  return documentId;
+  return { documentId, proposedPartyCount };
 }
 
 function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft, status: DocumentStatus): Record<string, unknown> {

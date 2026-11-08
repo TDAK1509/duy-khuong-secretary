@@ -8,11 +8,14 @@ import type { DocumentMessage } from './store-documents.ts';
 
 type KeyedParty = { party: ReadingParty; matchKey: string };
 
-export async function insertParties(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
+export async function insertParties(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<number> {
+  let proposedPartyCount = 0;
   for (const { party, matchKey } of listDistinctParties(draft)) {
     const link = await linkParty(transaction, message.workspaceId, party, matchKey);
     await insertRow(transaction, 'document_parties', buildPartyRow(message, documentId, party, matchKey, link));
+    if (link.proposed_organization_id !== null) proposedPartyCount += 1;
   }
+  return proposedPartyCount;
 }
 
 function listDistinctParties(draft: DocumentDraft): KeyedParty[] {
