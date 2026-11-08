@@ -1,4 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
+import { storeDocuments } from '../documents/store-documents.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import type { IntakeContext } from './intake-context.ts';
@@ -30,6 +31,7 @@ export async function saveReplyOnPhoto(
   const { sender } = context;
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   await saveRecordsAndReply(transaction, context, target, reply);
+  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan);
   if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
     await markQuestionPending(transaction, target.textId);
   }

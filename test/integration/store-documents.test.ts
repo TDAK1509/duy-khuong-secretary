@@ -272,6 +272,23 @@ describe('storing the documents of a saved message', () => {
       ),
     ).toEqual([{ name: 'Trọng lượng hàng', number: null }]);
   });
+
+  it('stores the document of a photo saved after the explanation text, with the photo as its source', async () => {
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+
+    await harness.receiveText('zu-hung', 'Phiếu cân xe 93C04588');
+
+    expect(
+      await database.query(
+        `SELECT document.document_number, message.image_key IS NOT NULL AS is_photo
+         FROM documents document
+           JOIN document_sources source ON source.document_id = document.id
+           JOIN messages message ON message.id = source.message_id`,
+      ),
+    ).toEqual([{ document_number: '20261105054', is_photo: true }]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
