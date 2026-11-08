@@ -6,7 +6,7 @@ import { insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const CHENG_LOONG = 'Công ty TNHH Cheng Loong Bình Dương Paper';
 const ADMIN_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
@@ -117,6 +117,23 @@ describe('the number reply of an admin to the name proposal', () => {
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: NO_PENDING_CHOICE_TEXT }]);
     expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
       { organization_id: null, proposed_organization_id: chengLoongId },
+    ]);
+  });
+
+  it('leaves the waiting party of another workspace with the same printed name waiting', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải Thử');
+    await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const otherChengLoongId = await insertOrganizationWithAlias(database, { workspaceId: otherWorkspaceId, name: CHENG_LOONG });
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', CHONG_LOONG, CHENG_LOONG)] })]));
+    await harness.receivePhoto('zu-lan');
+    await waitForMisreadParty();
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+
+    await harness.receiveText('zu-duy', '1');
+
+    expect(await database.query(`SELECT workspace_id, organization_id, proposed_organization_id FROM document_parties ORDER BY created_at`)).toEqual([
+      { workspace_id: otherWorkspaceId, organization_id: null, proposed_organization_id: otherChengLoongId },
+      { workspace_id: harness.workspaceId, organization_id: chengLoongId, proposed_organization_id: null },
     ]);
   });
 });
