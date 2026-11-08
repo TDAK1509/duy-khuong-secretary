@@ -9,7 +9,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
-import { insertAnotherSource, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
+import { insertAnotherSource, insertDateLine, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -110,6 +110,20 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([]);
     expect(total.without_number).toBe(1);
   });
+
+  it('groups by the day of the date meaning the admin chose', async () => {
+    await insertWeighedAfterMidnight();
+
+    const total = await runTotal({ group_by: 'day', date_meaning: 'Thời điểm cân lần 2' });
+
+    expect(total.groups).toEqual([{ group: '2026-11-01', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
+  });
+
+  async function insertWeighedAfterMidnight(): Promise<void> {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
+    await insertDateLine(database, { workspaceId, documentId, lineNo: 1, meaning: 'Thời điểm cân lần 2', at: '2026-11-01 08:00' });
+  }
 
   type Weighing = {
     documentNumber: string;

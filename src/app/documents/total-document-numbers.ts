@@ -1,7 +1,9 @@
 import type { Database } from '../db/transaction.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { addDocumentFilters, type DocumentFilters, type OrganizationLink } from './add-document-filters.ts';
+import { buildDocumentDateSql } from './build-document-date.ts';
 import { buildMatchKey } from './build-match-key.ts';
+import { buildGroupSql, type DocumentGroup } from './document-groups.ts';
 
 export type DocumentNumberTotal = { group: string | null; unit: string; count: number; sum: string; min: string; max: string };
 
@@ -14,11 +16,11 @@ export type DocumentNumberTotals = {
 
 export type LineLevel = 'document' | 'item';
 
-export type TotalRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters };
+export type TotalRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters; groupBy: DocumentGroup };
 
 type DocumentRule = { status: 'accepted' | 'needs_review'; link: OrganizationLink };
 
-type TotalRow = { unit: string | null; count: number; sum: string; min: string; max: string };
+type TotalRow = { group: string | null; unit: string | null; count: number; sum: string; min: string; max: string };
 
 const FROM_NUMBER_LINES = `FROM documents document
   JOIN document_lines line ON line.document_id = document.id
@@ -26,7 +28,7 @@ const FROM_NUMBER_LINES = `FROM documents document
 
 const FROM_MEANING_LINES = `FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`;
 
-const SUM_NUMBERS = `SELECT min(line.unit) AS unit, count(line.number)::int AS count, sum(line.number)::text AS sum,
+const SUM_NUMBERS = `min(line.unit) AS unit, count(line.number)::int AS count, sum(line.number)::text AS sum,
     min(line.number)::text AS min, max(line.number)::text AS max`;
 
 const ACCEPTED_CONFIRMED: DocumentRule = { status: 'accepted', link: 'organization_id' };
@@ -42,7 +44,11 @@ export async function totalDocumentNumbers(database: Database, request: TotalReq
 
 async function sumNumbers(database: Database, request: TotalRequest): Promise<DocumentNumberTotal[]> {
   const where = buildNumberWhere(request, ACCEPTED_CONFIRMED);
-  const { rows } = await database.query<TotalRow>(`${SUM_NUMBERS} ${FROM_NUMBER_LINES} WHERE ${where.toSql()}`, where.values);
+  const groupSql = buildGroupSql(request.groupBy, buildDocumentDateSql(where, request.filters.dateMeaning));
+  const { rows } = await database.query<TotalRow>(
+    `SELECT ${groupSql} AS "group", ${SUM_NUMBERS} ${FROM_NUMBER_LINES} WHERE ${where.toSql()} GROUP BY 1 ORDER BY 1 NULLS LAST`,
+    where.values,
+  );
   return rows.filter(hasGroup).map(buildTotal);
 }
 
@@ -95,5 +101,5 @@ function hasGroup(row: TotalRow): row is TotalRow & { unit: string } {
 }
 
 function buildTotal(row: TotalRow & { unit: string }): DocumentNumberTotal {
-  return { group: null, unit: row.unit, count: row.count, sum: row.sum, min: row.min, max: row.max };
+  return { group: row.group, unit: row.unit, count: row.count, sum: row.sum, min: row.min, max: row.max };
 }
