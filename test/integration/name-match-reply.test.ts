@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { NO_PENDING_CHOICE_TEXT } from '../../src/app/processing/conversation-texts.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
@@ -101,6 +102,22 @@ describe('the number reply of an admin to the name proposal', () => {
       { organization_id: created[0]?.id, proposed_organization_id: null },
     ]);
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: 'Đã lưu các tên này là bên riêng.' }]);
+  });
+
+  it('refuses a person who is no longer an admin of the workspace', async () => {
+    await waitForMisreadParty();
+    await harness.sendAllQueuedTexts();
+    harness.channel.sends.splice(0);
+    await holdProposalChoice('zu-duy', [{ printedName: CHONG_LOONG, organizationId: chengLoongId }]);
+    await database.query(`UPDATE memberships SET role = 'member' WHERE display_name = 'Duy'`);
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: NO_PENDING_CHOICE_TEXT }]);
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: null, proposed_organization_id: chengLoongId },
+    ]);
   });
 });
 
