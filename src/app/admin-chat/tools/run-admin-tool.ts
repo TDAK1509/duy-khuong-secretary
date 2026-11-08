@@ -16,6 +16,7 @@ import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runReviewNameMatches } from './review-name-matches-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
+import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
 import { runTotalNumbers } from './total-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
@@ -56,6 +57,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   review_name_matches: runReviewNameMatches,
   list_number_labels: ({ database }, scope, args) => runListNumberLabels(database, scope, args),
   total_numbers: ({ database }, scope, args) => runTotalNumbers(database, scope, args),
+  total_document_numbers: ({ database }, _scope, args) => runTotalDocumentNumbers(database, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
