@@ -73,6 +73,20 @@ describe('the proposal of names spelled close to a known company', () => {
     ]);
   });
 
+  it('still clears the pending choice of the member whose photo made the proposal', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
+    await database.query(
+      `UPDATE channel_identities SET pending_choice = '{"kind": "workspace_pick", "workspace_ids": []}'::jsonb WHERE external_user_id = 'zu-hung'`,
+    );
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT pending_choice FROM channel_identities WHERE external_user_id = 'zu-hung'`)).toEqual([
+      { pending_choice: null },
+    ]);
+  });
+
   it('queues no new proposal after a save whose names are all new, while an earlier pair still waits', async () => {
     await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
