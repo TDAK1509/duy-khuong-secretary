@@ -393,6 +393,16 @@ describe('the document number tools of an admin', () => {
     ]);
   });
 
+  it('lists only the meanings of the documents that match the filters', async () => {
+    await insertWeighing({ documentNumber: '0040', netKg: 26380 });
+    const other = await insertWeighing({ documentNumber: '0041', netKg: 120, organizationId: null });
+    await insertNumberLine(database, { workspaceId, documentId: other, lineNo: 1, meaning: 'Số km', number: 120, unit: 'km' });
+
+    const list = await runList({ organization: 'Công ty TNHH Cheng Loong Bình Dương Paper' });
+
+    expect(list.numbers.map((entry) => entry.meaning)).toEqual(['Trọng lượng hàng']);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
