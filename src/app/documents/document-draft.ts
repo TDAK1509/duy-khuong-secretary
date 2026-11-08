@@ -37,11 +37,17 @@ function canJoin(draft: DocumentDraft, { record, item }: PlannedItem): boolean {
     draft.issuerKey === findIssuerKey(item) &&
     draft.documentNumber !== null &&
     draft.documentNumber === record.documentNumber &&
-    draft.documentDate === item.occurred_on
+    draft.documentDate === item.occurred_on &&
+    hasCompatiblePlate(draft.vehiclePlate, record.vehiclePlate)
   );
 }
 
+export function hasCompatiblePlate(first: string | null, second: string | null): boolean {
+  return first === null || second === null || first === second;
+}
+
 function addToDraft(draft: DocumentDraft, next: PlannedItem): void {
+  draft.vehiclePlate ??= next.record.vehiclePlate;
   draft.items.push(next);
   if (!draft.lineItems.some(({ item }) => isDeepStrictEqual(item, next.item))) draft.lineItems.push(next);
 }

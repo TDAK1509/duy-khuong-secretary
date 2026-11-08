@@ -248,6 +248,17 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM records')).toEqual([{ count: 0 }]);
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
   });
+
+  it('keeps two items with different plates as two documents, the second for review', async () => {
+    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588'), makeChengLoongTicket('93H00316')]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY created_at, vehicle_plate')).toEqual([
+      { vehicle_plate: '93C04588', status: 'accepted' },
+      { vehicle_plate: '93H00316', status: 'needs_review' },
+    ]);
+  });
 });
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
