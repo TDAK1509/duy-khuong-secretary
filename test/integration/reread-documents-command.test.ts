@@ -286,6 +286,29 @@ describe('the reread-documents command', () => {
     ]);
   });
 
+  it('creates the document of a saved message whose own record equals the new reading', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00', 'accepted');
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      messageId,
+      category: 'phiếu cân',
+      documentNumber: '20261105054',
+      occurredOn: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeChengLoongTicket()]));
+
+    const { exitCode } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(0);
+    expect(await database.query('SELECT document_number FROM documents')).toEqual([{ document_number: '20261105054' }]);
+    expect(await database.query('SELECT message_id FROM document_sources')).toEqual([{ message_id: messageId }]);
+  });
+
   it('creates no document for a rejected duplicate photo that matches no document', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     await insertReadTicketRecord(workspaceId, userId);
