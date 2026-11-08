@@ -245,6 +245,19 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT message_id FROM document_reads')).toEqual([{ message_id: secondMessageId }]);
   });
 
+  it('fails a message whose reply fails validation as invalid_output', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+    reader.answerWith({ items: 'not a list' });
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines[0]).toBe(`Failed message ${messageId}: invalid_output`);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
+  });
+
   it('fails a message with records that the reader now reads as empty', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const messageId = await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
