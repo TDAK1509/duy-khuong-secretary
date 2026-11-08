@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
+import { insertDocumentWithSource } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
@@ -73,7 +74,32 @@ describe('storing the documents of a saved message', () => {
       { item: 'lốp' },
     ]);
   });
+
+  it('adds only a source when a second photo shows an accepted document', async () => {
+    await insertDocumentWithSource(database, {
+      workspaceId: harness.workspaceId,
+      userId: harness.hungUserId,
+      issuerKey: 'congtytnhhchengloongbinhduongpaper',
+      documentNumber: '20261105054',
+      documentDate: '2026-11-05',
+      vehiclePlate: '93C04588',
+    });
+    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM document_sources')).toEqual([{ count: 2 }]);
+  });
 });
+
+function makeChengLoongTicket(vehiclePlate: string | null) {
+  return makeTicketItem({
+    document_number: '20261105054',
+    vehicle_plate: vehiclePlate,
+    parties: [makeParty('issuer', 'Công ty TNHH Cheng Loong Bình Dương Paper')],
+  });
+}
 
 function makeTicketItem(overrides: ItemOverrides = {}) {
   return makeItem({

@@ -1,7 +1,8 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { ReplyPlan } from '../intake/plan-reply.ts';
 import { groupItems, pairItemsWithRecords, type DocumentDraft } from './document-draft.ts';
-import { insertDocument } from './insert-document.ts';
+import { findAcceptedDocuments } from './find-accepted-documents.ts';
+import { insertDocument, insertSources } from './insert-document.ts';
 
 export type DocumentMessage = { id: string; workspaceId: string };
 
@@ -14,5 +15,12 @@ export async function storeDocuments(transaction: Transaction, message: Document
 }
 
 async function storeDraft(transaction: Transaction, message: DocumentMessage, draft: DocumentDraft): Promise<void> {
-  await insertDocument(transaction, message, draft);
+  const accepted = await findAcceptedDocuments(transaction, message.workspaceId, draft);
+  const same = accepted.find((document) => hasCompatiblePlate(document.vehicle_plate, draft.vehiclePlate));
+  if (same) await insertSources(transaction, message, same.id, draft);
+  else await insertDocument(transaction, message, draft);
+}
+
+function hasCompatiblePlate(first: string | null, second: string | null): boolean {
+  return first === null || second === null || first === second;
 }

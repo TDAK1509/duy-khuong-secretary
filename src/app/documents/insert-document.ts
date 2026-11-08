@@ -40,7 +40,7 @@ async function insertLines(transaction: Transaction, message: DocumentMessage, d
   }
 }
 
-async function insertSources(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
+export async function insertSources(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
   for (const { record } of draft.items) {
     const source = { workspace_id: message.workspaceId, document_id: documentId, message_id: message.id, item_index: record.itemIndex };
     await insertRow(transaction, 'document_sources', source);
