@@ -48,4 +48,15 @@ describe('formatReadData', () => {
     expect(block).not.toContain('Số tiền');
     expect(block).not.toContain('Mã');
   });
+
+  it('numbers two records as two parts', () => {
+    const records = buildNewRecords([
+      makeItem({ category: 'đổ xăng dầu', amount_vnd: null, occurred_on: null, details: [{ label: 'Lít', value: '40' }] }),
+      makeItem({ category: 'rửa xe', amount_vnd: null, occurred_on: null, details: [{ label: 'Loại', value: 'rửa gầm' }] }),
+    ]);
+
+    expect(formatReadData(records)).toBe(
+      ['Dữ liệu đã đọc:', 'Mục 1: đổ xăng dầu', '- Lít: 40', 'Mục 2: rửa xe', '- Loại: rửa gầm'].join('\n'),
+    );
+  });
 });
