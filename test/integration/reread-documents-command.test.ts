@@ -182,6 +182,27 @@ describe('the reread-documents command', () => {
     expect(reader.requests).toHaveLength(callsAfterFirstRun);
   });
 
+  it('reports a reader failure and goes on with the next message', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const firstMessageId = await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const secondMessageId = await insertSavedPhoto(workspaceId, userId, '2026-11-02T11:00:00+07:00');
+    let calls = 0;
+    const reader = new FakeReader(() => {
+      calls += 1;
+      return calls === 1 ? { ok: false, reason: 'unavailable' } : { ok: true, json: makeReading([makeItem({ document_kind: 'hóa đơn' })]) };
+    });
+
+    const { exitCode, lines } = await runReread(workspaceId, reader);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([
+      `Failed message ${firstMessageId}: reader_failed`,
+      'Re-read 2 messages. Stored 1 documents. No document in 0. Test photos: 0. Failed 1.',
+    ]);
+    expect(await database.query('SELECT message_id FROM document_sources')).toEqual([{ message_id: secondMessageId }]);
+    expect(await database.query('SELECT message_id FROM document_reads')).toEqual([{ message_id: secondMessageId }]);
+  });
+
   function answerFirstCallWithAnItem(): FakeReader {
     const noWorkData = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
     let calls = 0;
