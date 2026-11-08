@@ -120,6 +120,30 @@ describe('the reread-documents command', () => {
     );
   });
 
+  it('gives the reader only the sender own texts from 10 minutes before the photo up to its first record', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    const otherUserId = await insertMember(database, { workspaceId, externalUserId: 'zalo-2', displayName: 'Lan' });
+    const photoId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00', 'accepted');
+    await insertRecordRow(database, {
+      workspaceId,
+      userId,
+      senderName: 'Duy',
+      messageId: photoId,
+      createdAt: new Date('2026-11-02T10:04:00+07:00'),
+    });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T09:49:00+07:00', text: 'quá sớm 11 phút' });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T09:51:00+07:00', text: 'sớm 9 phút' });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:03:00+07:00', text: 'trước khi lưu' });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:05:00+07:00', text: 'sau khi lưu' });
+    await insertSentMessage(database, { workspaceId, userId: otherUserId, sentAt: '2026-11-02T10:02:00+07:00', text: 'của người khác' });
+    await insertSentMessage(database, { workspaceId, userId, sentAt: '2026-11-02T10:01:00+07:00', text: 'chú thích ảnh', imageKey: 'other.jpg' });
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests[0]?.text).toBe('Các tin nhắn gần đây của người gửi, từ cũ đến mới:\n- sớm 9 phút\n- trước khi lưu');
+  });
+
   it('gives the reader the date the message was sent as today', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const imageKey = `${workspaceId}/${randomUUID()}.jpg`;
