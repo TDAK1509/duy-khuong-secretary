@@ -377,6 +377,22 @@ describe('the document number tools of an admin', () => {
     expect(total.not_reread_messages).toBe(0);
   });
 
+  it('lists number meanings and date meanings with the documents that hold them at each level', async () => {
+    const invoiceId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0039', kind: 'hóa đơn' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 0, meaning: 'Thành tiền', number: 500000, unit: 'vnd', item: 'Lốp' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 1, meaning: 'Thành tiền', number: 3500000, unit: 'vnd', item: 'Nhớt' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 2, meaning: 'Tổng tiền thanh toán', number: 4000000, unit: 'vnd' });
+    await insertDateLine(database, { workspaceId, documentId: invoiceId, lineNo: 3, meaning: 'Thời điểm cân lần 2', at: '2026-11-01 08:00' });
+
+    const list = await runList();
+
+    expect(list.numbers).toEqual([
+      { meaning: 'Thành tiền', value_type: 'number', unit: 'vnd', document_count: 0, item_document_count: 1 },
+      { meaning: 'Thời điểm cân lần 2', value_type: 'date', unit: null, document_count: 1, item_document_count: 0 },
+      { meaning: 'Tổng tiền thanh toán', value_type: 'number', unit: 'vnd', document_count: 1, item_document_count: 0 },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
