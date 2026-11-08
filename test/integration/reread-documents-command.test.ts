@@ -334,6 +334,18 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM document_reads')).toEqual([{ count: 0 }]);
   });
 
+  it('needs no reader and no photo storage settings for a dry run', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+
+    const { exitCode, lines } = await runWithEnvironment([workspaceId], {});
+
+    expect(exitCode).toBe(0);
+    expect(lines).toEqual([
+      'Messages to re-read: 1. Test photos: 0, with 0 records to remove. Nothing changed. Run again with --apply.',
+    ]);
+  });
+
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const userId = await insertMember(database, { workspaceId, externalUserId: 'zalo-1', displayName: 'Duy' });
