@@ -3,7 +3,6 @@ import type { Database } from '../db/transaction.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 import type { DocumentFilters } from './add-document-filters.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from './build-document-where.ts';
-import { buildDocumentDateSql } from './build-document-date.ts';
 import { buildMatchKey } from './build-match-key.ts';
 import { countNotRereadMessages } from './count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from './document-groups.ts';
@@ -43,7 +42,7 @@ export async function totalDocumentNumbers(database: Database, scope: AccessScop
 
 async function sumNumbers(database: Database, scope: AccessScope, request: TotalRequest): Promise<DocumentNumberTotal[]> {
   const where = buildNumberWhere(scope, request, ACCEPTED_CONFIRMED);
-  const groupSql = buildGroupSql(request.groupBy, buildDocumentDateSql(where, request.filters.dateMeaning));
+  const groupSql = buildGroupSql(request.groupBy, where, request.filters.dateMeaning);
   const { rows } = await database.query<DocumentNumberTotal>(
     `SELECT ${groupSql} AS "group", ${SUM_NUMBERS} ${FROM_NUMBER_LINES} WHERE ${where.toSql()} GROUP BY 1, 2 ORDER BY 1 NULLS LAST, 2`,
     where.values,
