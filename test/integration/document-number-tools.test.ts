@@ -292,6 +292,18 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: '2026-11', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
   });
 
+  it('groups by the kind of document', async () => {
+    await insertWeighing({ documentNumber: '0028', netKg: 26380, kind: 'phiếu cân xe' });
+    await insertWeighing({ documentNumber: '0029', netKg: 27790, kind: 'hóa đơn' });
+
+    const total = await runTotal({ group_by: 'kind' });
+
+    expect(total.groups).toEqual([
+      { group: 'hóa đơn', unit: 'kg', count: 1, sum: '27790', min: '27790', max: '27790' },
+      { group: 'phiếu cân xe', unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' },
+    ]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
