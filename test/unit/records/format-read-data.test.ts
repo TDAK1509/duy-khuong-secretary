@@ -38,4 +38,14 @@ describe('formatReadData', () => {
       ].join('\n'),
     );
   });
+
+  it('leaves out a line for every null field', () => {
+    const records = buildNewRecords([makeItem({ amount_vnd: null, vehicle_plate: null, identifiers: [] })]);
+
+    const block = formatReadData(records);
+
+    expect(block).not.toContain('Biển số');
+    expect(block).not.toContain('Số tiền');
+    expect(block).not.toContain('Mã');
+  });
 });
