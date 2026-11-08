@@ -32,6 +32,26 @@ describe('storing the documents of a saved message', () => {
       ),
     ).toEqual([{ item_index: 0, user_id: harness.hungUserId }]);
   });
+
+  it('makes one document with two sources of two identical items on one sheet', async () => {
+    const copy = makeTicketItem({
+      document_number: '20261105054',
+      parties: [makeParty('issuer', 'Công ty TNHH Cheng Loong Bình Dương Paper')],
+      details: [{ label: 'Hàng hóa', value: 'Giấy phế liệu' }],
+    });
+    harness.reader.answerWith(makeReading([copy, copy]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT document_number FROM documents')).toEqual([{ document_number: '20261105054' }]);
+    expect(await database.query('SELECT item_index FROM document_sources ORDER BY item_index')).toEqual([
+      { item_index: 0 },
+      { item_index: 1 },
+    ]);
+    expect(await database.query('SELECT line_no, label, value FROM document_lines')).toEqual([
+      { line_no: 0, label: 'Hàng hóa', value: 'Giấy phế liệu' },
+    ]);
+  });
 });
 
 function makeTicketItem(overrides: ItemOverrides = {}) {
