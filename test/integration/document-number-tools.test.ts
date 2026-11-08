@@ -278,6 +278,12 @@ describe('the document number tools of an admin', () => {
     expect(JSON.parse(output)).toEqual({ ok: false, error: INVALID_DATE_ERROR });
   });
 
+  it('refuses an impossible date when listing the number meanings', async () => {
+    const output = await runTool('list_document_numbers', { ...buildListArguments(), date_to: '2026-13-01' }, duy);
+
+    expect(JSON.parse(output)).toEqual({ ok: false, error: INVALID_DATE_ERROR });
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
@@ -304,8 +310,11 @@ describe('the document number tools of an admin', () => {
   }
 
   async function runList(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<ListOutput> {
-    const args = { organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, date_from: null, date_to: null, ...overrides };
-    return JSON.parse(await runTool('list_document_numbers', args, scope)) as ListOutput;
+    return JSON.parse(await runTool('list_document_numbers', { ...buildListArguments(), ...overrides }, scope)) as ListOutput;
+  }
+
+  function buildListArguments(): TotalArguments {
+    return { organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, date_from: null, date_to: null };
   }
 
   async function runListOrganizations(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<OrganizationsOutput> {
