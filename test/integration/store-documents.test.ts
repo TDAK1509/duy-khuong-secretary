@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -90,6 +91,21 @@ describe('storing the documents of a saved message', () => {
 
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
     expect(await database.query('SELECT count(*)::int AS count FROM document_sources')).toEqual([{ count: 2 }]);
+  });
+
+  it('links the source of a photo that is answered as a duplicate', async () => {
+    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+    harness.channel.texts.splice(0);
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([DUPLICATE_TEXT]);
+    expect(await database.query('SELECT count(*)::int AS count FROM records')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT count(DISTINCT message_id)::int AS count FROM document_sources')).toEqual([{ count: 2 }]);
   });
 });
 
