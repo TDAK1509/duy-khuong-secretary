@@ -19,6 +19,7 @@ type TotalArguments = Record<string, string | null>;
 type TotalOutput = {
   ok: boolean;
   pending_name_documents: number;
+  review_documents: number;
   groups: { group: string | null; unit: string; count: number; sum: string; min: string; max: string }[];
 };
 
@@ -87,10 +88,30 @@ describe('the document number tools of an admin', () => {
     expect(total.pending_name_documents).toBe(1);
   });
 
-  async function insertWeighing(row: { documentNumber: string; netKg: number; stage?: 'dispatch' | 'receipt' }): Promise<string> {
-    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: row.documentNumber, stage: row.stage });
+  it('leaves out a document that waits for review and counts it', async () => {
+    await insertWeighing({ documentNumber: '0007', netKg: 26380, organizationId: null });
+    await insertWeighing({ documentNumber: '0008', netKg: 27790, organizationId: null, status: 'needs_review' });
+
+    const total = await runTotal();
+
+    expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
+    expect(total.review_documents).toBe(1);
+  });
+
+  type Weighing = {
+    documentNumber: string;
+    netKg: number;
+    stage?: 'dispatch' | 'receipt';
+    status?: 'accepted' | 'needs_review';
+    organizationId?: string | null;
+  };
+
+  async function insertWeighing(row: Weighing): Promise<string> {
+    const { documentNumber, stage, status } = row;
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber, stage, status });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: row.netKg, unit: 'kg' });
-    await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName: 'Cheng Loong' });
+    const organizationId = row.organizationId === undefined ? chengLoongId : row.organizationId;
+    if (organizationId !== null) await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId, printedName: 'Cheng Loong' });
     return documentId;
   }
 

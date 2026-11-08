@@ -1,12 +1,12 @@
 import { WhereClause } from '../records/where-clause.ts';
 import { buildMatchKey } from './build-match-key.ts';
 
-export type DocumentFilters = { organization: string; stage: string | null };
+export type DocumentFilters = { organization: string | null; stage: string | null };
 
 export type OrganizationLink = 'organization_id' | 'proposed_organization_id';
 
 export function addDocumentFilters(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): void {
-  where.require(buildOrganizationCondition(where, filters.organization, link));
+  if (filters.organization !== null) where.require(buildOrganizationCondition(where, filters.organization, link));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
 }
 
