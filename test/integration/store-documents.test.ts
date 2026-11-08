@@ -135,6 +135,22 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 1 }]);
   });
 
+  it('saves the record and the document of an item with a blank line item, a blank label and a padded kind', async () => {
+    const details = [
+      { label: 'Hàng hóa', value: 'Giấy phế liệu', item: '  ' },
+      { label: '  ', value: 'không nhãn' },
+    ];
+    harness.reader.answerWith(makeReading([makeTicketItem({ details, document_kind: ' phiếu cân xe ' })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT count(*)::int AS count FROM records')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT kind FROM documents')).toEqual([{ kind: 'phiếu cân xe' }]);
+    expect(await database.query('SELECT line_no, label, item FROM document_lines')).toEqual([
+      { line_no: 0, label: 'Hàng hóa', item: null },
+    ]);
+  });
+
   it('keeps a different plate on the same ticket number and date apart for review', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,

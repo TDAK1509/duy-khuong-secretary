@@ -26,7 +26,7 @@ function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft
   const { item, record } = draft.items[0] ?? failEmptyDraft();
   return {
     workspace_id: workspaceId,
-    kind: item.document_kind.trim() === '' ? FALLBACK_KIND : item.document_kind,
+    kind: item.document_kind.trim() || FALLBACK_KIND,
     stage: item.stage,
     status,
     document_number: draft.documentNumber,
