@@ -20,6 +20,7 @@ type TotalOutput = {
   ok: boolean;
   pending_name_documents: number;
   review_documents: number;
+  without_number: number;
   groups: { group: string | null; unit: string; count: number; sum: string; min: string; max: string }[];
 };
 
@@ -96,6 +97,18 @@ describe('the document number tools of an admin', () => {
 
     expect(total.groups).toEqual([{ group: null, unit: 'kg', count: 1, sum: '26380', min: '26380', max: '26380' }]);
     expect(total.review_documents).toBe(1);
+  });
+
+  it('leaves the item lines out of a document total', async () => {
+    const invoiceId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0009', kind: 'hóa đơn' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 0, meaning: 'Thành tiền', number: 500000, unit: 'vnd', item: 'Lốp' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 1, meaning: 'Thành tiền', number: 3500000, unit: 'vnd', item: 'Nhớt' });
+    await insertNumberLine(database, { workspaceId, documentId: invoiceId, lineNo: 2, meaning: 'Tổng tiền thanh toán', number: 4000000, unit: 'vnd' });
+
+    const total = await runTotal({ meaning: 'Thành tiền', lines: 'document' });
+
+    expect(total.groups).toEqual([]);
+    expect(total.without_number).toBe(1);
   });
 
   type Weighing = {

@@ -12,12 +12,13 @@ const argumentsSchema = z.object({
 export async function runTotalDocumentNumbers(database: Database, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   const filters = { organization: args.organization, stage: args.stage };
-  const totals = await totalDocumentNumbers(database, { meaning: args.meaning, filters });
+  const totals = await totalDocumentNumbers(database, { meaning: args.meaning, lines: args.lines, filters });
   return JSON.stringify({
     ok: true,
     meaning: args.meaning,
     groups: totals.groups,
     pending_name_documents: totals.pendingNameDocuments,
     review_documents: totals.reviewDocuments,
+    without_number: totals.withoutNumber,
   });
 }

@@ -5,9 +5,16 @@ import { buildMatchKey } from './build-match-key.ts';
 
 export type DocumentNumberTotal = { group: string | null; unit: string; count: number; sum: string; min: string; max: string };
 
-export type DocumentNumberTotals = { groups: DocumentNumberTotal[]; pendingNameDocuments: number; reviewDocuments: number };
+export type DocumentNumberTotals = {
+  groups: DocumentNumberTotal[];
+  pendingNameDocuments: number;
+  reviewDocuments: number;
+  withoutNumber: number;
+};
 
-export type TotalRequest = { meaning: string; filters: DocumentFilters };
+export type LineLevel = 'document' | 'item';
+
+export type TotalRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters };
 
 type DocumentRule = { status: 'accepted' | 'needs_review'; link: OrganizationLink };
 
@@ -17,18 +24,24 @@ const FROM_NUMBER_LINES = `FROM documents document
   JOIN document_lines line ON line.document_id = document.id
   JOIN meanings meaning ON meaning.id = line.meaning_id`;
 
+const FROM_MEANING_LINES = `FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id`;
+
 const SUM_NUMBERS = `SELECT min(line.unit) AS unit, count(line.number)::int AS count, sum(line.number)::text AS sum,
     min(line.number)::text AS min, max(line.number)::text AS max`;
 
+const ACCEPTED_CONFIRMED: DocumentRule = { status: 'accepted', link: 'organization_id' };
+
 export async function totalDocumentNumbers(database: Database, request: TotalRequest): Promise<DocumentNumberTotals> {
-  const groups = await sumNumbers(database, request);
-  const pendingNameDocuments = await countPendingNameDocuments(database, request);
-  const reviewDocuments = await countDocuments(database, request, { status: 'needs_review', link: 'organization_id' });
-  return { groups, pendingNameDocuments, reviewDocuments };
+  return {
+    groups: await sumNumbers(database, request),
+    pendingNameDocuments: await countPendingNameDocuments(database, request),
+    reviewDocuments: await countDocuments(database, request, { status: 'needs_review', link: 'organization_id' }),
+    withoutNumber: await countWithoutNumber(database, request),
+  };
 }
 
 async function sumNumbers(database: Database, request: TotalRequest): Promise<DocumentNumberTotal[]> {
-  const where = buildWhere(request, { status: 'accepted', link: 'organization_id' });
+  const where = buildNumberWhere(request, ACCEPTED_CONFIRMED);
   const { rows } = await database.query<TotalRow>(`${SUM_NUMBERS} ${FROM_NUMBER_LINES} WHERE ${where.toSql()}`, where.values);
   return rows.filter(hasGroup).map(buildTotal);
 }
@@ -39,7 +52,7 @@ async function countPendingNameDocuments(database: Database, request: TotalReque
 }
 
 async function countDocuments(database: Database, request: TotalRequest, rule: DocumentRule): Promise<number> {
-  const where = buildWhere(request, rule);
+  const where = buildNumberWhere(request, rule);
   const { rows } = await database.query<{ count: number }>(
     `SELECT count(DISTINCT document.id)::int AS count ${FROM_NUMBER_LINES} WHERE ${where.toSql()}`,
     where.values,
@@ -47,12 +60,34 @@ async function countDocuments(database: Database, request: TotalRequest, rule: D
   return rows[0]?.count ?? 0;
 }
 
-function buildWhere(request: TotalRequest, rule: DocumentRule): WhereClause {
+async function countWithoutNumber(database: Database, request: TotalRequest): Promise<number> {
+  const where = buildDocumentWhere(request, ACCEPTED_CONFIRMED);
+  where.require(`EXISTS (SELECT 1 ${FROM_MEANING_LINES} WHERE ${buildMeaningCondition(where, request.meaning)})`);
+  where.require(`NOT EXISTS (SELECT 1 ${FROM_MEANING_LINES} WHERE ${buildNumberCondition(where, request)})`);
+  const { rows } = await database.query<{ count: number }>(`SELECT count(*)::int AS count FROM documents document WHERE ${where.toSql()}`, where.values);
+  return rows[0]?.count ?? 0;
+}
+
+function buildNumberWhere(request: TotalRequest, rule: DocumentRule): WhereClause {
+  const where = buildDocumentWhere(request, rule);
+  where.require(buildNumberCondition(where, request));
+  return where;
+}
+
+function buildDocumentWhere(request: TotalRequest, rule: DocumentRule): WhereClause {
   const where = new WhereClause();
   where.require(`document.status = ${where.bind(rule.status)}`);
-  where.require(`meaning.value_type = 'number' AND meaning.match_key = ${where.bind(buildMatchKey(request.meaning))}`);
   addDocumentFilters(where, request.filters, rule.link);
   return where;
+}
+
+function buildNumberCondition(where: WhereClause, request: TotalRequest): string {
+  const level = request.lines === 'document' ? 'line.item IS NULL' : 'line.item IS NOT NULL';
+  return `${buildMeaningCondition(where, request.meaning)} AND line.number IS NOT NULL AND ${level}`;
+}
+
+function buildMeaningCondition(where: WhereClause, meaning: string): string {
+  return `line.document_id = document.id AND meaning.value_type = 'number' AND meaning.match_key = ${where.bind(buildMatchKey(meaning))}`;
 }
 
 function hasGroup(row: TotalRow): row is TotalRow & { unit: string } {
