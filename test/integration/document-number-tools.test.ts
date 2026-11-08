@@ -119,6 +119,14 @@ describe('the document number tools of an admin', () => {
     expect(total.groups).toEqual([{ group: '2026-11-01', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
   });
 
+  it('groups by the document date when no date meaning is given', async () => {
+    await insertWeighedAfterMidnight();
+
+    const total = await runTotal({ group_by: 'day', date_meaning: null });
+
+    expect(total.groups).toEqual([{ group: '2026-10-31', unit: 'kg', count: 1, sum: '27000', min: '27000', max: '27000' }]);
+  });
+
   async function insertWeighedAfterMidnight(): Promise<void> {
     const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0010', documentDate: '2026-10-31' });
     await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'Trọng lượng hàng', number: 27000, unit: 'kg' });
