@@ -5,14 +5,29 @@ export const STANDARD_UNITS = ['kg', 'l', 'km', 'vnd'] as const;
 type StandardUnit = (typeof STANDARD_UNITS)[number];
 
 const detailSchema = z
-  .strictObject({ label: z.string(), value: z.string(), number: z.unknown().optional(), unit: z.unknown().optional() })
-  .transform(({ label, value, number, unit }) => ({ label, value, ...readNumberPair(number, unit) }));
+  .strictObject({
+    label: z.string(),
+    value: z.string(),
+    number: z.unknown().optional(),
+    unit: z.unknown().optional(),
+    meaning: z.string().nullable(),
+    item: z.string().nullable(),
+    date_time: z.string().nullable(),
+  })
+  .transform(({ number, unit, ...detail }) => ({ ...detail, ...readNumberPair(number, unit), ...readLinePair(number, unit) }));
 
-type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
+export type NumberPair = { number: number; unit: StandardUnit } | { number: null; unit: null };
 
 export function readNumberPair(number: unknown, unit: unknown): NumberPair {
   if (isNonNegativeNumber(number) && isStandardUnit(unit)) return { number, unit };
   return { number: null, unit: null };
+}
+
+export type LinePair = { line_number: number; line_unit: string } | { line_number: null; line_unit: null };
+
+export function readLinePair(number: unknown, unit: unknown): LinePair {
+  if (isNonNegativeNumber(number) && typeof unit === 'string' && unit.trim() !== '') return { line_number: number, line_unit: unit.trim() };
+  return { line_number: null, line_unit: null };
 }
 
 function isNonNegativeNumber(number: unknown): number is number {
@@ -23,6 +38,13 @@ function isStandardUnit(unit: unknown): unit is StandardUnit {
   return STANDARD_UNITS.some((standardUnit) => standardUnit === unit);
 }
 
+const partySchema = z.strictObject({
+  role: z.string(),
+  type: z.string(),
+  printed_name: z.string(),
+  known_name: z.string().nullable(),
+});
+
 const itemSchema = z.strictObject({
   category: z.string(),
   document_title: z.string().nullable(),
@@ -32,6 +54,9 @@ const itemSchema = z.strictObject({
   identifiers: z.array(z.string()),
   vehicle_plate: z.string().nullable(),
   document_number: z.string().nullable(),
+  document_kind: z.string(),
+  stage: z.enum(['dispatch', 'receipt']).nullable(),
+  parties: z.array(partySchema),
   details: z.array(detailSchema),
 });
 
@@ -44,6 +69,8 @@ const readingSchema = z.strictObject({
 
 export type ReadingItem = z.infer<typeof itemSchema>;
 export type Reading = z.infer<typeof readingSchema>;
+export type ReadingDetail = ReadingItem['details'][number];
+export type ReadingParty = ReadingItem['parties'][number];
 
 export type ReadAttempt =
   | { ok: true; reading: Reading }

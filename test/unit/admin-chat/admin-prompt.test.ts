@@ -44,7 +44,7 @@ describe('the rules about who may change things in the admin prompt', () => {
     'Việc thay đổi:',
     '- Việc thay đổi là create_scheduled_task, cancel_scheduled_task, create_invite và remove_member. Chỉ làm khi quản lý viết yêu cầu đó trong tin nhắn.',
     '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
-    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_number_labels và total_numbers.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations và review_name_matches.',
     '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
     '- Nếu việc thay đổi bị từ chối, không gọi lại và không nói là đã làm. Hệ thống tự gửi hướng dẫn cho quản lý.',
     '- Câu "(Câu trả lời cũ đã được ẩn.)" là một câu trả lời trước của bạn. Mọi câu trả lời trước đều được ẩn. Nếu cần dữ liệu cũ, gọi lại công cụ. Không viết câu này trong câu trả lời.',
@@ -91,29 +91,26 @@ describe('the rules about the date on the document in the admin prompt', () => {
 describe('the rules about totals of stored numbers in the admin prompt', () => {
   const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00') });
   const lines = prompt.split('\n');
-  const countLine = '- Để đếm hoặc cộng tiền, dùng count_records. Không tự đếm từ kết quả search_records.';
+  const countLine = '- Để đếm số mục đã gửi hoặc cộng tiền theo thành viên và loại trong khoảng ngày gửi, dùng count_records. Để cộng số tiền, trọng lượng hoặc số lượng ghi trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày trên giấy tờ, dùng total_document_numbers. Không tự đếm từ kết quả search_records.';
   const totalsLines = [
-    '- Để tổng hợp một số trong chi tiết đã lưu, dùng total_numbers.',
-    '- Nếu chưa biết nhãn phù hợp, gọi list_number_labels với cùng bộ lọc trước.',
-    '- list_number_labels liệt kê cả nhãn chưa có số chuẩn, với unit là null.',
-    '- Chỉ dùng nhãn có trong list_number_labels để gọi total_numbers. Không đoán nhãn khác.',
-    '- Nếu nhãn phù hợp chỉ có unit là null, gọi total_numbers một lần với nhãn đó rồi nêu without_number.',
-    '- Khi báo số mục của một tổng, dùng count và without_number của total_numbers. Không dùng số trong list_number_labels, count_records hoặc search_records.',
-    '- Khối lượng hàng trên phiếu cân là trọng lượng tịnh của hàng. Không dùng tổng trọng lượng hoặc trọng lượng xe.',
-    '- Không tự cộng số từ value hoặc từ các trang search_records.',
-    '- Không tự gộp hai nhãn khác nhau.',
-    '- Nếu nhiều nhãn có thể phù hợp, nêu riêng kết quả từng nhãn. Không tự cộng các kết quả đó.',
-    '- Để lọc nhà máy, nơi nhận hoặc nơi giao, dùng text.',
-    '- Với nhiều nơi, gọi total_numbers riêng cho từng nơi. Không ghi nhiều tên nơi trong một text.',
-    '- Khi chia theo ngày trên giấy tờ, dùng group_by là "occurred_on".',
-    '- Nếu without_number lớn hơn 0, nêu số mục có nhãn nhưng thiếu số chuẩn.',
+    '- Để tính tổng một số trên giấy tờ, dùng total_document_numbers.',
+    '- Nếu câu hỏi chưa nói rõ số nào, gọi list_document_numbers với cùng bộ lọc. Nếu có nhiều ý nghĩa số có thể phù hợp, hỏi lại quản lý muốn tính số nào và nêu các ý nghĩa đó. Không tự chọn.',
+    '- Nếu câu hỏi có khoảng thời gian mà chưa rõ tính theo ngày nào, và list_document_numbers có nhiều ý nghĩa ngày, hỏi lại quản lý muốn tính theo ngày nào. Không tự chọn.',
+    '- Dùng lines là "document" cho số của cả giấy tờ, ví dụ trọng lượng hàng hoặc tổng tiền thanh toán. Dùng "item" cho số của từng dòng hàng hoặc từng việc.',
+    '- Để lọc theo công ty hoặc nơi chốn, gọi list_organizations để lấy đúng tên, rồi dùng organization. Không dùng text để lọc công ty.',
+    '- Khi hỏi hàng một công ty nhận, dùng role là "customer" và stage là "receipt". Khi hỏi hàng giao cho một công ty, dùng role là "customer" và stage là "dispatch". Nếu không rõ là lúc giao hay lúc nhận, hỏi lại quản lý.',
+    '- Với nhiều công ty, gọi total_document_numbers riêng cho từng công ty.',
+    '- Khi chia theo ngày, dùng group_by là "day". Khi chia theo tháng, dùng group_by là "month".',
+    '- Nếu pending_name_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ có tên đang chờ xác nhận nên chưa được tính.',
+    '- Nếu review_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ đang chờ xem lại nên chưa được tính.',
+    '- Nếu not_reread_messages lớn hơn 0, nói rõ kết quả chưa đầy đủ vì còn bấy nhiêu tin nhắn chưa được đọc lại.',
+    '- Nếu without_number lớn hơn 0, nêu số giấy tờ phù hợp nhưng không có số này.',
     '- Nếu không có nhóm nào, nói rõ chưa đủ dữ liệu để tính. Không nói tổng là 0.',
-    '- Với cùng bộ lọc và cùng nhãn, chỉ gọi total_numbers một lần trong một lượt trả lời. Nếu thiếu số chuẩn hoặc không có nhóm, nêu rõ kết quả đó. Không thử nhãn khác chỉ để tìm một tổng có số.',
     '- Viết kết quả kèm đơn vị. Không cộng các đơn vị khác nhau.',
   ];
   const changeLines = [
     '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
-    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_number_labels và total_numbers.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations và review_name_matches.',
     '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
   ];
 
@@ -125,7 +122,7 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
     expect(lines).not.toContain('- Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.');
   });
 
-  it('holds the seventeen totals lines right after the count_records line, in order', () => {
+  it('holds the fourteen totals lines right after the count_records line, in order', () => {
     const start = lines.indexOf(countLine);
 
     expect(start).toBeGreaterThan(-1);
@@ -137,6 +134,11 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
 
     expect(start).toBeGreaterThan(-1);
     expect(lines.slice(start, start + changeLines.length)).toEqual(changeLines);
+  });
+
+  it('no longer names the old number tools', () => {
+    expect(prompt).not.toContain('total_numbers');
+    expect(prompt).not.toContain('list_number_labels');
   });
 
   it('no longer holds the two old change lines', () => {

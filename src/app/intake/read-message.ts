@@ -2,6 +2,8 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
+import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
+import type { ReaderCatalog } from '../reading/document-rules.ts';
 import { buildReaderPrompt } from '../reading/reader-prompt.ts';
 import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import { validateReading, type ReadAttempt } from '../reading/reading.ts';
@@ -10,15 +12,22 @@ import type { IntakeContext } from './intake-context.ts';
 type MessageContent = { text: string | null; photo: Photo | null };
 
 export async function readMessage(context: IntakeContext, message: MessageContent): Promise<ReadAttempt> {
-  const labels = await runInTransaction(context.dependencies.database, (transaction) =>
-    listWorkspaceLabels(transaction, context.sender.workspaceId),
-  );
-  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels);
+  const { labels, catalog } = await runInTransaction(context.dependencies.database, async (transaction) => ({
+    labels: await listWorkspaceLabels(transaction, context.sender.workspaceId),
+    catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
+  }));
+  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog);
 }
 
-export async function readWithReader(reader: ReaderService, now: Date, message: MessageContent, labels: string[]): Promise<ReadAttempt> {
+export async function readWithReader(
+  reader: ReaderService,
+  now: Date,
+  message: MessageContent,
+  labels: string[],
+  catalog: ReaderCatalog,
+): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels),
+    system: buildReaderPrompt(now, labels, catalog),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,
