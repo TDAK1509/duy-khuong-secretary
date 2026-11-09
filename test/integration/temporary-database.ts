@@ -17,9 +17,13 @@ export type TemporaryDatabase = {
   drop: () => Promise<void>;
 };
 
-export async function createTemporaryDatabase(creatorUrl: string = testDatabaseUrl): Promise<TemporaryDatabase> {
+export async function createTemporaryDatabase(
+  creatorUrl: string = testDatabaseUrl,
+  template?: string,
+): Promise<TemporaryDatabase> {
   const name = `migrate_${randomUUID().replaceAll('-', '')}`;
-  await runAs(creatorUrl, (client) => client.query(`CREATE DATABASE ${name}`));
+  const copiedFrom = template === undefined ? '' : ` TEMPLATE ${template}`;
+  await runAs(creatorUrl, (client) => client.query(`CREATE DATABASE ${name}${copiedFrom}`));
   const url = pointToDatabase(creatorUrl, name);
   const runtimeUrl = signInAs(url, RUNTIME_ROLE);
   const sessions: pg.Client[] = [];
@@ -73,7 +77,7 @@ function pointToDatabase(databaseUrl: string, name: string): string {
   return url.toString();
 }
 
-async function runAs<Result>(
+export async function runAs<Result>(
   databaseUrl: string,
   action: (client: pg.Client) => Promise<Result>,
 ): Promise<Result> {
