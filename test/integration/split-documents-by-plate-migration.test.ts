@@ -49,4 +49,16 @@ describe('the migration that splits documents by plate', () => {
       { vehicle_plate: '93C04588', status: 'accepted' },
     ]);
   });
+
+  it('leaves a waiting document with the same plate as an accepted one waiting', async () => {
+    await insertPortDocument('93C04588', 'accepted');
+    await insertPortDocument('93C04588', 'needs_review');
+
+    await runMigration();
+
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY status')).toEqual([
+      { vehicle_plate: '93C04588', status: 'accepted' },
+      { vehicle_plate: '93C04588', status: 'needs_review' },
+    ]);
+  });
 });
