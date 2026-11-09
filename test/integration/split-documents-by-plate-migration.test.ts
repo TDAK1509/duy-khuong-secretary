@@ -20,24 +20,6 @@ describe('the migration that splits documents by plate', () => {
     await database.drop();
   });
 
-  async function runMigration(): Promise<void> {
-    const statements: string[] = [];
-    splitDocumentsByPlate({ sql: (statement) => statements.push(statement), noTransaction: () => {} });
-    for (const statement of statements) await database.query(statement);
-  }
-
-  function insertPortDocument(vehiclePlate: string, status: NewDocumentRow['status']): Promise<string> {
-    return insertDocumentWithSource(database, {
-      workspaceId,
-      userId,
-      issuerKey: 'congtycpcangvanangluongbinhduong',
-      documentNumber: 'CAU',
-      documentDate: '2026-11-05',
-      vehiclePlate,
-      status,
-    });
-  }
-
   it('accepts a waiting document whose plate differs from the accepted one', async () => {
     await insertPortDocument('93C04588', 'accepted');
     await insertPortDocument('93C04258', 'needs_review');
@@ -73,4 +55,22 @@ describe('the migration that splits documents by plate', () => {
       { id: laterId, status: 'needs_review' },
     ]);
   });
+
+  async function runMigration(): Promise<void> {
+    const statements: string[] = [];
+    splitDocumentsByPlate({ sql: (statement) => statements.push(statement), noTransaction: () => {} });
+    for (const statement of statements) await database.query(statement);
+  }
+
+  function insertPortDocument(vehiclePlate: string, status: NewDocumentRow['status']): Promise<string> {
+    return insertDocumentWithSource(database, {
+      workspaceId,
+      userId,
+      issuerKey: 'congtycpcangvanangluongbinhduong',
+      documentNumber: 'CAU',
+      documentDate: '2026-11-05',
+      vehiclePlate,
+      status,
+    });
+  }
 });
