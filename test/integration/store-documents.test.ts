@@ -90,16 +90,16 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
-  it('adds only a source when a second photo shows an accepted document', async () => {
+  it('adds only a source when the same ticket is sent again with the same plate', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,
       userId: harness.hungUserId,
-      issuerKey: 'congtytnhhchengloongbinhduongpaper',
-      documentNumber: '20261105054',
+      issuerKey: PORT_ISSUER_KEY,
+      documentNumber: 'CAU',
       documentDate: '2026-11-05',
       vehiclePlate: '93C04588',
     });
-    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+    harness.reader.answerWith(makeReading([makePortTicket('93C04588')]));
 
     await harness.receivePhoto('zu-hung');
 
@@ -151,27 +151,22 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
-  it('keeps a different plate on the same ticket number and date apart for review', async () => {
+  it('stores a different plate on the same ticket number and date as its own accepted document', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,
       userId: harness.hungUserId,
-      issuerKey: 'chengloong',
-      documentNumber: '20261105054',
+      issuerKey: PORT_ISSUER_KEY,
+      documentNumber: 'CAU',
       documentDate: '2026-11-05',
       vehiclePlate: '93C04588',
     });
-    const otherPlate = makeTicketItem({
-      document_number: '20261105054',
-      vehicle_plate: '93H00316',
-      parties: [makeParty('issuer', 'Cheng Loong')],
-    });
-    harness.reader.answerWith(makeReading([otherPlate]));
+    harness.reader.answerWith(makeReading([makePortTicket('93C04258')]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY created_at')).toEqual([
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY vehicle_plate')).toEqual([
+      { vehicle_plate: '93C04258', status: 'accepted' },
       { vehicle_plate: '93C04588', status: 'accepted' },
-      { vehicle_plate: '93H00316', status: 'needs_review' },
     ]);
   });
 
@@ -291,14 +286,14 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
   });
 
-  it('keeps two items with different plates as two documents, the second for review', async () => {
-    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588'), makeChengLoongTicket('93H00316')]));
+  it('stores two items of one photo with different plates as two accepted documents', async () => {
+    harness.reader.answerWith(makeReading([makePortTicket('93C04588'), makePortTicket('93H00311')]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY created_at, vehicle_plate')).toEqual([
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY vehicle_plate')).toEqual([
       { vehicle_plate: '93C04588', status: 'accepted' },
-      { vehicle_plate: '93H00316', status: 'needs_review' },
+      { vehicle_plate: '93H00311', status: 'accepted' },
     ]);
   });
 
@@ -332,6 +327,16 @@ describe('storing the documents of a saved message', () => {
     ).toEqual([{ document_number: '20261105054', is_photo: true }]);
   });
 });
+
+const PORT_ISSUER_KEY = 'congtycpcangvanangluongbinhduong';
+
+function makePortTicket(vehiclePlate: string | null) {
+  return makeTicketItem({
+    document_number: 'CAU',
+    vehicle_plate: vehiclePlate,
+    parties: [makeParty('issuer', 'Công ty CP Cảng và Năng lượng Bình Dương')],
+  });
+}
 
 function makeChengLoongTicket(vehiclePlate: string | null) {
   return makeTicketItem({

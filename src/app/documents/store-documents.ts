@@ -25,6 +25,6 @@ async function storeDraft(transaction: Transaction, message: DocumentMessage, dr
   const accepted = await findAcceptedDocuments(transaction, message.workspaceId, draft);
   const same = accepted.find((document) => hasCompatiblePlate(document.vehicle_plate, draft.vehiclePlate));
   if (same) await insertSources(transaction, message, same.id, draft);
-  else if (mayInsertDocuments) return (await insertDocument(transaction, message, draft, accepted.length > 0 ? 'needs_review' : 'accepted')).proposedPartyCount;
+  else if (mayInsertDocuments) return (await insertDocument(transaction, message, draft)).proposedPartyCount;
   return 0;
 }
