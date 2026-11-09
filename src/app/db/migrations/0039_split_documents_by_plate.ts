@@ -7,4 +7,5 @@ export function up(pgm: MigrationBuilder): void {
     ON documents (workspace_id, issuer_key, document_number, document_date, coalesce(vehicle_plate, ''))
     WHERE status = 'accepted' AND issuer_key IS NOT NULL AND document_number IS NOT NULL AND document_date IS NOT NULL
   `);
+  pgm.sql(`UPDATE documents SET status = 'accepted' WHERE status = 'needs_review'`);
 }
