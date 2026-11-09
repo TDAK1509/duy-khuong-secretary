@@ -286,14 +286,14 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
   });
 
-  it('keeps two items with different plates as two documents, the second for review', async () => {
-    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588'), makeChengLoongTicket('93H00316')]));
+  it('stores two items of one photo with different plates as two accepted documents', async () => {
+    harness.reader.answerWith(makeReading([makePortTicket('93C04588'), makePortTicket('93H00311')]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY created_at, vehicle_plate')).toEqual([
+    expect(await database.query('SELECT vehicle_plate, status FROM documents ORDER BY vehicle_plate')).toEqual([
       { vehicle_plate: '93C04588', status: 'accepted' },
-      { vehicle_plate: '93H00316', status: 'accepted' },
+      { vehicle_plate: '93H00311', status: 'accepted' },
     ]);
   });
 
