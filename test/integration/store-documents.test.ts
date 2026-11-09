@@ -90,16 +90,16 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
-  it('adds only a source when a second photo shows an accepted document', async () => {
+  it('adds only a source when the same ticket is sent again with the same plate', async () => {
     await insertDocumentWithSource(database, {
       workspaceId: harness.workspaceId,
       userId: harness.hungUserId,
-      issuerKey: 'congtytnhhchengloongbinhduongpaper',
-      documentNumber: '20261105054',
+      issuerKey: PORT_ISSUER_KEY,
+      documentNumber: 'CAU',
       documentDate: '2026-11-05',
       vehiclePlate: '93C04588',
     });
-    harness.reader.answerWith(makeReading([makeChengLoongTicket('93C04588')]));
+    harness.reader.answerWith(makeReading([makePortTicket('93C04588')]));
 
     await harness.receivePhoto('zu-hung');
 
