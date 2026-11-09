@@ -128,6 +128,14 @@ describe('the document tables for the runtime role', () => {
     await expect(insert).rejects.toMatchObject({ code: UNIQUE_VIOLATION, constraint: 'documents_issuer_number_date_plate_key' });
   });
 
+  it('refuses a second accepted document with the same issuer key, number and date and no plate', async () => {
+    await insertNumberedDocument('2026-11-05', null);
+
+    const insert = insertNumberedDocumentAsRuntime('2026-11-05', null);
+
+    await expect(insert).rejects.toMatchObject({ code: UNIQUE_VIOLATION, constraint: 'documents_issuer_number_date_plate_key' });
+  });
+
   it('allows the same issuer key and number on another date', async () => {
     await insertNumberedDocument('2026-11-05', '93C04588');
 
@@ -179,14 +187,14 @@ describe('the document tables for the runtime role', () => {
     });
   });
 
-  async function insertNumberedDocument(documentDate: string, vehiclePlate: string): Promise<void> {
+  async function insertNumberedDocument(documentDate: string, vehiclePlate: string | null): Promise<void> {
     await database.query(
       `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, vehicle_plate, summary)
-       VALUES (${literal(workspaceId)}, 'phiếu cân', 'congtycpcangvanangluongbinhduong', 'CAU', ${literal(documentDate)}, ${literal(vehiclePlate)}, 'Phiếu cân xe')`,
+       VALUES (${literal(workspaceId)}, 'phiếu cân', 'congtycpcangvanangluongbinhduong', 'CAU', ${literal(documentDate)}, ${vehiclePlate === null ? 'NULL' : literal(vehiclePlate)}, 'Phiếu cân xe')`,
     );
   }
 
-  function insertNumberedDocumentAsRuntime(documentDate: string, vehiclePlate: string): Promise<unknown> {
+  function insertNumberedDocumentAsRuntime(documentDate: string, vehiclePlate: string | null): Promise<unknown> {
     return runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
       transaction.query(
         `INSERT INTO documents (workspace_id, kind, issuer_key, document_number, document_date, vehicle_plate, summary)
