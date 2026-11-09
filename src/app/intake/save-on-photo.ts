@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
+import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { formatReplyForSender } from './format-reply-with-read-data.ts';
@@ -8,6 +9,8 @@ import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
+
+export type SavedReply = ReplyPlan & { hasProposedParty: boolean };
 
 export type TextOnPhoto = { textId: string; photo: { id: string } };
 
@@ -21,6 +24,7 @@ export async function saveRereadOnPhoto(
   await setSubmissionStatus(transaction, target.photo.id, reply.status);
   await enqueueReplyToMessage(transaction, context, target.photo.id, formatReplyForSender(reply, context.sender.role));
   await notifyAdminsOfPhoto(transaction, context, target.photo.id, reply);
+  if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
 }
 
 export async function saveReplyOnPhoto(
@@ -28,15 +32,15 @@ export async function saveReplyOnPhoto(
   context: IntakeContext,
   target: TextOnPhoto,
   plan: ReplyPlan,
-): Promise<ReplyPlan> {
+): Promise<SavedReply> {
   const { sender } = context;
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   await saveRecordsAndReply(transaction, context, target, reply);
-  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
+  const hasProposedParty = await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
     await markQuestionPending(transaction, target.textId);
   }
-  return reply;
+  return { ...reply, hasProposedParty };
 }
 
 async function saveRecordsAndReply(

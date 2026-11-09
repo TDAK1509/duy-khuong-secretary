@@ -18,6 +18,8 @@ import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { CreatedInvites } from './created-invites.ts';
+import { NameReviewRequest } from './name-review-request.ts';
+import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
 import { CreatedTasks } from './created-tasks.ts';
 import { AdminTextGuard } from './tools/admin-text-guard.ts';
 import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
@@ -33,21 +35,29 @@ export async function answerWithChat(context: IntakeContext, message: ChatMessag
   });
 }
 
-type Answer = { text: string; photos: AttachablePhoto[]; createdTaskIds: string[]; inviteCodes: string[]; changeRefused: boolean };
+type Answer = {
+  text: string;
+  photos: AttachablePhoto[];
+  createdTaskIds: string[];
+  inviteCodes: string[];
+  hasNameReview: boolean;
+  changeRefused: boolean;
+};
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
   const request = await buildChatRequest(context, message, profile);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
-  const { attachments, created, invites } = dependencies;
+  const { attachments, created, invites, nameReview } = dependencies;
   return {
     text: result.text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
+    hasNameReview: nameReview.isRequested(),
     changeRefused: guard.hasRefused(),
   };
 }
@@ -97,6 +107,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   await enqueueReply(transaction, context, text, { adminMembershipId: sender.membershipId });
   for (const code of answer.inviteCodes) await enqueueReply(transaction, context, code, { adminMembershipId: sender.membershipId });
   await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
+  if (answer.hasNameReview) await queueNameProposalToSender(transaction, context);
 }
 
 function joinAnswerParts(answer: Answer, summaries: string[]): string {
