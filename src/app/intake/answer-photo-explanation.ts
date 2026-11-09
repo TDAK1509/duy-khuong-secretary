@@ -10,12 +10,13 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import type { LoggedReading } from './log-intake.ts';
+import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { planAnswer, planReply, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied } from './run-reply-stage.ts';
-import { saveReplyOnPhoto } from './save-on-photo.ts';
+import { saveReplyOnPhoto, type SavedReply } from './save-on-photo.ts';
 import { markQuestionPending, setSubmissionStatus, type SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
@@ -110,7 +111,8 @@ function endsWait({ photoAfter }: ReplyAnswer): boolean {
   return photoAfter === 'same_as_reply' || photoAfter === 'unresolved';
 }
 
-async function endWait(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, reply: ReplyPlan): Promise<void> {
+async function endWait(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, reply: SavedReply): Promise<void> {
   await notifyAdminsOfPhoto(transaction, context, asked.id, reply);
+  if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
   await askNextWaitingPhoto(transaction, context);
 }

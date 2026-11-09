@@ -20,7 +20,7 @@ function lockRecipientOfOffer(transaction: Transaction, messageId: string): Prom
        ON identity.channel = message.channel
       AND identity.account_id = message.account_id
       AND identity.external_user_id = message.external_user_id
-     WHERE message.id = $1 AND message.offered_choice ->> 'kind' = 'workspace_pick'
+     WHERE message.id = $1 AND message.offered_choice ->> 'kind' IN ('workspace_pick', 'name_match')
      FOR UPDATE OF identity`,
     [messageId],
   );

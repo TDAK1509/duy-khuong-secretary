@@ -324,3 +324,14 @@ export const CANCEL_SCHEDULED_TASK_SPEC: ToolSpec = {
     "additionalProperties": false
   }
 };
+
+export const REVIEW_NAME_MATCHES_SPEC: ToolSpec = {
+  "name": "review_name_matches",
+  "description": "Gửi cho quản lý danh sách các tên mới đọc được gần giống tên đã lưu, để quản lý trả lời số xác nhận. Công cụ không gộp tên nào. Kết quả là số cặp tên đang chờ xác nhận.",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  }
+};
