@@ -1,4 +1,4 @@
-import type { ReaderRequest, ReaderResult, ReaderService } from '../../src/services/reading/reader-service.ts';
+import type { ReaderRequest, ReaderResult, ReaderService, TokenUsage } from '../../src/services/reading/reader-service.ts';
 
 const NO_WORK_DATA = { has_work_data: false, needs_explanation: false, has_question: false, items: [] };
 
@@ -10,8 +10,8 @@ export class FakeReader implements ReaderService {
     this.respond = respond;
   }
 
-  answerWith(json: unknown): void {
-    this.respond = () => ({ ok: true, json });
+  answerWith(json: unknown, usage?: TokenUsage): void {
+    this.respond = () => ({ ok: true, json, usage });
   }
 
   failWith(reason: 'timeout' | 'invalid_output' | 'unavailable'): void {

@@ -7,7 +7,8 @@ import type { Photo } from '../../src/services/storage/photo-storage.ts';
 import type { ReaderRequest } from '../../src/services/reading/reader-service.ts';
 import { makeCompletionReply, startStubChatServer, type StubChatServer, type StubReply } from './stub-chat-server.ts';
 
-const VALID_REPLY = makeCompletionReply('{"has_work_data":false,"has_question":true,"items":[]}');
+const VALID_JSON = '{"has_work_data":false,"has_question":true,"items":[]}';
+const VALID_REPLY = makeCompletionReply(VALID_JSON);
 
 const REQUEST: ReaderRequest = {
   system: 'system prompt',
@@ -23,25 +24,6 @@ describe('OpenAiCompatibleReader', () => {
   afterEach(async () => {
     await Promise.all(servers.splice(0).map((server) => server.close()));
   });
-
-  async function startServer(reply: StubReply): Promise<StubChatServer> {
-    const server = await startStubChatServer(reply);
-    servers.push(server);
-    return server;
-  }
-
-  function makeReader(
-    server: StubChatServer,
-    overrides: Partial<OpenAiCompatibleReaderSettings> = {},
-  ): OpenAiCompatibleReader {
-    return new OpenAiCompatibleReader({
-      baseUrl: server.baseUrl,
-      apiKey: 'test-key',
-      model: 'gpt-6-luna',
-      timeoutMs: 5000,
-      ...overrides,
-    });
-  }
 
   it('sends the model id of its slot', async () => {
     const server = await startServer(VALID_REPLY);
@@ -95,7 +77,37 @@ describe('OpenAiCompatibleReader', () => {
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toEqual({ ok: true, json: { has_work_data: false, has_question: true, items: [] } });
+    expect(result).toEqual({
+      ok: true,
+      json: { has_work_data: false, has_question: true, items: [] },
+      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
+    });
+  });
+
+  it('returns the token counts of a reply with usage', async () => {
+    const usage = { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140, completion_tokens_details: { reasoning_tokens: 10 } };
+    const server = await startServer(makeCompletionReply(VALID_JSON, usage));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 100, output: 40, reasoning: 10 } });
+  });
+
+  it('returns unknown token counts for a reply without usage', async () => {
+    const server = await startServer(VALID_REPLY);
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' } });
+  });
+
+  it('keeps the token counts of a reply that is not JSON', async () => {
+    const usage = { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 };
+    const server = await startServer(makeCompletionReply('not json', usage));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_output', usage: { input: 100 } });
   });
 
   it('turns a slow reply into a timeout', async () => {
@@ -111,7 +123,11 @@ describe('OpenAiCompatibleReader', () => {
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toEqual({ ok: false, reason: 'invalid_output' });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'invalid_output',
+      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
+    });
   });
 
   it('turns a server error into unavailable', async () => {
@@ -129,6 +145,25 @@ describe('OpenAiCompatibleReader', () => {
 
     expect(result).toEqual({ ok: false, reason: 'unavailable' });
   });
+
+  async function startServer(reply: StubReply): Promise<StubChatServer> {
+    const server = await startStubChatServer(reply);
+    servers.push(server);
+    return server;
+  }
+
+  function makeReader(
+    server: StubChatServer,
+    overrides: Partial<OpenAiCompatibleReaderSettings> = {},
+  ): OpenAiCompatibleReader {
+    return new OpenAiCompatibleReader({
+      baseUrl: server.baseUrl,
+      apiKey: 'test-key',
+      model: 'gpt-6-luna',
+      timeoutMs: 5000,
+      ...overrides,
+    });
+  }
 });
 
 function listUserContentParts(server: StubChatServer): Record<string, unknown>[] {

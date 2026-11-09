@@ -1,6 +1,7 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database } from '../db/transaction.ts';
+import { logReaderCall } from '../intake/log-reader-call.ts';
 import { buildDetailNumbersRequest, type StoredDetail } from '../reading/detail-numbers-request.ts';
 import { gainsNumber, mergeDetailNumbers } from './merge-detail-numbers.ts';
 import { FIRST_RECORD_ID, findRecordsWithoutNumbers, type RecordWithoutNumbers } from './records-without-numbers.ts';
@@ -53,8 +54,12 @@ async function backfillBatch(
 
 async function addNumbers(scoped: Database, reader: ReaderService, record: RecordWithoutNumbers): Promise<RecordOutcome> {
   const reply = await reader.read(buildDetailNumbersRequest(record));
-  if (!reply.ok) return 'reader_failed';
+  if (!reply.ok) {
+    logReaderCall(reply.reason, reply);
+    return 'reader_failed';
+  }
   const details = mergeDetailNumbers(record.details, reply.json);
+  logReaderCall(details === null ? 'invalid_output' : 'ok', reply);
   if (details === null) return 'invalid_output';
   if (!gainsNumber(record.details, details)) return 'unchanged';
   const updated = await replaceDetailsIfUnchanged(scoped, record, details);

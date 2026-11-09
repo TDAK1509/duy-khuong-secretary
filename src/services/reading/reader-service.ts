@@ -10,9 +10,14 @@ export interface ReaderRequest {
   schema: JsonSchema;
 }
 
+export type TokenCount = number | 'unknown';
+
+export type TokenUsage = { input: TokenCount; output: TokenCount; reasoning: TokenCount };
+
 export type ReaderResult =
-  | { ok: true; json: unknown }
-  | { ok: false; reason: 'timeout' | 'invalid_output' | 'unavailable' };
+  | { ok: true; json: unknown; usage?: TokenUsage }
+  | { ok: false; reason: 'invalid_output'; usage?: TokenUsage }
+  | { ok: false; reason: 'timeout' | 'unavailable' };
 
 export interface ReaderService {
   read(request: ReaderRequest): Promise<ReaderResult>;
