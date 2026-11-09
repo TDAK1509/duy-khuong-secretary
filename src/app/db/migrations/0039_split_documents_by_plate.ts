@@ -1,5 +1,17 @@
 import type { MigrationBuilder } from '../migration-builder.ts';
 
+const SAME_PAPER = `
+  other.workspace_id = waiting.workspace_id
+  AND other.issuer_key = waiting.issuer_key
+  AND other.document_number = waiting.document_number
+  AND other.document_date = waiting.document_date
+  AND coalesce(other.vehicle_plate, '') = coalesce(waiting.vehicle_plate, '')
+`;
+const ACCEPTED_OR_WAITING_EARLIER = `
+  other.status = 'accepted'
+  OR (other.status = 'needs_review' AND (other.created_at, other.id) < (waiting.created_at, waiting.id))
+`;
+
 export function up(pgm: MigrationBuilder): void {
   pgm.sql('DROP INDEX IF EXISTS documents_issuer_number_date_key');
   pgm.sql(`
@@ -11,13 +23,7 @@ export function up(pgm: MigrationBuilder): void {
     UPDATE documents waiting SET status = 'accepted'
     WHERE waiting.status = 'needs_review'
       AND NOT EXISTS (
-        SELECT 1 FROM documents accepted
-        WHERE accepted.status = 'accepted'
-          AND accepted.workspace_id = waiting.workspace_id
-          AND accepted.issuer_key = waiting.issuer_key
-          AND accepted.document_number = waiting.document_number
-          AND accepted.document_date = waiting.document_date
-          AND coalesce(accepted.vehicle_plate, '') = coalesce(waiting.vehicle_plate, '')
+        SELECT 1 FROM documents other WHERE ${SAME_PAPER} AND (${ACCEPTED_OR_WAITING_EARLIER})
       )
   `);
 }

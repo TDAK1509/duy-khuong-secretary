@@ -61,4 +61,16 @@ describe('the migration that splits documents by plate', () => {
       { vehicle_plate: '93C04588', status: 'needs_review' },
     ]);
   });
+
+  it('accepts only the earliest of two waiting documents with the same plate', async () => {
+    const earliestId = await insertPortDocument('93C04588', 'needs_review');
+    const laterId = await insertPortDocument('93C04588', 'needs_review');
+
+    await runMigration();
+
+    expect(await database.query('SELECT id, status FROM documents ORDER BY created_at, id')).toEqual([
+      { id: earliestId, status: 'accepted' },
+      { id: laterId, status: 'needs_review' },
+    ]);
+  });
 });
