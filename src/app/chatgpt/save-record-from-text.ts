@@ -9,10 +9,12 @@ import { REFUSAL_ERROR } from '../admin-chat/tools/tool-result.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import { planReply, type ReplyPlan } from '../intake/plan-reply.ts';
+import type { ReaderCatalog } from '../reading/document-rules.ts';
 import { readWithReader } from '../intake/read-message.ts';
 import { rejectDuplicates } from '../intake/run-reply-stage.ts';
+import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
+import { storeDocuments } from '../documents/store-documents.ts';
 import { insertRecords } from '../records/insert-records.ts';
-import type { NewRecord } from '../records/new-record.ts';
 import { storeMcpMessage } from './store-mcp-message.ts';
 
 const NO_WORK_DATA_TEXT = 'Không có dữ liệu công việc để lưu.';
@@ -25,23 +27,31 @@ export type SaveRecordRuntime = { database: Database; clock: Clock; reader: Read
 
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
-  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, []);
+  const catalog = await readReaderCatalog(runtime.database, scope);
+  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, [], catalog);
   if (!attempt.ok) return { text: READER_FAILED_TEXT, isError: true };
   const plan = planReply(attempt, false);
   if (!plan.saved) return { text: plan.isUnclear ? UNCLEAR_TEXT : NO_WORK_DATA_TEXT, isError: false };
   return saveReadRecords(runtime.database, scope, text, plan);
 }
 
+function readReaderCatalog(database: Database, scope: AccessScope): Promise<ReaderCatalog> {
+  return runInTransaction(scopeDatabase(database, toDatabaseScope(scope)), (transaction) =>
+    listReaderCatalog(transaction, scope.workspaceId),
+  );
+}
+
 function saveReadRecords(database: Database, scope: AccessScope, text: string, plan: ReplyPlan): Promise<McpToolResult> {
   return runInTransaction(scopeDatabase(database, toDatabaseScope(scope)), async (transaction) => {
     if (!(await isCurrentWorkspaceAdmin(transaction, scope))) return { text: REFUSAL_ERROR, isError: true };
     const { saved, replyText } = await rejectDuplicates(transaction, scope.workspaceId, plan);
-    if (saved) await storeRecords(transaction, scope, text, saved);
+    if (saved) await storeRecords(transaction, scope, text, plan);
     return { text: replyText, isError: false };
   });
 }
 
-async function storeRecords(transaction: Transaction, { workspaceId, userId }: AccessScope, text: string, records: NewRecord[]): Promise<void> {
+async function storeRecords(transaction: Transaction, { workspaceId, userId }: AccessScope, text: string, plan: ReplyPlan): Promise<void> {
   const messageId = await storeMcpMessage(transaction, { workspaceId, userId }, text);
-  await insertRecords(transaction, { id: messageId, workspaceId, userId }, records);
+  if (plan.saved) await insertRecords(transaction, { id: messageId, workspaceId, userId }, plan.saved);
+  await storeDocuments(transaction, { id: messageId, workspaceId }, plan, true);
 }

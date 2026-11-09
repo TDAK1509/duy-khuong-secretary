@@ -1,5 +1,5 @@
 import { normalizeCode, normalizeCodeSet, normalizeMaintenanceItem } from '../reading/normalize.ts';
-import type { ReadingItem } from '../reading/reading.ts';
+import { readNumberPair, type NumberPair, type ReadingDetail, type ReadingItem } from '../reading/reading.ts';
 import { summarizeRecord } from './summarize-record.ts';
 
 const FALLBACK_CATEGORY = 'khác';
@@ -15,8 +15,10 @@ export type NewRecord = {
   amountVnd: number | null;
   identifiers: string[];
   summary: string;
-  details: ReadingItem['details'];
+  details: RecordDetail[];
 };
+
+export type RecordDetail = { label: string; value: string } & NumberPair;
 
 export function buildNewRecords(items: ReadingItem[]): NewRecord[] {
   return items.map(buildNewRecord);
@@ -37,6 +39,10 @@ function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
     occurredOn: item.occurred_on,
     amountVnd: item.amount_vnd,
     summary: summarizeRecord(fields),
-    details: item.details,
+    details: item.details.map(toRecordDetail),
   };
+}
+
+function toRecordDetail(detail: ReadingDetail): RecordDetail {
+  return { label: detail.label, value: detail.value, ...readNumberPair(detail.number, detail.unit) };
 }

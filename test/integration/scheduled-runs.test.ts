@@ -294,7 +294,7 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(await database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'cancelled' }]);
   });
 
-  it('offers exactly the four read tools', async () => {
+  it('offers exactly the read tools', async () => {
     await insertDueTask();
 
     await harness.runTick();
@@ -304,6 +304,9 @@ describe('the ticker runs the due scheduled tasks', () => {
       'count_records',
       'maintenance_status',
       'list_members',
+      'list_document_numbers',
+      'total_document_numbers',
+      'list_organizations',
     ]);
   });
 

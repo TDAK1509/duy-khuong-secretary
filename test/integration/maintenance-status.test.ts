@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
+import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -54,7 +55,7 @@ describe('the maintenance status tool of an admin', () => {
 
   async function runStatusOutput(filters: StatusFilters = {}, scope: AccessScope = duy): Promise<string> {
     const args = { plate: null, maintenance_item: null, cursor: null, ...filters };
-    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'maintenance_status', argumentsJson: JSON.stringify(args) });
+    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name: 'maintenance_status', argumentsJson: JSON.stringify(args) });
   }
 
   async function runStatus(filters: StatusFilters = {}, scope: AccessScope = duy): Promise<StatusResult> {

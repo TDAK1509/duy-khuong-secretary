@@ -1,4 +1,4 @@
-import type { ReadAttempt, Reading } from '../reading/reading.ts';
+import type { ReadAttempt, Reading, ReadingItem } from '../reading/reading.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
 import {
@@ -19,6 +19,7 @@ export type ReplyPlan = {
   replyKind: 'saved' | 'answer';
   status: SubmissionStatus;
   saved: NewRecord[] | null;
+  readItems: ReadingItem[];
   situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'refused';
   asksQuestion: boolean;
   isUnclear: boolean;
@@ -52,20 +53,22 @@ export function planReply(attempt: ReadAttempt, hasPhoto: boolean): ReplyPlan {
 function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
-  return planRecordsReply(buildNewRecords(reading.items), reading.has_question);
+  return planRecordsReply(reading.items, reading.has_question);
 }
 
 export function planUnreadAnswer(): AnswerPlan {
   return { kind: 'reply', reply: planUnresolvedReply(), photoAfter: 'unchanged' };
 }
 
-function planRecordsReply(records: NewRecord[], asksQuestion: boolean): ReplyPlan {
+function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean): ReplyPlan {
+  const records = buildNewRecords(readItems);
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
   return {
     replyText: formatSavedReply(records),
     replyKind: 'saved',
     status: 'accepted',
     saved: records,
+    readItems,
     situation: 'saved',
     asksQuestion,
     isUnclear: false,
@@ -94,6 +97,7 @@ function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolve
     replyKind: 'answer',
     status,
     saved: null,
+    readItems: [],
     situation: 'refused',
     asksQuestion: false,
     isUnclear: false,
@@ -106,6 +110,7 @@ function planExplanationRequest(): ReplyPlan {
     replyKind: 'answer',
     status: 'needs_explanation',
     saved: null,
+    readItems: [],
     situation: 'needs_explanation',
     asksQuestion: false,
     isUnclear: true,
@@ -118,6 +123,7 @@ function planUploadOnlyReply(isUnclear: boolean): ReplyPlan {
     replyKind: 'answer',
     status: 'accepted',
     saved: null,
+    readItems: [],
     situation: 'no_work_data',
     asksQuestion: false,
     isUnclear,

@@ -8,6 +8,10 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  DROP TABLE document_reads;
+  DELETE FROM pgmigrations WHERE name = '0038_create_document_reads';
+  DROP TABLE document_parties, document_lines, document_sources, documents, meanings, organization_aliases, organizations;
+  DELETE FROM pgmigrations WHERE name = '0037_create_document_tables';
   ALTER TABLE messages DROP CONSTRAINT messages_zalo_event_check;
   ALTER TABLE messages DROP CONSTRAINT messages_user_event_check;
   ALTER TABLE messages ADD CONSTRAINT messages_check1
@@ -110,7 +114,7 @@ describe('the migration that frees the record categories', () => {
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
     expect(lines).toEqual([
-      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source',
+      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source, 0037_create_document_tables, 0038_create_document_reads',
     ]);
     expect(exitCode).toBe(0);
   }

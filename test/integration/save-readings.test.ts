@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Reading, ReadingItem } from '../../src/app/reading/reading.ts';
-import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import type { Reading } from '../../src/app/reading/reading.ts';
+import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -398,7 +398,7 @@ describe('saving what the reader returns', () => {
 
   it('saves the record with a null number and unit when the unit is unknown', async () => {
     const reading = makeReading([makeFuelItem()]);
-    const detail = { label: 'Trọng lượng hàng', value: '27,41 tấn', number: 27.41, unit: 'tấn' };
+    const detail = { label: 'Trọng lượng hàng', value: '27,41 tấn', number: 27.41, unit: 'tấn', meaning: null, item: null, date_time: null };
     harness.reader.answerWith({ ...reading, items: [{ ...reading.items[0], details: [detail] }] });
 
     await harness.receiveText('zu-hung', 'Phiếu cân 27,41 tấn');
@@ -571,7 +571,7 @@ describe('saving what the reader returns', () => {
     });
   }
 
-  function makeFuelItem(overrides: Partial<ReadingItem> = {}) {
+  function makeFuelItem(overrides: ItemOverrides = {}) {
     return makeItem({
       category: 'đổ xăng dầu',
       amount_vnd: 1250000,

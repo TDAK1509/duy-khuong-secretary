@@ -75,7 +75,7 @@ async function finishIntake(
   outcomes: IntakeOutcome[],
 ): Promise<void> {
   const identity = await recordSenderIdentity(transaction, context.event);
-  if (!(await hasOfferedChoice(transaction, context.event.id))) {
+  if (!(await hasOfferedChoice(transaction, context.event))) {
     await clearChoiceUnlessAnswered(transaction, identity, answeredText);
   }
   for (const outcome of outcomes) await sendRefusal(transaction, context, outcome);

@@ -7,7 +7,7 @@ describe('READER_SCHEMA', () => {
 
     expect(detail.properties['number']).toEqual({ type: ['number', 'null'] });
     expect(detail.properties['unit']).toEqual({ type: ['string', 'null'] });
-    expect(detail.required).toEqual(['label', 'value', 'number', 'unit']);
+    expect(detail.required).toEqual(['label', 'value', 'number', 'unit', 'meaning', 'item', 'date_time']);
   });
 
   it('asks for the printed title of every item, null when there is none', () => {
