@@ -18,7 +18,15 @@ function repliesToEachIndexOnce(details: StoredDetail[], replied: ReplyDetail[])
   return replied.length === details.length && details.every((_, index) => replied.some((entry) => entry.index === index));
 }
 
+export function gainsNumber(before: StoredDetail[], after: StoredDetail[]): boolean {
+  return before.some((detail, index) => !hasNumber(detail) && hasNumber(after[index]));
+}
+
 function addNumberPair(detail: StoredDetail, reply: ReplyDetail | undefined): StoredDetail {
-  if ('number' in detail) return detail;
+  if (hasNumber(detail)) return detail;
   return { ...detail, ...readNumberPair(reply?.number, reply?.unit) };
+}
+
+function hasNumber(detail: StoredDetail | undefined): boolean {
+  return detail?.number !== undefined && detail.number !== null;
 }
