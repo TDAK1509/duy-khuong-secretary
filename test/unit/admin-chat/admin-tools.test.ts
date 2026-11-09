@@ -55,7 +55,7 @@ describe('the admin tool list', () => {
 
     expect(tool).toStrictEqual({
   "name": "list_number_labels",
-  "description": "Liệt kê các nhãn chi tiết có số chuẩn trong các mục phù hợp, kèm đơn vị và số giá trị. Lọc giống search_records. Gọi trước total_numbers khi chưa biết nhãn. Không tự coi hai nhãn khác nghĩa là một.",
+  "description": "Liệt kê các nhãn chi tiết trong các mục phù hợp, kèm đơn vị và số giá trị. unit là null khi giá trị chưa có cặp số và đơn vị hợp lệ. Một nhãn có thể có các dòng có đơn vị và một dòng có unit là null. Lọc giống search_records. Gọi trước total_numbers khi chưa biết nhãn. Không tự coi hai nhãn khác nghĩa là một.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -137,7 +137,7 @@ describe('the admin tool list', () => {
 
     expect(tool).toStrictEqual({
   "name": "total_numbers",
-  "description": "Tính tổng, số giá trị, nhỏ nhất và lớn nhất dưới một nhãn trong mọi mục phù hợp. Các đơn vị luôn tách riêng. Lọc giống search_records, không phân trang. Có thể nhóm theo thành viên, xe, loại hoặc ngày trên giấy tờ. Các kết quả tổng, nhỏ nhất và lớn nhất là chuỗi số thập phân. without_number đếm mục có nhãn này nhưng thiếu số chuẩn.",
+  "description": "Tính tổng, số giá trị, nhỏ nhất và lớn nhất dưới một nhãn trong các mục phù hợp. Các bản lưu trùng loại, số chứng từ, biển số và ngày trên giấy tờ chỉ lấy bản mới nhất có nhãn đó trong các mục phù hợp. Mục không có số chứng từ luôn tính riêng. Các đơn vị luôn tách riêng. Lọc giống search_records, không phân trang. Có thể nhóm theo thành viên, xe, loại hoặc ngày trên giấy tờ. Các kết quả tổng, nhỏ nhất và lớn nhất là chuỗi số thập phân. without_number đếm mục được chọn có nhãn này nhưng thiếu số chuẩn.",
   "parameters": {
     "type": "object",
     "properties": {
