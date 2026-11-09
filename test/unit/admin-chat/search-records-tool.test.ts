@@ -15,4 +15,10 @@ describe('the search_records runner', () => {
 
     expect(output).toBe('{"ok":false,"error":"Ngày không hợp lệ."}');
   });
+
+  it.each(['added_from', 'added_to'])('refuses an impossible date in %s', async (key) => {
+    const output = await runSearchRecords(database, scope, { ...noFilters, [key]: '2026-02-30' });
+
+    expect(output).toBe('{"ok":false,"error":"Ngày không hợp lệ."}');
+  });
 });
