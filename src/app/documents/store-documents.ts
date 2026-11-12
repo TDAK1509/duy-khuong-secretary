@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { ReplyPlan } from '../intake/plan-reply.ts';
+import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { groupItems, hasCompatiblePlate, pairItemsWithRecords, type DocumentDraft } from './document-draft.ts';
 import { findAcceptedDocuments } from './find-accepted-documents.ts';
 import { insertDocument, insertSources } from './insert-document.ts';
@@ -15,6 +16,7 @@ export async function storeDocuments(
   if (!plan.saved) return;
   const drafts = groupItems(pairItemsWithRecords(plan.readItems, plan.saved));
   await transaction.withScope({ workspaceId: message.workspaceId }, async () => {
+    await lockWorkspaceRecords(transaction, message.workspaceId);
     for (const draft of drafts) await storeDraft(transaction, message, draft, mayInsertDocuments);
   });
 }

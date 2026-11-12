@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runRereadDocumentsCommand } from '../../src/bootstrap/reread-documents.ts';
 import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
@@ -14,6 +16,8 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const READER_SETTINGS = { READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key' };
+const MAX_WAIT_ATTEMPTS = 50;
+const WAIT_STEP_MS = 40;
 const PHOTO_STORAGE_SETTINGS = {
   PHOTO_STORAGE: 's3',
   S3_ENDPOINT: 'http://localhost:9000',
@@ -158,6 +162,30 @@ describe('the reread-documents command', () => {
 
     const expectedTexts = ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map((count) => `- tin ${count}`);
     expect(reader.requests[0]?.text).toBe(['Các tin nhắn gần đây của người gửi, từ cũ đến mới:', ...expectedTexts].join('\n'));
+  });
+
+  it('waits for the workspace lock before it stores the parties of a message that has records', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn', parties: [{ role: 'issuer', type: 'company', printed_name: 'CÔNG TY MỚI', known_name: null }] })]));
+    const otherSession = await database.openSession();
+    await otherSession.query('BEGIN');
+    await otherSession.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`records:${workspaceId}`]);
+    await insertCompanyWithAlias(otherSession, workspaceId, 'Công ty Mới');
+
+    const reread = runReread(workspaceId, reader);
+    try {
+      await waitForAnAdvisoryLockToWait();
+    } finally {
+      await otherSession.query('COMMIT');
+    }
+    await reread;
+
+    expect(await database.query('SELECT count(*)::int AS count FROM organizations')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 1 }]);
+    expect(await database.query('SELECT printed_name FROM document_parties')).toEqual([{ printed_name: 'CÔNG TY MỚI' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
   });
 
   it('skips a photo whose inbound event live intake has not finished', async () => {
@@ -526,6 +554,29 @@ describe('the reread-documents command', () => {
       'Messages to re-read: 1. Test photos: 0, with 0 records to remove. Nothing changed. Run again with --apply.',
     ]);
   });
+
+  async function insertCompanyWithAlias(session: Awaited<ReturnType<TemporaryDatabase['openSession']>>, workspaceId: string, name: string): Promise<void> {
+    const { rows } = await session.query<{ id: string }>(
+      `INSERT INTO organizations (workspace_id, type, name) VALUES ($1, 'company', $2) RETURNING id`,
+      [workspaceId, name],
+    );
+    await session.query(
+      `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key) VALUES ($1, $2, $3, $4)`,
+      [workspaceId, rows[0]?.id, name, buildMatchKey(name)],
+    );
+  }
+
+  async function waitForAnAdvisoryLockToWait(): Promise<void> {
+    for (let attempt = 0; attempt < MAX_WAIT_ATTEMPTS; attempt += 1) {
+      const [row] = await database.query<{ waiting: string }>(
+        `SELECT count(*) AS waiting FROM pg_locks
+         WHERE locktype = 'advisory' AND NOT granted AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
+      );
+      if (Number(row?.waiting) > 0) return;
+      await setTimeout(WAIT_STEP_MS);
+    }
+    throw new Error('the reread did not wait on the advisory lock');
+  }
 
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
