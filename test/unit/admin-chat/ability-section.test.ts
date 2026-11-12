@@ -31,6 +31,7 @@ describe('the ability section of the prompt', () => {
         '- Cho biết giấy tờ có những loại số nào, ví dụ trọng lượng hoặc số tiền.',
         '- Cộng số tiền, trọng lượng hoặc số lượng trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày.',
         '- Tìm đúng tên công ty và nơi chốn đã lưu.',
+        '- Liệt kê các giấy tờ được tính trong một tổng số trên giấy tờ.',
         CHAT_LINE,
       ].join('\n'),
     );

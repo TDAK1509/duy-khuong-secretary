@@ -189,8 +189,8 @@ describe('the admin tool list', () => {
     });
   });
 
-  it('lists the three document tools at the end, after the existing tools', () => {
-    expect(ADMIN_TOOLS.map((tool) => tool.name).slice(-3)).toEqual(['list_document_numbers', 'total_document_numbers', 'list_organizations']);
+  it('lists the four document tools at the end, after the existing tools', () => {
+    expect(ADMIN_TOOLS.map((tool) => tool.name).slice(-4)).toEqual(['list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_documents']);
   });
 
   it('offers list_sources after attach_photos with the exact text and parameters', () => {

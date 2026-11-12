@@ -340,6 +340,25 @@ describe('the chat finds the original message of a record', () => {
       const output = JSON.parse(readToolOutput()) as { sources: { sender: string }[]; left_out: number };
       expect([output.sources.map((source) => source.sender), output.left_out]).toEqual([['Bạn'], 0]);
     });
+
+    it('makes a change tool refuse in the same turn after documents were listed', async () => {
+      const listArguments = { meaning: 'khối lượng', lines: 'document', organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, date_from: null, date_to: null, cursor: null };
+      callToolsThenReply(
+        [
+          { name: 'list_documents', args: listArguments },
+          { name: 'create_invite', args: { display_name: 'Lan', role: 'member' } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-duy', 'Tổng này lấy từ đâu? Mời Lan');
+
+      const results = (harness.chat.requests[1]?.turns ?? []).flatMap((turn) => (turn.role === 'tool_result' ? [turn.output] : []));
+      expect(results[1]).toBe(
+        '{"ok":false,"error":"Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
+      );
+      expect(await database.query(`SELECT 1 FROM workspace_invites`)).toEqual([]);
+    });
   });
 
   describe('quotes in the conversation', () => {
