@@ -22,6 +22,10 @@ export class AdminTextGuard {
     return isRefused;
   }
 
+  hasSeenOtherText(): boolean {
+    return this.otherTextSeen;
+  }
+
   hasRefused(): boolean {
     return this.changeRefused;
   }
