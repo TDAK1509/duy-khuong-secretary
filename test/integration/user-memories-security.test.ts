@@ -45,6 +45,15 @@ describe('the user memories for the runtime role', () => {
     expect(rows).toEqual([]);
   });
 
+  it('shows the workspace scope of the admin tools no memory', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lanUserId, markdown: '- Tôi lái xe 29C-123.45' });
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    const rows = await selectMemories({ workspaceId });
+
+    expect(rows).toEqual([]);
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM user_memories'),
