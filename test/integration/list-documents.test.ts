@@ -20,6 +20,8 @@ type ListedDocument = {
   numbers: { line_no: number; item: string | null; label: string; value: string; number: string; unit: string }[];
 };
 
+type TotalOutput = { groups: { unit: string; count: number; sum: string; min: string; max: string }[] };
+
 type ListOutput = { ok: boolean; documents: ListedDocument[]; next_cursor: string | null };
 
 describe('the document list of an admin', () => {
@@ -94,6 +96,38 @@ describe('the document list of an admin', () => {
 
     expect(listed.documents).toEqual([]);
   });
+
+  it('lists numbers that add up to the total of the same filters', async () => {
+    const chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Cheng Loong' });
+    const hoaPhatId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Hòa Phát' });
+    const weighings = [
+      { organizationId: chengLoongId, kg: 26380, unit: 'kg' },
+      { organizationId: chengLoongId, kg: 27790, unit: 'kg' },
+      { organizationId: hoaPhatId, kg: 1250, unit: 'kg' },
+      { organizationId: hoaPhatId, kg: 30010, unit: 'kg' },
+      { organizationId: hoaPhatId, kg: 990, unit: 'kg' },
+      { organizationId: chengLoongId, kg: 12, unit: 'tấn' },
+    ];
+    for (const [index, weighing] of weighings.entries()) {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: `10${index}` });
+      await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: weighing.kg, unit: weighing.unit });
+      await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: weighing.organizationId, printedName: 'Khách' });
+    }
+
+    const listed = await runList();
+    const total = JSON.parse(await runTool('total_document_numbers', { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), group_by: 'none' }, duy)) as TotalOutput;
+
+    expect(summarizeByUnit(listed.documents)).toEqual(total.groups.map(({ unit, count, sum, min, max }) => ({ unit, count, sum, min, max })));
+  });
+
+  function summarizeByUnit(documents: ListedDocument[]): TotalOutput['groups'] {
+    const numbers = documents.flatMap((document) => document.numbers);
+    const units = [...new Set(numbers.map((listed) => listed.unit))].sort();
+    return units.map((unit) => {
+      const values = numbers.filter((listed) => listed.unit === unit).map((listed) => Number(listed.number));
+      return { unit, count: values.length, sum: String(values.reduce((sum, value) => sum + value, 0)), min: String(Math.min(...values)), max: String(Math.max(...values)) };
+    });
+  }
 
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
