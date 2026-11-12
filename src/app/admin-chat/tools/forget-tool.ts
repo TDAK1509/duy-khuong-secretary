@@ -3,7 +3,9 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { listFacts, writeFacts } from '../../memory/memory-facts.ts';
 import { updateUserMemory } from '../../memory/user-memory.ts';
-import { failTool, REFUSAL_ERROR } from './tool-result.ts';
+import { failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
+
+const NOT_REMEMBERED_ERROR = 'Không tìm thấy điều này trong bản ghi nhớ.';
 
 const argumentsSchema = z.strictObject({ fact: z.string() });
 
@@ -14,5 +16,7 @@ export async function runForget(database: Database, scope: AccessScope, parsedAr
 }
 
 function removeFact(markdown: string, fact: string): string {
-  return writeFacts(listFacts(markdown).filter((remembered) => remembered !== fact));
+  const facts = listFacts(markdown);
+  if (!facts.includes(fact)) throw new ToolRefusal(NOT_REMEMBERED_ERROR);
+  return writeFacts(facts.filter((remembered) => remembered !== fact));
 }

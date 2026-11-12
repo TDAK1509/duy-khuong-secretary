@@ -93,6 +93,15 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBe('- B');
   });
 
+  it('gives an error when it forgets a fact that is not remembered and keeps the memory', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+
+    const output = await runTool('forget', { fact: 'C' });
+
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy điều này trong bản ghi nhớ."}');
+    expect(await readUserMemory(database, lan.userId)).toBe('- A');
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 
