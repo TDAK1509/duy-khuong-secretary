@@ -8,6 +8,7 @@ import { CreatedInvites } from '../admin-chat/created-invites.ts';
 import { NameReviewRequest } from '../admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
+import { SourceCards } from '../admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
 import { runAdminTool } from '../admin-chat/tools/run-admin-tool.ts';
 import type { AdminToolDependencies } from '../admin-chat/tools/tool-dependencies.ts';
@@ -78,6 +79,7 @@ function buildAdminToolDependencies({ database, clock }: McpRuntime, attachments
     database,
     clock,
     attachments,
+    sources: new SourceCards(),
     created: new CreatedTasks(randomUUID()),
     invites: new CreatedInvites(),
     nameReview: new NameReviewRequest(),

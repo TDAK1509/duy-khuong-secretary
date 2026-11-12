@@ -1,4 +1,4 @@
-import { insertInboundEvent } from './inbound-event-rows.ts';
+import { insertInboundEvent, type NewInboundEvent } from './inbound-event-rows.ts';
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
@@ -9,11 +9,12 @@ export type NewChatMessage = {
   text: string | null;
   imageKey?: string | null;
   holdsOtherText?: boolean;
+  event?: NewInboundEvent;
   createdAt: Date;
 };
 
 export async function insertChatMessage(database: TemporaryDatabase, message: NewChatMessage): Promise<string> {
-  const eventId = message.author === 'user' ? await insertInboundEvent(database, { status: 'done' }) : null;
+  const eventId = message.author === 'user' ? await insertInboundEvent(database, { ...message.event, status: 'done' }) : null;
   const holdsOtherTextColumn = message.holdsOtherText === undefined ? '' : ', holds_other_text';
   const holdsOtherTextValue = message.holdsOtherText === undefined ? '' : `, ${message.holdsOtherText}`;
   const [row] = await database.query<{ id: string }>(

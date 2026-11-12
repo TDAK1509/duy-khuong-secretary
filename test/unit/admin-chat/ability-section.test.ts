@@ -23,6 +23,7 @@ describe('the ability section of the prompt', () => {
         '- Xóa một người khỏi nhóm.',
         '- Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
         '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
+        '- Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
         '- Đặt lịch tự động, ví dụ báo cáo hằng ngày hoặc nhắc bảo dưỡng.',
         '- Cho xem các lịch tự động đang chạy.',
         '- Hủy một lịch tự động.',
@@ -35,7 +36,7 @@ describe('the ability section of the prompt', () => {
     );
   });
 
-  it('holds the six member lines and the two fixed lines for the member tools', () => {
+  it('holds the seven member lines and the two fixed lines for the member tools', () => {
     const section = buildAbilitySection([...MEMBER_TOOLS, ...MEMORY_TOOLS]);
 
     expect(section).toBe(
@@ -45,6 +46,7 @@ describe('the ability section of the prompt', () => {
         '- Tìm dữ liệu đã lưu mà người dùng được xem, theo từ khóa, loại, biển số và ngày.',
         '- Đếm số mục và cộng tiền theo loại trong một khoảng ngày gửi, trong phạm vi người dùng được xem.',
         '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
+        '- Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
         '- Ghi nhớ một điều người dùng muốn Trợ lý nhớ lâu dài.',
         '- Quên một điều đã ghi nhớ khi người dùng bảo.',
         '- Quên hết mọi điều đã ghi nhớ về người dùng.',

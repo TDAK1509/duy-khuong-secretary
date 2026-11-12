@@ -1,3 +1,4 @@
+import type { NewInboundEvent } from './inbound-event-rows.ts';
 import { insertChatMessage } from './message-rows.ts';
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -22,6 +23,8 @@ export type NewRecordRow = {
   imageKey?: string;
   messageId?: string;
   itemIndex?: number;
+  messageText?: string | null;
+  event?: NewInboundEvent;
 };
 
 const DEFAULT_CREATED_AT = new Date('2026-10-31T10:00:00+07:00');
@@ -32,9 +35,10 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
     workspaceId: row.workspaceId,
     userId: row.userId,
     author: 'user',
-    text: 'tin nhắn',
+    text: row.messageText === undefined ? 'tin nhắn' : row.messageText,
     imageKey: row.imageKey ?? (row.hasPhoto ? `${row.workspaceId}/photo.jpg` : null),
     createdAt,
+    event: row.event,
   }));
   const category = row.category ?? 'đổ xăng dầu';
   const maintenanceItem = row.maintenanceItem ?? (category === 'bảo dưỡng' ? 'lốp' : null);

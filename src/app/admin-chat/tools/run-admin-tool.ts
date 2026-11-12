@@ -14,6 +14,7 @@ import { runCreateInvite } from './create-invite-tool.ts';
 import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
 import { runListOrganizations } from './list-organizations-tool.ts';
+import { runListSources } from './list-sources-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
 import { runForgetAll } from './forget-all-tool.ts';
@@ -69,6 +70,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   remove_member: ({ database }, scope, args) => runRemoveMember(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,
+  list_sources: runListSources,
   create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
