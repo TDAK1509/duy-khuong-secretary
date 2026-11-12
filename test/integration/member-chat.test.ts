@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertChatMessage } from './message-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -134,6 +135,21 @@ describe('a member chats with the bot', () => {
     expect(await harness.database.query(`SELECT kind, photo_key, admin_membership_id FROM outbound_messages ORDER BY kind`)).toEqual([
       { kind: 'image', photo_key: 'hung/phieu-dau.jpg', admin_membership_id: null },
       { kind: 'text', photo_key: null, admin_membership_id: null },
+    ]);
+  });
+
+  it('shows the model the earlier answer of the bot with its text', async () => {
+    const userId = harness.hungUserId;
+    const { workspaceId, database } = harness;
+    await insertChatMessage(database, { workspaceId, userId, author: 'user', text: 'Chào bạn', createdAt: new Date('2026-11-02T09:00:00+07:00') });
+    await insertChatMessage(database, { workspaceId, userId, author: 'bot', text: 'Chào bạn!', holdsOtherText: true, createdAt: new Date('2026-11-02T09:00:01+07:00') });
+
+    await harness.receiveText('zu-hung', 'Bạn khỏe không?');
+
+    expect(harness.chat.requests[0]?.turns).toEqual([
+      { role: 'user', text: 'Chào bạn' },
+      { role: 'assistant', text: 'Chào bạn!' },
+      { role: 'user', text: 'Bạn khỏe không?' },
     ]);
   });
 
