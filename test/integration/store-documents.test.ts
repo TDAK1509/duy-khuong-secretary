@@ -314,6 +314,18 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
   });
 
+  it('creates a new company when two saved companies have exactly the reader name', async () => {
+    for (let count = 0; count < 2; count += 1) {
+      await database.query(`INSERT INTO organizations (workspace_id, type, name) VALUES ('${harness.workspaceId}', 'company', 'Cheng Loong')`);
+    }
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name = '${MISREAD_NAME}'`)).toEqual([{ name: MISREAD_NAME }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));

@@ -28,10 +28,13 @@ async function findOrganizationNamed(transaction: Transaction, workspaceId: stri
     'SELECT id, name FROM organizations WHERE workspace_id = $1 AND type = $2 ORDER BY created_at, id',
     [workspaceId, party.type],
   );
-  const exact = organizations.find((organization) => organization.name.trim() === knownName);
-  if (exact) return exact.id;
-  const accentFree = organizations.filter((organization) => toAccentFreeForm(organization.name) === wanted);
-  return accentFree.length === 1 ? (accentFree[0]?.id ?? null) : null;
+  const exact = organizations.filter((organization) => organization.name.trim() === knownName);
+  if (exact.length > 0) return pickOnlyOrganization(exact);
+  return pickOnlyOrganization(organizations.filter((organization) => toAccentFreeForm(organization.name) === wanted));
+}
+
+function pickOnlyOrganization(candidates: { id: string }[]): string | null {
+  return candidates.length === 1 ? (candidates[0]?.id ?? null) : null;
 }
 
 async function mergeIntoOrganization(
