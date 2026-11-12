@@ -129,6 +129,20 @@ describe('the document list of an admin', () => {
     });
   }
 
+  it('splits twenty-one documents created at the same instant into two pages without repeats', async () => {
+    for (let index = 0; index < 21; index++) {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: `20${index}` });
+      await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 1000 + index, unit: 'kg' });
+    }
+    await database.query(`UPDATE documents SET created_at = '2026-11-05T10:00:00.123456Z'`);
+
+    const firstPage = await runList();
+    const secondPage = await runList({ cursor: firstPage.next_cursor });
+
+    const ids = [...firstPage.documents, ...secondPage.documents].map((document) => document.id);
+    expect([firstPage.documents.length, secondPage.documents.length, new Set(ids).size, secondPage.next_cursor]).toEqual([20, 1, 21, null]);
+  });
+
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
     return JSON.parse(await runTool('list_documents', args, scope)) as ListOutput;
