@@ -200,4 +200,20 @@ describe('an admin attaches the photos of records to the answer', () => {
     expect(readToolOutput()).toBe('{"attached":1}');
     expect(await database.query(`SELECT source.user_id = '${harness.hungUserId}' AS from_hung FROM reply_photos JOIN messages source ON source.id = reply_photos.source_message_id`)).toEqual([{ from_hung: true }]);
   });
+
+  it('sends the photo of a document to the admin', async () => {
+    const photo = { bytes: makeJpeg(500), contentType: 'image/jpeg' } as const;
+    await harness.photoStorage.put('earlier.jpg', photo);
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0002' });
+    attachDocumentsThenReply([documentId]);
+
+    await harness.receiveText('zu-duy', 'Gửi ảnh các giấy tờ đó');
+    await harness.sendAllQueuedTexts();
+
+    expect(readToolOutput()).toBe('{"attached":1}');
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-duy', text: 'Đây là ảnh.' },
+      { kind: 'image', to: 'zu-duy', photo },
+    ]);
+  });
 });
