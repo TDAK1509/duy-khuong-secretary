@@ -140,6 +140,16 @@ describe('the chat finds the original message of a record', () => {
     expect(output.left_out).toBe(1);
   });
 
+  it('keeps the name at the time of sending after the member is renamed', async () => {
+    const recordId = await insertHungTextRecord();
+    await database.query(`UPDATE memberships SET display_name = 'Hùng B' WHERE user_id = '${harness.hungUserId}'`);
+    listSourcesThenReply([recordId]);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    expect(readToolOutput()).toContain('"sender":"Hùng"');
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
