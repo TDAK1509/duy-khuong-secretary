@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
-import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -65,6 +65,24 @@ describe('which stored bot replies may hold text that the chatting user did not 
       await harness.receiveText('zu-duy', 'Cảm ơn');
 
       expect(await readAnswerFlags()).toEqual([true]);
+    });
+  });
+
+  describe('a reply of the intake', () => {
+    async function readReplyFlags(): Promise<boolean[]> {
+      const rows = await database.query<{ holds_other_text: boolean }>(
+        `SELECT holds_other_text FROM messages WHERE author = 'bot' AND reply_kind IN ('saved', 'answer') ORDER BY created_at`,
+      );
+      return rows.map((row) => row.holds_other_text);
+    }
+
+    it('is flagged when it saves a record read from a photo', async () => {
+      harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+      harness.reader.answerWith(makeReading([makeItem()]));
+
+      await harness.receivePhoto('zu-hung');
+
+      expect(await readReplyFlags()).toEqual([true]);
     });
   });
 });
