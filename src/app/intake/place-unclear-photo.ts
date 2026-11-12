@@ -16,7 +16,7 @@ export async function placeUnclearPhoto(
   await endExpiredWaits(transaction, context.sender, context.dependencies.clock.now());
   const isWaitingForItsTurn = await hasOtherWaitingPhoto(transaction, context.sender, photoId);
   const text = isWaitingForItsTurn ? ASK_LATER_TEXT : ASK_EXPLANATION_TEXT;
-  if (!isWaitingForItsTurn) await storeBotReply(transaction, photoId, { text, kind: askPlan.replyKind, holdsOtherText: true });
+  if (!isWaitingForItsTurn) await storeBotReply(transaction, photoId, { text, kind: askPlan.replyKind, holdsOtherText: false });
   await setSubmissionStatus(transaction, photoId, askPlan.status);
   await enqueueReplyToMessage(transaction, context, photoId, text);
   await notifyAdminsOfPhoto(transaction, context, photoId, { replyText: text, saved: null });

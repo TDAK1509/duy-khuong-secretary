@@ -84,5 +84,14 @@ describe('which stored bot replies may hold text that the chatting user did not 
 
       expect(await readReplyFlags()).toEqual([true]);
     });
+
+    it('is not flagged when it is a fixed refusal text', async () => {
+      harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+      harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+
+      await harness.receivePhoto('zu-hung');
+
+      expect(await readReplyFlags()).toEqual([false]);
+    });
   });
 });
