@@ -4,7 +4,7 @@ import { makeReading } from '../unit/reading/make-reading.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { findRecordSources } from '../../src/app/records/find-record-sources.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
-import { insertNumberedDocument } from './document-number-rows.ts';
+import { insertNumberedDocument, insertSourceOfMessage } from './document-number-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -303,6 +303,19 @@ describe('the chat finds the original message of a record', () => {
 
       expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [], sender: 'Hùng', kind: 'photo', paper_dates: ['05/11/2026'] }], left_out: 0 });
       expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Đây là nguồn.', expect.stringContaining('Nguồn 1: Hùng gửi ảnh lúc')]);
+    });
+
+    it('gives one card to a message linked through a record and a document', async () => {
+      const recordId = await insertHungTextRecord();
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0002' });
+      await database.query(`DELETE FROM document_sources WHERE document_id = '${documentId}'`);
+      await insertSourceOfMessage(database, { workspaceId, documentId, messageId: await readMessageIdOf(recordId) });
+      listDocumentSourcesThenReply([documentId], [recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [recordId] }], left_out: 0 });
+      expect(JSON.parse(readToolOutput()).sources).toHaveLength(1);
     });
   });
 

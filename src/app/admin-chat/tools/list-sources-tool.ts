@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { findDocumentSources } from '../../documents/find-document-sources.ts';
 import { findRecordSources } from '../../records/find-record-sources.ts';
+import { mergeSourcesByMessage } from '../../records/merge-sources.ts';
 import type { RecordSource } from '../../records/record-source.ts';
 import { formatVietnamDate } from '../../time/format-vietnam-date.ts';
 import { formatVietnamTime } from '../../time/format-vietnam-time.ts';
@@ -18,7 +19,7 @@ export async function runListSources(dependencies: AdminToolDependencies, scope:
   const args = argumentsSchema.parse(parsedArguments);
   const recordSources = await findRecordSources(dependencies.database, scope, args.record_ids.filter(isUuid));
   const documentSources = await findDocumentSources(dependencies.database, scope, args.document_ids.filter(isUuid));
-  const listed = [...recordSources, ...documentSources.sources].slice(0, MAX_SOURCES_PER_CALL).flatMap((source) => numberSource(dependencies, source));
+  const listed = mergeSourcesByMessage([...recordSources, ...documentSources.sources]).slice(0, MAX_SOURCES_PER_CALL).flatMap((source) => numberSource(dependencies, source));
   const foundIdCount = listed.reduce((count, { source }) => count + source.recordIds.length, 0) + documentSources.foundDocumentIds.length;
   const requestedIdCount = new Set(args.record_ids).size + new Set(args.document_ids).size;
   return JSON.stringify({ sources: listed.map((listedSource) => describeSource(dependencies, listedSource)), left_out: requestedIdCount - foundIdCount });
