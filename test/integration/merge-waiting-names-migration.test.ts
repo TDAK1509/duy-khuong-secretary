@@ -55,4 +55,22 @@ describe('the migration that merges the names that are waiting', () => {
       { organization_id: chengLoongId, proposed_organization_id: null },
     ]);
   });
+
+  it('gives one waiting spelling on two papers one alias and one merge row', async () => {
+    await insertWaitingParty('Chống Loong', chengLoongId);
+    await insertWaitingParty('Chống Loong', chengLoongId);
+
+    await runMigration();
+
+    expect(await database.query(`SELECT printed_name, organization_id FROM organization_aliases WHERE match_key = 'chongloong'`)).toEqual([
+      { printed_name: 'Chống Loong', organization_id: chengLoongId },
+    ]);
+    expect(await database.query('SELECT printed_name, match_key, organization_id FROM merged_names')).toEqual([
+      { printed_name: 'Chống Loong', match_key: 'chongloong', organization_id: chengLoongId },
+    ]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([
+      { organization_id: chengLoongId },
+      { organization_id: chengLoongId },
+    ]);
+  });
 });
