@@ -84,6 +84,15 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBe(oldMemory);
   });
 
+  it('forgets only the line that matches', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+
+    const output = await runTool('forget', { fact: 'A' });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- B' });
+    expect(await readUserMemory(database, lan.userId)).toBe('- B');
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 

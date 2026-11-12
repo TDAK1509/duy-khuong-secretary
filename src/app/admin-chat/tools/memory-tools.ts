@@ -11,4 +11,15 @@ const REMEMBER_SPEC: ToolSpec = {
   },
 };
 
-export const MEMORY_TOOLS: ToolSpec[] = [REMEMBER_SPEC];
+const FORGET_SPEC: ToolSpec = {
+  name: 'forget',
+  description: 'Xóa đúng một điều đang có trong bản ghi nhớ riêng của người đang trò chuyện. Không sửa hoặc xóa điều khác.',
+  parameters: {
+    type: 'object',
+    properties: { fact: { type: 'string', description: 'Nội dung điều cần quên, chép đúng như trong bản ghi nhớ, không gồm dấu "- ".' } },
+    required: ['fact'],
+    additionalProperties: false,
+  },
+};
+
+export const MEMORY_TOOLS: ToolSpec[] = [REMEMBER_SPEC, FORGET_SPEC];
