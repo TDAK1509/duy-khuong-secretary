@@ -78,6 +78,22 @@ describe('a member chats with the bot', () => {
     ]);
   });
 
+  it('answers the question in the explanation of an unclear photo after the saved reply', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    harness.reader.answerWith(makeReading([makeFuelItem()], { has_question: true }));
+    harness.chat.replyWith('Tháng này bạn đổ dầu 3 lần.');
+
+    await harness.receiveText('zu-hung', FUEL_TEXT_WITH_QUESTION);
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts().slice(-2)).toEqual([
+      ['zu-hung', MEMBER_FUEL_SAVED_REPLY],
+      ['zu-hung', 'Tháng này bạn đổ dầu 3 lần.'],
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: '2026-10-30', vehicle_plate: '29C-123.45' });
   }

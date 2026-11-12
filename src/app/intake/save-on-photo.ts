@@ -38,9 +38,7 @@ export async function saveReplyOnPhoto(
   const senderText = formatReplyForSender(reply, sender.role);
   await saveRecordsAndReply(transaction, context, target, { reply, senderText });
   const hasProposedParty = await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
-  if (reply.saved && reply.asksQuestion && sender.role === 'admin') {
-    await markQuestionPending(transaction, target.textId);
-  }
+  if (reply.saved && reply.asksQuestion) await markQuestionPending(transaction, target.textId);
   return { ...reply, hasProposedParty, senderText };
 }
 
