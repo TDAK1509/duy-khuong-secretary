@@ -349,5 +349,15 @@ describe('the chat finds the original message of a record', () => {
         { kind: 'image', body: expect.stringContaining('Nguồn 1: Bạn gửi ảnh'), photo_key: `${workspaceId}/photo.jpg`, quote_message_id: null },
       ]);
     });
+
+    it('gives an admin asking about a member source a plain card', async () => {
+      const recordId = await insertHungTextRecord();
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Hùng'), quote_message_id: null }]);
+    });
   });
 });
