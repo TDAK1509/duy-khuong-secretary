@@ -12,6 +12,9 @@ export const PHOTO_BLURRY_TEXT =
 export const PHOTO_CUT_OFF_TEXT =
   'Ảnh này bị mất một phần giấy tờ nên Trợ lý chưa lưu thông tin. Bạn chụp lại cho thấy đủ cả tờ giấy rồi gửi lại nhé.';
 
+export const PHOTO_NOT_WORK_TEXT =
+  'Ảnh này không phải giấy tờ hay việc công việc nên Trợ lý chưa lưu. Nếu đây là việc cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
+
 export const MAINTENANCE_WITHOUT_PLATE_TEXT =
   'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.';
 
