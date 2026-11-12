@@ -54,4 +54,20 @@ describe('the chat finds the original message of a record', () => {
       `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[]}],"left_out":0}`,
     );
   });
+
+  describe('after the answer', () => {
+    const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
+
+    it('sends the card as a text message', async () => {
+      listSourcesThenReply([await insertHungTextRecord()]);
+
+      await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(harness.channel.sends).toEqual([
+        { kind: 'text', to: 'zu-duy', text: 'Đây là nguồn.' },
+        { kind: 'text', to: 'zu-duy', text: HUNG_CARD },
+      ]);
+    });
+  });
 });

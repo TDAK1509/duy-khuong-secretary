@@ -47,6 +47,7 @@ type Answer = {
   photos: AttachablePhoto[];
   createdTaskIds: string[];
   inviteCodes: string[];
+  sourceCards: string[];
   hasNameReview: boolean;
   changeRefused: boolean;
   holdsOtherText: boolean;
@@ -72,13 +73,14 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
 
-function collectAnswer(text: string, role: ChatProfile['role'], { attachments, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
+function collectAnswer(text: string, role: ChatProfile['role'], { attachments, sources, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
   return {
     role,
     text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
+    sourceCards: sources.list(),
     hasNameReview: nameReview.isRequested(),
     changeRefused: guard.hasRefused(),
     holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
@@ -135,15 +137,19 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   if (!(await isCurrentMember(transaction, sender.membershipId, answer.role))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const text = joinAnswerParts(answer, summaries);
-  await storeBotReply(transaction, messageId, { text, kind: 'answer', holdsOtherText: answer.holdsOtherText });
+  await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards].join('\n\n'), kind: 'answer', holdsOtherText: answer.holdsOtherText });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  const adminMembershipId = answer.role === 'admin' ? sender.membershipId : undefined;
-  await enqueueReply(transaction, context, text, { adminMembershipId });
-  for (const code of answer.inviteCodes) await enqueueReply(transaction, context, code, { adminMembershipId });
-  await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
+  await enqueueAnswerMessages(transaction, context, answer, text);
   if (answer.hasNameReview) await queueNameProposalToSender(transaction, context);
+}
+
+async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
+  const adminMembershipId = answer.role === 'admin' ? context.sender.membershipId : undefined;
+  await enqueueReply(transaction, context, text, { adminMembershipId });
+  for (const followUp of [...answer.inviteCodes, ...answer.sourceCards]) await enqueueReply(transaction, context, followUp, { adminMembershipId });
+  await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
 }
 
 function joinAnswerParts(answer: Answer, summaries: string[]): string {
