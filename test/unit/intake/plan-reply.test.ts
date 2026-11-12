@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, PHOTO_BLURRY_TEXT, PHOTO_CUT_OFF_TEXT, PHOTO_NOT_WORK_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
+import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, PHOTO_BLURRY_TEXT, PHOTO_CUT_OFF_TEXT, PHOTO_NOT_WORK_TEXT, PHOTO_NOTHING_TO_SAVE_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import { makeItem, makeReading, succeed } from '../reading/make-reading.ts';
@@ -91,6 +91,14 @@ describe('planReply a message without work data', () => {
     const plan = planReply(succeed(reading), true);
 
     expect(plan.replyText).toBe(PHOTO_NOT_WORK_TEXT);
+  });
+
+  it('tells the sender a photo with no work data and no known problem has nothing to save', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: null });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan.replyText).toBe(PHOTO_NOTHING_TO_SAVE_TEXT);
   });
 });
 

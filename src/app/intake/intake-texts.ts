@@ -15,6 +15,9 @@ export const PHOTO_CUT_OFF_TEXT =
 export const PHOTO_NOT_WORK_TEXT =
   'Ảnh này không phải giấy tờ hay việc công việc nên Trợ lý chưa lưu. Nếu đây là việc cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
 
+export const PHOTO_NOTHING_TO_SAVE_TEXT =
+  'Trợ lý chưa thấy thông tin công việc cần lưu trong ảnh này nên chưa lưu. Nếu cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
+
 export const MAINTENANCE_WITHOUT_PLATE_TEXT =
   'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.';
 

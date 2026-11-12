@@ -9,6 +9,7 @@ import {
   PHOTO_BLURRY_TEXT,
   PHOTO_CUT_OFF_TEXT,
   PHOTO_NOT_WORK_TEXT,
+  PHOTO_NOTHING_TO_SAVE_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
@@ -134,7 +135,7 @@ function planNoWorkDataReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 }
 
 function pickNoWorkDataText(photoProblem: Reading['photo_problem'], hasPhoto: boolean): string {
-  if (hasPhoto && photoProblem !== null) return PHOTO_PROBLEM_TEXTS[photoProblem];
+  if (hasPhoto) return photoProblem === null ? PHOTO_NOTHING_TO_SAVE_TEXT : PHOTO_PROBLEM_TEXTS[photoProblem];
   return UPLOAD_ONLY_TEXT;
 }
 

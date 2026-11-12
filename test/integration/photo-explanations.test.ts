@@ -4,6 +4,7 @@ import {
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
   DUPLICATE_TEXT,
+  PHOTO_NOTHING_TO_SAVE_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
@@ -447,13 +448,13 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
   });
 
-  it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
+  it('tells an admin the photo has nothing to save when his photo has no work data', async () => {
     readerReturns(WEAK);
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: UPLOAD_ONLY_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: PHOTO_NOTHING_TO_SAVE_TEXT, quoteMessageId: 'zmsg-1' }]);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
