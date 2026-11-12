@@ -266,6 +266,17 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
   });
 
+  it('never merges a place into a company', async () => {
+    await insertChengLoong();
+    const place = { role: 'place', type: 'place', printed_name: 'Kho Chống Loong', known_name: 'Cheng Loong' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [place] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name, type FROM organizations WHERE type = 'place'`)).toEqual([{ name: 'Kho Chống Loong', type: 'place' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));

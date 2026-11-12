@@ -7,7 +7,7 @@ import { insertRow } from './insert-row.ts';
 export async function linkParty(transaction: Transaction, workspaceId: string, party: ReadingParty, matchKey: string): Promise<string> {
   const aliased = await findAliasedOrganization(transaction, workspaceId, matchKey);
   if (aliased) return aliased;
-  const merged = await findOrganizationNamed(transaction, workspaceId, party.known_name);
+  const merged = await findOrganizationNamed(transaction, workspaceId, party);
   if (merged) return mergeIntoOrganization(transaction, workspaceId, merged, { printedName: party.printed_name, matchKey });
   return insertOrganization(transaction, workspaceId, { type: party.type, printedName: party.printed_name, matchKey });
 }
@@ -32,12 +32,12 @@ export async function findAliasedOrganization(transaction: Transaction, workspac
   return alias?.organization_id ?? null;
 }
 
-async function findOrganizationNamed(transaction: Transaction, workspaceId: string, knownName: string | null): Promise<string | null> {
-  const wanted = toAccentFreeForm(knownName);
+async function findOrganizationNamed(transaction: Transaction, workspaceId: string, party: ReadingParty): Promise<string | null> {
+  const wanted = toAccentFreeForm(party.known_name);
   if (wanted === null) return null;
   const organizations = await transaction.query<{ id: string; name: string }>(
-    'SELECT id, name FROM organizations WHERE workspace_id = $1 ORDER BY created_at, id',
-    [workspaceId],
+    'SELECT id, name FROM organizations WHERE workspace_id = $1 AND type = $2 ORDER BY created_at, id',
+    [workspaceId, party.type],
   );
   return organizations.find((organization) => toAccentFreeForm(organization.name) === wanted)?.id ?? null;
 }
