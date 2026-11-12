@@ -68,13 +68,13 @@ export async function findUserMessage(
 export async function storeBotReply(
   transaction: Transaction,
   userMessageId: string,
-  reply: { text: string; kind: 'saved' | 'answer' },
+  reply: { text: string; kind: 'saved' | 'answer'; holdsOtherText: boolean },
 ): Promise<void> {
   await transaction.query(
-    `INSERT INTO messages (workspace_id, user_id, author, text, reply_to, reply_kind, submission_status)
-     SELECT workspace_id, user_id, 'bot', $2, id, $3, 'accepted' FROM messages WHERE id = $1
+    `INSERT INTO messages (workspace_id, user_id, author, text, reply_to, reply_kind, submission_status, holds_other_text)
+     SELECT workspace_id, user_id, 'bot', $2, id, $3, 'accepted', $4 FROM messages WHERE id = $1
      ON CONFLICT (reply_to, reply_kind) DO NOTHING`,
-    [userMessageId, reply.text, reply.kind],
+    [userMessageId, reply.text, reply.kind, reply.holdsOtherText],
   );
 }
 

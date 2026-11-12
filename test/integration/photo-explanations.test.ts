@@ -392,7 +392,7 @@ describe('asking what an unclear photo is for', () => {
     const lastTurn = harness.chat.requests.at(-1)?.turns.at(-1);
     expect(lastTurn).toMatchObject({
       role: 'user',
-      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${ADMIN_TIRE_SAVED_REPLY}`,
     });
     expect(harness.chat.requests).toHaveLength(1);
   });
@@ -414,7 +414,7 @@ describe('asking what an unclear photo is for', () => {
     const retriedTurn = harness.chat.requests[1]?.turns.at(-1);
     expect(retriedTurn).toMatchObject({
       role: 'user',
-      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${TIRE_SAVED_REPLY}`,
+      text: `${TIRE_EXPLANATION}. Lốp này đã lắp chưa?\n\nHệ thống đã lưu:\n${ADMIN_TIRE_SAVED_REPLY}`,
     });
   });
 

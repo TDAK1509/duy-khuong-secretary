@@ -8,6 +8,6 @@ import { findOldestWaitingPhoto } from './waiting-photos.ts';
 export async function askNextWaitingPhoto(transaction: Transaction, context: IntakeContext): Promise<void> {
   const next = await findOldestWaitingPhoto(transaction, context.sender);
   if (next === null) return;
-  await storeBotReply(transaction, next.id, { text: ASK_EXPLANATION_TEXT, kind: 'answer' });
+  await storeBotReply(transaction, next.id, { text: ASK_EXPLANATION_TEXT, kind: 'answer', holdsOtherText: false });
   await enqueueReplyToMessage(transaction, context, next.id, ASK_EXPLANATION_TEXT);
 }
