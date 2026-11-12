@@ -72,6 +72,17 @@ describe('the document list of an admin', () => {
     expect(listed.documents[0]?.numbers).toEqual([{ line_no: 1, item: 'Giấy cuộn', label: 'khối lượng', value: '500 kg', number: '500', unit: 'kg' }]);
   });
 
+  it('leaves out a document that waits for review', async () => {
+    const accepted = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0004' });
+    const waiting = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0005', status: 'needs_review' });
+    await insertNumberLine(database, { workspaceId, documentId: accepted, lineNo: 0, meaning: 'khối lượng', number: 26380, unit: 'kg' });
+    await insertNumberLine(database, { workspaceId, documentId: waiting, lineNo: 0, meaning: 'khối lượng', number: 27790, unit: 'kg' });
+
+    const listed = await runList();
+
+    expect(listed.documents.map((document) => document.id)).toEqual([accepted]);
+  });
+
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
     return JSON.parse(await runTool('list_documents', args, scope)) as ListOutput;
