@@ -8,6 +8,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  DELETE FROM pgmigrations WHERE name = '0044_merge_waiting_names';
   DELETE FROM pgmigrations WHERE name = '0043_remove_name_proposals';
   DROP TABLE merged_names;
   ALTER TABLE document_parties DROP COLUMN known_name;
@@ -123,7 +124,7 @@ describe('the migration that frees the record categories', () => {
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
     expect(lines).toEqual([
-      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source, 0037_create_document_tables, 0038_create_document_reads, 0039_split_documents_by_plate, 0040_add_message_holds_other_text, 0041_create_user_memories, 0042_merge_close_names, 0043_remove_name_proposals',
+      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source, 0037_create_document_tables, 0038_create_document_reads, 0039_split_documents_by_plate, 0040_add_message_holds_other_text, 0041_create_user_memories, 0042_merge_close_names, 0043_remove_name_proposals, 0044_merge_waiting_names',
     ]);
     expect(exitCode).toBe(0);
   }
