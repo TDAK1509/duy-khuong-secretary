@@ -31,12 +31,29 @@ export async function enqueueReply(
 export async function enqueueSourceCard(
   transaction: Transaction,
   context: IntakeContext,
-  { text, quote }: SourceCard,
+  { text, quote, albumPhotoKey }: SourceCard,
   adminMembershipId: string | undefined,
 ): Promise<void> {
   const [firstPart = '', ...otherParts] = splitText(text, context.dependencies.channel.maxTextLength);
-  await enqueueReply(transaction, context, firstPart, { adminMembershipId, quote });
+  if (albumPhotoKey !== undefined) await enqueueImagePart(transaction, context, albumPhotoKey, firstPart, adminMembershipId);
+  else await enqueueReply(transaction, context, firstPart, { adminMembershipId, quote });
   for (const part of otherParts) await enqueueReply(transaction, context, part, { adminMembershipId });
+}
+
+async function enqueueImagePart(
+  transaction: Transaction,
+  context: IntakeContext,
+  photoKey: string,
+  text: string,
+  adminMembershipId: string | undefined,
+): Promise<void> {
+  await enqueueImage(transaction, {
+    to: findRecipient(context),
+    photoKey,
+    text,
+    availableAt: context.dependencies.clock.now(),
+    ...(adminMembershipId !== undefined && { adminMembershipId }),
+  });
 }
 
 export async function enqueueRefusal(transaction: Transaction, context: IntakeContext, text: string): Promise<void> {

@@ -81,7 +81,7 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
   return {
     role,
     text,
-    photos: dropQuotedPhotos(attachments.list(), sources.list()),
+    photos: dropDeliveredPhotos(attachments.list(), sources.list()),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     sourceCards: sources.list(),
@@ -91,9 +91,13 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
   };
 }
 
-function dropQuotedPhotos(photos: AttachablePhoto[], cards: SourceCard[]): AttachablePhoto[] {
-  const quotedMessageIds = new Set(cards.filter((card) => card.quote !== undefined).map((card) => card.messageId));
-  return photos.filter((photo) => !quotedMessageIds.has(photo.sourceMessageId));
+function dropDeliveredPhotos(photos: AttachablePhoto[], cards: SourceCard[]): AttachablePhoto[] {
+  const deliveredMessageIds = new Set(cards.filter(hasPhotoDelivery).map((card) => card.messageId));
+  return photos.filter((photo) => !deliveredMessageIds.has(photo.sourceMessageId));
+}
+
+function hasPhotoDelivery(card: SourceCard): boolean {
+  return card.quote !== undefined || card.albumPhotoKey !== undefined;
 }
 
 async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {

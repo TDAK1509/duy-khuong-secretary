@@ -325,5 +325,29 @@ describe('the chat finds the original message of a record', () => {
         { kind: 'text', quote_message_id: 'msg-1', fallback_photo_key: `${workspaceId}/photo.jpg` },
       ]);
     });
+
+    it('sends the own photo of a member from an album as the photo with the card text and no quote', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        event: { kind: 'images', imageUrls: ['https://z.test/1.jpg', 'https://z.test/2.jpg'], externalEventId: 'msg-1' },
+      });
+      callToolsThenReply(
+        [
+          { name: 'list_sources', args: { record_ids: [recordId] } },
+          { name: 'attach_photos', args: { record_ids: [recordId] } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.' },
+        { kind: 'image', body: expect.stringContaining('Nguồn 1: Bạn gửi ảnh'), photo_key: `${workspaceId}/photo.jpg`, quote_message_id: null },
+      ]);
+    });
   });
 });

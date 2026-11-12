@@ -6,7 +6,9 @@ export const MAX_SOURCE_CARDS = 5;
 
 export type Conversation = { channel: string; accountId: string; externalUserId: string };
 
-export type SourceCard = { messageId: string; text: string; quote?: QuotedMessage };
+export type CardDelivery = { quote?: QuotedMessage; albumPhotoKey?: string };
+
+export type SourceCard = CardDelivery & { messageId: string; text: string };
 
 export class SourceCards {
   private readonly sources = new Map<string, RecordSource>();
@@ -26,7 +28,7 @@ export class SourceCards {
 
   isQuoted(messageId: string): boolean {
     const source = this.sources.get(messageId);
-    return source !== undefined && findQuote(source, this.conversation) !== null;
+    return source !== undefined && findDelivery(source, this.conversation).quote !== undefined;
   }
 
   list(): SourceCard[] {
@@ -34,15 +36,20 @@ export class SourceCards {
   }
 
   private describeCard(cardNumber: number, source: RecordSource): SourceCard {
-    const quote = findQuote(source, this.conversation);
-    return { messageId: source.messageId, text: formatSourceCard(cardNumber, source), ...(quote !== null && { quote }) };
+    return { messageId: source.messageId, text: formatSourceCard(cardNumber, source), ...findDelivery(source, this.conversation) };
   }
 }
 
-function findQuote(source: RecordSource, conversation: Conversation | null): QuotedMessage | null {
-  if (!isInConversation(source, conversation)) return null;
-  if (source.imageKey === null) return { messageId: source.event.externalEventId };
-  return { messageId: source.event.externalEventId, fallbackPhotoKey: source.imageKey };
+function findDelivery(source: RecordSource, conversation: Conversation | null): CardDelivery {
+  if (!isInConversation(source, conversation)) return {};
+  const messageId = source.event.externalEventId;
+  if (source.imageKey === null) return { quote: { messageId } };
+  if (hasSeveralPhotos(source.event)) return { albumPhotoKey: source.imageKey };
+  return { quote: { messageId, fallbackPhotoKey: source.imageKey } };
+}
+
+function hasSeveralPhotos({ photoCount }: SourceEvent): boolean {
+  return photoCount !== null && photoCount > 1;
 }
 
 function isInConversation(source: RecordSource, conversation: Conversation | null): source is RecordSource & { event: SourceEvent } {
