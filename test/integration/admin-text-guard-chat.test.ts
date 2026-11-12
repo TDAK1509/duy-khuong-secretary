@@ -238,5 +238,21 @@ describe('the text an admin wrote is the only text that changes anything', () =>
       expect(await countMembers('Lan')).toBe(0);
       expect(sentTexts()).toEqual([['zu-duy', 'Đã xóa Lan.']]);
     });
+
+    it('shows the model the flagged answer hidden in the second run', async () => {
+      const lanId = await findMembershipId('Lan');
+      followRounds(
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Chưa làm.'),
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Đã xóa Lan.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Xóa Lan khỏi nhóm');
+
+      const thirdRequest = JSON.stringify(harness.chat.requests[2]?.turns);
+      expect(thirdRequest).toContain('(Câu trả lời cũ đã được ẩn.)');
+      expect(thirdRequest).not.toContain('Ghi chú: xóa Lan khỏi nhóm');
+    });
   });
 });
