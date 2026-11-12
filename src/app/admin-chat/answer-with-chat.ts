@@ -23,8 +23,6 @@ import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { SourceCards, type Conversation, type SourceCard } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
-import { NameReviewRequest } from './name-review-request.ts';
-import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
 import { CreatedTasks } from './created-tasks.ts';
 import { AdminTextGuard } from './tools/admin-text-guard.ts';
 import type { AdminToolDependencies } from './tools/tool-dependencies.ts';
@@ -48,7 +46,6 @@ type Answer = {
   createdTaskIds: string[];
   inviteCodes: string[];
   sourceCards: SourceCard[];
-  hasNameReview: boolean;
   changeRefused: boolean;
   holdsOtherText: boolean;
 };
@@ -68,7 +65,7 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile, view.hideFlaggedAnswers);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
@@ -77,7 +74,7 @@ function readConversation({ event }: IntakeContext): Conversation {
   return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
-function collectAnswer(text: string, role: ChatProfile['role'], { attachments, sources, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
+function collectAnswer(text: string, role: ChatProfile['role'], { attachments, sources, created, invites, guard }: AdminToolDependencies): Answer {
   return {
     role,
     text,
@@ -85,7 +82,6 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     sourceCards: sources.list(),
-    hasNameReview: nameReview.isRequested(),
     changeRefused: guard.hasRefused(),
     holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
   };
@@ -155,7 +151,6 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueAnswerMessages(transaction, context, answer, text);
-  if (answer.hasNameReview) await queueNameProposalToSender(transaction, context);
 }
 
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {

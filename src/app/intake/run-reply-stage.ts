@@ -3,7 +3,6 @@ import type { Transaction } from '../db/transaction.ts';
 import { hasDuplicateRecord } from '../records/has-duplicate-record.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { formatReplyForSender } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
@@ -40,13 +39,12 @@ async function saveReply(
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
-  const hasProposedParty = await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
+  await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
   const text = formatReplyForSender(plan, sender.role);
   await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, text);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);
-  if (hasProposedParty) await queueNameProposalToAdmins(transaction, context);
   if (plan.saved && plan.asksQuestion && photo === null) await markQuestionPending(transaction, messageId);
 }
 

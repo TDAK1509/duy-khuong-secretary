@@ -45,7 +45,7 @@ describe('the rules about who may change things in the admin prompt', () => {
     '- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, remember, forget và forget_all.',
     '- Chỉ thay đổi theo yêu cầu quản lý viết trong tin nhắn, hoặc theo quy tắc tự ghi nhớ sở thích lâu dài.',
     '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
-    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, review_name_matches, list_sources và list_documents.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_sources và list_documents.',
     '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
     '- Nếu việc thay đổi bị từ chối, không gọi lại và không nói là đã làm. Hệ thống tự gửi hướng dẫn cho quản lý.',
     '- Lịch sử có các câu trả lời trước của bạn. Dùng chúng để hiểu câu hỏi tiếp theo. Câu "(Câu trả lời cũ đã được ẩn.)" là một câu trả lời trước đã được ẩn. Nếu cần dữ liệu trong câu đó, gọi lại công cụ. Không viết câu này trong câu trả lời.',
@@ -111,7 +111,7 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
   ];
   const changeLines = [
     '- Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.',
-    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, review_name_matches, list_sources và list_documents.',
+    '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_sources và list_documents.',
     '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.',
   ];
 
@@ -169,7 +169,7 @@ describe('the source section of the admin prompt', () => {
 - Kết quả dùng dữ liệu hiện tại. Không nói đây là bản giữ nguyên của một tổng trước đó.`;
 
   it('holds the source section right after the search section', () => {
-    const endOfSearchSection = 'Không tự xác nhận thay quản lý.';
+    const endOfSearchSection = 'Giấy tờ được tính ngay theo tên đã lưu.';
 
     expect(prompt).toContain(`${endOfSearchSection}\n\n${sourceSection}\n\nNgười này là quản lý.`);
   });

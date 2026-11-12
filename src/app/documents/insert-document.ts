@@ -7,18 +7,15 @@ import type { DocumentMessage } from './store-documents.ts';
 
 const FALLBACK_KIND = 'khác';
 
-export type InsertedDocument = { documentId: string; proposedPartyCount: number };
-
 export async function insertDocument(
   transaction: Transaction,
   message: DocumentMessage,
   draft: DocumentDraft,
-): Promise<InsertedDocument> {
+): Promise<void> {
   const documentId = await insertRow(transaction, 'documents', buildDocumentRow(message, draft));
   await insertLines(transaction, message, documentId, draft);
-  const proposedPartyCount = await insertParties(transaction, message, documentId, draft);
+  await insertParties(transaction, message, documentId, draft);
   await insertSources(transaction, message, documentId, draft);
-  return { documentId, proposedPartyCount };
 }
 
 function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft): Record<string, unknown> {

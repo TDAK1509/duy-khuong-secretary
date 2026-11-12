@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MEMBER_TEXT_TOOLS } from '../../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
 
 const DOCUMENT_FILTER_PROPERTIES = {
@@ -251,5 +252,12 @@ describe('the admin tool list', () => {
         additionalProperties: false,
       },
     });
+  });
+});
+
+describe('the removed name review tool', () => {
+  it('is named by no admin tool and no member text tool', () => {
+    expect(ADMIN_TOOLS.map((tool) => tool.name)).not.toContain('review_name_matches');
+    expect(MEMBER_TEXT_TOOLS).not.toContain('review_name_matches');
   });
 });

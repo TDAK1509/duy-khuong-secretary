@@ -1,5 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import type { ReplyPlan } from '../intake/plan-reply.ts';
+import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { groupItems, hasCompatiblePlate, pairItemsWithRecords, type DocumentDraft } from './document-draft.ts';
 import { findAcceptedDocuments } from './find-accepted-documents.ts';
 import { insertDocument, insertSources } from './insert-document.ts';
@@ -11,20 +12,18 @@ export async function storeDocuments(
   message: DocumentMessage,
   plan: ReplyPlan,
   mayInsertDocuments: boolean,
-): Promise<boolean> {
-  if (!plan.saved) return false;
+): Promise<void> {
+  if (!plan.saved) return;
   const drafts = groupItems(pairItemsWithRecords(plan.readItems, plan.saved));
-  return transaction.withScope({ workspaceId: message.workspaceId }, async () => {
-    let proposedPartyCount = 0;
-    for (const draft of drafts) proposedPartyCount += await storeDraft(transaction, message, draft, mayInsertDocuments);
-    return proposedPartyCount > 0;
+  await transaction.withScope({ workspaceId: message.workspaceId }, async () => {
+    await lockWorkspaceRecords(transaction, message.workspaceId);
+    for (const draft of drafts) await storeDraft(transaction, message, draft, mayInsertDocuments);
   });
 }
 
-async function storeDraft(transaction: Transaction, message: DocumentMessage, draft: DocumentDraft, mayInsertDocuments: boolean): Promise<number> {
+async function storeDraft(transaction: Transaction, message: DocumentMessage, draft: DocumentDraft, mayInsertDocuments: boolean): Promise<void> {
   const accepted = await findAcceptedDocuments(transaction, message.workspaceId, draft);
   const same = accepted.find((document) => hasCompatiblePlate(document.vehicle_plate, draft.vehiclePlate));
   if (same) await insertSources(transaction, message, same.id, draft);
-  else if (mayInsertDocuments) return (await insertDocument(transaction, message, draft)).proposedPartyCount;
-  return 0;
+  else if (mayInsertDocuments) await insertDocument(transaction, message, draft);
 }

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertDocumentWithSource, insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -19,6 +20,16 @@ describe('storing the documents of a saved message', () => {
   afterEach(async () => {
     await harness.close();
   });
+
+  async function insertCompaniesWithOneAccentFreeName(): Promise<void> {
+    for (const name of ['Tân Quốc Hưng', 'Tan Quoc Hung']) {
+      await database.query(`INSERT INTO organizations (workspace_id, type, name) VALUES ('${harness.workspaceId}', 'company', '${name}')`);
+    }
+  }
+
+  function insertChengLoong(): Promise<string> {
+    return insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Cheng Loong' });
+  }
 
   it('stores one document with the source message and item of a saved item', async () => {
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'CTY THUẬN MINH')] })]));
@@ -208,24 +219,131 @@ describe('storing the documents of a saved message', () => {
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
-      { organization_id: organizationId, proposed_organization_id: null },
-    ]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
   });
 
-  it('proposes the organization of a known name when the printed name is not an alias', async () => {
-    const organizationId = await insertOrganizationWithAlias(database, {
-      workspaceId: harness.workspaceId,
-      name: 'Công ty TNHH Cheng Loong Bình Dương Paper',
-    });
-    const misread = makeParty('issuer', 'Công ty TNHH Chống Loong Bình Dương Paper', 'Công ty TNHH Cheng Loong Bình Dương Paper');
-    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [misread] })]));
+  it('counts a new spelling of a saved company under it at once', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
-      { organization_id: null, proposed_organization_id: organizationId },
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
+  });
+
+  it('records the merge once, with the alias of the new spelling', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    const matchKey = buildMatchKey(MISREAD_NAME);
+    expect(await database.query('SELECT printed_name, match_key, organization_id FROM merged_names')).toEqual([
+      { printed_name: MISREAD_NAME, match_key: matchKey, organization_id: organizationId },
     ]);
+    expect(await database.query(`SELECT organization_id FROM organization_aliases WHERE match_key = '${matchKey}'`)).toEqual([
+      { organization_id: organizationId },
+    ]);
+  });
+
+  it('adds no merge row for a second paper with the same spelling', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+    await harness.receivePhoto('zu-hung');
+    const sameSpelling = makeParty('issuer', MISREAD_NAME);
+    harness.reader.answerWith(makeReading([makeTicketItem({ document_number: '20261105099', parties: [sameSpelling] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([
+      { organization_id: organizationId },
+      { organization_id: organizationId },
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 1 }]);
+  });
+
+  it('merges a spelling whose reader name is in capitals without accents', async () => {
+    const organizationId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty Kim Nhân Đạo' });
+    const capitals = makeParty('issuer', 'C.TY TNHH KIM NHAN DAO', 'CONG TY KIM NHAN DAO');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [capitals] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
+  });
+
+  it('never merges a place into a company', async () => {
+    await insertChengLoong();
+    const place = { role: 'place', type: 'place', printed_name: 'Kho Chống Loong', known_name: 'Cheng Loong' };
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [place] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name, type FROM organizations WHERE type = 'place'`)).toEqual([{ name: 'Kho Chống Loong', type: 'place' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
+  it('creates a new company when the reader name matches no saved company', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', MISREAD_NAME, 'Công ty Không Có')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name <> 'Cheng Loong'`)).toEqual([{ name: MISREAD_NAME }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
+  it('merges into the saved company whose name is exactly the reader name when two match without accents', async () => {
+    await insertCompaniesWithOneAccentFreeName();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'TQH Cân điện tử', 'Tan Quoc Hung')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(`SELECT organization.name FROM document_parties party JOIN organizations organization ON organization.id = party.organization_id`),
+    ).toEqual([{ name: 'Tan Quoc Hung' }]);
+  });
+
+  it('creates a new company when two saved companies match without accents and neither is exact', async () => {
+    await insertCompaniesWithOneAccentFreeName();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'TQH Cân điện tử', 'TAN QUOC HUNG')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name = 'TQH Cân điện tử'`)).toEqual([{ name: 'TQH Cân điện tử' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
+  it('creates a new company when two saved companies have exactly the reader name', async () => {
+    for (let count = 0; count < 2; count += 1) {
+      await database.query(`INSERT INTO organizations (workspace_id, type, name) VALUES ('${harness.workspaceId}', 'company', 'Cheng Loong')`);
+    }
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name = '${MISREAD_NAME}'`)).toEqual([{ name: MISREAD_NAME }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
+  it('stores the name the reader gave next to the printed name', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT printed_name, known_name FROM document_parties')).toEqual([
+      { printed_name: MISREAD_NAME, known_name: 'Cheng Loong' },
+    ]);
+  });
+
+  it('stores a blank name from the reader as null', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', MISREAD_NAME, '  ')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT known_name FROM document_parties')).toEqual([{ known_name: null }]);
   });
 
   it('creates an organization with an alias for a new name and links the party to it', async () => {
@@ -328,6 +446,7 @@ describe('storing the documents of a saved message', () => {
   });
 });
 
+const MISREAD_NAME = 'Công ty TNHH Chống Loong Bình Dương Paper';
 const PORT_ISSUER_KEY = 'congtycpcangvanangluongbinhduong';
 
 function makePortTicket(vehiclePlate: string | null) {
@@ -355,6 +474,10 @@ function makeTicketItem(overrides: ItemOverrides = {}) {
     document_kind: 'phiếu cân xe',
     ...overrides,
   });
+}
+
+function makeMisreadIssuer() {
+  return makeParty('issuer', MISREAD_NAME, 'Cheng Loong');
 }
 
 function makeParty(role: string, printedName: string, knownName: string | null = null) {

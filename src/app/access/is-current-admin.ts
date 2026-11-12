@@ -12,11 +12,3 @@ export async function isCurrentWorkspaceAdmin(transaction: Transaction, { worksp
   );
   return rows.length > 0;
 }
-
-export async function findAdminMembershipId(transaction: Transaction, { workspaceId, userId }: { workspaceId: string; userId: string }): Promise<string | null> {
-  const [membership] = await transaction.query<{ id: string }>(
-    `SELECT id FROM memberships WHERE workspace_id = $1 AND user_id = $2 AND role = 'admin' FOR SHARE`,
-    [workspaceId, userId],
-  );
-  return membership?.id ?? null;
-}

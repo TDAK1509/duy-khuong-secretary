@@ -1,6 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
-import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { formatReplyForSender } from './format-reply-with-read-data.ts';
@@ -10,7 +9,7 @@ import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
-export type SavedReply = ReplyPlan & { hasProposedParty: boolean; senderText: string };
+export type SavedReply = ReplyPlan & { senderText: string };
 
 export type TextOnPhoto = { textId: string; photo: { id: string } };
 
@@ -24,7 +23,6 @@ export async function saveRereadOnPhoto(
   await setSubmissionStatus(transaction, target.photo.id, reply.status);
   await enqueueReplyToMessage(transaction, context, target.photo.id, reply.senderText);
   await notifyAdminsOfPhoto(transaction, context, target.photo.id, reply);
-  if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
 }
 
 export async function saveReplyOnPhoto(
@@ -37,9 +35,9 @@ export async function saveReplyOnPhoto(
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   const senderText = formatReplyForSender(reply, sender.role);
   await saveRecordsAndReply(transaction, context, target, { reply, senderText });
-  const hasProposedParty = await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
+  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion) await markQuestionPending(transaction, target.textId);
-  return { ...reply, hasProposedParty, senderText };
+  return { ...reply, senderText };
 }
 
 async function saveRecordsAndReply(

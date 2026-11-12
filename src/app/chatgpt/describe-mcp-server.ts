@@ -5,7 +5,6 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { McpServerDefinition, McpTool, McpToolAnnotations, McpToolResult } from '../../services/mcp/mcp-endpoint.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import { CreatedInvites } from '../admin-chat/created-invites.ts';
-import { NameReviewRequest } from '../admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
 import { SourceCards } from '../admin-chat/source-cards.ts';
@@ -82,7 +81,6 @@ function buildAdminToolDependencies({ database, clock }: McpRuntime, attachments
     sources: new SourceCards(),
     created: new CreatedTasks(randomUUID()),
     invites: new CreatedInvites(),
-    nameReview: new NameReviewRequest(),
     guard: new AdminTextGuard(false),
   };
 }

@@ -9,7 +9,6 @@ import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import type { LoggedReading } from './log-intake.ts';
-import { queueNameProposalToAdmins } from '../name-matches/queue-name-proposal.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { planAnswer, planReply, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
@@ -112,6 +111,5 @@ function endsWait({ photoAfter }: ReplyAnswer): boolean {
 
 async function endWait(transaction: Transaction, context: IntakeContext, asked: AskedPhoto, reply: SavedReply): Promise<void> {
   await notifyAdminsOfPhoto(transaction, context, asked.id, reply);
-  if (reply.hasProposedParty) await queueNameProposalToAdmins(transaction, context);
   await askNextWaitingPhoto(transaction, context);
 }

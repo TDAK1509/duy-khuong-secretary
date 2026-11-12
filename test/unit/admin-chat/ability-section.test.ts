@@ -27,7 +27,6 @@ describe('the ability section of the prompt', () => {
         '- Đặt lịch tự động, ví dụ báo cáo hằng ngày hoặc nhắc bảo dưỡng.',
         '- Cho xem các lịch tự động đang chạy.',
         '- Hủy một lịch tự động.',
-        '- Gửi danh sách tên công ty, nơi chốn gần giống nhau để quản lý xác nhận.',
         '- Cho biết giấy tờ có những loại số nào, ví dụ trọng lượng hoặc số tiền.',
         '- Cộng số tiền, trọng lượng hoặc số lượng trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày.',
         '- Tìm đúng tên công ty và nơi chốn đã lưu.',
