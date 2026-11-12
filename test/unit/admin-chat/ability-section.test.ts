@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildAbilitySection } from '../../../src/app/admin-chat/ability-section.ts';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
+import { MEMBER_TOOLS } from '../../../src/app/admin-chat/tools/member-tools.ts';
+import { MEMORY_TOOLS } from '../../../src/app/admin-chat/tools/memory-tools.ts';
 
 const INTRO = 'Khi người dùng hỏi bạn làm được gì, kể đúng các việc sau bằng lời ngắn gọn. Không kể việc ngoài danh sách này.';
 const SAVING_LINE = '- Lưu ảnh giấy tờ và tin nhắn công việc mà người dùng gửi vào đây.';
@@ -28,6 +30,24 @@ describe('the ability section of the prompt', () => {
         '- Cho biết giấy tờ có những loại số nào, ví dụ trọng lượng hoặc số tiền.',
         '- Cộng số tiền, trọng lượng hoặc số lượng trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày.',
         '- Tìm đúng tên công ty và nơi chốn đã lưu.',
+        CHAT_LINE,
+      ].join('\n'),
+    );
+  });
+
+  it('holds the six member lines and the two fixed lines for the member tools', () => {
+    const section = buildAbilitySection([...MEMBER_TOOLS, ...MEMORY_TOOLS]);
+
+    expect(section).toBe(
+      [
+        INTRO,
+        SAVING_LINE,
+        '- Tìm dữ liệu đã lưu mà người dùng được xem, theo từ khóa, loại, biển số và ngày.',
+        '- Đếm số mục và cộng tiền theo loại trong một khoảng ngày gửi, trong phạm vi người dùng được xem.',
+        '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
+        '- Ghi nhớ một điều người dùng muốn Trợ lý nhớ lâu dài.',
+        '- Quên một điều đã ghi nhớ khi người dùng bảo.',
+        '- Quên hết mọi điều đã ghi nhớ về người dùng.',
         CHAT_LINE,
       ].join('\n'),
     );
