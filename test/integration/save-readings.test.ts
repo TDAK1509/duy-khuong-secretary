@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PHOTO_BLURRY_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { PHOTO_BLURRY_TEXT, READ_FAILED_PHOTO_TEXT } from '../../src/app/intake/intake-texts.ts';
 import type { Reading } from '../../src/app/reading/reading.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -197,6 +197,15 @@ describe('saving what the reader returns', () => {
     ]);
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
     expect(harness.photoStorage.listKeys()).toHaveLength(1);
+  });
+
+  it('never says a photo is blurry when the reader times out on it', async () => {
+    harness.reader.failWith('timeout');
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', READ_FAILED_PHOTO_TEXT]]);
   });
 
   it('marks an unresolved message as unresolved', async () => {
