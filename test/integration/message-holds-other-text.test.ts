@@ -3,6 +3,7 @@ import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { insertChatMessage } from './message-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -54,6 +55,16 @@ describe('which stored bot replies may hold text that the chatting user did not 
       await harness.receiveText('zu-duy', 'Nhóm có ai?');
 
       expect(await readAnswerFlags()).toEqual([false]);
+    });
+
+    it('is flagged when flagged history was in the model view', async () => {
+      const [duy] = await database.query<{ user_id: string }>(`SELECT user_id FROM memberships WHERE display_name = 'Duy'`);
+      await insertChatMessage(database, { workspaceId, userId: duy?.user_id ?? '', author: 'bot', text: 'Hùng gửi phiếu cân 26.380 kg.', createdAt: new Date(Date.UTC(2026, 10, 2, 1)) });
+      harness.chat.replyWith('Không có gì.');
+
+      await harness.receiveText('zu-duy', 'Cảm ơn');
+
+      expect(await readAnswerFlags()).toEqual([true]);
     });
   });
 });
