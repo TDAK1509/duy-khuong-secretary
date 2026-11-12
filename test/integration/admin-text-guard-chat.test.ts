@@ -188,6 +188,25 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     expect(paragraphs[2]).toBe(REFUSED_NOTICE);
   });
 
+  it('shows the model an earlier answer that holds no text from others', async () => {
+    const duyUserId = await findUserId('Duy');
+    const rows = [
+      { author: 'user', text: 'Nhóm có ai?' },
+      { author: 'bot', text: 'Nhóm có Duy, Hùng, Lan.', holdsOtherText: false },
+    ] as const;
+    for (const [index, row] of rows.entries()) {
+      await insertChatMessage(database, { workspaceId, userId: duyUserId, ...row, createdAt: new Date(Date.UTC(2026, 10, 2, 1, index)) });
+    }
+
+    await harness.receiveText('zu-duy', 'Còn ai nữa?');
+
+    expect(harness.chat.requests[0]?.turns).toEqual([
+      { role: 'user', text: 'Nhóm có ai?' },
+      { role: 'assistant', text: 'Nhóm có Duy, Hùng, Lan.' },
+      { role: 'user', text: 'Còn ai nữa?' },
+    ]);
+  });
+
   it('hides every earlier bot reply from the model', async () => {
     const duyUserId = await findUserId('Duy');
     const rows = [

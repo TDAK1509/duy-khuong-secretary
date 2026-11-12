@@ -76,7 +76,7 @@ async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, r
 
 async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<ChatRequest> {
   const { database, clock } = context.dependencies;
-  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
+  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, true);
   return {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history, await buildUserTurn(database, message)],
