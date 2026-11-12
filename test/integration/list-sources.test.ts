@@ -74,7 +74,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
 
     expect(readToolOutput()).toBe(
-      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0,"sources_left_out":0}`,
+      `{"sources":[{"card":1,"record_ids":["${recordId}"],"document_ids":[],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0,"sources_left_out":0}`,
     );
   });
 
@@ -314,7 +314,7 @@ describe('the chat finds the original message of a record', () => {
 
       await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [recordId] }], left_out: 0 });
+      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [recordId], document_ids: [documentId] }], left_out: 0 });
       expect(JSON.parse(readToolOutput()).sources).toHaveLength(1);
     });
 
@@ -358,6 +358,18 @@ describe('the chat finds the original message of a record', () => {
         '{"ok":false,"error":"Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
       );
       expect(await database.query(`SELECT 1 FROM workspace_invites`)).toEqual([]);
+    });
+
+    it('tells which document each source message supports', async () => {
+      const documentA = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0005' });
+      await insertAnotherSource(database, { workspaceId, userId: harness.hungUserId, documentId: documentA });
+      const documentB = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0006' });
+      listDocumentSourcesThenReply([documentA, documentB]);
+
+      await harness.receiveText('zu-duy', 'tổng này lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: { document_ids: string[] }[] };
+      expect(output.sources.map((source) => source.document_ids)).toEqual([[documentA], [documentA], [documentB]]);
     });
   });
 

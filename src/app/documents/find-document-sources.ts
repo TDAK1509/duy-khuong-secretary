@@ -19,5 +19,5 @@ export async function findDocumentSources(database: Database, scope: AccessScope
     buildSourceParameters(scope, documentIds),
   );
   const grouped = groupByMessage(rows);
-  return { foundDocumentIds: [...new Set(grouped.flatMap(({ targetIds }) => targetIds))], sources: grouped.map(({ source }) => source) };
+  return { foundDocumentIds: [...new Set(grouped.flatMap(({ targetIds }) => targetIds))], sources: grouped.map(({ source, targetIds }) => ({ ...source, documentIds: targetIds })) };
 }

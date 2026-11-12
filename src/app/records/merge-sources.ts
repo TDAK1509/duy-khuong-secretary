@@ -13,6 +13,7 @@ export function mergeSources(known: RecordSource, added: RecordSource): RecordSo
   return {
     ...known,
     recordIds: unionOf(known.recordIds, added.recordIds),
+    documentIds: unionOf(known.documentIds, added.documentIds),
     paperDates: unionOf(known.paperDates, added.paperDates).sort(compareDayMonthYear),
   };
 }

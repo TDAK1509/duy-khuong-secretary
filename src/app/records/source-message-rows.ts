@@ -48,6 +48,7 @@ function startSource(row: SourceMessageRow): RecordSource {
   return {
     messageId: row.message_id,
     recordIds: [],
+    documentIds: [],
     sender: row.sender,
     isOwn: row.is_own,
     sentAt: row.sent_at,

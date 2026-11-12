@@ -6,6 +6,7 @@ function makeSource(overrides: Partial<RecordSource> = {}): RecordSource {
   return {
     messageId: 'message-1',
     recordIds: ['record-1'],
+    documentIds: [],
     sender: 'Hùng',
     isOwn: false,
     sentAt: new Date('2026-11-12T01:15:00Z'),

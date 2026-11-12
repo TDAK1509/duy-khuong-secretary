@@ -42,6 +42,7 @@ function describeSource({ sources }: AdminToolDependencies, { card, source }: Li
   return {
     card,
     record_ids: source.recordIds,
+    document_ids: source.documentIds,
     sender: source.isOwn ? 'Bạn' : source.sender,
     sent_at: `${formatVietnamTime(source.sentAt)} ${formatVietnamDate(source.sentAt)}`,
     kind: source.kind,
