@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
@@ -16,6 +17,9 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Điều cần nhớ phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
 const MEMORY_FULL_RESULT = '{"ok":false,"error":"Bản ghi nhớ đã đủ 2000 ký tự. Tôi chưa thêm điều mới và vẫn giữ mọi điều cũ."}';
+
+const MAX_WAIT_ATTEMPTS = 50;
+const WAIT_STEP_MS = 40;
 
 describe('the memory tools of a user in the chat', () => {
   let database: TemporaryDatabase;
@@ -121,9 +125,20 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBeNull();
   });
 
-  it('keeps both facts when two remembers run at the same time', async () => {
-    await Promise.all([runTool('remember', { fact: 'A' }), runTool('remember', { fact: 'B' })]);
+  it('keeps both facts when two remembers wait on the same lock', async () => {
+    const lockHolder = await runtimePool.connect();
+    await lockHolder.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [`user_memories:${workspaceId}:${lan.userId}`]);
+    const remembers = Promise.all([runTool('remember', { fact: 'A' }), runTool('remember', { fact: 'B' })]);
+    try {
+      await waitForWaitingAdvisoryLocks(2);
+    } finally {
+      await lockHolder.query('SELECT pg_advisory_unlock_all()');
+      lockHolder.release();
+    }
 
+    const outputs = await remembers;
+
+    expect(outputs.map((output) => JSON.parse(output).ok)).toEqual([true, true]);
     expect((await readUserMemory(database, lan.userId))?.split('\n').sort()).toEqual(['- A', '- B']);
   });
 
@@ -145,6 +160,18 @@ describe('the memory tools of a user in the chat', () => {
     expect(JSON.parse(output).ok).toBe(true);
     expect(await readUserMemory(database, duyUserId)).toBe('- Tôi thích câu trả lời thật ngắn');
   });
+
+  async function waitForWaitingAdvisoryLocks(count: number): Promise<void> {
+    for (let attempt = 0; attempt < MAX_WAIT_ATTEMPTS; attempt += 1) {
+      const [row] = await database.query<{ waiting: string }>(
+        `SELECT count(*) AS waiting FROM pg_locks
+         WHERE locktype = 'advisory' AND NOT granted AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
+      );
+      if (Number(row?.waiting) === count) return;
+      await setTimeout(WAIT_STEP_MS);
+    }
+    throw new Error(`${count} remembers did not wait on the advisory lock`);
+  }
 
   async function runTool(name: string, args: object, scope: AccessScope = lan): Promise<string> {
     const dependencies = {
