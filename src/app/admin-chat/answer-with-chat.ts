@@ -6,6 +6,7 @@ import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { ADMIN_TOOLS } from './tools/admin-tools.ts';
+import { MEMBER_TOOLS } from './tools/member-tools.ts';
 import { runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runAdminTool } from './tools/run-admin-tool.ts';
@@ -98,7 +99,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const request = {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history.turns, await buildUserTurn(database, message)],
-    tools: ADMIN_TOOLS,
+    tools: profile.role === 'admin' ? ADMIN_TOOLS : MEMBER_TOOLS,
   };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
