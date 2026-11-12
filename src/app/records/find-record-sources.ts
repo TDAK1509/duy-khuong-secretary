@@ -1,6 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
-import type { RecordSource } from './record-source.ts';
+import type { RecordSource, SourceEvent } from './record-source.ts';
 
 export const MAX_SOURCE_MESSAGES = 5;
 
@@ -12,8 +12,13 @@ type SourceRow = {
   is_own: boolean;
   sender: string;
   sent_at: Date;
-  has_photo: boolean;
+  image_key: string | null;
   text: string | null;
+  event_channel: string | null;
+  event_account_id: string | null;
+  event_external_user_id: string | null;
+  external_event_id: string | null;
+  photo_count: number | null;
   paper_date: string | null;
 };
 
@@ -25,7 +30,9 @@ export async function findRecordSources(database: Database, scope: AccessScope, 
          (SELECT membership.display_name FROM memberships membership WHERE membership.workspace_id = message.workspace_id AND membership.user_id = message.user_id),
          $5) AS sender,
        COALESCE((event.payload ->> 'sent_at')::timestamptz, message.created_at) AS sent_at,
-       message.image_key IS NOT NULL AS has_photo, message.text,
+       message.image_key, message.text, event.channel AS event_channel, event.account_id AS event_account_id,
+       event.external_user_id AS event_external_user_id, event.external_event_id,
+       jsonb_array_length(event.payload -> 'image_urls') AS photo_count,
        to_char(record.occurred_on, 'YYYY-MM-DD') AS paper_date
      FROM unnest($2::uuid[]) WITH ORDINALITY AS wanted (id, position)
      JOIN records record ON record.id = wanted.id
@@ -55,9 +62,22 @@ function startSource(row: SourceRow): RecordSource {
     sender: row.sender,
     isOwn: row.is_own,
     sentAt: row.sent_at,
-    kind: row.has_photo ? 'photo' : 'text',
+    kind: row.image_key === null ? 'text' : 'photo',
+    imageKey: row.image_key,
+    event: readEvent(row),
     paperDates: [],
     text: row.text,
+  };
+}
+
+function readEvent(row: SourceRow): SourceEvent | null {
+  if (row.external_event_id === null || row.event_channel === null || row.event_account_id === null || row.event_external_user_id === null) return null;
+  return {
+    channel: row.event_channel,
+    accountId: row.event_account_id,
+    externalUserId: row.event_external_user_id,
+    externalEventId: row.external_event_id,
+    photoCount: row.photo_count,
   };
 }
 

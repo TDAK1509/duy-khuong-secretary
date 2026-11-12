@@ -21,7 +21,7 @@ import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
-import { SourceCards } from './source-cards.ts';
+import { SourceCards, type SourceCard } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
 import { NameReviewRequest } from './name-review-request.ts';
 import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
@@ -47,7 +47,7 @@ type Answer = {
   photos: AttachablePhoto[];
   createdTaskIds: string[];
   inviteCodes: string[];
-  sourceCards: string[];
+  sourceCards: SourceCard[];
   hasNameReview: boolean;
   changeRefused: boolean;
   holdsOtherText: boolean;
@@ -137,7 +137,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   if (!(await isCurrentMember(transaction, sender.membershipId, answer.role))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const text = joinAnswerParts(answer, summaries);
-  await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards].join('\n\n'), kind: 'answer', holdsOtherText: answer.holdsOtherText });
+  await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards.map((card) => card.text)].join('\n\n'), kind: 'answer', holdsOtherText: answer.holdsOtherText });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
@@ -148,7 +148,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
   const adminMembershipId = answer.role === 'admin' ? context.sender.membershipId : undefined;
   await enqueueReply(transaction, context, text, { adminMembershipId });
-  for (const followUp of [...answer.inviteCodes, ...answer.sourceCards]) await enqueueReply(transaction, context, followUp, { adminMembershipId });
+  for (const followUp of [...answer.inviteCodes, ...answer.sourceCards.map((card) => card.text)]) await enqueueReply(transaction, context, followUp, { adminMembershipId });
   await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
 }
 
