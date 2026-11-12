@@ -12,6 +12,6 @@ describe('the name confirmation rule of the admin prompt', () => {
   });
 
   it('ends the search section with the line', () => {
-    expect(prompt).toContain(`${REVIEW_LINE}\n\nNgười này là quản lý.`);
+    expect(prompt).toContain(`${REVIEW_LINE}\n\nNguồn dữ liệu:`);
   });
 });
