@@ -8,6 +8,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
 const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
+  DROP TABLE merged_names;
   ALTER TABLE document_parties DROP COLUMN known_name;
   DELETE FROM pgmigrations WHERE name = '0042_merge_close_names';
   DROP TABLE user_memories;

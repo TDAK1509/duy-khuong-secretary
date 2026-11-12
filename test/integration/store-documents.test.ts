@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertDocumentWithSource, insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -222,6 +223,21 @@ describe('storing the documents of a saved message', () => {
     await harness.receivePhoto('zu-hung');
 
     expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
+  });
+
+  it('records the merge once, with the alias of the new spelling', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    const matchKey = buildMatchKey(MISREAD_NAME);
+    expect(await database.query('SELECT printed_name, match_key, organization_id FROM merged_names')).toEqual([
+      { printed_name: MISREAD_NAME, match_key: matchKey, organization_id: organizationId },
+    ]);
+    expect(await database.query(`SELECT organization_id FROM organization_aliases WHERE match_key = '${matchKey}'`)).toEqual([
+      { organization_id: organizationId },
+    ]);
   });
 
   it('stores the name the reader gave next to the printed name', async () => {
