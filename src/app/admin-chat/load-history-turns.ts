@@ -6,6 +6,8 @@ const HISTORY_LIMIT = 20;
 const PHOTO_MARK = '[ảnh]';
 const HIDDEN_ANSWER_TEXT = '(Câu trả lời cũ đã được ẩn.)';
 
+export type History = { turns: ChatTurn[]; hasFlaggedAnswer: boolean };
+
 type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null; holds_other_text: boolean };
 
 export async function loadHistoryTurns(
@@ -14,7 +16,7 @@ export async function loadHistoryTurns(
   joinedAt: Date,
   currentMessageId: string,
   hideFlaggedAnswers: boolean,
-): Promise<ChatTurn[]> {
+): Promise<History> {
   const { rows } = await database.query<HistoryRow>(
     `SELECT author, text, image_key, holds_other_text FROM messages
      WHERE workspace_id = $1 AND user_id = $2 AND created_at >= $3 AND source <> 'mcp'
@@ -23,7 +25,10 @@ export async function loadHistoryTurns(
      LIMIT $5`,
     [sender.workspaceId, sender.userId, joinedAt, currentMessageId, HISTORY_LIMIT],
   );
-  return rows.reverse().map((row) => toTurn(row, hideFlaggedAnswers));
+  return {
+    turns: rows.reverse().map((row) => toTurn(row, hideFlaggedAnswers)),
+    hasFlaggedAnswer: rows.some((row) => row.author === 'bot' && row.holds_other_text),
+  };
 }
 
 function toTurn(row: HistoryRow, hideFlaggedAnswers: boolean): ChatTurn {

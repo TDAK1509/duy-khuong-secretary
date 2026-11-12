@@ -46,9 +46,9 @@ type Answer = {
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
   const { database, clock } = context.dependencies;
-  const request = await buildChatRequest(context, message, profile);
+  const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const guard = new AdminTextGuard(await hasNoteFromPhoto(database, message.id));
+  const guard = new AdminTextGuard(hasFlaggedAnswer || (await hasNoteFromPhoto(database, message.id)));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
   const { attachments, created, invites, nameReview } = dependencies;
@@ -74,14 +74,15 @@ async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, r
   }
 }
 
-async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<ChatRequest> {
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
-  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, true);
-  return {
+  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, false);
+  const request = {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
-    turns: [...history, await buildUserTurn(database, message)],
+    turns: [...history.turns, await buildUserTurn(database, message)],
     tools: ADMIN_TOOLS,
   };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
 
 function requireChat(context: IntakeContext): ChatService {
