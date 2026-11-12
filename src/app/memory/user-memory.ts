@@ -2,6 +2,11 @@ import { runInTransaction, type Database, type Transaction } from '../db/transac
 
 export type MemoryOwner = { workspaceId: string; userId: string };
 
+export async function readUserMemory(database: Database, { workspaceId, userId }: MemoryOwner): Promise<string> {
+  const { rows } = await database.query<{ markdown: string }>('SELECT markdown FROM user_memories WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
+  return rows[0]?.markdown ?? '';
+}
+
 export async function updateUserMemory(database: Database, owner: MemoryOwner, change: (markdown: string) => string): Promise<string | null> {
   return runInTransaction(database, async (transaction) => {
     await lockUserMemory(transaction, owner);

@@ -15,6 +15,8 @@ import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
+import { readUserMemory } from '../memory/user-memory.ts';
+import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
@@ -97,16 +99,21 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const request = {
-    system: buildPrompt(profile, clock.now()),
+    system: buildPrompt(profile, clock.now(), await loadMemory(context)),
     turns: [...history.turns, await buildUserTurn(database, message)],
     tools: listChatTools(profile.role),
   };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
 
-function buildPrompt(profile: ChatProfile, now: Date): string {
+async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {
+  const ownerScope = { workspaceId: sender.workspaceId, ownerUserId: sender.userId };
+  return readUserMemory(scopeDatabase(dependencies.database, ownerScope), sender);
+}
+
+function buildPrompt(profile: ChatProfile, now: Date, memory: string): string {
   const build = profile.role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
-  return build({ ...profile, now });
+  return build({ ...profile, now, memory });
 }
 
 function requireChat(context: IntakeContext): ChatService {

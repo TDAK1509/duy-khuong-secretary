@@ -1,9 +1,10 @@
 import { formatVietnamDate } from '../time/format-vietnam-date.ts';
 import { formatVietnamTime } from '../time/format-vietnam-time.ts';
+import { buildMemorySection } from './memory-section.ts';
 import type { PromptFacts } from './admin-prompt.ts';
 
 export function buildMemberPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, ACCESS_SECTION, SEARCH_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, ACCESS_SECTION, SEARCH_SECTION, buildMemorySection(facts.memory)].join('\n\n');
 }
 
 function buildIntroSection({ workspaceName, displayName, now }: PromptFacts): string {
