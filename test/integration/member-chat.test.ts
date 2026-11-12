@@ -104,6 +104,17 @@ describe('a member chats with the bot', () => {
     expect(harness.reader.requests).toEqual([]);
   });
 
+  it('queues no answer for a member removed while the model answers', async () => {
+    harness.chat.follow(async () => {
+      await harness.database.query(`DELETE FROM memberships WHERE display_name = 'Hùng'`);
+      return replyWithText('Chào bạn!');
+    });
+
+    await harness.receiveText('zu-hung', 'Chào bạn');
+
+    expect(await harness.database.query(`SELECT 1 FROM outbound_messages WHERE external_user_id = 'zu-hung'`)).toEqual([]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: '2026-10-30', vehicle_plate: '29C-123.45' });
   }
