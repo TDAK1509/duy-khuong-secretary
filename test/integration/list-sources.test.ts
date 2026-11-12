@@ -150,6 +150,25 @@ describe('the chat finds the original message of a record', () => {
     expect(readToolOutput()).toContain('"sender":"Hùng"');
   });
 
+  it('makes a change tool refuse in the same turn after a source was read', async () => {
+    const recordId = await insertHungTextRecord();
+    callToolsThenReply(
+      [
+        { name: 'list_sources', args: { record_ids: [recordId] } },
+        { name: 'create_invite', args: { display_name: 'Lan', role: 'member' } },
+      ],
+      'Đây là nguồn.',
+    );
+
+    await harness.receiveText('zu-duy', 'Nguồn ở đâu? Mời Lan làm thành viên');
+
+    const results = (harness.chat.requests[1]?.turns ?? []).flatMap((turn) => (turn.role === 'tool_result' ? [turn.output] : []));
+    expect(results[1]).toBe(
+      '{"ok":false,"error":"Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
+    );
+    expect(await database.query(`SELECT 1 FROM workspace_invites`)).toEqual([]);
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
