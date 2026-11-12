@@ -12,19 +12,7 @@ export async function linkParty(transaction: Transaction, workspaceId: string, p
   return insertOrganization(transaction, workspaceId, { type: party.type, printedName: party.printed_name, matchKey });
 }
 
-async function mergeIntoOrganization(
-  transaction: Transaction,
-  workspaceId: string,
-  organizationId: string,
-  { printedName, matchKey }: { printedName: string; matchKey: string },
-): Promise<string> {
-  const merge = { workspace_id: workspaceId, organization_id: organizationId, printed_name: printedName.trim(), match_key: matchKey };
-  await insertRow(transaction, 'organization_aliases', merge);
-  await insertRow(transaction, 'merged_names', merge);
-  return organizationId;
-}
-
-export async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {
+async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {
   const [alias] = await transaction.query<{ organization_id: string }>(
     'SELECT organization_id FROM organization_aliases WHERE workspace_id = $1 AND match_key = $2',
     [workspaceId, matchKey],
@@ -44,4 +32,16 @@ async function findOrganizationNamed(transaction: Transaction, workspaceId: stri
   if (exact) return exact.id;
   const accentFree = organizations.filter((organization) => toAccentFreeForm(organization.name) === wanted);
   return accentFree.length === 1 ? (accentFree[0]?.id ?? null) : null;
+}
+
+async function mergeIntoOrganization(
+  transaction: Transaction,
+  workspaceId: string,
+  organizationId: string,
+  { printedName, matchKey }: { printedName: string; matchKey: string },
+): Promise<string> {
+  const merge = { workspace_id: workspaceId, organization_id: organizationId, printed_name: printedName.trim(), match_key: matchKey };
+  await insertRow(transaction, 'organization_aliases', merge);
+  await insertRow(transaction, 'merged_names', merge);
+  return organizationId;
 }
