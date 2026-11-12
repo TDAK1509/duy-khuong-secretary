@@ -57,6 +57,13 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBeNull();
   });
 
+  it('refuses a fact with a line break and stores nothing', async () => {
+    const output = await runTool('remember', { fact: 'a\nb' });
+
+    expect(output).toBe(INVALID_FACT_RESULT);
+    expect(await readUserMemory(database, lan.userId)).toBeNull();
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 
