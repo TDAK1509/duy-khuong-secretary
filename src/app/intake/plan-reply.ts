@@ -6,6 +6,7 @@ import {
   ASK_EXPLANATION_TEXT,
   DUPLICATE_TEXT,
   MAINTENANCE_WITHOUT_PLATE_TEXT,
+  PHOTO_BLURRY_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
@@ -52,7 +53,7 @@ export function planReply(attempt: ReadAttempt, hasPhoto: boolean): ReplyPlan {
 
 function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
-  if (!reading.has_work_data || reading.items.length === 0) return planUploadOnlyReply(reading.needs_explanation);
+  if (!reading.has_work_data || reading.items.length === 0) return planNoWorkDataReply(reading, hasPhoto);
   return planRecordsReply(reading.items, reading.has_question);
 }
 
@@ -117,15 +118,20 @@ function planExplanationRequest(): ReplyPlan {
   };
 }
 
-function planUploadOnlyReply(isUnclear: boolean): ReplyPlan {
+function planNoWorkDataReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
   return {
-    replyText: UPLOAD_ONLY_TEXT,
+    replyText: pickNoWorkDataText(reading.photo_problem, hasPhoto),
     replyKind: 'answer',
     status: 'accepted',
     saved: null,
     readItems: [],
     situation: 'no_work_data',
     asksQuestion: false,
-    isUnclear,
+    isUnclear: reading.needs_explanation,
   };
+}
+
+function pickNoWorkDataText(photoProblem: Reading['photo_problem'], hasPhoto: boolean): string {
+  if (hasPhoto && photoProblem === 'blurry') return PHOTO_BLURRY_TEXT;
+  return UPLOAD_ONLY_TEXT;
 }

@@ -6,6 +6,9 @@ export const UPLOAD_ONLY_TEXT =
 export const UNRESOLVED_TEXT =
   'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
 
+export const PHOTO_BLURRY_TEXT =
+  'Ảnh này bị mờ hoặc thiếu sáng nên Trợ lý chưa đọc được chữ và chưa lưu thông tin. Bạn chụp lại gần hơn, đủ sáng, rồi gửi lại nhé.';
+
 export const MAINTENANCE_WITHOUT_PLATE_TEXT =
   'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.';
 

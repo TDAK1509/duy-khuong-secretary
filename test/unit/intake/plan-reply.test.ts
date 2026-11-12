@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
+import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, PHOTO_BLURRY_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import { makeItem, makeReading, succeed } from '../reading/make-reading.ts';
@@ -65,6 +65,16 @@ describe('planReply no work data', () => {
     const plan = planReply(succeed(reading), false);
 
     expect(plan.isUnclear).toBe(false);
+  });
+});
+
+describe('planReply a message without work data', () => {
+  it('tells the sender a blurry photo could not be read', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: 'blurry' });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan).toMatchObject({ replyText: PHOTO_BLURRY_TEXT, status: 'accepted', situation: 'no_work_data' });
   });
 });
 
