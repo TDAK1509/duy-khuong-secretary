@@ -6,3 +6,5 @@ import { MEMBER_TOOLS } from './member-tools.ts';
 export function listChatTools(role: AccessScope['role']): ToolSpec[] {
   return role === 'admin' ? ADMIN_TOOLS : MEMBER_TOOLS;
 }
+
+export const ALL_CHAT_TOOLS: ToolSpec[] = [...ADMIN_TOOLS, ...MEMBER_TOOLS];

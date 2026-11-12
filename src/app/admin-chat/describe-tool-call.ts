@@ -1,5 +1,5 @@
 import type { ToolCall } from '../../services/chat/chat-service.ts';
-import { ADMIN_TOOLS } from './tools/admin-tools.ts';
+import { ALL_CHAT_TOOLS } from './tools/chat-tools.ts';
 import { isRealIsoDate } from '../time/is-real-iso-date.ts';
 
 export const NOT_RUN = 'not_run';
@@ -15,11 +15,11 @@ export function describeToolCall(call: ToolCall): { tool: string; arguments: str
 }
 
 function nameTool(name: string): string {
-  return ADMIN_TOOLS.some((tool) => tool.name === name) ? name : UNKNOWN;
+  return ALL_CHAT_TOOLS.some((tool) => tool.name === name) ? name : UNKNOWN;
 }
 
 function listDeclaredArguments(toolName: string): string[] {
-  const tool = ADMIN_TOOLS.find((candidate) => candidate.name === toolName);
+  const tool = ALL_CHAT_TOOLS.find((candidate) => candidate.name === toolName);
   return Object.keys((tool?.parameters['properties'] ?? {}) as Record<string, unknown>);
 }
 
