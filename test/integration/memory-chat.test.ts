@@ -7,7 +7,7 @@ import { insertMember } from './workspace-rows.ts';
 
 const SEARCH_EVERYTHING = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
 
-const MEMORY_REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.
+const MEMORY_REFUSED_NOTICE = `Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên, tách tên đã gộp) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.
 Nếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.`;
 
 describe('the memory of a user in the chat', () => {
