@@ -41,7 +41,7 @@ async function saveReply(
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
   const hasProposedParty = await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
-  await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind });
+  await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind, holdsOtherText: true });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, formatReplyForSender(plan, sender.role));
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);

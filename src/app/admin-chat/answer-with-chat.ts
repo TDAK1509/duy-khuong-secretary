@@ -115,7 +115,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const text = joinAnswerParts(answer, summaries);
-  await storeBotReply(transaction, messageId, { text, kind: 'answer' });
+  await storeBotReply(transaction, messageId, { text, kind: 'answer', holdsOtherText: true });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
