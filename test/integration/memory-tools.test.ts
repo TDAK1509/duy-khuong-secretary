@@ -111,6 +111,15 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBeNull();
   });
 
+  it('deletes the row when it forgets all', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+
+    const output = await runTool('forget_all', {});
+
+    expect(JSON.parse(output)).toEqual({ ok: true, markdown: '' });
+    expect(await readUserMemory(database, lan.userId)).toBeNull();
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 

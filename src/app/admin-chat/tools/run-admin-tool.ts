@@ -16,6 +16,7 @@ import { runListMembers } from './list-members-tool.ts';
 import { runListOrganizations } from './list-organizations-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
+import { runForgetAll } from './forget-all-tool.ts';
 import { runForget } from './forget-tool.ts';
 import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
@@ -74,6 +75,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   review_name_matches: runReviewNameMatches,
   remember: ({ database }, scope, args) => runRemember(database, scope, args),
   forget: ({ database }, scope, args) => runForget(database, scope, args),
+  forget_all: ({ database }, scope, args) => runForgetAll(database, scope, args),
   list_document_numbers: ({ database }, scope, args) => runListDocumentNumbers(database, scope, args),
   list_organizations: ({ database }, scope, args) => runListOrganizations(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),

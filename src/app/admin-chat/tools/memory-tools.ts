@@ -22,4 +22,10 @@ const FORGET_SPEC: ToolSpec = {
   },
 };
 
-export const MEMORY_TOOLS: ToolSpec[] = [REMEMBER_SPEC, FORGET_SPEC];
+const FORGET_ALL_SPEC: ToolSpec = {
+  name: 'forget_all',
+  description: 'Xóa toàn bộ bản ghi nhớ riêng của người đang trò chuyện. Chỉ dùng khi người này yêu cầu quên hết.',
+  parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+};
+
+export const MEMORY_TOOLS: ToolSpec[] = [REMEMBER_SPEC, FORGET_SPEC, FORGET_ALL_SPEC];
