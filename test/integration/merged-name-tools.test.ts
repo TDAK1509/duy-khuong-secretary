@@ -156,6 +156,17 @@ describe('the merged names of an admin', () => {
     return runInTransaction(scopeDatabase(pool, { workspaceId }), (transaction) => linkParty(transaction, workspaceId, party, buildMatchKey(CHONG_LOONG)));
   }
 
+  it('does not split a name that was not merged', async () => {
+    const output = await runSplitMergedName(CHENG_LOONG);
+
+    const counts = await database.query<{ organizations: number; aliases: number; moved: number }>(
+      `SELECT (SELECT count(*)::int FROM organizations) AS organizations, (SELECT count(*)::int FROM organization_aliases) AS aliases,
+         (SELECT count(*)::int FROM document_parties WHERE organization_id = ${literal(chengLoongId)}) AS moved`,
+    );
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy tên đã gộp này."}');
+    expect(counts).toEqual([{ organizations: 1, aliases: 2, moved: 3 }]);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
