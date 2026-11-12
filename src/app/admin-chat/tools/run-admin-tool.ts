@@ -22,7 +22,6 @@ import { runForgetAll } from './forget-all-tool.ts';
 import { runForget } from './forget-tool.ts';
 import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
-import { runReviewNameMatches } from './review-name-matches-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -75,7 +74,6 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   create_scheduled_task: runCreateScheduledTask,
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
-  review_name_matches: runReviewNameMatches,
   remember: ({ database }, scope, args) => runRemember(database, scope, args),
   forget: ({ database }, scope, args) => runForget(database, scope, args),
   forget_all: ({ database }, scope, args) => runForgetAll(database, scope, args),

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
-import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
@@ -181,6 +180,6 @@ describe('the document list of an admin', () => {
 
   function buildDependencies(): AdminToolDependencies {
     const clock = new FakeClock(new Date('2026-11-07T10:00:00+07:00'));
-    return { database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
+    return { database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) };
   }
 });

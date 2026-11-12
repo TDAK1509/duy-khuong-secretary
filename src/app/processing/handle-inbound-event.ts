@@ -115,8 +115,7 @@ async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMess
     ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
   });
   if (reply.followUpText !== undefined) {
-    const offeredChoice = reply.followUpChoice && { choice: reply.followUpChoice, sourceEventId: message.event.id };
-    await enqueueText(transaction, { ...common, text: reply.followUpText, ...(offeredChoice && { offeredChoice }) });
+    await enqueueText(transaction, { ...common, text: reply.followUpText });
   }
 }
 

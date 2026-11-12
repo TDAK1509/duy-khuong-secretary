@@ -6,7 +6,6 @@ import { storeConnection } from '../../src/app/channel-auth/store-connection.ts'
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
-import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -42,7 +41,7 @@ describe('the member tools of an admin', () => {
   });
 
   async function runTool(name: string, args: object, scope: AccessScope = duy): Promise<string> {
-    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+    return runAdminTool({ database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(false) }, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 
   describe('creating an invite', () => {
