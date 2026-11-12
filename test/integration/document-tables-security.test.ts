@@ -76,6 +76,19 @@ describe('the document tables for the runtime role', () => {
     expect(count).toBe(0);
   });
 
+  it('refuses a merged name whose match key has no alias', async () => {
+    const organizationId = await insertOrganization(workspaceId, 'Cheng Loong');
+
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId }), (transaction) =>
+      transaction.query(
+        `INSERT INTO merged_names (workspace_id, organization_id, printed_name, match_key) VALUES ($1, $2, 'Không có', 'khongco')`,
+        [workspaceId, organizationId],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION, constraint: 'merged_names_workspace_id_match_key_fkey' });
+  });
+
   it('refuses an organization written into another workspace', async () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
 
