@@ -16,8 +16,8 @@ describe('the kinds of admin tool', () => {
   });
 
   it('names the tools of each kind', () => {
-    expect(CHANGE_TOOLS).toEqual(['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'remember', 'forget', 'forget_all']);
-    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_sources', 'list_documents']);
+    expect(CHANGE_TOOLS).toEqual(['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'remember', 'forget', 'forget_all', 'split_merged_name']);
+    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents']);
     expect(ADMIN_TEXT_TOOLS).toEqual(['count_records', 'list_members', 'list_scheduled_tasks', 'attach_photos']);
   });
 });
@@ -69,6 +69,13 @@ describe('the admin text guard', () => {
     guard.noteCall('list_organizations');
 
     expect(guard.refuses('cancel_scheduled_task')).toBe(true);
+  });
+
+  it('refuses a split after the list of merged names', () => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('list_merged_names');
+
+    expect(guard.refuses('split_merged_name')).toBe(true);
   });
 
   it('refuses a change when the turn starts with other text', () => {

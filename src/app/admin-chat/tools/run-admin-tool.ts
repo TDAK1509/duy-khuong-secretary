@@ -14,6 +14,7 @@ import { runCreateInvite } from './create-invite-tool.ts';
 import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
 import { runListDocuments } from './list-documents-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
+import { runListMergedNames } from './list-merged-names-tool.ts';
 import { runListOrganizations } from './list-organizations-tool.ts';
 import { runListSources } from './list-sources-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
@@ -23,6 +24,7 @@ import { runForget } from './forget-tool.ts';
 import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
+import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
@@ -79,7 +81,9 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   forget_all: ({ database }, scope, args) => runForgetAll(database, scope, args),
   list_document_numbers: ({ database }, scope, args) => runListDocumentNumbers(database, scope, args),
   list_documents: ({ database }, scope, args) => runListDocuments(database, scope, args),
+  list_merged_names: ({ database }, scope, args) => runListMergedNames(database, scope, args),
   list_organizations: ({ database }, scope, args) => runListOrganizations(database, scope, args),
+  split_merged_name: ({ database }, scope, args) => runSplitMergedName(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
 };
 

@@ -1,0 +1,232 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
+import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
+import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
+import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
+import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
+import { linkParty } from '../../src/app/documents/link-party.ts';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertOrganizationWithAlias } from './document-rows.ts';
+import { insertNumberedDocument, insertParty } from './document-number-rows.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import { literal } from './sql-literals.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
+
+const CHENG_LOONG = 'Cheng Loong';
+const CHONG_LOONG = 'Công ty TNHH Chống Loong Bình Dương Paper';
+
+type MergedNamesOutput = {
+  ok: boolean;
+  merged_names: { printed_name: string; organization: string; merged_on: string; document_count: number }[];
+  left_out: number;
+};
+
+describe('the merged names of an admin', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let workspaceId: string;
+  let duy: AccessScope;
+  let hungUserId: string;
+  let chengLoongId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    duy = { workspaceId, userId: duyUserId, role: 'admin' };
+    chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: CHENG_LOONG });
+    await insertMergedName({ printedName: CHONG_LOONG, documentCount: 2, createdAt: '2026-11-05T10:00:00+07:00' });
+    await insertDocumentOf(CHENG_LOONG, '0003');
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('lists a merge with its company, date and paper count', async () => {
+    const listed = await runListMergedNames();
+
+    expect(listed.merged_names).toEqual([
+      { printed_name: CHONG_LOONG, organization: CHENG_LOONG, merged_on: '05/11/2026', document_count: 2 },
+    ]);
+    expect(listed.left_out).toBe(0);
+  });
+
+  it('lists the newest merge first', async () => {
+    await insertMergedName({ printedName: 'Kim Nhân Đạo cũ', documentCount: 0, createdAt: '2000-01-01T10:00:00+07:00' });
+    await insertMergedName({ printedName: 'Kim Nhân Đạo mới', documentCount: 0, createdAt: '2100-01-01T10:00:00+07:00' });
+
+    const listed = await runListMergedNames();
+
+    expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual(['Kim Nhân Đạo mới', CHONG_LOONG, 'Kim Nhân Đạo cũ']);
+  });
+
+  it('filters the list by text without accents or case', async () => {
+    await insertMergedName({ printedName: 'Kim Nhân Đạo', documentCount: 0 });
+
+    const listed = await runListMergedNames('chong loong');
+
+    expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual([CHONG_LOONG]);
+  });
+
+  it('stops the list at 50 names and counts the rest as left out', async () => {
+    for (let index = 0; index < 50; index++) await insertMergedName({ printedName: `Kim Nhân Đạo ${index}`, documentCount: 0 });
+
+    const listed = await runListMergedNames();
+
+    expect(listed.merged_names).toHaveLength(50);
+    expect(listed.left_out).toBe(1);
+  });
+
+  it('lists no merge of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    const otherOrganizationId = await insertOrganizationWithAlias(database, { workspaceId: otherWorkspaceId, name: 'Kim Nhân Đạo' });
+    await database.query(
+      `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key)
+       VALUES (${literal(otherWorkspaceId)}, ${literal(otherOrganizationId)}, 'KNĐ', 'knd')`,
+    );
+    await database.query(
+      `INSERT INTO merged_names (workspace_id, organization_id, printed_name, match_key)
+       VALUES (${literal(otherWorkspaceId)}, ${literal(otherOrganizationId)}, 'KNĐ', 'knd')`,
+    );
+
+    const listed = await runListMergedNames('knd');
+
+    expect(listed.merged_names).toEqual([]);
+  });
+
+  it('creates a company with the merged spelling and the type of the merged company on a split', async () => {
+    await runSplitMergedName('cong ty tnhh chong loong binh duong paper');
+
+    const organizations = await database.query<{ name: string; type: string }>(`SELECT name, type FROM organizations WHERE name = ${literal(CHONG_LOONG)}`);
+    expect(organizations).toEqual([{ name: CHONG_LOONG, type: 'company' }]);
+  });
+
+  it('moves only the parties of the split spelling to the new company', async () => {
+    const output = await runSplitMergedName(CHONG_LOONG);
+
+    const parties = await database.query<{ printed_name: string; organization: string }>(
+      `SELECT party.printed_name, organization.name AS organization FROM document_parties party
+       JOIN organizations organization ON organization.id = party.organization_id ORDER BY party.printed_name, party.id`,
+    );
+    expect(parties).toEqual([
+      { printed_name: CHENG_LOONG, organization: CHENG_LOONG },
+      { printed_name: CHONG_LOONG, organization: CHONG_LOONG },
+      { printed_name: CHONG_LOONG, organization: CHONG_LOONG },
+    ]);
+    expect(output).toBe('{"ok":true,"documents":2}');
+  });
+
+  it('leaves the spelling with its own alias and no merge row after a split', async () => {
+    await runSplitMergedName(CHONG_LOONG);
+
+    const merged = await database.query(`SELECT 1 FROM merged_names WHERE match_key = ${literal(buildMatchKey(CHONG_LOONG))}`);
+    const aliases = await database.query<{ name: string }>(
+      `SELECT organization.name FROM organization_aliases alias JOIN organizations organization ON organization.id = alias.organization_id
+       WHERE alias.match_key = ${literal(buildMatchKey(CHONG_LOONG))}`,
+    );
+    expect(merged).toEqual([]);
+    expect(aliases).toEqual([{ name: CHONG_LOONG }]);
+  });
+
+  it('keeps a split spelling apart when it is read again', async () => {
+    await runSplitMergedName(CHONG_LOONG);
+
+    const organizationId = await readSpellingAgain();
+
+    const merged = await database.query(`SELECT 1 FROM merged_names WHERE match_key = ${literal(buildMatchKey(CHONG_LOONG))}`);
+    const [organization] = await database.query<{ name: string }>(`SELECT name FROM organizations WHERE id = ${literal(organizationId)}`);
+    expect(organization?.name).toBe(CHONG_LOONG);
+    expect(merged).toEqual([]);
+  });
+
+  function readSpellingAgain(): Promise<string> {
+    const party = { role: 'customer', type: 'company', printed_name: CHONG_LOONG, known_name: CHENG_LOONG } as const;
+    return runInTransaction(scopeDatabase(pool, { workspaceId }), (transaction) => linkParty(transaction, workspaceId, party, buildMatchKey(CHONG_LOONG)));
+  }
+
+  it('does not split a name that was not merged', async () => {
+    const output = await runSplitMergedName(CHENG_LOONG);
+
+    const counts = await database.query<{ organizations: number; aliases: number; moved: number }>(
+      `SELECT (SELECT count(*)::int FROM organizations) AS organizations, (SELECT count(*)::int FROM organization_aliases) AS aliases,
+         (SELECT count(*)::int FROM document_parties WHERE organization_id = ${literal(chengLoongId)}) AS moved`,
+    );
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy tên đã gộp này."}');
+    expect(counts).toEqual([{ organizations: 1, aliases: 2, moved: 3 }]);
+  });
+
+  it('refuses both tools to a member in the chat and changes nothing', async () => {
+    const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+
+    const listed = await runChatToolAs(hung, 'list_merged_names', { text: null });
+    const split = await runChatToolAs(hung, 'split_merged_name', { printed_name: CHONG_LOONG });
+
+    const merged = await database.query(`SELECT 1 FROM merged_names`);
+    expect([listed, split]).toEqual(['{"ok":false,"error":"Không có quyền."}', '{"ok":false,"error":"Không có quyền."}']);
+    expect(merged).toHaveLength(1);
+  });
+
+  function runChatToolAs(scope: AccessScope, name: string, args: object): Promise<string> {
+    const dependencies = {
+      database: pool,
+      clock: new FakeClock(new Date('2026-11-12T10:00:00+07:00')),
+      attachments: new PhotoAttachments(),
+      sources: new SourceCards(),
+      created: new CreatedTasks(null),
+      invites: new CreatedInvites(),
+      guard: new AdminTextGuard(false),
+    };
+    return runChatTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
+
+  async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
+    const matchKey = buildMatchKey(row.printedName);
+    await database.query(
+      `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key)
+       VALUES (${literal(workspaceId)}, ${literal(chengLoongId)}, ${literal(row.printedName)}, ${literal(matchKey)})`,
+    );
+    await database.query(
+      `INSERT INTO merged_names (workspace_id, organization_id, printed_name, match_key, created_at)
+       VALUES (${literal(workspaceId)}, ${literal(chengLoongId)}, ${literal(row.printedName)}, ${literal(matchKey)}, ${row.createdAt ? literal(row.createdAt) : 'now()'})`,
+    );
+    for (let index = 0; index < row.documentCount; index++) await insertDocumentOf(row.printedName, `${matchKey.slice(0, 8)}${index}`);
+  }
+
+  async function insertDocumentOf(printedName: string, documentNumber: string): Promise<void> {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber });
+    await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName });
+  }
+
+  async function runListMergedNames(text: string | null = null, scope: AccessScope = duy): Promise<MergedNamesOutput> {
+    return JSON.parse(await runTool('list_merged_names', { text }, scope)) as MergedNamesOutput;
+  }
+
+  async function runSplitMergedName(printedName: string, scope: AccessScope = duy): Promise<string> {
+    return runTool('split_merged_name', { printed_name: printedName }, scope);
+  }
+
+  async function runTool(name: string, args: object, scope: AccessScope): Promise<string> {
+    const dependencies = {
+      database: pool,
+      clock: new FakeClock(new Date('2026-11-12T10:00:00+07:00')),
+      attachments: new PhotoAttachments(),
+      sources: new SourceCards(),
+      created: new CreatedTasks(null),
+      invites: new CreatedInvites(),
+      guard: new AdminTextGuard(false),
+    };
+    return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
+});
