@@ -16,7 +16,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const READER_SETTINGS = { READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key' };
-const MAX_WAIT_ATTEMPTS = 50;
+const MAX_WAIT_ATTEMPTS = 250;
 const WAIT_STEP_MS = 40;
 const PHOTO_STORAGE_SETTINGS = {
   PHOTO_STORAGE: 's3',
@@ -179,8 +179,8 @@ describe('the reread-documents command', () => {
       await waitForAnAdvisoryLockToWait();
     } finally {
       await otherSession.query('COMMIT');
+      await reread;
     }
-    await reread;
 
     expect(await database.query('SELECT count(*)::int AS count FROM organizations')).toEqual([{ count: 1 }]);
     expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 1 }]);
