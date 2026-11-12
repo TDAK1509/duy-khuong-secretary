@@ -77,6 +77,15 @@ describe('the merged names of an admin', () => {
     expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual([CHONG_LOONG]);
   });
 
+  it('stops the list at 50 names and counts the rest as left out', async () => {
+    for (let index = 0; index < 50; index++) await insertMergedName({ printedName: `Kim Nhân Đạo ${index}`, documentCount: 0 });
+
+    const listed = await runListMergedNames();
+
+    expect(listed.merged_names).toHaveLength(50);
+    expect(listed.left_out).toBe(1);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
