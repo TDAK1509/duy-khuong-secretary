@@ -4,7 +4,7 @@ import { makeReading } from '../unit/reading/make-reading.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { findRecordSources } from '../../src/app/records/find-record-sources.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
-import { insertNumberedDocument, insertSourceOfMessage } from './document-number-rows.ts';
+import { insertAnotherSource, insertNumberedDocument, insertSourceOfMessage } from './document-number-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -74,7 +74,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
 
     expect(readToolOutput()).toBe(
-      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0}`,
+      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0,"sources_left_out":0}`,
     );
   });
 
@@ -101,7 +101,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-hung', 'đổ dầu của Lan lấy từ đâu?');
     await harness.sendAllQueuedTexts();
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: 'Không tìm thấy dữ liệu phù hợp.' }]);
   });
 
@@ -113,7 +113,7 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
   });
 
   it('lets row-level security alone hide the source of another member', async () => {
@@ -137,7 +137,7 @@ describe('the chat finds the original message of a record', () => {
     expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [first, second] }], left_out: 0 });
   });
 
-  it('returns five sources in input order and counts one left out for six messages', async () => {
+  it('returns five sources in input order and counts one source left out for six messages', async () => {
     const recordIds: string[] = [];
     for (const text of ['a', 'b', 'c', 'd', 'e', 'f']) {
       recordIds.push(await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageText: text }));
@@ -146,9 +146,9 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    const output = JSON.parse(readToolOutput()) as { sources: { record_ids: string[] }[]; left_out: number };
+    const output = JSON.parse(readToolOutput()) as { sources: { record_ids: string[] }[]; sources_left_out: number };
     expect(output.sources.map((source) => source.record_ids)).toEqual(recordIds.slice(0, 5).map((recordId) => [recordId]));
-    expect(output.left_out).toBe(1);
+    expect(output.sources_left_out).toBe(1);
   });
 
   it('keeps the name at the time of sending after the member is renamed', async () => {
@@ -185,7 +185,7 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
   });
 
   describe('after the answer', () => {
@@ -316,6 +316,17 @@ describe('the chat finds the original message of a record', () => {
 
       expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [recordId] }], left_out: 0 });
       expect(JSON.parse(readToolOutput()).sources).toHaveLength(1);
+    });
+
+    it('returns five sources for a document with six source messages and counts one source left out', async () => {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0003' });
+      for (let copy = 0; copy < 5; copy++) await insertAnotherSource(database, { workspaceId, userId: harness.hungUserId, documentId });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: unknown[]; left_out: number; sources_left_out: number };
+      expect([output.sources.length, output.sources_left_out, output.left_out]).toEqual([5, 1, 0]);
     });
   });
 

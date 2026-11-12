@@ -19,10 +19,15 @@ export async function runListSources(dependencies: AdminToolDependencies, scope:
   const args = argumentsSchema.parse(parsedArguments);
   const recordSources = await findRecordSources(dependencies.database, scope, args.record_ids.filter(isUuid));
   const documentSources = await findDocumentSources(dependencies.database, scope, args.document_ids.filter(isUuid));
-  const listed = mergeSourcesByMessage([...recordSources, ...documentSources.sources]).slice(0, MAX_SOURCES_PER_CALL).flatMap((source) => numberSource(dependencies, source));
-  const foundIdCount = listed.reduce((count, { source }) => count + source.recordIds.length, 0) + documentSources.foundDocumentIds.length;
+  const visible = mergeSourcesByMessage([...recordSources, ...documentSources.sources]);
+  const listed = visible.slice(0, MAX_SOURCES_PER_CALL).flatMap((source) => numberSource(dependencies, source));
+  const foundIdCount = new Set(recordSources.flatMap((source) => source.recordIds)).size + documentSources.foundDocumentIds.length;
   const requestedIdCount = new Set(args.record_ids).size + new Set(args.document_ids).size;
-  return JSON.stringify({ sources: listed.map((listedSource) => describeSource(dependencies, listedSource)), left_out: requestedIdCount - foundIdCount });
+  return JSON.stringify({
+    sources: listed.map((listedSource) => describeSource(dependencies, listedSource)),
+    left_out: requestedIdCount - foundIdCount,
+    sources_left_out: visible.length - listed.length,
+  });
 }
 
 function numberSource({ sources }: AdminToolDependencies, source: RecordSource): ListedSource[] {
