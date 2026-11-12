@@ -416,5 +416,22 @@ describe('the chat finds the original message of a record', () => {
       expect(cardRows.map((row) => row.kind)).toEqual(['image', ...cardRows.slice(1).map(() => 'text')]);
       expect(cardRows.map((row) => row.quote_message_id)).toEqual(cardRows.map(() => null));
     });
+
+    it('carries the admin membership id on the own quoted card of an admin', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: duyUserId,
+        senderName: 'Duy',
+        messageText: 'Đổ dầu 200k',
+        event: { externalUserId: 'zu-duy', externalEventId: 'msg-1' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+      const quotedCard = (await readOutboundMessages()).find((row) => row.quote_message_id === 'msg-1');
+      expect(quotedCard?.admin_membership_id).toBe(membership?.id);
+    });
   });
 });
