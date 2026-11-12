@@ -5,11 +5,10 @@ import type { Transaction } from '../db/transaction.ts';
 import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
-import { ADMIN_TOOLS } from './tools/admin-tools.ts';
-import { MEMBER_TOOLS } from './tools/member-tools.ts';
+import { listChatTools } from './tools/chat-tools.ts';
 import { runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
-import { runAdminTool } from './tools/run-admin-tool.ts';
+import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
@@ -64,7 +63,7 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
-  const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
+  const result = await runLoggedToolLoop(context, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
 
@@ -99,7 +98,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const request = {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history.turns, await buildUserTurn(database, message)],
-    tools: profile.role === 'admin' ? ADMIN_TOOLS : MEMBER_TOOLS,
+    tools: listChatTools(profile.role),
   };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
