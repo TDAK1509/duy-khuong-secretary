@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 
 const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 500.000đ xe 29C-123.45. Tháng này tôi đổ mấy lần?';
 const MEMBER_FUEL_SAVED_REPLY = 'Đã lưu: Đổ xăng dầu, xe 29C12345, 500.000đ, ngày 30/10/2026.';
@@ -60,6 +60,22 @@ describe('a member chats with the bot', () => {
 
     expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
     expect(sentTexts().filter(([, text]) => text === 'Đây là câu trả lời.')).toHaveLength(1);
+  });
+
+  it('answers a question with chat while an unclear photo waits and keeps the photo waiting', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
+    harness.chat.replyWith('Tháng này bạn gửi 12 mục.');
+
+    await harness.receiveText('zu-hung', 'Tháng này tôi gửi mấy mục?');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts().at(-1)).toEqual(['zu-hung', 'Tháng này bạn gửi 12 mục.']);
+    expect(await harness.database.query(`SELECT submission_status FROM messages WHERE image_key IS NOT NULL`)).toEqual([
+      { submission_status: 'needs_explanation' },
+    ]);
   });
 
   function makeFuelItem() {

@@ -10,7 +10,6 @@ import {
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
-import type { IntakeSender } from './find-intake-sender.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
@@ -33,11 +32,11 @@ export type ReplyAnswer = {
 
 export type AnswerPlan = { kind: 'question' } | ReplyAnswer;
 
-export function planAnswer(attempt: ReadAttempt, asked: AskedPhoto, role: IntakeSender['role']): AnswerPlan {
+export function planAnswer(attempt: ReadAttempt, asked: AskedPhoto): AnswerPlan {
   if (!attempt.ok) return planUnreadAnswer();
   const reply = planReply(attempt, true);
   if (reply.situation === 'saved') return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
-  if (role === 'admin' && attempt.reading.has_question) return { kind: 'question' };
+  if (attempt.reading.has_question) return { kind: 'question' };
   if (asked.status === 'asked_again') return { kind: 'reply', reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
 }
