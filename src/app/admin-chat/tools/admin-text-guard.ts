@@ -1,4 +1,4 @@
-export const CHANGE_TOOLS: readonly string[] = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member'];
+export const CHANGE_TOOLS: readonly string[] = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'remember', 'forget', 'forget_all'];
 
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'maintenance_status', 'review_name_matches', 'list_document_numbers', 'total_document_numbers', 'list_organizations'];
 

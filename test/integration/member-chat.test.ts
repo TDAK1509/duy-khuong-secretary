@@ -30,10 +30,10 @@ describe('a member chats with the bot', () => {
     expect(sentTexts()).toEqual([['zu-hung', 'Chào bạn!']]);
   });
 
-  it('offers the member exactly the three member tools', async () => {
+  it('offers the member the member tools and the memory tools', async () => {
     await harness.receiveText('zu-hung', 'Chào bạn');
 
-    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual(['search_records', 'count_records', 'attach_photos']);
+    expect(harness.chat.requests[0]?.tools.map((tool) => tool.name)).toEqual(['search_records', 'count_records', 'attach_photos', 'remember', 'forget', 'forget_all']);
   });
 
   it('sends the saved reply first and the chat answer second for a text with work and a question', async () => {

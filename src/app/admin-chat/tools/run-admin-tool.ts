@@ -3,6 +3,8 @@ import type { ToolCall } from '../../../services/chat/chat-service.ts';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { toDatabaseScope } from '../../access/to-database-scope.ts';
 import { scopeDatabase } from '../../db/scoped-database.ts';
+import type { DatabaseScope } from '../../db/transaction.ts';
+import { MEMORY_TOOLS } from './memory-tools.ts';
 import { reloadAccessScope } from '../../access/reload-access-scope.ts';
 import { runAttachPhotos } from './attach-photos-tool.ts';
 import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
@@ -14,6 +16,9 @@ import { runListMembers } from './list-members-tool.ts';
 import { runListOrganizations } from './list-organizations-tool.ts';
 import { runListScheduledTasks } from './list-scheduled-tasks-tool.ts';
 import { runMaintenanceStatus } from './maintenance-status-tool.ts';
+import { runForgetAll } from './forget-all-tool.ts';
+import { runForget } from './forget-tool.ts';
+import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runReviewNameMatches } from './review-name-matches-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
@@ -34,8 +39,13 @@ export async function runGuardedTool(dependencies: AdminToolDependencies, scope:
 }
 
 export async function runToolInScope(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
-  const database = scopeDatabase(dependencies.database, toDatabaseScope(scope));
+  const database = scopeDatabase(dependencies.database, toToolDatabaseScope(scope, call.name));
   return runToolByName({ ...dependencies, database }, scope, call);
+}
+
+function toToolDatabaseScope(scope: AccessScope, toolName: string): DatabaseScope {
+  const isMemoryTool = MEMORY_TOOLS.some((tool) => tool.name === toolName);
+  return isMemoryTool ? { workspaceId: scope.workspaceId, ownerUserId: scope.userId } : toDatabaseScope(scope);
 }
 
 async function runToolByName(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
@@ -63,6 +73,9 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
   review_name_matches: runReviewNameMatches,
+  remember: ({ database }, scope, args) => runRemember(database, scope, args),
+  forget: ({ database }, scope, args) => runForget(database, scope, args),
+  forget_all: ({ database }, scope, args) => runForgetAll(database, scope, args),
   list_document_numbers: ({ database }, scope, args) => runListDocumentNumbers(database, scope, args),
   list_organizations: ({ database }, scope, args) => runListOrganizations(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
