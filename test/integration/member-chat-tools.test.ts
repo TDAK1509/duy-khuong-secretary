@@ -49,4 +49,11 @@ describe('the tools of a member in the chat', () => {
   it('refuses the member list', async () => {
     expect(await runTool('list_members', {})).toBe(NO_PERMISSION);
   });
+
+  it('refuses to create an invite and creates none', async () => {
+    const output = await runTool('create_invite', { display_name: 'Hùng', role: 'member' });
+
+    expect(output).toBe(NO_PERMISSION);
+    expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
 });
