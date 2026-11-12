@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
+import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
+import { findRecordSources } from '../../src/app/records/find-record-sources.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('the chat finds the original message of a record', () => {
   let harness: IntakeHarness;
@@ -84,6 +86,27 @@ describe('the chat finds the original message of a record', () => {
 
     expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: 'Không tìm thấy dữ liệu phù hợp.' }]);
+  });
+
+  it('gives an admin no source from another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Nhóm khác');
+    const otherUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-other', displayName: 'Khác' });
+    const otherRecordId = await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: otherUserId, senderName: 'Khác' });
+    listSourcesThenReply([otherRecordId]);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+  });
+
+  it('lets row-level security alone hide the source of another member', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const lanRecordId = await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan' });
+    const hungDatabase = scopeDatabase(harness.pool, { workspaceId, ownerUserId: harness.hungUserId });
+
+    const sources = await findRecordSources(hungDatabase, { workspaceId, userId: lanUserId, role: 'admin' }, [lanRecordId]);
+
+    expect(sources).toEqual([]);
   });
 
   describe('after the answer', () => {
