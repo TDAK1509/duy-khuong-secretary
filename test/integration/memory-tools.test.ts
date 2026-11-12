@@ -1,0 +1,54 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { AccessScope } from '../../src/app/access/access-scope.ts';
+import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
+import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
+import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
+import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
+import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { readUserMemory } from './user-memory-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
+
+describe('the memory tools of a user in the chat', () => {
+  let database: TemporaryDatabase;
+  let runtimePool: PostgresPool;
+  let workspaceId: string;
+  let lan: AccessScope;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    runtimePool = createPostgresPool(database.runtimeUrl);
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    lan = { workspaceId, userId: lanUserId, role: 'member' };
+  });
+
+  afterEach(async () => {
+    await runtimePool.end();
+    await database.drop();
+  });
+
+  it('adds one Markdown line when it remembers a fact', async () => {
+    const output = await runTool('remember', { fact: 'Tôi lái xe 29C-123.45' });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- Tôi lái xe 29C-123.45' });
+    expect(await readUserMemory(database, lan.userId)).toBe('- Tôi lái xe 29C-123.45');
+  });
+
+  async function runTool(name: string, args: object, scope: AccessScope = lan): Promise<string> {
+    const dependencies = {
+      database: runtimePool,
+      clock: new FakeClock(new Date('2026-11-02T14:05:00+07:00')),
+      attachments: new PhotoAttachments(),
+      created: new CreatedTasks(null),
+      invites: new CreatedInvites(),
+      nameReview: new NameReviewRequest(),
+      guard: new AdminTextGuard(false),
+    };
+    return runChatTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
+});
