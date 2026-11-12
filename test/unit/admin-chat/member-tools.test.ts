@@ -31,6 +31,16 @@ describe('the member tool list', () => {
     );
   });
 
+  it('offers list_sources after attach_photos with the member description and the admin parameters', () => {
+    const names = MEMBER_TOOLS.map((tool) => tool.name);
+
+    expect(names[names.indexOf('attach_photos') + 1]).toBe('list_sources');
+    expect(findTool('list_sources').description).toBe(
+      'Tìm tin gốc của dữ liệu do chính bạn gửi: gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả.',
+    );
+    expect(findTool('list_sources').parameters).toStrictEqual(ADMIN_TOOLS.find((candidate) => candidate.name === 'list_sources')?.parameters);
+  });
+
   function findTool(name: string) {
     const tool = MEMBER_TOOLS.find((candidate) => candidate.name === name);
     if (!tool) throw new Error(`no member tool ${name}`);
