@@ -143,6 +143,17 @@ describe('the document list of an admin', () => {
     expect([firstPage.documents.length, secondPage.documents.length, new Set(ids).size, secondPage.next_cursor]).toEqual([20, 1, 21, null]);
   });
 
+  it('leaves out a document of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Nhóm khác');
+    const otherUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-other', displayName: 'Khác' });
+    const documentId = await insertNumberedDocument(database, { workspaceId: otherWorkspaceId, userId: otherUserId, documentNumber: '0030' });
+    await insertNumberLine(database, { workspaceId: otherWorkspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 26380, unit: 'kg' });
+
+    const listed = await runList();
+
+    expect(listed.documents).toEqual([]);
+  });
+
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
     return JSON.parse(await runTool('list_documents', args, scope)) as ListOutput;
