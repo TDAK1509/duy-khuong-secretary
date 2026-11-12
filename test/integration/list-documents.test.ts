@@ -9,7 +9,8 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { insertAnotherSource, insertNumberedDocument, insertNumberLine } from './document-number-rows.ts';
+import { insertOrganizationWithAlias } from './document-rows.ts';
+import { insertAnotherSource, insertNumberedDocument, insertNumberLine, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -81,6 +82,17 @@ describe('the document list of an admin', () => {
     const listed = await runList();
 
     expect(listed.documents.map((document) => document.id)).toEqual([accepted]);
+  });
+
+  it('leaves out a document whose company name waits for confirmation', async () => {
+    const chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Cheng Loong' });
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0006' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 27790, unit: 'kg' });
+    await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName: 'Chống Loong', isConfirmed: false });
+
+    const listed = await runList({ organization: 'Công ty Cheng Loong' });
+
+    expect(listed.documents).toEqual([]);
   });
 
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
