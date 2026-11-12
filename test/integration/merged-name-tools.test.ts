@@ -103,6 +103,13 @@ describe('the merged names of an admin', () => {
     expect(listed.merged_names).toEqual([]);
   });
 
+  it('creates a company with the merged spelling and the type of the merged company on a split', async () => {
+    await runSplitMergedName('cong ty tnhh chong loong binh duong paper');
+
+    const organizations = await database.query<{ name: string; type: string }>(`SELECT name, type FROM organizations WHERE name = ${literal(CHONG_LOONG)}`);
+    expect(organizations).toEqual([{ name: CHONG_LOONG, type: 'company' }]);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
@@ -123,6 +130,10 @@ describe('the merged names of an admin', () => {
 
   async function runListMergedNames(text: string | null = null, scope: AccessScope = duy): Promise<MergedNamesOutput> {
     return JSON.parse(await runTool('list_merged_names', { text }, scope)) as MergedNamesOutput;
+  }
+
+  async function runSplitMergedName(printedName: string, scope: AccessScope = duy): Promise<string> {
+    return runTool('split_merged_name', { printed_name: printedName }, scope);
   }
 
   async function runTool(name: string, args: object, scope: AccessScope): Promise<string> {
