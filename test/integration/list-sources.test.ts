@@ -237,5 +237,17 @@ describe('the chat finds the original message of a record', () => {
       const [stored] = await database.query<{ text: string }>(`SELECT text FROM messages WHERE reply_kind = 'answer'`);
       expect(stored?.text).toContain(`Nguyên văn: "${longText}"`);
     });
+
+    it('shows the card in the history of the next turn', async () => {
+      listSourcesThenReply([await insertHungTextRecord()]);
+      await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
+      harness.chat.follow(() => replyWithText('Hết rồi.'));
+
+      await harness.receiveText('zu-duy', 'Còn gì nữa không?');
+
+      const lastRequest = harness.chat.requests.at(-1);
+      const assistantTexts = (lastRequest?.turns ?? []).flatMap((turn) => (turn.role === 'assistant' ? [turn.text] : []));
+      expect(assistantTexts).toEqual([`Đây là nguồn.\n\n${HUNG_CARD}`]);
+    });
   });
 });
