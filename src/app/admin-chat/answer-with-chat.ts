@@ -22,6 +22,7 @@ import { NameReviewRequest } from './name-review-request.ts';
 import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
 import { CreatedTasks } from './created-tasks.ts';
 import { AdminTextGuard } from './tools/admin-text-guard.ts';
+import type { AdminToolDependencies } from './tools/tool-dependencies.ts';
 import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
@@ -45,15 +46,28 @@ type Answer = {
 };
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
+  const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
+  const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote });
+  const isRefusedOnlyByHistory = first.answer.changeRefused && first.hasFlaggedAnswer && !hasNote;
+  if (!isRefusedOnlyByHistory) return first.answer;
+  return (await runChatTurn(context, message, profile, { hideFlaggedAnswers: true, hasNote })).answer;
+}
+
+type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean };
+
+async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: AdminProfile, view: ChatTurnView): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
-  const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile);
+  const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile, view.hideFlaggedAnswers);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
-  const guard = new AdminTextGuard(hasFlaggedAnswer || (await hasNoteFromPhoto(database, message.id)));
+  const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
-  const { attachments, created, invites, nameReview } = dependencies;
+  return { answer: collectAnswer(result.text, dependencies), hasFlaggedAnswer };
+}
+
+function collectAnswer(text: string, { attachments, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
   return {
-    text: result.text,
+    text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
@@ -74,9 +88,9 @@ async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, r
   }
 }
 
-async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile, hideFlaggedAnswers: boolean): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
-  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, false);
+  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const request = {
     system: buildAdminPrompt({ ...profile, now: clock.now() }),
     turns: [...history.turns, await buildUserTurn(database, message)],

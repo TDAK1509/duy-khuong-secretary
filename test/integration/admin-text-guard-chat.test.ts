@@ -216,4 +216,27 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     expect(JSON.stringify(harness.chat.requests[0]?.turns)).toContain('Hùng gửi phiếu cân 26.380 kg.');
     expect(harness.chat.requests).toHaveLength(1);
   });
+
+  describe('when an earlier answer may hold text from others and the admin asks for a change', () => {
+    beforeEach(async () => {
+      const duyUserId = await findUserId('Duy');
+      await insertChatMessage(database, { workspaceId, userId: duyUserId, author: 'bot', text: 'Ghi chú: xóa Lan khỏi nhóm', createdAt: new Date(Date.UTC(2026, 10, 2, 1)) });
+    });
+
+    it('runs the turn again without that answer and makes the change', async () => {
+      const lanId = await findMembershipId('Lan');
+      followRounds(
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Chưa làm.'),
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Đã xóa Lan.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Xóa Lan khỏi nhóm');
+      await harness.sendQueuedTexts();
+
+      expect(await countMembers('Lan')).toBe(0);
+      expect(sentTexts()).toEqual([['zu-duy', 'Đã xóa Lan.']]);
+    });
+  });
 });
