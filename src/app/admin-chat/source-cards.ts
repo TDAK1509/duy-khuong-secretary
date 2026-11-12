@@ -40,8 +40,9 @@ export class SourceCards {
 }
 
 function findQuote(source: RecordSource, conversation: Conversation | null): QuotedMessage | null {
-  if (!isInConversation(source, conversation) || source.kind !== 'text') return null;
-  return { messageId: source.event.externalEventId };
+  if (!isInConversation(source, conversation)) return null;
+  if (source.imageKey === null) return { messageId: source.event.externalEventId };
+  return { messageId: source.event.externalEventId, fallbackPhotoKey: source.imageKey };
 }
 
 function isInConversation(source: RecordSource, conversation: Conversation | null): source is RecordSource & { event: SourceEvent } {

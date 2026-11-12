@@ -301,5 +301,29 @@ describe('the chat finds the original message of a record', () => {
         { kind: 'text', body: expect.stringContaining('Nguồn 1: Bạn gửi tin nhắn'), quote_message_id: 'msg-1' },
       ]);
     });
+
+    it('quotes the own single photo of a member with the photo as fallback and sends it only once', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        event: { kind: 'images', externalEventId: 'msg-1' },
+      });
+      callToolsThenReply(
+        [
+          { name: 'list_sources', args: { record_ids: [recordId] } },
+          { name: 'attach_photos', args: { record_ids: [recordId] } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.' },
+        { kind: 'text', quote_message_id: 'msg-1', fallback_photo_key: `${workspaceId}/photo.jpg` },
+      ]);
+    });
   });
 });

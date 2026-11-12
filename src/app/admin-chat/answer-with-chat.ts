@@ -81,7 +81,7 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
   return {
     role,
     text,
-    photos: attachments.list(),
+    photos: dropQuotedPhotos(attachments.list(), sources.list()),
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     sourceCards: sources.list(),
@@ -89,6 +89,11 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
     changeRefused: guard.hasRefused(),
     holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
   };
+}
+
+function dropQuotedPhotos(photos: AttachablePhoto[], cards: SourceCard[]): AttachablePhoto[] {
+  const quotedMessageIds = new Set(cards.filter((card) => card.quote !== undefined).map((card) => card.messageId));
+  return photos.filter((photo) => !quotedMessageIds.has(photo.sourceMessageId));
 }
 
 async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
