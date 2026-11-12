@@ -125,6 +125,18 @@ describe('the merged names of an admin', () => {
     expect(output).toBe('{"ok":true,"documents":2}');
   });
 
+  it('leaves the spelling with its own alias and no merge row after a split', async () => {
+    await runSplitMergedName(CHONG_LOONG);
+
+    const merged = await database.query(`SELECT 1 FROM merged_names WHERE match_key = ${literal(buildMatchKey(CHONG_LOONG))}`);
+    const aliases = await database.query<{ name: string }>(
+      `SELECT organization.name FROM organization_aliases alias JOIN organizations organization ON organization.id = alias.organization_id
+       WHERE alias.match_key = ${literal(buildMatchKey(CHONG_LOONG))}`,
+    );
+    expect(merged).toEqual([]);
+    expect(aliases).toEqual([{ name: CHONG_LOONG }]);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
