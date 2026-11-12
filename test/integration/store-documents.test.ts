@@ -20,6 +20,10 @@ describe('storing the documents of a saved message', () => {
     await harness.close();
   });
 
+  function insertChengLoong(): Promise<string> {
+    return insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Cheng Loong' });
+  }
+
   it('stores one document with the source message and item of a saved item', async () => {
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'CTY THUẬN MINH')] })]));
 
@@ -228,6 +232,17 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
+  it('stores the name the reader gave next to the printed name', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT printed_name, known_name FROM document_parties')).toEqual([
+      { printed_name: MISREAD_NAME, known_name: 'Cheng Loong' },
+    ]);
+  });
+
   it('creates an organization with an alias for a new name and links the party to it', async () => {
     const customer = makeParty('customer', 'C.Ty CHANH DUONG');
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [customer] })]));
@@ -328,6 +343,7 @@ describe('storing the documents of a saved message', () => {
   });
 });
 
+const MISREAD_NAME = 'Công ty TNHH Chống Loong Bình Dương Paper';
 const PORT_ISSUER_KEY = 'congtycpcangvanangluongbinhduong';
 
 function makePortTicket(vehiclePlate: string | null) {
@@ -355,6 +371,10 @@ function makeTicketItem(overrides: ItemOverrides = {}) {
     document_kind: 'phiếu cân xe',
     ...overrides,
   });
+}
+
+function makeMisreadIssuer() {
+  return makeParty('issuer', MISREAD_NAME, 'Cheng Loong');
 }
 
 function makeParty(role: string, printedName: string, knownName: string | null = null) {

@@ -34,6 +34,7 @@ function buildPartyRow(
     role: party.role,
     type: party.type,
     printed_name: party.printed_name.trim(),
+    known_name: party.known_name,
     match_key: matchKey,
     ...link,
   };
