@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatService } from '../../services/chat/chat-service.ts';
+import type { ChatRequest, ChatService, ToolSpec } from '../../services/chat/chat-service.ts';
 import { isCurrentMember } from '../access/is-current-member.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -11,6 +11,7 @@ import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildMemberPrompt } from './member-prompt.ts';
+import { buildAbilitySection } from './ability-section.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
@@ -98,10 +99,11 @@ async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, r
 async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, hideFlaggedAnswers: boolean): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
+  const tools = listChatTools(profile.role);
   const request = {
-    system: buildPrompt(profile, clock.now(), await loadMemory(context)),
+    system: buildPrompt(profile, clock.now(), await loadMemory(context), tools),
     turns: [...history.turns, await buildUserTurn(database, message)],
-    tools: listChatTools(profile.role),
+    tools,
   };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
@@ -111,9 +113,9 @@ async function loadMemory({ dependencies, sender }: IntakeContext): Promise<stri
   return readUserMemory(scopeDatabase(dependencies.database, ownerScope), sender);
 }
 
-function buildPrompt(profile: ChatProfile, now: Date, memory: string): string {
+function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: ToolSpec[]): string {
   const build = profile.role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
-  return build({ ...profile, now, memory });
+  return [build({ ...profile, now, memory }), buildAbilitySection(tools)].join('\n\n');
 }
 
 function requireChat(context: IntakeContext): ChatService {
