@@ -304,6 +304,16 @@ describe('storing the documents of a saved message', () => {
     ).toEqual([{ name: 'Tan Quoc Hung' }]);
   });
 
+  it('creates a new company when two saved companies match without accents and neither is exact', async () => {
+    await insertCompaniesWithOneAccentFreeName();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'TQH Cân điện tử', 'TAN QUOC HUNG')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name = 'TQH Cân điện tử'`)).toEqual([{ name: 'TQH Cân điện tử' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
