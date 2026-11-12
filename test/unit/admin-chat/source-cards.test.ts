@@ -52,4 +52,12 @@ describe('the quote of a source card', () => {
 
     expect(cards.list().map((card) => card.quote)).toEqual([{ messageId: 'msg-1' }]);
   });
+
+  it('never quotes when the collector has no conversation', () => {
+    const cards = new SourceCards();
+
+    cards.add(makeOwnTextSource());
+
+    expect(cards.list().map((card) => card.quote)).toEqual([undefined]);
+  });
 });
