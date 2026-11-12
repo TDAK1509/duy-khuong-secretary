@@ -40,6 +40,12 @@ describe('the chat finds the original message of a record', () => {
     return result.output;
   }
 
+  async function readMessageIdOf(recordId: string): Promise<string> {
+    const [row] = await database.query<{ message_id: string }>(`SELECT message_id FROM records WHERE id = '${recordId}'`);
+    if (!row) throw new Error('record not found');
+    return row.message_id;
+  }
+
   async function insertHungTextRecord(): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
@@ -107,6 +113,17 @@ describe('the chat finds the original message of a record', () => {
     const sources = await findRecordSources(hungDatabase, { workspaceId, userId: lanUserId, role: 'admin' }, [lanRecordId]);
 
     expect(sources).toEqual([]);
+  });
+
+  it('gives one source and one card to two records of one message', async () => {
+    const first = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', hasPhoto: true });
+    const messageId = await readMessageIdOf(first);
+    const second = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageId, itemIndex: 1 });
+    listSourcesThenReply([first, second]);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [first, second] }], left_out: 0 });
   });
 
   describe('after the answer', () => {
