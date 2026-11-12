@@ -41,9 +41,10 @@ async function saveReply(
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
   const hasProposedParty = await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
-  await storeBotReply(transaction, messageId, { text: plan.replyText, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
+  const text = formatReplyForSender(plan, sender.role);
+  await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
   await setSubmissionStatus(transaction, messageId, plan.status);
-  await enqueueReplyToMessage(transaction, context, messageId, formatReplyForSender(plan, sender.role));
+  await enqueueReplyToMessage(transaction, context, messageId, text);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);
   if (hasProposedParty) await queueNameProposalToAdmins(transaction, context);
   if (plan.saved && plan.asksQuestion && sender.role === 'admin' && photo === null) await markQuestionPending(transaction, messageId);

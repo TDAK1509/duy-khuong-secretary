@@ -112,5 +112,17 @@ describe('which stored bot replies may hold text that the chatting user did not 
 
       expect(await readReplyFlags()).toEqual([false, false]);
     });
+
+    it('is stored with the same text that the admin receives, read data included', async () => {
+      harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+      harness.reader.answerWith(makeReading([makeItem()]));
+
+      await harness.receivePhoto('zu-duy');
+      await harness.sendAllQueuedTexts();
+
+      const stored = await database.query<{ text: string }>(`SELECT text FROM messages WHERE author = 'bot' AND reply_kind = 'saved'`);
+      expect(stored).toHaveLength(1);
+      expect(harness.channel.texts.map((sent) => sent.text)).toEqual([stored[0]?.text]);
+    });
   });
 });
