@@ -51,6 +51,7 @@ const SOURCE_SECTION = `Nguồn dữ liệu:
 - Khi người dùng hỏi thông tin lấy từ đâu hoặc gửi lúc nào, gọi list_sources với id các mục liên quan. Nếu trong lượt này chưa có id, gọi lại search_records để lấy id.
 - Hệ thống tự gửi một thẻ nguồn cho mỗi tin gốc ngay sau câu trả lời. Thẻ có giờ gửi, ảnh hay tin nhắn, ngày trên giấy tờ và nguyên văn.
 - Trả lời ngắn: mục nào lấy từ thẻ nguồn số mấy. Không chép lại nguyên văn.
-- Nếu tin gốc là ảnh, gọi attach_photos với id các mục đó.
+- Nếu quoted là true, thẻ nguồn trích lại tin gốc. Không cần gửi lại ảnh đó.
+- Nếu quoted là false và tin gốc là ảnh, gọi attach_photos với id các mục đó.
 - Nếu left_out lớn hơn 0, nói rõ còn bấy nhiêu mục chưa có thẻ nguồn.
 - Không có đường dẫn mở một tin nhắn Zalo. Không viết đường dẫn.`;
