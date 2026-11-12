@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
@@ -23,8 +23,12 @@ describe('the chat finds the original message of a record', () => {
   });
 
   function listSourcesThenReply(recordIds: string[], reply = 'Đây là nguồn.'): void {
-    const call = { id: 'call_1', name: 'list_sources', argumentsJson: JSON.stringify({ record_ids: recordIds }) };
-    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(reply)));
+    callToolsThenReply([{ name: 'list_sources', args: { record_ids: recordIds } }], reply);
+  }
+
+  function callToolsThenReply(tools: { name: string; args: object }[], reply: string): void {
+    const calls = tools.map(({ name, args }, index) => ({ id: `call_${index + 1}`, name, argumentsJson: JSON.stringify(args) }));
+    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(...calls) : replyWithText(reply)));
   }
 
   function readToolOutput(): string {
@@ -92,6 +96,35 @@ describe('the chat finds the original message of a record', () => {
 
       expect(await database.query(`SELECT text, holds_other_text FROM messages WHERE reply_kind = 'answer'`)).toEqual([
         { text: `Đây là nguồn.\n\n${HUNG_CARD}`, holds_other_text: true },
+      ]);
+    });
+
+    it('sends a photo card with its caption, followed by the photo', async () => {
+      const photo = { bytes: makeJpeg(500), contentType: 'image/jpeg' } as const;
+      await harness.photoStorage.put(`${workspaceId}/photo.jpg`, photo);
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        messageText: 'phiếu cân',
+        event: { kind: 'images', caption: 'phiếu cân', sentAt: '2026-11-12T08:15:00+07:00' },
+      });
+      callToolsThenReply(
+        [
+          { name: 'list_sources', args: { record_ids: [recordId] } },
+          { name: 'attach_photos', args: { record_ids: [recordId] } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-duy', 'phiếu cân lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(harness.channel.sends).toEqual([
+        { kind: 'text', to: 'zu-duy', text: 'Đây là nguồn.' },
+        { kind: 'text', to: 'zu-duy', text: 'Nguồn 1: Hùng gửi ảnh lúc 08:15 ngày 12/11/2026.\nNguyên văn: "phiếu cân"' },
+        { kind: 'image', to: 'zu-duy', photo },
       ]);
     });
   });
