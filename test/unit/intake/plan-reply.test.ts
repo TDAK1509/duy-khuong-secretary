@@ -10,7 +10,7 @@ import {
   READ_FAILED_TEXT,
   TEXT_NOTHING_TO_SAVE_TEXT,
 } from '../../../src/app/intake/intake-texts.ts';
-import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
+import { planAnswer, planReply, planUnreadAnswer } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import { makeItem, makeReading, succeed } from '../reading/make-reading.ts';
 
@@ -131,6 +131,14 @@ describe('planReply a failed read', () => {
     const plan = planReply({ ok: false, reason: 'timeout' }, false);
 
     expect(plan).toMatchObject({ replyText: READ_FAILED_TEXT, status: 'unresolved' });
+  });
+});
+
+describe('planUnreadAnswer', () => {
+  it('tells the sender the waiting photo could not be read because of an error', () => {
+    const answer = planUnreadAnswer();
+
+    expect(answer).toMatchObject({ kind: 'reply', photoAfter: 'unchanged', reply: { replyText: READ_FAILED_PHOTO_TEXT } });
   });
 });
 
