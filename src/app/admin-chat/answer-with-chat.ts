@@ -10,6 +10,7 @@ import { runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
+import { buildMemberPrompt } from './member-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
@@ -96,11 +97,16 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const request = {
-    system: buildAdminPrompt({ ...profile, now: clock.now() }),
+    system: buildPrompt(profile, clock.now()),
     turns: [...history.turns, await buildUserTurn(database, message)],
     tools: listChatTools(profile.role),
   };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
+}
+
+function buildPrompt(profile: ChatProfile, now: Date): string {
+  const build = profile.role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
+  return build({ ...profile, now });
 }
 
 function requireChat(context: IntakeContext): ChatService {

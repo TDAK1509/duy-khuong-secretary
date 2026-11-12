@@ -163,6 +163,14 @@ describe('a member chats with the bot', () => {
     ]);
   });
 
+  it('gives the member the member prompt', async () => {
+    await harness.receiveText('zu-hung', 'Chào bạn');
+
+    const system = harness.chat.requests[0]?.system;
+    expect(system).toContain('Bạn đang trò chuyện với Hùng, vai trò: thành viên.');
+    expect(system).not.toContain('create_invite');
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: '2026-10-30', vehicle_plate: '29C-123.45' });
   }
