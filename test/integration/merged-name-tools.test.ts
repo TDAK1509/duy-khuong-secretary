@@ -86,6 +86,23 @@ describe('the merged names of an admin', () => {
     expect(listed.left_out).toBe(1);
   });
 
+  it('lists no merge of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    const otherOrganizationId = await insertOrganizationWithAlias(database, { workspaceId: otherWorkspaceId, name: 'Kim Nhân Đạo' });
+    await database.query(
+      `INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key)
+       VALUES (${literal(otherWorkspaceId)}, ${literal(otherOrganizationId)}, 'KNĐ', 'knd')`,
+    );
+    await database.query(
+      `INSERT INTO merged_names (workspace_id, organization_id, printed_name, match_key)
+       VALUES (${literal(otherWorkspaceId)}, ${literal(otherOrganizationId)}, 'KNĐ', 'knd')`,
+    );
+
+    const listed = await runListMergedNames('knd');
+
+    expect(listed.merged_names).toEqual([]);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
