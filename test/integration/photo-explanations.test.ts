@@ -7,7 +7,7 @@ import {
   PHOTO_NOTHING_TO_SAVE_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
-  UPLOAD_ONLY_TEXT,
+  TEXT_NOTHING_TO_SAVE_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult } from '../../src/services/chat/chat-service.ts';
@@ -208,7 +208,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect((await readTextsTo('zu-hung')).slice(textsBefore)).toEqual([
-      { text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined },
+      { text: TEXT_NOTHING_TO_SAVE_TEXT, quoteMessageId: undefined },
     ]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
     expect(await readPhoto('zmsg-2')).toEqual({ status: 'unresolved', hasBotReply: false });

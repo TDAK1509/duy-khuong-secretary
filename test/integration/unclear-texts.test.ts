@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DUPLICATE_TEXT, UPLOAD_ONLY_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { DUPLICATE_TEXT, TEXT_NOTHING_TO_SAVE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
@@ -73,7 +73,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     await harness.sendAllQueuedTexts();
 
     expect(reader.requests).toHaveLength(1);
-    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UPLOAD_ONLY_TEXT);
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(TEXT_NOTHING_TO_SAVE_TEXT);
   });
 
   it('does not use a photo whose reading found no work data', async () => {
@@ -212,7 +212,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     await harness.sendAllQueuedTexts();
 
     expect(reader.requests).toHaveLength(2);
-    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined });
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TEXT_NOTHING_TO_SAVE_TEXT, quoteMessageId: undefined });
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 

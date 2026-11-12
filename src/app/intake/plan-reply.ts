@@ -11,8 +11,8 @@ import {
   PHOTO_NOT_WORK_TEXT,
   PHOTO_NOTHING_TO_SAVE_TEXT,
   STILL_UNCLEAR_TEXT,
+  TEXT_NOTHING_TO_SAVE_TEXT,
   UNRESOLVED_TEXT,
-  UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
@@ -135,8 +135,8 @@ function planNoWorkDataReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 }
 
 function pickNoWorkDataText(photoProblem: Reading['photo_problem'], hasPhoto: boolean): string {
-  if (hasPhoto) return photoProblem === null ? PHOTO_NOTHING_TO_SAVE_TEXT : PHOTO_PROBLEM_TEXTS[photoProblem];
-  return UPLOAD_ONLY_TEXT;
+  if (!hasPhoto) return TEXT_NOTHING_TO_SAVE_TEXT;
+  return photoProblem === null ? PHOTO_NOTHING_TO_SAVE_TEXT : PHOTO_PROBLEM_TEXTS[photoProblem];
 }
 
 const PHOTO_PROBLEM_TEXTS = {

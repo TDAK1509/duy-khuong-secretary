@@ -1,8 +1,5 @@
 import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 
-export const UPLOAD_ONLY_TEXT =
-  'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.';
-
 export const UNRESOLVED_TEXT =
   'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
 
@@ -17,6 +14,9 @@ export const PHOTO_NOT_WORK_TEXT =
 
 export const PHOTO_NOTHING_TO_SAVE_TEXT =
   'Trợ lý chưa thấy thông tin công việc cần lưu trong ảnh này nên chưa lưu. Nếu cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
+
+export const TEXT_NOTHING_TO_SAVE_TEXT =
+  'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.';
 
 export const MAINTENANCE_WITHOUT_PLATE_TEXT =
   'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.';

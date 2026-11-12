@@ -34,7 +34,7 @@ describe('storing what a member sends', () => {
     expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
       [
         'zu-hung',
-        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+        'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
       ],
     ]);
   });

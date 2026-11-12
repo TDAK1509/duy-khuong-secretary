@@ -248,7 +248,7 @@ describe('saving what the reader returns', () => {
     return makeReading([], { has_work_data: false, has_question: true });
   }
 
-  it('answers the question of a member with the upload-only reply', async () => {
+  it('answers the question of a member with the nothing-to-save reply', async () => {
     harness.reader.answerWith(makeQuestionOnly());
 
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
@@ -257,7 +257,7 @@ describe('saving what the reader returns', () => {
     expect(sentTexts()).toEqual([
       [
         'zu-hung',
-        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+        'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
       ],
     ]);
   });
@@ -527,14 +527,14 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
-  it('gives the upload-only reply when work data has no item', async () => {
+  it('gives the nothing-to-save reply when work data has no item', async () => {
     harness.reader.answerWith(makeReading([], { has_work_data: true }));
 
     await harness.receiveText('zu-hung', 'Đổ dầu');
     await harness.sendQueuedTexts();
 
     expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
-      'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+      'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
     ]);
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });

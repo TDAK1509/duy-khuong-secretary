@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, PHOTO_BLURRY_TEXT, PHOTO_CUT_OFF_TEXT, PHOTO_NOT_WORK_TEXT, PHOTO_NOTHING_TO_SAVE_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
+import {
+  ASK_AGAIN_TEXT,
+  ASK_EXPLANATION_TEXT,
+  PHOTO_BLURRY_TEXT,
+  PHOTO_CUT_OFF_TEXT,
+  PHOTO_NOT_WORK_TEXT,
+  PHOTO_NOTHING_TO_SAVE_TEXT,
+  TEXT_NOTHING_TO_SAVE_TEXT,
+} from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import { makeItem, makeReading, succeed } from '../reading/make-reading.ts';
@@ -16,7 +24,7 @@ describe('planReply', () => {
   it('does not ask for an explanation of a message that has no photo', () => {
     const plan = planReply(succeed(unclear), false);
 
-    expect(plan).toMatchObject({ saved: null, status: 'accepted', replyText: UPLOAD_ONLY_TEXT });
+    expect(plan).toMatchObject({ saved: null, status: 'accepted', replyText: TEXT_NOTHING_TO_SAVE_TEXT });
   });
 });
 
@@ -29,12 +37,12 @@ describe('planReply unclear readings', () => {
 });
 
 describe('planReply text that needs an explanation', () => {
-  it('is unclear and keeps the upload-only reply when the reader says it needs an explanation', () => {
+  it('is unclear and keeps the nothing-to-save reply when the reader says it needs an explanation', () => {
     const reading = makeReading([], { has_work_data: false, needs_explanation: true });
 
     const plan = planReply(succeed(reading), false);
 
-    expect(plan).toMatchObject({ isUnclear: true, replyText: UPLOAD_ONLY_TEXT });
+    expect(plan).toMatchObject({ isUnclear: true, replyText: TEXT_NOTHING_TO_SAVE_TEXT });
   });
 });
 
@@ -99,6 +107,14 @@ describe('planReply a message without work data', () => {
     const plan = planReply(succeed(reading), true);
 
     expect(plan.replyText).toBe(PHOTO_NOTHING_TO_SAVE_TEXT);
+  });
+
+  it('tells the sender a text without work data has nothing to save', () => {
+    const reading = makeReading([], { has_work_data: false });
+
+    const plan = planReply(succeed(reading), false);
+
+    expect(plan.replyText).toBe(TEXT_NOTHING_TO_SAVE_TEXT);
   });
 });
 
