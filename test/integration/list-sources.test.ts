@@ -12,11 +12,12 @@ describe('the chat finds the original message of a record', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
   let workspaceId: string;
+  let duyUserId: string;
 
   beforeEach(async () => {
     harness = await createIntakeHarness();
     ({ database, workspaceId } = harness);
-    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
   });
 
@@ -358,6 +359,18 @@ describe('the chat finds the original message of a record', () => {
 
       expect(readToolOutput()).toContain('"quoted":false');
       expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Hùng'), quote_message_id: null }]);
+    });
+
+    it('never quotes a record saved through ChatGPT', async () => {
+      const recordId = await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Duy', messageText: 'Đổ dầu 200k' });
+      const messageId = await readMessageIdOf(recordId);
+      await database.query(`UPDATE messages SET inbound_event_id = NULL, event_part = NULL, source = 'mcp' WHERE id = '${messageId}'`);
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
     });
   });
 });
