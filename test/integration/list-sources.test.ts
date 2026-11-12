@@ -257,5 +257,24 @@ describe('the chat finds the original message of a record', () => {
       const assistantTexts = (lastRequest?.turns ?? []).flatMap((turn) => (turn.role === 'assistant' ? [turn.text] : []));
       expect(assistantTexts).toEqual([`Đây là nguồn.\n\n${HUNG_CARD}`]);
     });
+
+    it('merges the paper dates of two calls for records of one message into one card', async () => {
+      const first = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', hasPhoto: true, occurredOn: '2026-10-29' });
+      const messageId = await readMessageIdOf(first);
+      const second = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageId, itemIndex: 1, occurredOn: '2026-10-30' });
+      const callOf = (recordId: string, id: string) => ({ id, name: 'list_sources', argumentsJson: JSON.stringify({ record_ids: [recordId] }) });
+      harness.chat.follow((_request, callNumber) => {
+        if (callNumber === 1) return replyWithToolCalls(callOf(first, 'call_1'));
+        return callNumber === 2 ? replyWithToolCalls(callOf(second, 'call_2')) : replyWithText('Đây là nguồn.');
+      });
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
+        'Đây là nguồn.',
+        'Nguồn 1: Hùng gửi ảnh lúc 10:00 ngày 02/11/2026.\nNgày trên giấy tờ: 29/10/2026, 30/10/2026.\nNguyên văn: "tin nhắn"',
+      ]);
+    });
   });
 });
