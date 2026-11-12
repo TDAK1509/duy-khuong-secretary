@@ -55,4 +55,16 @@ describe('the memory of a user in the chat', () => {
     expect(await readUserMemory(harness.database, duyUserId)).toBeNull();
     expect(harness.channel.texts.map((sent) => sent.text)).toEqual([`Hùng gửi 1 phiếu.\n\n${MEMORY_REFUSED_NOTICE}`]);
   });
+
+  it('saves a member memory write after a search', async () => {
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) return replyWithToolCalls({ id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(SEARCH_EVERYTHING) });
+      if (callNumber === 2) return replyWithToolCalls({ id: 'call_2', name: 'remember', argumentsJson: JSON.stringify({ fact: 'A' }) });
+      return replyWithText('Đã nhớ: A.');
+    });
+
+    await harness.receiveText('zu-hung', 'Tôi gửi gì hôm nay? Nhớ là A');
+
+    expect(await readUserMemory(harness.database, harness.hungUserId)).toBe('- A');
+  });
 });
