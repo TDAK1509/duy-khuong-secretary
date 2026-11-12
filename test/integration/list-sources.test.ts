@@ -8,6 +8,15 @@ import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+type OutboundRow = {
+  kind: string;
+  body: string | null;
+  quote_message_id: string | null;
+  fallback_photo_key: string | null;
+  photo_key: string | null;
+  admin_membership_id: string | null;
+};
+
 describe('the chat finds the original message of a record', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
@@ -280,8 +289,8 @@ describe('the chat finds the original message of a record', () => {
   });
 
   describe('quotes in the conversation', () => {
-    function readOutboundMessages() {
-      return database.query(`SELECT kind, body, quote_message_id, fallback_photo_key, photo_key FROM outbound_messages ORDER BY seq`);
+    function readOutboundMessages(): Promise<OutboundRow[]> {
+      return database.query<OutboundRow>(`SELECT kind, body, quote_message_id, fallback_photo_key, photo_key, admin_membership_id FROM outbound_messages ORDER BY seq`);
     }
 
     it('quotes the own text source of a member', async () => {
@@ -386,6 +395,26 @@ describe('the chat finds the original message of a record', () => {
 
       expect(readToolOutput()).toContain('"quoted":false');
       expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
+    });
+
+    it('sends the photo of a long album card once, with the first part only', async () => {
+      const longCaption = 'Đổ dầu '.repeat(Math.ceil(harness.channel.maxTextLength / 7) + 10).trim();
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        messageText: longCaption,
+        event: { kind: 'images', imageUrls: ['https://z.test/1.jpg', 'https://z.test/2.jpg'], caption: longCaption },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      const cardRows = (await readOutboundMessages()).slice(1);
+      expect(cardRows.length).toBeGreaterThan(1);
+      expect(cardRows.map((row) => row.kind)).toEqual(['image', ...cardRows.slice(1).map(() => 'text')]);
+      expect(cardRows.map((row) => row.quote_message_id)).toEqual(cardRows.map(() => null));
     });
   });
 });
