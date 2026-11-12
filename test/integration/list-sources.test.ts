@@ -169,6 +169,14 @@ describe('the chat finds the original message of a record', () => {
     expect(await database.query(`SELECT 1 FROM workspace_invites`)).toEqual([]);
   });
 
+  it('leaves out an id that is not a UUID without an error', async () => {
+    listSourcesThenReply(['x']);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
