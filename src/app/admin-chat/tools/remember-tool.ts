@@ -6,6 +6,8 @@ import { updateUserMemory } from '../../memory/user-memory.ts';
 import { failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
 const MAX_FACT_LENGTH = 200;
+const MAX_MEMORY_LENGTH = 2000;
+const MEMORY_FULL_ERROR = 'Bản ghi nhớ đã đủ 2000 ký tự. Tôi chưa thêm điều mới và vẫn giữ mọi điều cũ.';
 const LINE_BREAK_OR_CONTROL = /[\p{Cc}\p{Zl}\p{Zp}]/u;
 const INVALID_FACT_ERROR = 'Điều cần nhớ phải có từ 1 đến 200 ký tự và nằm trên một dòng.';
 
@@ -20,7 +22,10 @@ export async function runRemember(database: Database, scope: AccessScope, parsed
 
 function addFact(markdown: string, fact: string): string {
   const facts = listFacts(markdown);
-  return facts.includes(fact) ? markdown : writeFacts([...facts, fact]);
+  if (facts.includes(fact)) return markdown;
+  const extended = writeFacts([...facts, fact]);
+  if ([...extended].length > MAX_MEMORY_LENGTH) throw new ToolRefusal(MEMORY_FULL_ERROR);
+  return extended;
 }
 
 function isValidFact(fact: string): boolean {

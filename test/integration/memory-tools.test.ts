@@ -14,6 +14,8 @@ import { insertUserMemory, readUserMemory } from './user-memory-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Điều cần nhớ phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
+const MEMORY_FULL_RESULT = '{"ok":false,"error":"Bản ghi nhớ đã đủ 2000 ký tự. Tôi chưa thêm điều mới và vẫn giữ mọi điều cũ."}';
+
 describe('the memory tools of a user in the chat', () => {
   let database: TemporaryDatabase;
   let runtimePool: PostgresPool;
@@ -70,6 +72,16 @@ describe('the memory tools of a user in the chat', () => {
 
     expect(JSON.parse(output).ok).toBe(true);
     expect((await readUserMemory(database, lan.userId))?.length).toBe(2000);
+  });
+
+  it('refuses a fact that takes the memory past 2000 characters and keeps the old facts', async () => {
+    const oldMemory = `- ${'x'.repeat(1988)}`;
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: oldMemory });
+
+    const output = await runTool('remember', { fact: 'y'.repeat(8) });
+
+    expect(output).toBe(MEMORY_FULL_RESULT);
+    expect(await readUserMemory(database, lan.userId)).toBe(oldMemory);
   });
 
   it('stores the memory of an admin under the owner scope of the admin', async () => {
