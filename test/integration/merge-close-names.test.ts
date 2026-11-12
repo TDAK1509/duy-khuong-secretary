@@ -41,6 +41,16 @@ describe('merging a close name when the paper is read', () => {
 
     expect(await readProposalsQueued()).toEqual([]);
   });
+
+  it('sends no admin the proposal after a photo explanation', async () => {
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+
+    await harness.receiveText('zu-hung', 'Phiếu cân xe 93C04588');
+
+    expect(await readProposalsQueued()).toEqual([]);
+  });
 });
 
 function makeMisreadIssuer() {

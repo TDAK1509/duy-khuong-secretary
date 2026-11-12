@@ -9,7 +9,7 @@ import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
-export type SavedReply = ReplyPlan & { hasProposedParty: boolean; senderText: string };
+export type SavedReply = ReplyPlan & { senderText: string };
 
 export type TextOnPhoto = { textId: string; photo: { id: string } };
 
@@ -35,9 +35,9 @@ export async function saveReplyOnPhoto(
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
   const senderText = formatReplyForSender(reply, sender.role);
   await saveRecordsAndReply(transaction, context, target, { reply, senderText });
-  const hasProposedParty = await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
+  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion) await markQuestionPending(transaction, target.textId);
-  return { ...reply, hasProposedParty, senderText };
+  return { ...reply, senderText };
 }
 
 async function saveRecordsAndReply(
