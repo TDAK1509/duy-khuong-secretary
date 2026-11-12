@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as mergeWaitingNames } from '../../src/app/db/migrations/0044_merge_waiting_names.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
-import { insertNumberedDocument } from './document-number-rows.ts';
+import { insertAlias, insertNumberedDocument } from './document-number-rows.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { literal } from './sql-literals.ts';
@@ -83,5 +83,18 @@ describe('the migration that merges the names that are waiting', () => {
 
     expect(await database.query('SELECT DISTINCT organization_id FROM document_parties')).toEqual([{ organization_id: chengLoongId }]);
     expect(await database.query('SELECT organization_id FROM merged_names')).toEqual([{ organization_id: chengLoongId }]);
+  });
+
+  it('lets an existing alias win and adds no merge row', async () => {
+    const aliasCompanyId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Chống Loong Thật' });
+    await insertAlias(database, { workspaceId, organizationId: aliasCompanyId, printedName: 'Chống Loong' });
+    await insertWaitingParty('Chống Loong', chengLoongId);
+
+    await runMigration();
+
+    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
+      { organization_id: aliasCompanyId, proposed_organization_id: null },
+    ]);
+    expect(await database.query('SELECT id FROM merged_names')).toEqual([]);
   });
 });
