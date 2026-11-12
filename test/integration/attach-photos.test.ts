@@ -216,4 +216,12 @@ describe('an admin attaches the photos of records to the answer', () => {
       { kind: 'image', to: 'zu-duy', photo },
     ]);
   });
+
+  it('still attaches the photo of a record when the call has no document ids', async () => {
+    attachThenReply([await insertPhotoRecord()]);
+
+    await harness.receiveText('zu-hung', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":1}');
+  });
 });
