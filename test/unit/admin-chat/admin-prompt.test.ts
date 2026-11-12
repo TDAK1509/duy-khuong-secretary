@@ -102,7 +102,6 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
     '- Khi hỏi hàng một công ty nhận, dùng role là "customer" và stage là "receipt". Khi hỏi hàng giao cho một công ty, dùng role là "customer" và stage là "dispatch". Nếu không rõ là lúc giao hay lúc nhận, hỏi lại quản lý.',
     '- Với nhiều công ty, gọi total_document_numbers riêng cho từng công ty.',
     '- Khi chia theo ngày, dùng group_by là "day". Khi chia theo tháng, dùng group_by là "month".',
-    '- Nếu pending_name_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ có tên đang chờ xác nhận nên chưa được tính.',
     '- Nếu review_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ đang chờ xem lại nên chưa được tính.',
     '- Nếu not_reread_messages lớn hơn 0, nói rõ kết quả chưa đầy đủ vì còn bấy nhiêu tin nhắn chưa được đọc lại.',
     '- Nếu without_number lớn hơn 0, nêu số giấy tờ phù hợp nhưng không có số này.',
@@ -123,11 +122,15 @@ describe('the rules about totals of stored numbers in the admin prompt', () => {
     expect(lines).not.toContain('- Khi người dùng hỏi về dữ liệu đã lưu, gọi công cụ search_records rồi trả lời dựa trên kết quả.');
   });
 
-  it('holds the fourteen totals lines right after the count_records line, in order', () => {
+  it('holds the thirteen totals lines right after the count_records line, in order', () => {
     const start = lines.indexOf(countLine);
 
     expect(start).toBeGreaterThan(-1);
     expect(lines.slice(start + 1, start + 1 + totalsLines.length)).toEqual(totalsLines);
+  });
+
+  it('no longer mentions pending_name_documents', () => {
+    expect(lines.join('\n')).not.toContain('pending_name_documents');
   });
 
   it('holds the three change lines one after the other, in order', () => {
