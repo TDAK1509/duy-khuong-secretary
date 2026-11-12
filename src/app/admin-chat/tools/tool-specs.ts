@@ -208,7 +208,7 @@ export const ATTACH_PHOTOS_SPEC: ToolSpec = {
 
 export const LIST_SOURCES_SPEC: ToolSpec = {
   "name": "list_sources",
-  "description": "Tìm tin gốc của các mục dữ liệu: ai gửi, gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả.",
+  "description": "Tìm tin gốc của các mục dữ liệu: ai gửi, gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả. Nếu quoted là true, thẻ nguồn trích lại tin gốc trong cuộc trò chuyện này.",
   "parameters": {
     "type": "object",
     "properties": {

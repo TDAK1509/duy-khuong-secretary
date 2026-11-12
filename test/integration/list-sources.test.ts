@@ -8,15 +8,25 @@ import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+type OutboundRow = {
+  kind: string;
+  body: string | null;
+  quote_message_id: string | null;
+  fallback_photo_key: string | null;
+  photo_key: string | null;
+  admin_membership_id: string | null;
+};
+
 describe('the chat finds the original message of a record', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
   let workspaceId: string;
+  let duyUserId: string;
 
   beforeEach(async () => {
     harness = await createIntakeHarness();
     ({ database, workspaceId } = harness);
-    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
   });
 
@@ -63,7 +73,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
 
     expect(readToolOutput()).toBe(
-      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[]}],"left_out":0}`,
+      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0}`,
     );
   });
 
@@ -275,6 +285,153 @@ describe('the chat finds the original message of a record', () => {
         'Đây là nguồn.',
         'Nguồn 1: Hùng gửi ảnh lúc 10:00 ngày 02/11/2026.\nNgày trên giấy tờ: 29/10/2026, 30/10/2026.\nNguyên văn: "tin nhắn"',
       ]);
+    });
+  });
+
+  describe('quotes in the conversation', () => {
+    function readOutboundMessages(): Promise<OutboundRow[]> {
+      return database.query<OutboundRow>(`SELECT kind, body, quote_message_id, fallback_photo_key, photo_key, admin_membership_id FROM outbound_messages ORDER BY seq`);
+    }
+
+    it('quotes the own text source of a member', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        messageText: 'Đổ dầu 500k',
+        event: { externalEventId: 'msg-1', sentAt: '2026-11-12T08:15:00+07:00' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'cái này lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":true');
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.', quote_message_id: null },
+        { kind: 'text', body: expect.stringContaining('Nguồn 1: Bạn gửi tin nhắn'), quote_message_id: 'msg-1' },
+      ]);
+    });
+
+    it('quotes the own single photo of a member with the photo as fallback and sends it only once', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        event: { kind: 'images', externalEventId: 'msg-1' },
+      });
+      callToolsThenReply(
+        [
+          { name: 'list_sources', args: { record_ids: [recordId] } },
+          { name: 'attach_photos', args: { record_ids: [recordId] } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.' },
+        { kind: 'text', quote_message_id: 'msg-1', fallback_photo_key: `${workspaceId}/photo.jpg` },
+      ]);
+    });
+
+    it('sends the own photo of a member from an album as the photo with the card text and no quote', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        event: { kind: 'images', imageUrls: ['https://z.test/1.jpg', 'https://z.test/2.jpg'], externalEventId: 'msg-1' },
+      });
+      callToolsThenReply(
+        [
+          { name: 'list_sources', args: { record_ids: [recordId] } },
+          { name: 'attach_photos', args: { record_ids: [recordId] } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.' },
+        { kind: 'image', body: expect.stringContaining('Nguồn 1: Bạn gửi ảnh'), photo_key: `${workspaceId}/photo.jpg`, quote_message_id: null },
+      ]);
+    });
+
+    it('gives an admin asking about a member source a plain card', async () => {
+      const recordId = await insertHungTextRecord();
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Hùng'), quote_message_id: null }]);
+    });
+
+    it('never quotes a record saved through ChatGPT', async () => {
+      const recordId = await insertRecordRow(database, { workspaceId, userId: duyUserId, senderName: 'Duy', messageText: 'Đổ dầu 200k' });
+      const messageId = await readMessageIdOf(recordId);
+      await database.query(`UPDATE messages SET inbound_event_id = NULL, event_part = NULL, source = 'mcp' WHERE id = '${messageId}'`);
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
+    });
+
+    it('does not quote a source from another conversation', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        event: { accountId: 'oa-other', externalEventId: 'msg-1' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
+    });
+
+    it('sends the photo of a long album card once, with the first part only', async () => {
+      const longCaption = 'Đổ dầu '.repeat(Math.ceil(harness.channel.maxTextLength / 7) + 10).trim();
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        hasPhoto: true,
+        messageText: longCaption,
+        event: { kind: 'images', imageUrls: ['https://z.test/1.jpg', 'https://z.test/2.jpg'], caption: longCaption },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'ảnh này lấy từ đâu?');
+
+      const cardRows = (await readOutboundMessages()).slice(1);
+      expect(cardRows.length).toBeGreaterThan(1);
+      expect(cardRows.map((row) => row.kind)).toEqual(['image', ...cardRows.slice(1).map(() => 'text')]);
+      expect(cardRows.map((row) => row.quote_message_id)).toEqual(cardRows.map(() => null));
+    });
+
+    it('carries the admin membership id on the own quoted card of an admin', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: duyUserId,
+        senderName: 'Duy',
+        messageText: 'Đổ dầu 200k',
+        event: { externalUserId: 'zu-duy', externalEventId: 'msg-1' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      const [membership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${duyUserId}'`);
+      const quotedCard = (await readOutboundMessages()).find((row) => row.quote_message_id === 'msg-1');
+      expect(quotedCard?.admin_membership_id).toBe(membership?.id);
     });
   });
 });

@@ -10,6 +10,8 @@ function makeSource(overrides: Partial<RecordSource> = {}): RecordSource {
     isOwn: false,
     sentAt: new Date('2026-11-12T01:15:00Z'),
     kind: 'text',
+    imageKey: null,
+    event: null,
     paperDates: [],
     text: 'Đổ dầu 500k xe 29C12345',
     ...overrides,
