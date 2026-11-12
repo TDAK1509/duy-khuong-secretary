@@ -120,6 +120,12 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBeNull();
   });
 
+  it('keeps both facts when two remembers run at the same time', async () => {
+    await Promise.all([runTool('remember', { fact: 'A' }), runTool('remember', { fact: 'B' })]);
+
+    expect((await readUserMemory(database, lan.userId))?.split('\n').sort()).toEqual(['- A', '- B']);
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 

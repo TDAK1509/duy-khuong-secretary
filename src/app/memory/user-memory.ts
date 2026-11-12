@@ -4,12 +4,17 @@ export type MemoryOwner = { workspaceId: string; userId: string };
 
 export async function updateUserMemory(database: Database, owner: MemoryOwner, change: (markdown: string) => string): Promise<string | null> {
   return runInTransaction(database, async (transaction) => {
+    await lockUserMemory(transaction, owner);
     if (!(await isMemberOf(transaction, owner))) return null;
     const current = await selectMarkdown(transaction, owner);
     const updated = change(current);
     if (updated !== current) await replaceMarkdown(transaction, owner, updated);
     return updated;
   });
+}
+
+async function lockUserMemory(transaction: Transaction, { workspaceId, userId }: MemoryOwner): Promise<void> {
+  await transaction.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`user_memories:${workspaceId}:${userId}`]);
 }
 
 async function isMemberOf(transaction: Transaction, { workspaceId, userId }: MemoryOwner): Promise<boolean> {
