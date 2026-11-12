@@ -19,6 +19,7 @@ const ABILITY_LINES: Record<string, string> = {
   search_records: 'Tìm dữ liệu đã lưu mà người dùng được xem, theo từ khóa, loại, biển số và ngày.',
   count_records: 'Đếm số mục và cộng tiền theo loại trong một khoảng ngày gửi, trong phạm vi người dùng được xem.',
   attach_photos: 'Gửi lại ảnh gốc của dữ liệu đã lưu.',
+  list_sources: 'Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
   remember: 'Ghi nhớ một điều người dùng muốn Trợ lý nhớ lâu dài.',
   forget: 'Quên một điều đã ghi nhớ khi người dùng bảo.',
   forget_all: 'Quên hết mọi điều đã ghi nhớ về người dùng.',

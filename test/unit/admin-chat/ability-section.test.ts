@@ -23,6 +23,7 @@ describe('the ability section of the prompt', () => {
         '- Xóa một người khỏi nhóm.',
         '- Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
         '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
+        '- Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
         '- Đặt lịch tự động, ví dụ báo cáo hằng ngày hoặc nhắc bảo dưỡng.',
         '- Cho xem các lịch tự động đang chạy.',
         '- Hủy một lịch tự động.',
