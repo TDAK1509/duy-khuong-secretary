@@ -69,5 +69,15 @@ describe('the chat finds the original message of a record', () => {
         { kind: 'text', to: 'zu-duy', text: HUNG_CARD },
       ]);
     });
+
+    it('stores the answer with the card and flags it as holding other text', async () => {
+      listSourcesThenReply([await insertHungTextRecord()]);
+
+      await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
+
+      expect(await database.query(`SELECT text, holds_other_text FROM messages WHERE reply_kind = 'answer'`)).toEqual([
+        { text: `Đây là nguồn.\n\n${HUNG_CARD}`, holds_other_text: true },
+      ]);
+    });
   });
 });
