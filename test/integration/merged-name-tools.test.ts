@@ -69,6 +69,14 @@ describe('the merged names of an admin', () => {
     expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual(['Kim Nhân Đạo mới', CHONG_LOONG, 'Kim Nhân Đạo cũ']);
   });
 
+  it('filters the list by text without accents or case', async () => {
+    await insertMergedName({ printedName: 'Kim Nhân Đạo', documentCount: 0 });
+
+    const listed = await runListMergedNames('chong loong');
+
+    expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual([CHONG_LOONG]);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
