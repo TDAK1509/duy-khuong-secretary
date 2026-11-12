@@ -126,6 +126,20 @@ describe('the chat finds the original message of a record', () => {
     expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [first, second] }], left_out: 0 });
   });
 
+  it('returns five sources in input order and counts one left out for six messages', async () => {
+    const recordIds: string[] = [];
+    for (const text of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      recordIds.push(await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageText: text }));
+    }
+    listSourcesThenReply(recordIds);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    const output = JSON.parse(readToolOutput()) as { sources: { record_ids: string[] }[]; left_out: number };
+    expect(output.sources.map((source) => source.record_ids)).toEqual(recordIds.slice(0, 5).map((recordId) => [recordId]));
+    expect(output.left_out).toBe(1);
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
