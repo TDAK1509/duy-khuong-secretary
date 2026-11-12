@@ -81,7 +81,8 @@ Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:
 "Nhắc tôi về các hồ sơ bảo dưỡng đến hạn mà máy chủ cung cấp. Mỗi dòng ghi biển số xe, bộ phận, ngày bảo dưỡng gần nhất, người gửi và số ngày đã qua. Không nhắc hồ sơ ngoài danh sách đến hạn."`;
 
 const CHANGE_SECTION = `Việc thay đổi:
-- Việc thay đổi là create_scheduled_task, cancel_scheduled_task, create_invite và remove_member. Chỉ làm khi quản lý viết yêu cầu đó trong tin nhắn.
+- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, remember, forget và forget_all.
+- Chỉ thay đổi theo yêu cầu quản lý viết trong tin nhắn, hoặc theo quy tắc tự ghi nhớ sở thích lâu dài.
 - Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.
 - Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations và review_name_matches.
 - Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.
