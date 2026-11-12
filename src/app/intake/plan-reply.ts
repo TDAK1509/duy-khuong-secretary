@@ -7,6 +7,7 @@ import {
   DUPLICATE_TEXT,
   MAINTENANCE_WITHOUT_PLATE_TEXT,
   PHOTO_BLURRY_TEXT,
+  PHOTO_CUT_OFF_TEXT,
   STILL_UNCLEAR_TEXT,
   UNRESOLVED_TEXT,
   UPLOAD_ONLY_TEXT,
@@ -133,5 +134,6 @@ function planNoWorkDataReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 
 function pickNoWorkDataText(photoProblem: Reading['photo_problem'], hasPhoto: boolean): string {
   if (hasPhoto && photoProblem === 'blurry') return PHOTO_BLURRY_TEXT;
+  if (hasPhoto && photoProblem === 'cut_off') return PHOTO_CUT_OFF_TEXT;
   return UPLOAD_ONLY_TEXT;
 }
