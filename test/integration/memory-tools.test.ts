@@ -10,7 +10,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { readUserMemory } from './user-memory-rows.ts';
+import { insertUserMemory, readUserMemory } from './user-memory-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('the memory tools of a user in the chat', () => {
@@ -33,6 +33,15 @@ describe('the memory tools of a user in the chat', () => {
   });
 
   it('adds one Markdown line when it remembers a fact', async () => {
+    const output = await runTool('remember', { fact: 'Tôi lái xe 29C-123.45' });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- Tôi lái xe 29C-123.45' });
+    expect(await readUserMemory(database, lan.userId)).toBe('- Tôi lái xe 29C-123.45');
+  });
+
+  it('changes nothing when it remembers the same fact again', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- Tôi lái xe 29C-123.45' });
+
     const output = await runTool('remember', { fact: 'Tôi lái xe 29C-123.45' });
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- Tôi lái xe 29C-123.45' });

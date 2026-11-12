@@ -5,8 +5,9 @@ export type MemoryOwner = { workspaceId: string; userId: string };
 export async function updateUserMemory(database: Database, owner: MemoryOwner, change: (markdown: string) => string): Promise<string | null> {
   return runInTransaction(database, async (transaction) => {
     if (!(await isMemberOf(transaction, owner))) return null;
-    const updated = change(await selectMarkdown(transaction, owner));
-    await storeMarkdown(transaction, owner, updated);
+    const current = await selectMarkdown(transaction, owner);
+    const updated = change(current);
+    if (updated !== current) await storeMarkdown(transaction, owner, updated);
     return updated;
   });
 }
