@@ -328,6 +328,18 @@ describe('the chat finds the original message of a record', () => {
       const output = JSON.parse(readToolOutput()) as { sources: unknown[]; left_out: number; sources_left_out: number };
       expect([output.sources.length, output.sources_left_out, output.left_out]).toEqual([5, 1, 0]);
     });
+
+    it('gives a member only the own source of a shared document', async () => {
+      const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0004' });
+      await insertAnotherSource(database, { workspaceId, userId: lanUserId, documentId });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-hung', 'giấy tờ này lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: { sender: string }[]; left_out: number };
+      expect([output.sources.map((source) => source.sender), output.left_out]).toEqual([['Bạn'], 0]);
+    });
   });
 
   describe('quotes in the conversation', () => {
