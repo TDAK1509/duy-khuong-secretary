@@ -1,5 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
+import { addOwnerCondition } from './add-owner-condition.ts';
 import { addDateConditions } from './add-date-conditions.ts';
 import { WhereClause } from './where-clause.ts';
 
@@ -22,8 +23,8 @@ export async function countRecords(
 ): Promise<MemberCount[]> {
   const counted = await countByCategory(database, scope, range);
   const { rows: members } = await database.query<{ user_id: string; display_name: string }>(
-    'SELECT user_id, display_name FROM memberships WHERE workspace_id = $1 ORDER BY display_name, id',
-    [scope.workspaceId],
+    'SELECT user_id, display_name FROM memberships WHERE workspace_id = $1 AND ($2::uuid IS NULL OR user_id = $2) ORDER BY display_name, id',
+    [scope.workspaceId, scope.role === 'member' ? scope.userId : null],
   );
   const current = members.map((member) => toMemberCount(member.display_name, counted.filter((row) => row.user_id === member.user_id)));
   const currentUserIds = new Set(members.map((member) => member.user_id));
@@ -33,6 +34,7 @@ export async function countRecords(
 async function countByCategory(database: Database, scope: AccessScope, range: { addedFrom: string; addedTo: string }): Promise<CountRow[]> {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
+  addOwnerCondition(where, scope);
   addDateConditions(where, range);
   const { rows } = await database.query<CountRow>(`${COUNT_BY_CATEGORY} WHERE ${where.toSql()} ${GROUP_BY_SENDER}`, where.values);
   return rows;

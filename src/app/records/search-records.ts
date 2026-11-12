@@ -1,6 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
+import { addOwnerCondition } from './add-owner-condition.ts';
 import { addDateConditions, addDocumentDateConditions } from './add-date-conditions.ts';
 import { encodeSearchCursor, type SearchCursor } from './search-cursor.ts';
 import { WhereClause } from './where-clause.ts';
@@ -65,7 +66,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
 export function buildWhere(scope: AccessScope, filters: RecordFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
-  if (scope.role === 'member') where.require(`record.user_id = ${where.bind(scope.userId)}`);
+  addOwnerCondition(where, scope);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
   if (filters.member !== null) where.require(buildAccentFreeEquals(where, 'record.sender_name', filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);

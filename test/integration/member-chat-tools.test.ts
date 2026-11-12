@@ -90,4 +90,16 @@ describe('the tools of a member in the chat', () => {
 
     expect(output).toBe(NO_PERMISSION);
   });
+
+  it('counts only the member in a count for a month', async () => {
+    await insertRecordRow(database, { workspaceId, userId: lan.userId, senderName: 'Lan', amountVnd: 100000 });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', amountVnd: 700000 });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', amountVnd: 800000 });
+
+    const output = await runTool('count_records', { added_from: '2026-10-01', added_to: '2026-10-31' });
+
+    expect(JSON.parse(output).members).toEqual([
+      { member: 'Lan', total_count: 1, by_category: [{ category: 'đổ xăng dầu', count: 1, amount_vnd: 100000 }] },
+    ]);
+  });
 });
