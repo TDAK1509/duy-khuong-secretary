@@ -34,4 +34,5 @@ const ABILITY_LINES: Record<string, string> = {
   list_document_numbers: 'Cho biết giấy tờ có những loại số nào, ví dụ trọng lượng hoặc số tiền.',
   total_document_numbers: 'Cộng số tiền, trọng lượng hoặc số lượng trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày.',
   list_organizations: 'Tìm đúng tên công ty và nơi chốn đã lưu.',
+  list_documents: 'Liệt kê các giấy tờ được tính trong một tổng số trên giấy tờ.',
 };

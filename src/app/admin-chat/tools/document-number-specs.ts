@@ -82,6 +82,27 @@ export const LIST_DOCUMENT_NUMBERS_SPEC: ToolSpec = {
   },
 };
 
+export const LIST_DOCUMENTS_SPEC: ToolSpec = {
+  name: 'list_documents',
+  description:
+    'Liệt kê các giấy tờ được tính trong total_document_numbers với cùng meaning, lines và bộ lọc. Trả về id, loại, giao hoặc nhận, số giấy tờ, ngày trên giấy tờ, biển số, tóm tắt và các số được tính. Mỗi giấy tờ xuất hiện một lần. Tối đa 20 giấy tờ mỗi trang. Nếu next_cursor khác null, gọi lại với cursor đó. Dùng id với list_sources và attach_photos.',
+  parameters: {
+    type: 'object',
+    properties: {
+      meaning: { type: 'string', description: 'Ý nghĩa số cần xem nguồn, chép đúng từ yêu cầu total_document_numbers.' },
+      lines: {
+        type: 'string',
+        enum: ['document', 'item'],
+        description: 'document: số của cả giấy tờ. item: số của từng dòng hàng hoặc từng việc. Dùng đúng mức đã tính tổng.',
+      },
+      ...FILTER_PROPERTIES,
+      cursor: { type: ['string', 'null'], description: 'Giá trị next_cursor của trang trước. null cho trang đầu.' },
+    },
+    required: ['meaning', 'lines', ...FILTER_NAMES, 'cursor'],
+    additionalProperties: false,
+  },
+};
+
 export const LIST_ORGANIZATIONS_SPEC: ToolSpec = {
   name: 'list_organizations',
   description: 'Liệt kê các công ty và nơi chốn đã lưu trong nhóm: tên, loại, các cách viết đã gặp và số giấy tờ. Lọc theo text nếu có.',

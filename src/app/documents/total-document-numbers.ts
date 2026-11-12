@@ -19,9 +19,11 @@ export type DocumentNumberTotals = {
 
 export type LineLevel = 'document' | 'item';
 
-export type TotalRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters; groupBy: DocumentGroup };
+export type NumberRequest = { meaning: string; lines: LineLevel; filters: DocumentFilters };
 
-const FROM_NUMBER_LINES = `FROM documents document
+export type TotalRequest = NumberRequest & { groupBy: DocumentGroup };
+
+export const FROM_NUMBER_LINES = `FROM documents document
   JOIN document_lines line ON line.document_id = document.id
   JOIN meanings meaning ON meaning.id = line.meaning_id`;
 
@@ -77,13 +79,13 @@ async function countWithoutNumber(database: Database, scope: AccessScope, reques
   return rows[0]?.count ?? 0;
 }
 
-function buildNumberWhere(scope: AccessScope, request: TotalRequest, rule: DocumentRule): WhereClause {
+export function buildNumberWhere(scope: AccessScope, request: NumberRequest, rule: DocumentRule): WhereClause {
   const where = buildDocumentWhere(scope.workspaceId, request.filters, rule);
   where.require(buildNumberCondition(where, request));
   return where;
 }
 
-function buildNumberCondition(where: WhereClause, request: TotalRequest): string {
+function buildNumberCondition(where: WhereClause, request: NumberRequest): string {
   const level = request.lines === 'document' ? 'line.item IS NULL' : 'line.item IS NOT NULL';
   return `${buildMeaningCondition(where, request.meaning)} AND line.number IS NOT NULL AND ${level}`;
 }

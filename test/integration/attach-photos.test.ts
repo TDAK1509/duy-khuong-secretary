@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
+import { insertAnotherSource, insertNumberedDocument } from './document-number-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -29,6 +30,11 @@ describe('an admin attaches the photos of records to the answer', () => {
 
   function attachThenReply(recordIds: string[], reply = 'Đây là ảnh.'): void {
     const call = { id: 'call_1', name: 'attach_photos', argumentsJson: JSON.stringify({ record_ids: recordIds }) };
+    harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(reply)));
+  }
+
+  function attachDocumentsThenReply(documentIds: string[], recordIds: string[] = [], reply = 'Đây là ảnh.'): void {
+    const call = { id: 'call_1', name: 'attach_photos', argumentsJson: JSON.stringify({ record_ids: recordIds, document_ids: documentIds }) };
     harness.chat.follow((_request, callNumber) => (callNumber === 1 ? replyWithToolCalls(call) : replyWithText(reply)));
   }
 
@@ -181,5 +187,41 @@ describe('an admin attaches the photos of records to the answer', () => {
     await harness.receiveText('zu-duy', 'Cho tôi xem ảnh');
 
     expect(harness.chat.requests[0]?.system).toContain('gọi attach_photos với id các mục liên quan');
+  });
+
+  it('attaches only the own photo of a member for a shared document', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0001' });
+    await insertAnotherSource(database, { workspaceId, userId: lanUserId, documentId });
+    attachDocumentsThenReply([documentId]);
+
+    await harness.receiveText('zu-hung', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":1}');
+    expect(await database.query(`SELECT source.user_id = '${harness.hungUserId}' AS from_hung FROM reply_photos JOIN messages source ON source.id = reply_photos.source_message_id`)).toEqual([{ from_hung: true }]);
+  });
+
+  it('sends the photo of a document to the admin', async () => {
+    const photo = { bytes: makeJpeg(500), contentType: 'image/jpeg' } as const;
+    await harness.photoStorage.put('earlier.jpg', photo);
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0002' });
+    attachDocumentsThenReply([documentId]);
+
+    await harness.receiveText('zu-duy', 'Gửi ảnh các giấy tờ đó');
+    await harness.sendAllQueuedTexts();
+
+    expect(readToolOutput()).toBe('{"attached":1}');
+    expect(harness.channel.sends).toEqual([
+      { kind: 'text', to: 'zu-duy', text: 'Đây là ảnh.' },
+      { kind: 'image', to: 'zu-duy', photo },
+    ]);
+  });
+
+  it('still attaches the photo of a record when the call has no document ids', async () => {
+    attachThenReply([await insertPhotoRecord()]);
+
+    await harness.receiveText('zu-hung', 'Cho tôi xem ảnh');
+
+    expect(readToolOutput()).toBe('{"attached":1}');
   });
 });

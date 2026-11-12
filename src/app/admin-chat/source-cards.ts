@@ -1,5 +1,6 @@
 import type { QuotedMessage } from '../delivery/claimed-message.ts';
 import type { RecordSource, SourceEvent } from '../records/record-source.ts';
+import { mergeSources } from '../records/merge-sources.ts';
 import { formatSourceCard } from './format-source-card.ts';
 
 export const MAX_SOURCE_CARDS = 5;
@@ -56,24 +57,4 @@ function isInConversation(source: RecordSource, conversation: Conversation | nul
   const { event } = source;
   if (conversation === null || event === null || !source.isOwn) return false;
   return event.channel === conversation.channel && event.accountId === conversation.accountId && event.externalUserId === conversation.externalUserId;
-}
-
-function mergeSources(known: RecordSource, added: RecordSource): RecordSource {
-  return {
-    ...known,
-    recordIds: unionOf(known.recordIds, added.recordIds),
-    paperDates: unionOf(known.paperDates, added.paperDates).sort(compareDayMonthYear),
-  };
-}
-
-function unionOf(first: string[], second: string[]): string[] {
-  return [...new Set([...first, ...second])];
-}
-
-function compareDayMonthYear(first: string, second: string): number {
-  return toYearMonthDay(first).localeCompare(toYearMonthDay(second));
-}
-
-function toYearMonthDay(dayMonthYear: string): string {
-  return dayMonthYear.split('/').reverse().join('-');
 }

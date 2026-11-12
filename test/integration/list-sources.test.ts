@@ -4,6 +4,7 @@ import { makeReading } from '../unit/reading/make-reading.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { findRecordSources } from '../../src/app/records/find-record-sources.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
+import { insertAnotherSource, insertNumberedDocument, insertSourceOfMessage } from './document-number-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -73,7 +74,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
 
     expect(readToolOutput()).toBe(
-      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0}`,
+      `{"sources":[{"card":1,"record_ids":["${recordId}"],"document_ids":[],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0,"sources_left_out":0}`,
     );
   });
 
@@ -100,7 +101,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-hung', 'đổ dầu của Lan lấy từ đâu?');
     await harness.sendAllQueuedTexts();
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
     expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: 'Không tìm thấy dữ liệu phù hợp.' }]);
   });
 
@@ -112,7 +113,7 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
   });
 
   it('lets row-level security alone hide the source of another member', async () => {
@@ -136,7 +137,7 @@ describe('the chat finds the original message of a record', () => {
     expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [first, second] }], left_out: 0 });
   });
 
-  it('returns five sources in input order and counts one left out for six messages', async () => {
+  it('returns five sources in input order and counts one source left out for six messages', async () => {
     const recordIds: string[] = [];
     for (const text of ['a', 'b', 'c', 'd', 'e', 'f']) {
       recordIds.push(await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageText: text }));
@@ -145,9 +146,9 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    const output = JSON.parse(readToolOutput()) as { sources: { record_ids: string[] }[]; left_out: number };
+    const output = JSON.parse(readToolOutput()) as { sources: { record_ids: string[] }[]; sources_left_out: number };
     expect(output.sources.map((source) => source.record_ids)).toEqual(recordIds.slice(0, 5).map((recordId) => [recordId]));
-    expect(output.left_out).toBe(1);
+    expect(output.sources_left_out).toBe(1);
   });
 
   it('keeps the name at the time of sending after the member is renamed', async () => {
@@ -184,7 +185,7 @@ describe('the chat finds the original message of a record', () => {
 
     await harness.receiveText('zu-duy', 'lấy từ đâu?');
 
-    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1,"sources_left_out":0}');
   });
 
   describe('after the answer', () => {
@@ -285,6 +286,90 @@ describe('the chat finds the original message of a record', () => {
         'Đây là nguồn.',
         'Nguồn 1: Hùng gửi ảnh lúc 10:00 ngày 02/11/2026.\nNgày trên giấy tờ: 29/10/2026, 30/10/2026.\nNguyên văn: "tin nhắn"',
       ]);
+    });
+  });
+
+  describe('documents', () => {
+    function listDocumentSourcesThenReply(documentIds: string[], recordIds: string[] = []): void {
+      callToolsThenReply([{ name: 'list_sources', args: { record_ids: recordIds, document_ids: documentIds } }], 'Đây là nguồn.');
+    }
+
+    it('gives a document source with no record one source and one card', async () => {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0001' });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-duy', 'tổng này lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [], sender: 'Hùng', kind: 'photo', paper_dates: ['05/11/2026'] }], left_out: 0 });
+      expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Đây là nguồn.', expect.stringContaining('Nguồn 1: Hùng gửi ảnh lúc')]);
+    });
+
+    it('gives one card to a message linked through a record and a document', async () => {
+      const recordId = await insertHungTextRecord();
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0002' });
+      await database.query(`DELETE FROM document_sources WHERE document_id = '${documentId}'`);
+      await insertSourceOfMessage(database, { workspaceId, documentId, messageId: await readMessageIdOf(recordId) });
+      listDocumentSourcesThenReply([documentId], [recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [recordId], document_ids: [documentId] }], left_out: 0 });
+      expect(JSON.parse(readToolOutput()).sources).toHaveLength(1);
+    });
+
+    it('returns five sources for a document with six source messages and counts one source left out', async () => {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0003' });
+      for (let copy = 0; copy < 5; copy++) await insertAnotherSource(database, { workspaceId, userId: harness.hungUserId, documentId });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: unknown[]; left_out: number; sources_left_out: number };
+      expect([output.sources.length, output.sources_left_out, output.left_out]).toEqual([5, 1, 0]);
+    });
+
+    it('gives a member only the own source of a shared document', async () => {
+      const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0004' });
+      await insertAnotherSource(database, { workspaceId, userId: lanUserId, documentId });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-hung', 'giấy tờ này lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: { sender: string }[]; left_out: number };
+      expect([output.sources.map((source) => source.sender), output.left_out]).toEqual([['Bạn'], 0]);
+    });
+
+    it('makes a change tool refuse in the same turn after documents were listed', async () => {
+      const listArguments = { meaning: 'khối lượng', lines: 'document', organization: null, role: null, stage: null, kind: null, plate: null, date_meaning: null, date_from: null, date_to: null, cursor: null };
+      callToolsThenReply(
+        [
+          { name: 'list_documents', args: listArguments },
+          { name: 'create_invite', args: { display_name: 'Lan', role: 'member' } },
+        ],
+        'Đây là nguồn.',
+      );
+
+      await harness.receiveText('zu-duy', 'Tổng này lấy từ đâu? Mời Lan');
+
+      const results = (harness.chat.requests[1]?.turns ?? []).flatMap((turn) => (turn.role === 'tool_result' ? [turn.output] : []));
+      expect(results[1]).toBe(
+        '{"ok":false,"error":"Chưa làm: tin nhắn đi kèm dữ liệu đọc từ ảnh hoặc lượt này đã đọc dữ liệu do thành viên gửi. Không gọi lại. Hệ thống tự hướng dẫn quản lý."}',
+      );
+      expect(await database.query(`SELECT 1 FROM workspace_invites`)).toEqual([]);
+    });
+
+    it('tells which document each source message supports', async () => {
+      const documentA = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0005' });
+      await insertAnotherSource(database, { workspaceId, userId: harness.hungUserId, documentId: documentA });
+      const documentB = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0006' });
+      listDocumentSourcesThenReply([documentA, documentB]);
+
+      await harness.receiveText('zu-duy', 'tổng này lấy từ đâu?');
+
+      const output = JSON.parse(readToolOutput()) as { sources: { document_ids: string[] }[] };
+      expect(output.sources.map((source) => source.document_ids)).toEqual([[documentA], [documentA], [documentB]]);
     });
   });
 

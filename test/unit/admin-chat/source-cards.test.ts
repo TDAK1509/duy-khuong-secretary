@@ -6,6 +6,7 @@ function makeSource(messageId: string): RecordSource {
   return {
     messageId,
     recordIds: [`record-of-${messageId}`],
+    documentIds: [],
     sender: 'Hùng',
     isOwn: false,
     sentAt: new Date('2026-11-12T01:15:00Z'),

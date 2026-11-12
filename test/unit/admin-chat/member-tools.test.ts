@@ -31,14 +31,18 @@ describe('the member tool list', () => {
     );
   });
 
-  it('offers list_sources after attach_photos with the member description and the admin parameters', () => {
+  it('offers list_sources after attach_photos with the member description and the record ids only', () => {
     const names = MEMBER_TOOLS.map((tool) => tool.name);
 
     expect(names[names.indexOf('attach_photos') + 1]).toBe('list_sources');
     expect(findTool('list_sources').description).toBe(
       'Tìm tin gốc của dữ liệu do chính bạn gửi: gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả. Nếu quoted là true, thẻ nguồn trích lại tin gốc trong cuộc trò chuyện này.',
     );
-    expect(findTool('list_sources').parameters).toStrictEqual(ADMIN_TOOLS.find((candidate) => candidate.name === 'list_sources')?.parameters);
+    expect(Object.keys(readProperties('list_sources'))).toEqual(['record_ids']);
+  });
+
+  it('offers attach_photos with the record ids only', () => {
+    expect(Object.keys(readProperties('attach_photos'))).toEqual(['record_ids']);
   });
 
   function findTool(name: string) {

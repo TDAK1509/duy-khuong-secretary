@@ -9,6 +9,7 @@ export type SourceEvent = {
 export type RecordSource = {
   messageId: string;
   recordIds: string[];
+  documentIds: string[];
   sender: string;
   isOwn: boolean;
   sentAt: Date;
