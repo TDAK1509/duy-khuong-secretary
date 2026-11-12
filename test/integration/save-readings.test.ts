@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { PHOTO_BLURRY_TEXT, READ_FAILED_PHOTO_TEXT } from '../../src/app/intake/intake-texts.ts';
 import type { Reading } from '../../src/app/reading/reading.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
@@ -7,7 +8,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const OUTAGE_REPLY =
-  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
+  'Trợ lý đang gặp lỗi khi đọc tin nhắn này nên chưa lưu. Bạn gửi lại sau ít phút nhé.';
 const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
 
 describe('saving what the reader returns', () => {
@@ -184,6 +185,29 @@ describe('saving what the reader returns', () => {
     expect(sentTexts()).toEqual([['zu-hung', OUTAGE_REPLY]]);
   });
 
+  it('tells a member why a blurry photo is not saved and saves nothing', async () => {
+    harness.reader.answerWith(makeReading([], { has_work_data: false, photo_problem: 'blurry' }));
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL], externalEventId: 'zmsg-1' });
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.texts.map(({ to, text, quoteMessageId }) => ({ to: to.externalUserId, text, quoteMessageId }))).toEqual([
+      { to: 'zu-hung', text: PHOTO_BLURRY_TEXT, quoteMessageId: 'zmsg-1' },
+    ]);
+    expect(await database.query('SELECT 1 FROM records')).toEqual([]);
+    expect(harness.photoStorage.listKeys()).toHaveLength(1);
+  });
+
+  it('never says a photo is blurry when the reader times out on it', async () => {
+    harness.reader.failWith('timeout');
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    expect(sentTexts()).toEqual([['zu-hung', READ_FAILED_PHOTO_TEXT]]);
+  });
+
   it('marks an unresolved message as unresolved', async () => {
     harness.reader.failWith('timeout');
 
@@ -248,7 +272,7 @@ describe('saving what the reader returns', () => {
     return makeReading([], { has_work_data: false, has_question: true });
   }
 
-  it('answers the question of a member with the upload-only reply', async () => {
+  it('answers the question of a member with the nothing-to-save reply', async () => {
     harness.reader.answerWith(makeQuestionOnly());
 
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
@@ -257,7 +281,7 @@ describe('saving what the reader returns', () => {
     expect(sentTexts()).toEqual([
       [
         'zu-hung',
-        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+        'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
       ],
     ]);
   });
@@ -527,14 +551,14 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
-  it('gives the upload-only reply when work data has no item', async () => {
+  it('gives the nothing-to-save reply when work data has no item', async () => {
     harness.reader.answerWith(makeReading([], { has_work_data: true }));
 
     await harness.receiveText('zu-hung', 'Đổ dầu');
     await harness.sendQueuedTexts();
 
     expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
-      'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
+      'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
     ]);
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });

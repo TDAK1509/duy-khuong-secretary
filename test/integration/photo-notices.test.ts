@@ -12,8 +12,8 @@ const ADMINS_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const SAVED_REPLY = 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.';
 const FUEL_READ_DATA = 'Dữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số phiếu: 0001234\n- Ngày trên giấy tờ: 30/10/2026\n- Số tiền: 1.250.000đ';
 const NOTICE_TEXT = `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${SAVED_REPLY}\n\n${FUEL_READ_DATA}`;
-const UNRESOLVED_REPLY =
-  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
+const READ_FAILED_PHOTO_REPLY =
+  'Trợ lý đã nhận ảnh nhưng đang gặp lỗi khi đọc nên chưa lưu thông tin trong ảnh. Bạn gửi lại ảnh sau ít phút nhé.';
 const DUPLICATE_REPLY = 'Ảnh hoặc chứng từ này đã có trong nhóm. Tôi chưa lưu bản trùng. Bạn kiểm tra lại nhé.';
 const PHOTO = { bytes: makeJpeg(1000), contentType: 'image/jpeg' };
 
@@ -125,7 +125,7 @@ describe('notices to admins about a member photo', () => {
       {
         kind: 'text',
         to: 'zu-duy',
-        text: `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${UNRESOLVED_REPLY}`,
+        text: `Hùng gửi ảnh vào nhóm "Xe tải Duy Khương" lúc 10:00 02/11/2026.\nTrợ lý đã trả lời Hùng:\n${READ_FAILED_PHOTO_REPLY}`,
       },
       { kind: 'image', to: 'zu-duy', photo: PHOTO },
     ]);

@@ -4,9 +4,10 @@ import {
   ASK_EXPLANATION_TEXT,
   ASK_LATER_TEXT,
   DUPLICATE_TEXT,
+  PHOTO_NOTHING_TO_SAVE_TEXT,
+  READ_FAILED_PHOTO_TEXT,
   STILL_UNCLEAR_TEXT,
-  UNRESOLVED_TEXT,
-  UPLOAD_ONLY_TEXT,
+  TEXT_NOTHING_TO_SAVE_TEXT,
 } from '../../src/app/intake/intake-texts.ts';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import type { ChatResult } from '../../src/services/chat/chat-service.ts';
@@ -190,7 +191,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.receiveText('zu-hung', 'Lốp dự phòng để trong kho', { reader: makeTimingOutReader() });
     await harness.sendAllQueuedTexts();
 
-    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(UNRESOLVED_TEXT);
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(READ_FAILED_PHOTO_TEXT);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'asked_again', hasBotReply: true });
   });
 
@@ -207,7 +208,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect((await readTextsTo('zu-hung')).slice(textsBefore)).toEqual([
-      { text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined },
+      { text: TEXT_NOTHING_TO_SAVE_TEXT, quoteMessageId: undefined },
     ]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
     expect(await readPhoto('zmsg-2')).toEqual({ status: 'unresolved', hasBotReply: false });
@@ -447,13 +448,13 @@ describe('asking what an unclear photo is for', () => {
     expect(await harness.database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
   });
 
-  it('tells an admin that only photos and work data are accepted when his photo has no work data', async () => {
+  it('tells an admin the photo has nothing to save when his photo has no work data', async () => {
     readerReturns(WEAK);
 
     await sendPhoto('zu-duy', 'zmsg-1', PHOTO_A_URL);
     await harness.sendAllQueuedTexts();
 
-    expect(await readTextsTo('zu-duy')).toEqual([{ text: UPLOAD_ONLY_TEXT, quoteMessageId: 'zmsg-1' }]);
+    expect(await readTextsTo('zu-duy')).toEqual([{ text: PHOTO_NOTHING_TO_SAVE_TEXT, quoteMessageId: 'zmsg-1' }]);
   });
 
   it('saves once and asks about the next photo once when the answer is processed again after a crash', async () => {
@@ -594,7 +595,7 @@ describe('asking what an unclear photo is for', () => {
     expect(harness.reader.requests).toHaveLength(readsBefore);
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'needs_explanation', hasBotReply: true });
-    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: UNRESOLVED_TEXT, quoteMessageId: 'zmsg-1' });
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: READ_FAILED_PHOTO_TEXT, quoteMessageId: 'zmsg-1' });
   });
 
   it('reads the second answer again together with the earlier answer', async () => {

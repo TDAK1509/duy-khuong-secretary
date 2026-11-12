@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { ASK_AGAIN_TEXT, ASK_EXPLANATION_TEXT, UPLOAD_ONLY_TEXT } from '../../../src/app/intake/intake-texts.ts';
-import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
+import {
+  ASK_AGAIN_TEXT,
+  ASK_EXPLANATION_TEXT,
+  PHOTO_BLURRY_TEXT,
+  PHOTO_CUT_OFF_TEXT,
+  PHOTO_NOT_WORK_TEXT,
+  PHOTO_NOTHING_TO_SAVE_TEXT,
+  READ_FAILED_PHOTO_TEXT,
+  READ_FAILED_TEXT,
+  TEXT_NOTHING_TO_SAVE_TEXT,
+} from '../../../src/app/intake/intake-texts.ts';
+import { planAnswer, planReply, planUnreadAnswer } from '../../../src/app/intake/plan-reply.ts';
 import type { AskedPhoto } from '../../../src/app/intake/waiting-photos.ts';
 import { makeItem, makeReading, succeed } from '../reading/make-reading.ts';
 
@@ -16,7 +26,7 @@ describe('planReply', () => {
   it('does not ask for an explanation of a message that has no photo', () => {
     const plan = planReply(succeed(unclear), false);
 
-    expect(plan).toMatchObject({ saved: null, status: 'accepted', replyText: UPLOAD_ONLY_TEXT });
+    expect(plan).toMatchObject({ saved: null, status: 'accepted', replyText: TEXT_NOTHING_TO_SAVE_TEXT });
   });
 });
 
@@ -29,12 +39,12 @@ describe('planReply unclear readings', () => {
 });
 
 describe('planReply text that needs an explanation', () => {
-  it('is unclear and keeps the upload-only reply when the reader says it needs an explanation', () => {
+  it('is unclear and keeps the nothing-to-save reply when the reader says it needs an explanation', () => {
     const reading = makeReading([], { has_work_data: false, needs_explanation: true });
 
     const plan = planReply(succeed(reading), false);
 
-    expect(plan).toMatchObject({ isUnclear: true, replyText: UPLOAD_ONLY_TEXT });
+    expect(plan).toMatchObject({ isUnclear: true, replyText: TEXT_NOTHING_TO_SAVE_TEXT });
   });
 });
 
@@ -65,6 +75,70 @@ describe('planReply no work data', () => {
     const plan = planReply(succeed(reading), false);
 
     expect(plan.isUnclear).toBe(false);
+  });
+});
+
+describe('planReply a message without work data', () => {
+  it('tells the sender a blurry photo could not be read', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: 'blurry' });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan).toMatchObject({ replyText: PHOTO_BLURRY_TEXT, status: 'accepted', situation: 'no_work_data' });
+  });
+
+  it('tells the sender a cut-off photo is missing part of the paper', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: 'cut_off' });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan.replyText).toBe(PHOTO_CUT_OFF_TEXT);
+  });
+
+  it('tells the sender a clear photo of something else is not a work paper', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: 'not_work' });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan.replyText).toBe(PHOTO_NOT_WORK_TEXT);
+  });
+
+  it('tells the sender a photo with no work data and no known problem has nothing to save', () => {
+    const reading = makeReading([], { has_work_data: false, photo_problem: null });
+
+    const plan = planReply(succeed(reading), true);
+
+    expect(plan.replyText).toBe(PHOTO_NOTHING_TO_SAVE_TEXT);
+  });
+
+  it('tells the sender a text without work data has nothing to save', () => {
+    const reading = makeReading([], { has_work_data: false });
+
+    const plan = planReply(succeed(reading), false);
+
+    expect(plan.replyText).toBe(TEXT_NOTHING_TO_SAVE_TEXT);
+  });
+});
+
+describe('planReply a failed read', () => {
+  it('tells the sender the photo could not be read because of an error, and leaves it unresolved', () => {
+    const plan = planReply({ ok: false, reason: 'timeout' }, true);
+
+    expect(plan).toMatchObject({ replyText: READ_FAILED_PHOTO_TEXT, status: 'unresolved' });
+  });
+
+  it('tells the sender the text could not be read because of an error, and leaves it unresolved', () => {
+    const plan = planReply({ ok: false, reason: 'timeout' }, false);
+
+    expect(plan).toMatchObject({ replyText: READ_FAILED_TEXT, status: 'unresolved' });
+  });
+});
+
+describe('planUnreadAnswer', () => {
+  it('tells the sender the waiting photo could not be read because of an error', () => {
+    const answer = planUnreadAnswer();
+
+    expect(answer).toMatchObject({ kind: 'reply', photoAfter: 'unchanged', reply: { replyText: READ_FAILED_PHOTO_TEXT } });
   });
 });
 

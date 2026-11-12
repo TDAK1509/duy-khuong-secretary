@@ -24,6 +24,13 @@ describe('READER_SCHEMA', () => {
     expect(READER_SCHEMA['required']).toContain('needs_explanation');
   });
 
+  it('asks why a photo without work data cannot be saved, null when there is no problem', () => {
+    const properties = READER_SCHEMA['properties'] as Record<string, unknown>;
+
+    expect(properties['photo_problem']).toEqual({ type: ['string', 'null'], enum: ['blurry', 'cut_off', 'not_work', null] });
+    expect(READER_SCHEMA['required']).toContain('photo_problem');
+  });
+
   it('leaves the category as free text', () => {
     expect(readItemSchema().properties['category']).toEqual({ type: 'string' });
   });

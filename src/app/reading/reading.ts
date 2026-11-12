@@ -64,6 +64,7 @@ const readingSchema = z.strictObject({
   has_work_data: z.boolean(),
   needs_explanation: z.boolean(),
   has_question: z.boolean(),
+  photo_problem: z.enum(['blurry', 'cut_off', 'not_work']).nullable().default(null),
   items: z.array(itemSchema),
 });
 
