@@ -29,7 +29,7 @@ export async function receiveIntake(
   const dependencies = { ...unscopedDependencies, database: scopeDatabase(unscopedDependencies.database, scope) };
   const stages = unscopedStages.forScope(scope);
   const { photoStorage, reader, chat } = dependencies;
-  if (sender.role === 'admin' && chat === null) return { kind: 'not_configured', group: 'chat' };
+  if (chat === null) return { kind: 'not_configured', group: 'chat' };
   if (event.kind === 'images' && photoStorage === null) return { kind: 'not_configured', group: 'photos' };
   if (reader === null) return { kind: 'not_configured', group: 'readers' };
   const context = { dependencies, reader, stages, event, sender };

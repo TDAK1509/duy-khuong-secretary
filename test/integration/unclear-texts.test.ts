@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DUPLICATE_TEXT, TEXT_NOTHING_TO_SAVE_TEXT } from '../../src/app/intake/intake-texts.ts';
+import { DUPLICATE_TEXT } from '../../src/app/intake/intake-texts.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import type { ReaderRequest, ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
@@ -73,7 +73,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     await harness.sendAllQueuedTexts();
 
     expect(reader.requests).toHaveLength(1);
-    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe(TEXT_NOTHING_TO_SAVE_TEXT);
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe('Chào anh');
   });
 
   it('does not use a photo whose reading found no work data', async () => {
@@ -156,6 +156,18 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-duy')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
   });
 
+  it('sends a member question with no items to the chat without a second reading', async () => {
+    await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
+    const reader = makeReaderAnswering(() => UNCLEAR_QUESTION);
+    harness.chat.replyWith('Ảnh này là lốp xe.');
+
+    await harness.receiveText('zu-hung', 'Lốp này của xe nào?', { reader });
+    await harness.sendAllQueuedTexts();
+
+    expect(reader.requests).toHaveLength(1);
+    expect((await readTextsTo('zu-hung')).at(-1)?.text).toBe('Ảnh này là lốp xe.');
+  });
+
   it('saves an admin text with work data and a question first, then lets the chat answer', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-duy', 'zmsg-1', 2);
     const question = 'Lốp 3.500.000đ, xe 29C-123.45 đã thay chưa?';
@@ -204,7 +216,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     expect((await readTextsTo('zu-hung')).filter((sent) => sent.text.startsWith('Đã lưu'))).toHaveLength(1);
   });
 
-  it('replies as before when the second reading is still unclear', async () => {
+  it('answers with the chat when the second reading is still unclear', async () => {
     await sendUnresolvedPhotoSentMinutesAgo('zu-hung', 'zmsg-1', 2);
     const reader = makeReaderAnswering(() => UNCLEAR);
 
@@ -212,7 +224,7 @@ describe('reading an unclear text with the recent messages of the sender', () =>
     await harness.sendAllQueuedTexts();
 
     expect(reader.requests).toHaveLength(2);
-    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: TEXT_NOTHING_TO_SAVE_TEXT, quoteMessageId: undefined });
+    expect((await readTextsTo('zu-hung')).at(-1)).toEqual({ text: 'Chào anh', quoteMessageId: undefined });
     expect(await harness.database.query('SELECT 1 FROM records')).toEqual([]);
   });
 

@@ -24,8 +24,16 @@ import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, Too
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
   if (scope === null || scope.role !== 'admin') return failTool(REFUSAL_ERROR);
+  return runGuardedTool(dependencies, scope, call);
+}
+
+export async function runGuardedTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
   if (dependencies.guard.refuses(call.name)) return failTool(CHANGE_REFUSED_ERROR);
   dependencies.guard.noteCall(call.name);
+  return runToolInScope(dependencies, scope, call);
+}
+
+export async function runToolInScope(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
   const database = scopeDatabase(dependencies.database, toDatabaseScope(scope));
   return runToolByName({ ...dependencies, database }, scope, call);
 }

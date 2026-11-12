@@ -75,7 +75,7 @@ async function rereadWithEarlierAnswers(
 async function readAndPlanAnswer(context: IntakeContext, { asked, photo }: PhotoToRead, texts: string[]): Promise<ReadAnswer> {
   const attempt = await readMessage(context, { text: wrapExplanation(texts.join('\n')), photo });
   const reading = { attempt, situation: planReply(attempt, true).situation };
-  return { answer: planAnswer(attempt, asked, context.sender.role), reading };
+  return { answer: planAnswer(attempt, asked), reading };
 }
 
 function isWeakAnswer(answer: AnswerPlan): boolean {

@@ -119,7 +119,7 @@ export const CREATE_INVITE_SPEC: ToolSpec = {
           "member",
           "admin"
         ],
-        "description": "member: thành viên, chỉ gửi ảnh và thông tin công việc. admin: quản lý, xem được mọi dữ liệu của nhóm."
+        "description": "member: thành viên, trò chuyện và xem dữ liệu của chính mình. admin: quản lý, xem dữ liệu công việc của nhóm và dùng công cụ quản lý."
       }
     },
     "required": [

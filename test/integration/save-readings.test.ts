@@ -272,18 +272,13 @@ describe('saving what the reader returns', () => {
     return makeReading([], { has_work_data: false, has_question: true });
   }
 
-  it('answers the question of a member with the nothing-to-save reply', async () => {
+  it('answers the question of a member with the chat answer', async () => {
     harness.reader.answerWith(makeQuestionOnly());
 
     await harness.receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
     await harness.sendQueuedTexts();
 
-    expect(sentTexts()).toEqual([
-      [
-        'zu-hung',
-        'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
-      ],
-    ]);
+    expect(sentTexts()).toEqual([['zu-hung', 'Chào anh']]);
   });
 
   it('saves no record for the question of a member', async () => {
@@ -551,15 +546,13 @@ describe('saving what the reader returns', () => {
     ]);
   });
 
-  it('gives the nothing-to-save reply when work data has no item', async () => {
+  it('gives the chat answer when work data has no item', async () => {
     harness.reader.answerWith(makeReading([], { has_work_data: true }));
 
     await harness.receiveText('zu-hung', 'Đổ dầu');
     await harness.sendQueuedTexts();
 
-    expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
-      'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.',
-    ]);
+    expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Chào anh']);
     expect(await database.query('SELECT 1 FROM records')).toEqual([]);
   });
 

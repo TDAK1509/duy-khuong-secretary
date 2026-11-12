@@ -48,6 +48,15 @@ describe('the admin tool list', () => {
     );
   });
 
+  it('describes the roles of create_invite for a member who chats and an admin who manages', () => {
+    const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'create_invite');
+    const properties = tool?.parameters['properties'] as Record<string, { description: string }>;
+
+    expect(properties['role']?.description).toBe(
+      'member: thành viên, trò chuyện và xem dữ liệu của chính mình. admin: quản lý, xem dữ liệu công việc của nhóm và dùng công cụ quản lý.',
+    );
+  });
+
   it('offers list_members with the join date and no Zalo name', () => {
     const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'list_members');
 

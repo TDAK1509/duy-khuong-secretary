@@ -24,7 +24,7 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
 }
 
 async function replyWithPlan(context: IntakeContext, message: MessageToRead, { attempt, plan }: FirstReading): Promise<IntakeOutcome> {
-  if (isSentToChat(context, plan, message)) {
+  if (isSentToChat(plan, message)) {
     logIntake(context, message.id, toLoggedReading({ attempt, plan }), 'admin_chat');
     await answerWithChat(context, message);
     return { kind: 'replied' };
@@ -54,14 +54,14 @@ async function rereadUnclearPhoto(
 }
 
 async function rereadUnclearText(context: IntakeContext, message: MessageToRead, first: FirstReading): Promise<Reread | null> {
-  if (message.text === null || !isRereadable(context, message, first)) return null;
+  if (message.text === null || !isRereadable(message, first)) return null;
   const reread = await rereadWithRecentMessages(context, { id: message.id, text: message.text });
   return reread?.plan.situation === 'saved' ? reread : null;
 }
 
-function isRereadable({ sender }: IntakeContext, { photo }: MessageToRead, { attempt, plan }: FirstReading): boolean {
+function isRereadable({ photo }: MessageToRead, { attempt, plan }: FirstReading): boolean {
   if (!plan.isUnclear || photo !== null) return false;
-  return !(sender.role === 'admin' && asksOnlyAQuestion(attempt));
+  return !asksOnlyAQuestion(attempt);
 }
 
 async function replyOnRereadPhoto(
@@ -78,6 +78,6 @@ async function replyOnRereadPhoto(
   return { kind: 'replied' };
 }
 
-function isSentToChat({ sender }: IntakeContext, { situation }: ReplyPlan, { photo }: MessageToRead): boolean {
-  return sender.role === 'admin' && photo === null && situation === 'no_work_data';
+function isSentToChat({ situation }: ReplyPlan, { photo }: MessageToRead): boolean {
+  return photo === null && situation === 'no_work_data';
 }

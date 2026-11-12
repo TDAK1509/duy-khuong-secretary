@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ASK_AGAIN_TEXT,
   ASK_EXPLANATION_TEXT,
   PHOTO_BLURRY_TEXT,
   PHOTO_CUT_OFF_TEXT,
@@ -149,21 +148,15 @@ describe('planAnswer', () => {
     has_question: true,
   });
 
-  it('plans a question for an admin answer that asks and has no items', () => {
-    const plan = planAnswer(succeed(question), asked, 'admin');
+  it('plans a question for an answer that asks and has no items', () => {
+    const plan = planAnswer(succeed(question), asked);
 
     expect(plan).toEqual({ kind: 'question' });
   });
 
-  it('plans a save for an admin answer that has items and asks', () => {
-    const plan = planAnswer(succeed(tireAndQuestion), asked, 'admin');
+  it('plans a save for an answer that has items and asks', () => {
+    const plan = planAnswer(succeed(tireAndQuestion), asked);
 
     expect(plan).toMatchObject({ kind: 'reply', photoAfter: 'same_as_reply', reply: { situation: 'saved', asksQuestion: true } });
-  });
-
-  it('plans to ask again for a member answer that asks and has no items', () => {
-    const plan = planAnswer(succeed(question), asked, 'member');
-
-    expect(plan).toMatchObject({ kind: 'reply', photoAfter: 'asked_again', reply: { replyText: ASK_AGAIN_TEXT } });
   });
 });
