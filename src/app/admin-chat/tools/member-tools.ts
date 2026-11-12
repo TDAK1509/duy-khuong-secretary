@@ -15,7 +15,7 @@ const ATTACH_PHOTOS_DESCRIPTION =
   'Gửi ảnh gốc của dữ liệu do chính bạn gửi, ngay sau câu trả lời. Lấy record_ids từ search_records. Tối đa 4 ảnh. Bỏ qua mục không có ảnh hoặc không được phép xem.';
 
 const LIST_SOURCES_DESCRIPTION =
-  'Tìm tin gốc của dữ liệu do chính bạn gửi: gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả.';
+  'Tìm tin gốc của dữ liệu do chính bạn gửi: gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả. Nếu quoted là true, thẻ nguồn trích lại tin gốc trong cuộc trò chuyện này.';
 
 const MEMBER_SEARCH_RECORDS_SPEC: ToolSpec = {
   ...ADMIN_SEARCH_RECORDS_SPEC,
