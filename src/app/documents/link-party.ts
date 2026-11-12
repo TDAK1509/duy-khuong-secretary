@@ -33,11 +33,15 @@ export async function findAliasedOrganization(transaction: Transaction, workspac
 }
 
 async function findOrganizationNamed(transaction: Transaction, workspaceId: string, party: ReadingParty): Promise<string | null> {
-  const wanted = toAccentFreeForm(party.known_name);
+  const knownName = party.known_name?.trim() ?? '';
+  const wanted = toAccentFreeForm(knownName);
   if (wanted === null) return null;
   const organizations = await transaction.query<{ id: string; name: string }>(
     'SELECT id, name FROM organizations WHERE workspace_id = $1 AND type = $2 ORDER BY created_at, id',
     [workspaceId, party.type],
   );
-  return organizations.find((organization) => toAccentFreeForm(organization.name) === wanted)?.id ?? null;
+  const exact = organizations.find((organization) => organization.name.trim() === knownName);
+  if (exact) return exact.id;
+  const accentFree = organizations.filter((organization) => toAccentFreeForm(organization.name) === wanted);
+  return accentFree.length === 1 ? (accentFree[0]?.id ?? null) : null;
 }

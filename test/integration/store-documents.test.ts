@@ -21,6 +21,12 @@ describe('storing the documents of a saved message', () => {
     await harness.close();
   });
 
+  async function insertCompaniesWithOneAccentFreeName(): Promise<void> {
+    for (const name of ['Tân Quốc Hưng', 'Tan Quoc Hung']) {
+      await database.query(`INSERT INTO organizations (workspace_id, type, name) VALUES ('${harness.workspaceId}', 'company', '${name}')`);
+    }
+  }
+
   function insertChengLoong(): Promise<string> {
     return insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Cheng Loong' });
   }
@@ -285,6 +291,17 @@ describe('storing the documents of a saved message', () => {
 
     expect(await database.query(`SELECT name FROM organizations WHERE name <> 'Cheng Loong'`)).toEqual([{ name: MISREAD_NAME }]);
     expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
+  it('merges into the saved company whose name is exactly the reader name when two match without accents', async () => {
+    await insertCompaniesWithOneAccentFreeName();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', 'TQH Cân điện tử', 'Tan Quoc Hung')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(
+      await database.query(`SELECT organization.name FROM document_parties party JOIN organizations organization ON organization.id = party.organization_id`),
+    ).toEqual([{ name: 'Tan Quoc Hung' }]);
   });
 
   it('stores the name the reader gave next to the printed name', async () => {
