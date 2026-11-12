@@ -52,4 +52,10 @@ describe('the ability section of the prompt', () => {
       ].join('\n'),
     );
   });
+
+  it('throws an error that names a tool with no ability line', () => {
+    const unknownTool = { name: 'unknown_tool', description: '', parameters: {} };
+
+    expect(() => buildAbilitySection([unknownTool])).toThrow('unknown_tool');
+  });
 });

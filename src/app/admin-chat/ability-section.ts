@@ -1,8 +1,14 @@
 import type { ToolSpec } from '../../services/chat/chat-service.ts';
 
 export function buildAbilitySection(tools: ToolSpec[]): string {
-  const toolLines = tools.map(({ name }) => `- ${ABILITY_LINES[name]}`);
+  const toolLines = tools.map(({ name }) => `- ${findAbilityLine(name)}`);
   return [ABILITY_INTRO, SAVING_LINE, ...toolLines, CHAT_LINE].join('\n');
+}
+
+function findAbilityLine(toolName: string): string {
+  const line = ABILITY_LINES[toolName];
+  if (line === undefined) throw new Error(`the tool ${toolName} has no ability line`);
+  return line;
 }
 
 const ABILITY_INTRO = 'Khi người dùng hỏi bạn làm được gì, kể đúng các việc sau bằng lời ngắn gọn. Không kể việc ngoài danh sách này.';
