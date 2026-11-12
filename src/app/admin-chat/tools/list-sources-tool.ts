@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
-import { findDocumentSources } from '../../documents/find-document-sources.ts';
+import { type DocumentSources, findDocumentSources } from '../../documents/find-document-sources.ts';
 import { findRecordSources } from '../../records/find-record-sources.ts';
 import { mergeSourcesByMessage } from '../../records/merge-sources.ts';
 import type { RecordSource } from '../../records/record-source.ts';
@@ -21,13 +21,16 @@ export async function runListSources(dependencies: AdminToolDependencies, scope:
   const documentSources = await findDocumentSources(dependencies.database, scope, args.document_ids.filter(isUuid));
   const visible = mergeSourcesByMessage([...recordSources, ...documentSources.sources]);
   const listed = visible.slice(0, MAX_SOURCES_PER_CALL).flatMap((source) => numberSource(dependencies, source));
-  const foundIdCount = new Set(recordSources.flatMap((source) => source.recordIds)).size + documentSources.foundDocumentIds.length;
-  const requestedIdCount = new Set(args.record_ids).size + new Set(args.document_ids).size;
   return JSON.stringify({
     sources: listed.map((listedSource) => describeSource(dependencies, listedSource)),
-    left_out: requestedIdCount - foundIdCount,
+    left_out: countIdsWithoutSource(args, recordSources, documentSources),
     sources_left_out: visible.length - listed.length,
   });
+}
+
+function countIdsWithoutSource(args: z.infer<typeof argumentsSchema>, recordSources: RecordSource[], documentSources: DocumentSources): number {
+  const foundRecordIds = new Set(recordSources.flatMap((source) => source.recordIds));
+  return new Set(args.record_ids).size - foundRecordIds.size + new Set(args.document_ids).size - documentSources.foundDocumentIds.length;
 }
 
 function numberSource({ sources }: AdminToolDependencies, source: RecordSource): ListedSource[] {
