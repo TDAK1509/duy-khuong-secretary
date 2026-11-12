@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
+import { NO_PENDING_CHOICE_TEXT } from '../../src/app/processing/conversation-texts.ts';
 import { makeItem, makeReading, type ItemOverrides } from '../unit/reading/make-reading.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -12,6 +15,7 @@ const CHONG_LOONG = 'Công ty TNHH Chống Loong Bình Dương Paper';
 describe('merging a close name when the paper is read', () => {
   let harness: IntakeHarness;
   let database: TemporaryDatabase;
+  let chengLoongId: string;
 
   beforeEach(async () => {
     harness = await createIntakeHarness();
@@ -19,7 +23,7 @@ describe('merging a close name when the paper is read', () => {
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
     await insertAdmin('zu-duy', 'Duy');
     await insertAdmin('zu-khuong', 'Khương');
-    await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
+    chengLoongId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: CHENG_LOONG });
   });
 
   afterEach(async () => {
@@ -50,6 +54,18 @@ describe('merging a close name when the paper is read', () => {
     await harness.receiveText('zu-hung', 'Phiếu cân xe 93C04588');
 
     expect(await readProposalsQueued()).toEqual([]);
+  });
+
+  it('treats a number from an admin as no choice when an old name choice is stored', async () => {
+    const pair = { match_key: buildMatchKey(CHONG_LOONG), organization_id: chengLoongId, printed_name: CHONG_LOONG };
+    const choice = { kind: 'name_match', workspace_id: harness.workspaceId, pairs: [pair] };
+    await database.query(`UPDATE channel_identities SET pending_choice = ${literal(JSON.stringify(choice))}::jsonb WHERE external_user_id = 'zu-duy'`);
+
+    await harness.receiveText('zu-duy', '1');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-duy', text: NO_PENDING_CHOICE_TEXT }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 1 }]);
   });
 });
 
