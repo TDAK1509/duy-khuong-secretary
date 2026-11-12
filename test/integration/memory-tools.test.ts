@@ -102,6 +102,15 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBe('- A');
   });
 
+  it('deletes the row when it forgets the last line', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+
+    const output = await runTool('forget', { fact: 'A' });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, markdown: '' });
+    expect(await readUserMemory(database, lan.userId)).toBeNull();
+  });
+
   it('stores the memory of an admin under the owner scope of the admin', async () => {
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
 

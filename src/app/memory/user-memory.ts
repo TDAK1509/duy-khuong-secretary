@@ -7,7 +7,7 @@ export async function updateUserMemory(database: Database, owner: MemoryOwner, c
     if (!(await isMemberOf(transaction, owner))) return null;
     const current = await selectMarkdown(transaction, owner);
     const updated = change(current);
-    if (updated !== current) await storeMarkdown(transaction, owner, updated);
+    if (updated !== current) await replaceMarkdown(transaction, owner, updated);
     return updated;
   });
 }
@@ -20,6 +20,15 @@ async function isMemberOf(transaction: Transaction, { workspaceId, userId }: Mem
 async function selectMarkdown(transaction: Transaction, { workspaceId, userId }: MemoryOwner): Promise<string> {
   const [row] = await transaction.query<{ markdown: string }>('SELECT markdown FROM user_memories WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
   return row?.markdown ?? '';
+}
+
+async function replaceMarkdown(transaction: Transaction, owner: MemoryOwner, markdown: string): Promise<void> {
+  if (markdown === '') await deleteMarkdown(transaction, owner);
+  else await storeMarkdown(transaction, owner, markdown);
+}
+
+async function deleteMarkdown(transaction: Transaction, { workspaceId, userId }: MemoryOwner): Promise<void> {
+  await transaction.query('DELETE FROM user_memories WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
 }
 
 async function storeMarkdown(transaction: Transaction, { workspaceId, userId }: MemoryOwner, markdown: string): Promise<void> {
