@@ -11,9 +11,9 @@ import {
   PHOTO_NOT_WORK_TEXT,
   PHOTO_NOTHING_TO_SAVE_TEXT,
   READ_FAILED_PHOTO_TEXT,
+  READ_FAILED_TEXT,
   STILL_UNCLEAR_TEXT,
   TEXT_NOTHING_TO_SAVE_TEXT,
-  UNRESOLVED_TEXT,
 } from './intake-texts.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
@@ -52,7 +52,7 @@ export function asksOnlyAQuestion(attempt: ReadAttempt): boolean {
 }
 
 export function planReply(attempt: ReadAttempt, hasPhoto: boolean): ReplyPlan {
-  return attempt.ok ? planReadingReply(attempt.reading, hasPhoto) : planUnresolvedReply(hasPhoto);
+  return attempt.ok ? planReadingReply(attempt.reading, hasPhoto) : planReadFailedReply(hasPhoto);
 }
 
 function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
@@ -62,7 +62,7 @@ function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 }
 
 export function planUnreadAnswer(): AnswerPlan {
-  return { kind: 'reply', reply: planUnresolvedReply(true), photoAfter: 'unchanged' };
+  return { kind: 'reply', reply: planReadFailedReply(true), photoAfter: 'unchanged' };
 }
 
 function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean): ReplyPlan {
@@ -92,8 +92,8 @@ function planMaintenanceWithoutPlateReply(): ReplyPlan {
   return { ...planRefusal(MAINTENANCE_WITHOUT_PLATE_TEXT), isUnclear: true };
 }
 
-function planUnresolvedReply(hasPhoto: boolean): ReplyPlan {
-  return planRefusal(hasPhoto ? READ_FAILED_PHOTO_TEXT : UNRESOLVED_TEXT);
+function planReadFailedReply(hasPhoto: boolean): ReplyPlan {
+  return planRefusal(hasPhoto ? READ_FAILED_PHOTO_TEXT : READ_FAILED_TEXT);
 }
 
 function planRefusal(replyText: string, status: ReplyPlan['status'] = 'unresolved'): ReplyPlan {

@@ -7,6 +7,7 @@ import {
   PHOTO_NOT_WORK_TEXT,
   PHOTO_NOTHING_TO_SAVE_TEXT,
   READ_FAILED_PHOTO_TEXT,
+  READ_FAILED_TEXT,
   TEXT_NOTHING_TO_SAVE_TEXT,
 } from '../../../src/app/intake/intake-texts.ts';
 import { planAnswer, planReply } from '../../../src/app/intake/plan-reply.ts';
@@ -124,6 +125,12 @@ describe('planReply a failed read', () => {
     const plan = planReply({ ok: false, reason: 'timeout' }, true);
 
     expect(plan).toMatchObject({ replyText: READ_FAILED_PHOTO_TEXT, status: 'unresolved' });
+  });
+
+  it('tells the sender the text could not be read because of an error, and leaves it unresolved', () => {
+    const plan = planReply({ ok: false, reason: 'timeout' }, false);
+
+    expect(plan).toMatchObject({ replyText: READ_FAILED_TEXT, status: 'unresolved' });
   });
 });
 

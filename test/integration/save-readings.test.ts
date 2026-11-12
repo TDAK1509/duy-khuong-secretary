@@ -7,7 +7,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const OUTAGE_REPLY =
-  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
+  'Trợ lý đang gặp lỗi khi đọc tin nhắn này nên chưa lưu. Bạn gửi lại sau ít phút nhé.';
 const INSPECTION_TITLE = 'Chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường xe cơ giới';
 
 describe('saving what the reader returns', () => {
