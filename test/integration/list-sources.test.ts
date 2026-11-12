@@ -372,5 +372,20 @@ describe('the chat finds the original message of a record', () => {
       expect(readToolOutput()).toContain('"quoted":false');
       expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
     });
+
+    it('does not quote a source from another conversation', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        event: { accountId: 'oa-other', externalEventId: 'msg-1' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":false');
+      expect(await readOutboundMessages()).toMatchObject([{ body: 'Đây là nguồn.' }, { body: expect.stringContaining('Nguồn 1: Bạn'), quote_message_id: null }]);
+    });
   });
 });
