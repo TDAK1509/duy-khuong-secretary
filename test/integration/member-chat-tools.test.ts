@@ -102,4 +102,12 @@ describe('the tools of a member in the chat', () => {
       { member: 'Lan', total_count: 1, by_category: [{ category: 'đổ xăng dầu', count: 1, amount_vnd: 100000 }] },
     ]);
   });
+
+  it('counts zero items and shows no other name for a member without records', async () => {
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+
+    const output = await runTool('count_records', { added_from: '2026-10-01', added_to: '2026-10-31' });
+
+    expect(JSON.parse(output).members).toEqual([{ member: 'Lan', total_count: 0, by_category: [] }]);
+  });
 });
