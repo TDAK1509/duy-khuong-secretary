@@ -4,6 +4,7 @@ import { makeReading } from '../unit/reading/make-reading.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { findRecordSources } from '../../src/app/records/find-record-sources.ts';
 import { createIntakeHarness, makeJpeg, type IntakeHarness } from './intake-harness.ts';
+import { insertNumberedDocument } from './document-number-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -285,6 +286,23 @@ describe('the chat finds the original message of a record', () => {
         'Đây là nguồn.',
         'Nguồn 1: Hùng gửi ảnh lúc 10:00 ngày 02/11/2026.\nNgày trên giấy tờ: 29/10/2026, 30/10/2026.\nNguyên văn: "tin nhắn"',
       ]);
+    });
+  });
+
+  describe('documents', () => {
+    function listDocumentSourcesThenReply(documentIds: string[], recordIds: string[] = []): void {
+      callToolsThenReply([{ name: 'list_sources', args: { record_ids: recordIds, document_ids: documentIds } }], 'Đây là nguồn.');
+    }
+
+    it('gives a document source with no record one source and one card', async () => {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: harness.hungUserId, documentNumber: '0001' });
+      listDocumentSourcesThenReply([documentId]);
+
+      await harness.receiveText('zu-duy', 'tổng này lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      expect(JSON.parse(readToolOutput())).toMatchObject({ sources: [{ card: 1, record_ids: [], sender: 'Hùng', kind: 'photo', paper_dates: ['05/11/2026'] }], left_out: 0 });
+      expect(harness.channel.texts.map((sent) => sent.text)).toEqual(['Đây là nguồn.', expect.stringContaining('Nguồn 1: Hùng gửi ảnh lúc')]);
     });
   });
 
