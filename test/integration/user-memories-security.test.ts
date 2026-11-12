@@ -7,6 +7,8 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertUserMemory } from './user-memory-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const ROW_LEVEL_SECURITY_VIOLATION = '42501';
+
 describe('the user memories for the runtime role', () => {
   let database: TemporaryDatabase;
   let runtimePool: PostgresPool;
@@ -33,6 +35,14 @@ describe('the user memories for the runtime role', () => {
     const rows = await selectMemories({ workspaceId, ownerUserId: lanUserId });
 
     expect(rows).toEqual([{ user_id: lanUserId, markdown: '- Tôi lái xe 29C-123.45' }]);
+  });
+
+  it('shows another member\'s owner scope no memory of the first member', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lanUserId, markdown: '- Tôi lái xe 29C-123.45' });
+
+    const rows = await selectMemories({ workspaceId, ownerUserId: hungUserId });
+
+    expect(rows).toEqual([]);
   });
 
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
