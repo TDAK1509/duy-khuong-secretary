@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest';
+import { formatSourceCard } from '../../../src/app/admin-chat/format-source-card.ts';
+import type { RecordSource } from '../../../src/app/records/record-source.ts';
+
+function makeSource(overrides: Partial<RecordSource> = {}): RecordSource {
+  return {
+    messageId: 'message-1',
+    recordIds: ['record-1'],
+    sender: 'Hùng',
+    isOwn: false,
+    sentAt: new Date('2026-11-12T01:15:00Z'),
+    kind: 'text',
+    paperDates: [],
+    text: 'Đổ dầu 500k xe 29C12345',
+    ...overrides,
+  };
+}
+
+describe('a source card', () => {
+  it('shows the sender, the time and the original text of another person\'s text message', () => {
+    expect(formatSourceCard(1, makeSource())).toBe('Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"');
+  });
+});
