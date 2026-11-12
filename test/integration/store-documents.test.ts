@@ -277,6 +277,16 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
   });
 
+  it('creates a new company when the reader name matches no saved company', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', MISREAD_NAME, 'Công ty Không Có')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query(`SELECT name FROM organizations WHERE name <> 'Cheng Loong'`)).toEqual([{ name: MISREAD_NAME }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
