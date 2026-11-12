@@ -110,4 +110,12 @@ describe('the tools of a member in the chat', () => {
 
     expect(JSON.parse(output).members).toEqual([{ member: 'Lan', total_count: 0, by_category: [] }]);
   });
+
+  it('attaches no photo of another member', async () => {
+    const hungRecordId = await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', hasPhoto: true });
+
+    const output = await runTool('attach_photos', { record_ids: [hungRecordId] });
+
+    expect(output).toBe('{"attached":0}');
+  });
 });

@@ -12,8 +12,9 @@ export async function findRecordPhotos(database: Database, scope: AccessScope, r
      JOIN records record ON record.id = wanted.id
      JOIN messages message ON message.id = record.message_id
      WHERE record.workspace_id = $1 AND message.image_key IS NOT NULL
+       AND ($3::uuid IS NULL OR (record.user_id = $3 AND message.user_id = $3))
      ORDER BY wanted.position`,
-    [scope.workspaceId, recordIds],
+    [scope.workspaceId, recordIds, scope.role === 'member' ? scope.userId : null],
   );
   return rows.map((row) => ({ sourceMessageId: row.source_message_id, imageKey: row.image_key }));
 }
