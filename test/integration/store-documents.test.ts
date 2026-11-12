@@ -256,6 +256,16 @@ describe('storing the documents of a saved message', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 1 }]);
   });
 
+  it('merges a spelling whose reader name is in capitals without accents', async () => {
+    const organizationId = await insertOrganizationWithAlias(database, { workspaceId: harness.workspaceId, name: 'Công ty Kim Nhân Đạo' });
+    const capitals = makeParty('issuer', 'C.TY TNHH KIM NHAN DAO', 'CONG TY KIM NHAN DAO');
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [capitals] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
