@@ -74,6 +74,18 @@ describe('the chat finds the original message of a record', () => {
     expect(readToolOutput()).toContain('"sent_at":"07:00 12/11/2026"');
   });
 
+  it('gives a member no source of another member and sends no card', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const lanRecordId = await insertRecordRow(database, { workspaceId, userId: lanUserId, senderName: 'Lan', messageText: 'Đổ dầu 300k' });
+    listSourcesThenReply([lanRecordId], 'Không tìm thấy dữ liệu phù hợp.');
+
+    await harness.receiveText('zu-hung', 'đổ dầu của Lan lấy từ đâu?');
+    await harness.sendAllQueuedTexts();
+
+    expect(readToolOutput()).toBe('{"sources":[],"left_out":1}');
+    expect(harness.channel.sends).toEqual([{ kind: 'text', to: 'zu-hung', text: 'Không tìm thấy dữ liệu phù hợp.' }]);
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
