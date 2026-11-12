@@ -1,9 +1,5 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 
-function describeIds(description: string) {
-  return { type: 'array', items: { type: 'string' }, description };
-}
-
 export const ADMIN_ATTACH_PHOTOS_SPEC: ToolSpec = {
   name: 'attach_photos',
   description:
@@ -33,3 +29,7 @@ export const ADMIN_LIST_SOURCES_SPEC: ToolSpec = {
     additionalProperties: false,
   },
 };
+
+function describeIds(description: string) {
+  return { type: 'array', items: { type: 'string' }, description };
+}
