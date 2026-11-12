@@ -55,6 +55,21 @@ describe('the chat finds the original message of a record', () => {
     );
   });
 
+  it('reads the send time from Zalo and not from the processing time', async () => {
+    const recordId = await insertRecordRow(database, {
+      workspaceId,
+      userId: harness.hungUserId,
+      senderName: 'Hùng',
+      createdAt: new Date('2026-11-12T07:05:00+07:00'),
+      event: { sentAt: '2026-11-12T07:00:00+07:00' },
+    });
+    listSourcesThenReply([recordId]);
+
+    await harness.receiveText('zu-duy', 'lấy từ đâu?');
+
+    expect(readToolOutput()).toContain('"sent_at":"07:00 12/11/2026"');
+  });
+
   describe('after the answer', () => {
     const HUNG_CARD = 'Nguồn 1: Hùng gửi tin nhắn lúc 08:15 ngày 12/11/2026.\nNguyên văn: "Đổ dầu 500k xe 29C12345"';
 
