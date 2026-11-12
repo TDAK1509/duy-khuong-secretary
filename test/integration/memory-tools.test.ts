@@ -39,6 +39,15 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readUserMemory(database, lan.userId)).toBe('- Tôi lái xe 29C-123.45');
   });
 
+  it('stores the memory of an admin under the owner scope of the admin', async () => {
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    const output = await runTool('remember', { fact: 'Tôi thích câu trả lời thật ngắn' }, { workspaceId, userId: duyUserId, role: 'admin' });
+
+    expect(JSON.parse(output).ok).toBe(true);
+    expect(await readUserMemory(database, duyUserId)).toBe('- Tôi thích câu trả lời thật ngắn');
+  });
+
   async function runTool(name: string, args: object, scope: AccessScope = lan): Promise<string> {
     const dependencies = {
       database: runtimePool,
