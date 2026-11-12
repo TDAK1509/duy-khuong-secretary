@@ -240,6 +240,22 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
+  it('adds no merge row for a second paper with the same spelling', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
+    await harness.receivePhoto('zu-hung');
+    const sameSpelling = makeParty('issuer', MISREAD_NAME);
+    harness.reader.answerWith(makeReading([makeTicketItem({ document_number: '20261105099', parties: [sameSpelling] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([
+      { organization_id: organizationId },
+      { organization_id: organizationId },
+    ]);
+    expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 1 }]);
+  });
+
   it('stores the name the reader gave next to the printed name', async () => {
     await insertChengLoong();
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
