@@ -110,6 +110,21 @@ describe('the merged names of an admin', () => {
     expect(organizations).toEqual([{ name: CHONG_LOONG, type: 'company' }]);
   });
 
+  it('moves only the parties of the split spelling to the new company', async () => {
+    const output = await runSplitMergedName(CHONG_LOONG);
+
+    const parties = await database.query<{ printed_name: string; organization: string }>(
+      `SELECT party.printed_name, organization.name AS organization FROM document_parties party
+       JOIN organizations organization ON organization.id = party.organization_id ORDER BY party.printed_name, party.id`,
+    );
+    expect(parties).toEqual([
+      { printed_name: CHENG_LOONG, organization: CHENG_LOONG },
+      { printed_name: CHONG_LOONG, organization: CHONG_LOONG },
+      { printed_name: CHONG_LOONG, organization: CHONG_LOONG },
+    ]);
+    expect(output).toBe('{"ok":true,"documents":2}');
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(

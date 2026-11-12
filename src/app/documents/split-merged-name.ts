@@ -13,9 +13,17 @@ export function splitMergedName(database: Database, workspaceId: string, printed
     const merged = await findMergedName(transaction, workspaceId, buildMatchKey(printedName));
     if (!merged) return null;
     await transaction.query('DELETE FROM organization_aliases WHERE workspace_id = $1 AND match_key = $2', [workspaceId, merged.match_key]);
-    await insertOrganization(transaction, workspaceId, { type: merged.type, printedName: merged.printed_name, matchKey: merged.match_key });
-    return { documents: 0 };
+    const organizationId = await insertOrganization(transaction, workspaceId, { type: merged.type, printedName: merged.printed_name, matchKey: merged.match_key });
+    return { documents: await movePartiesToOrganization(transaction, merged, organizationId) };
   });
+}
+
+async function movePartiesToOrganization(transaction: Transaction, merged: MergedName, organizationId: string): Promise<number> {
+  const moved = await transaction.query<{ document_id: string }>(
+    'UPDATE document_parties SET organization_id = $1 WHERE organization_id = $2 AND match_key = $3 RETURNING document_id',
+    [organizationId, merged.organization_id, merged.match_key],
+  );
+  return new Set(moved.map((party) => party.document_id)).size;
 }
 
 async function findMergedName(transaction: Transaction, workspaceId: string, matchKey: string): Promise<MergedName | null> {
