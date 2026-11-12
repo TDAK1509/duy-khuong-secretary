@@ -18,7 +18,7 @@ export function buildGroupSql(group: DocumentGroup, where: WhereClause, filters:
 }
 
 function buildOrganizationGroupSql(where: WhereClause, filters: DocumentFilters): string {
-  const conditions = listPartyConditions(where, filters, 'organization_id').join(' AND ');
+  const conditions = listPartyConditions(where, filters).join(' AND ');
   return `(SELECT min(organization.name) FROM document_parties party
     JOIN organizations organization ON organization.id = party.organization_id WHERE ${conditions})`;
 }

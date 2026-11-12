@@ -6,26 +6,24 @@ import { buildMatchKey } from './build-match-key.ts';
 
 export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; kind: string | null; plate: string | null; dateFrom: string | null; dateTo: string | null; dateMeaning: string | null };
 
-export type OrganizationLink = 'organization_id' | 'proposed_organization_id';
-
-export function addDocumentFilters(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): void {
-  if (filters.organization !== null || filters.role !== null) where.require(buildPartyExists(where, filters, link));
+export function addDocumentFilters(where: WhereClause, filters: DocumentFilters): void {
+  if (filters.organization !== null || filters.role !== null) where.require(buildPartyExists(where, filters));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
   if (filters.kind !== null) where.require(buildAccentFreeEquals(where, 'document.kind', filters.kind));
   if (filters.plate !== null) where.require(`document.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   addDateRange(where, filters);
 }
 
-export function buildPartyExists(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string {
-  return `EXISTS (SELECT 1 FROM document_parties party WHERE ${listPartyConditions(where, filters, link).join(' AND ')})`;
+function buildPartyExists(where: WhereClause, filters: DocumentFilters): string {
+  return `EXISTS (SELECT 1 FROM document_parties party WHERE ${listPartyConditions(where, filters).join(' AND ')})`;
 }
 
-export function listPartyConditions(where: WhereClause, filters: DocumentFilters, link: OrganizationLink): string[] {
+export function listPartyConditions(where: WhereClause, filters: DocumentFilters): string[] {
   return [
     'party.document_id = document.id',
-    `party.${link} IS NOT NULL`,
+    'party.organization_id IS NOT NULL',
     ...listRoleCondition(where, filters.role),
-    ...listOrganizationCondition(where, filters.organization, link),
+    ...listOrganizationCondition(where, filters.organization),
   ];
 }
 
@@ -33,10 +31,10 @@ function listRoleCondition(where: WhereClause, role: string | null): string[] {
   return role === null ? [] : [`party.role = ${where.bind(role)}`];
 }
 
-function listOrganizationCondition(where: WhereClause, organization: string | null, link: OrganizationLink): string[] {
+function listOrganizationCondition(where: WhereClause, organization: string | null): string[] {
   if (organization === null) return [];
   const matchKey = where.bind(buildMatchKey(organization));
-  return [`party.${link} IN (SELECT alias.organization_id FROM organization_aliases alias WHERE alias.match_key = ${matchKey})`];
+  return [`party.organization_id IN (SELECT alias.organization_id FROM organization_aliases alias WHERE alias.match_key = ${matchKey})`];
 }
 
 function addDateRange(where: WhereClause, filters: DocumentFilters): void {

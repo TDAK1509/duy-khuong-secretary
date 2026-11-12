@@ -61,7 +61,7 @@ const GROUP_BY = {
 export const TOTAL_DOCUMENT_NUMBERS_SPEC: ToolSpec = {
   name: 'total_document_numbers',
   description:
-    'Tính tổng, số giá trị, nhỏ nhất và lớn nhất của một ý nghĩa số trên các giấy tờ đã chấp nhận và phù hợp. Mỗi giấy tờ chỉ tính một lần dù có nhiều ảnh. Các đơn vị luôn tách riêng. Chỉ tính tên đã xác nhận. pending_name_documents đếm giấy tờ bị bỏ qua vì tên đang chờ xác nhận. review_documents đếm giấy tờ đang chờ xem lại. without_number đếm giấy tờ phù hợp nhưng không có số này. not_reread_messages đếm tin nhắn đã lưu nhưng chưa được đọc lại thành giấy tờ.',
+    'Tính tổng, số giá trị, nhỏ nhất và lớn nhất của một ý nghĩa số trên các giấy tờ đã chấp nhận và phù hợp. Mỗi giấy tờ chỉ tính một lần dù có nhiều ảnh. Các đơn vị luôn tách riêng. review_documents đếm giấy tờ đang chờ xem lại. without_number đếm giấy tờ phù hợp nhưng không có số này. not_reread_messages đếm tin nhắn đã lưu nhưng chưa được đọc lại thành giấy tờ.',
   parameters: {
     type: 'object',
     properties: { meaning: MEANING, lines: LINES, ...FILTER_PROPERTIES, group_by: GROUP_BY },

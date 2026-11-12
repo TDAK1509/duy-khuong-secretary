@@ -22,7 +22,6 @@ export async function runTotalDocumentNumbers(database: Database, scope: AccessS
     ok: true,
     meaning: args.meaning,
     groups: totals.groups,
-    pending_name_documents: totals.pendingNameDocuments,
     review_documents: totals.reviewDocuments,
     without_number: totals.withoutNumber,
     not_reread_messages: totals.notRereadMessages,

@@ -1,7 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import type { WhereClause } from '../records/where-clause.ts';
-import { buildPartyExists, type DocumentFilters } from './add-document-filters.ts';
+import type { DocumentFilters } from './add-document-filters.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from './build-document-where.ts';
 import { buildMatchKey } from './build-match-key.ts';
 import { countNotRereadMessages } from './count-not-reread-messages.ts';
@@ -11,7 +11,6 @@ export type DocumentNumberTotal = { group: string | null; unit: string; count: n
 
 export type DocumentNumberTotals = {
   groups: DocumentNumberTotal[];
-  pendingNameDocuments: number;
   reviewDocuments: number;
   withoutNumber: number;
   notRereadMessages: number;
@@ -35,7 +34,6 @@ const SUM_NUMBERS = `line.unit AS unit, count(line.number)::int AS count, sum(li
 export async function totalDocumentNumbers(database: Database, scope: AccessScope, request: TotalRequest): Promise<DocumentNumberTotals> {
   return {
     groups: await sumNumbers(database, scope, request),
-    pendingNameDocuments: await countPendingNameDocuments(database, scope, request),
     reviewDocuments: await countReviewDocuments(database, scope, request),
     withoutNumber: await countWithoutNumber(database, scope, request),
     notRereadMessages: await countNotRereadMessages(database, scope),
@@ -53,14 +51,7 @@ async function sumNumbers(database: Database, scope: AccessScope, request: Total
 }
 
 async function countReviewDocuments(database: Database, scope: AccessScope, request: TotalRequest): Promise<number> {
-  return countDocuments(database, buildNumberWhere(scope, request, { status: 'needs_review', link: 'organization_id' }));
-}
-
-async function countPendingNameDocuments(database: Database, scope: AccessScope, request: TotalRequest): Promise<number> {
-  if (request.filters.organization === null) return 0;
-  const where = buildNumberWhere(scope, request, { status: 'accepted', link: 'proposed_organization_id' });
-  where.require(`NOT ${buildPartyExists(where, request.filters, 'organization_id')}`);
-  return countDocuments(database, where);
+  return countDocuments(database, buildNumberWhere(scope, request, { status: 'needs_review' }));
 }
 
 async function countDocuments(database: Database, where: WhereClause): Promise<number> {

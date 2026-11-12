@@ -46,7 +46,6 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Khi hỏi hàng một công ty nhận, dùng role là "customer" và stage là "receipt". Khi hỏi hàng giao cho một công ty, dùng role là "customer" và stage là "dispatch". Nếu không rõ là lúc giao hay lúc nhận, hỏi lại quản lý.
 - Với nhiều công ty, gọi total_document_numbers riêng cho từng công ty.
 - Khi chia theo ngày, dùng group_by là "day". Khi chia theo tháng, dùng group_by là "month".
-- Nếu pending_name_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ có tên đang chờ xác nhận nên chưa được tính.
 - Nếu review_documents lớn hơn 0, nói rõ có bấy nhiêu giấy tờ đang chờ xem lại nên chưa được tính.
 - Nếu not_reread_messages lớn hơn 0, nói rõ kết quả chưa đầy đủ vì còn bấy nhiêu tin nhắn chưa được đọc lại.
 - Nếu without_number lớn hơn 0, nêu số giấy tờ phù hợp nhưng không có số này.
