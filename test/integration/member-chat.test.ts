@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { replyWithText } from '../fakes/fake-chat-service.ts';
+import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertRecordRow } from './record-rows.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 
@@ -113,6 +114,27 @@ describe('a member chats with the bot', () => {
     await harness.receiveText('zu-hung', 'Chào bạn');
 
     expect(await harness.database.query(`SELECT 1 FROM outbound_messages WHERE external_user_id = 'zu-hung'`)).toEqual([]);
+  });
+
+  it('queues the photo of a member answer without an admin membership', async () => {
+    const recordId = await insertRecordRow(harness.database, {
+      workspaceId: harness.workspaceId,
+      userId: harness.hungUserId,
+      senderName: 'Hùng',
+      imageKey: 'hung/phieu-dau.jpg',
+    });
+    harness.chat.follow((_request, callNumber) =>
+      callNumber === 1
+        ? replyWithToolCalls({ id: 'call_1', name: 'attach_photos', argumentsJson: JSON.stringify({ record_ids: [recordId] }) })
+        : replyWithText('Đây là ảnh phiếu dầu.'),
+    );
+
+    await harness.receiveText('zu-hung', 'Gửi lại ảnh phiếu dầu');
+
+    expect(await harness.database.query(`SELECT kind, photo_key, admin_membership_id FROM outbound_messages ORDER BY kind`)).toEqual([
+      { kind: 'image', photo_key: 'hung/phieu-dau.jpg', admin_membership_id: null },
+      { kind: 'text', photo_key: null, admin_membership_id: null },
+    ]);
   });
 
   function makeFuelItem() {
