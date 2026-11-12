@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
@@ -66,5 +66,21 @@ describe('the memory of a user in the chat', () => {
     await harness.receiveText('zu-hung', 'Tôi gửi gì hôm nay? Nhớ là A');
 
     expect(await readUserMemory(harness.database, harness.hungUserId)).toBe('- A');
+  });
+
+  it('logs the memory tool by name and argument name without the fact', async () => {
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    harness.chat.follow((_request, callNumber) =>
+      callNumber === 1
+        ? replyWithToolCalls({ id: 'call_1', name: 'remember', argumentsJson: JSON.stringify({ fact: 'Tôi lái xe 29C-123.45' }) })
+        : replyWithText('Đã nhớ.'),
+    );
+
+    await harness.receiveText('zu-hung', 'Nhớ là tôi lái xe 29C-123.45');
+
+    const lines = logged.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[admin-chat]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('remember(fact)=');
+    expect(lines[0]).not.toContain('29C-123.45');
   });
 });
