@@ -108,7 +108,7 @@ describe('joining a workspace with an invite code', () => {
     expect(channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
       [
         'zu-hung',
-        'Bạn đã vào nhóm "Xe tải Duy Khương" với tên Hùng, vai trò thành viên.\nTừ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé.',
+        'Bạn đã vào nhóm "Xe tải Duy Khương" với tên Hùng, vai trò thành viên.\nTừ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé. Bạn cũng có thể hỏi Trợ lý về dữ liệu mình đã gửi, hoặc hỏi "Bạn làm được gì?".',
       ],
     ]);
   });
