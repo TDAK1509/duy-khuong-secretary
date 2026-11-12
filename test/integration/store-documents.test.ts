@@ -243,6 +243,15 @@ describe('storing the documents of a saved message', () => {
     ]);
   });
 
+  it('stores a blank name from the reader as null', async () => {
+    await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeParty('issuer', MISREAD_NAME, '  ')] })]));
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await database.query('SELECT known_name FROM document_parties')).toEqual([{ known_name: null }]);
+  });
+
   it('creates an organization with an alias for a new name and links the party to it', async () => {
     const customer = makeParty('customer', 'C.Ty CHANH DUONG');
     harness.reader.answerWith(makeReading([makeTicketItem({ parties: [customer] })]));
