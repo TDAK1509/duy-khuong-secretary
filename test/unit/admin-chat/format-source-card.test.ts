@@ -32,4 +32,10 @@ describe('a source card', () => {
 
     expect(formatSourceCard(1, source)).toMatch(/^Nguồn 1: Bạn gửi tin nhắn/);
   });
+
+  it('lists two paper dates', () => {
+    const source = makeSource({ paperDates: ['29/10/2026', '30/10/2026'] });
+
+    expect(formatSourceCard(1, source)).toContain('Ngày trên giấy tờ: 29/10/2026, 30/10/2026.');
+  });
 });
