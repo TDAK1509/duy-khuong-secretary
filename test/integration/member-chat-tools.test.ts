@@ -47,19 +47,6 @@ describe('the tools of a member in the chat', () => {
     await database.drop();
   });
 
-  async function runTool(name: string, args: object, scope: AccessScope = lan): Promise<string> {
-    const dependencies = {
-      database: pool,
-      clock: new FakeClock(new Date('2026-11-02T14:05:00+07:00')),
-      attachments: new PhotoAttachments(),
-      created: new CreatedTasks(null),
-      invites: new CreatedInvites(),
-      nameReview: new NameReviewRequest(),
-      guard: new AdminTextGuard(false),
-    };
-    return runChatTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
-  }
-
   it('refuses the member list', async () => {
     expect(await runTool('list_members', {})).toBe(NO_PERMISSION);
   });
@@ -118,4 +105,17 @@ describe('the tools of a member in the chat', () => {
 
     expect(output).toBe('{"attached":0}');
   });
+
+  async function runTool(name: string, args: object, scope: AccessScope = lan): Promise<string> {
+    const dependencies = {
+      database: pool,
+      clock: new FakeClock(new Date('2026-11-02T14:05:00+07:00')),
+      attachments: new PhotoAttachments(),
+      created: new CreatedTasks(null),
+      invites: new CreatedInvites(),
+      nameReview: new NameReviewRequest(),
+      guard: new AdminTextGuard(false),
+    };
+    return runChatTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
 });

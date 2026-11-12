@@ -35,7 +35,7 @@ function hideLinePairFromReaderJson<Detail extends object>(detail: Detail, lineP
 }
 
 export function makeReading(items: ReadingItem[] = [makeItem()], overrides: Partial<Reading> = {}): Reading {
-  return { has_work_data: true, needs_explanation: false, has_question: false, items, ...overrides };
+  return { has_work_data: true, needs_explanation: false, has_question: false, photo_problem: null, items, ...overrides };
 }
 
 export function succeed(reading: Reading): ReadAttempt {

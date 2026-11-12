@@ -1,10 +1,25 @@
 import { formatVietnamDateTime } from '../workspaces/format-expiry.ts';
 
-export const UPLOAD_ONLY_TEXT =
-  'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.';
+export const PHOTO_BLURRY_TEXT =
+  'Ảnh này bị mờ hoặc thiếu sáng nên Trợ lý chưa đọc được chữ và chưa lưu thông tin. Bạn chụp lại gần hơn, đủ sáng, rồi gửi lại nhé.';
 
-export const UNRESOLVED_TEXT =
-  'Tôi đọc ảnh này chưa chắc chắn nên chưa lưu. Bạn chụp lại gần hơn, đủ sáng, hoặc nhắn rõ nội dung, ví dụ: "Thay dầu máy 850.000đ ngày 30/10".';
+export const PHOTO_CUT_OFF_TEXT =
+  'Ảnh này bị mất một phần giấy tờ nên Trợ lý chưa lưu thông tin. Bạn chụp lại cho thấy đủ cả tờ giấy rồi gửi lại nhé.';
+
+export const PHOTO_NOT_WORK_TEXT =
+  'Ảnh này không phải giấy tờ hay việc công việc nên Trợ lý chưa lưu. Nếu đây là việc cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
+
+export const PHOTO_NOTHING_TO_SAVE_TEXT =
+  'Trợ lý chưa thấy thông tin công việc cần lưu trong ảnh này nên chưa lưu. Nếu cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
+
+export const TEXT_NOTHING_TO_SAVE_TEXT =
+  'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.';
+
+export const READ_FAILED_PHOTO_TEXT =
+  'Trợ lý đã nhận ảnh nhưng đang gặp lỗi khi đọc nên chưa lưu thông tin trong ảnh. Bạn gửi lại ảnh sau ít phút nhé.';
+
+export const READ_FAILED_TEXT =
+  'Trợ lý đang gặp lỗi khi đọc tin nhắn này nên chưa lưu. Bạn gửi lại sau ít phút nhé.';
 
 export const MAINTENANCE_WITHOUT_PLATE_TEXT =
   'Giấy tờ bảo dưỡng này chưa có biển số xe nên tôi chưa lưu. Bạn gửi lại ảnh kèm tin nhắn ghi biển số xe, ví dụ: 29C-123.45.';

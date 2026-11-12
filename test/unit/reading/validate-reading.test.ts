@@ -42,6 +42,22 @@ describe('validateReading', () => {
     expect(attempt).toMatchObject({ ok: true, reading: { items: [{ category: 'kiểm định xe', document_title: title }] } });
   });
 
+  it('keeps the photo problem the reader found', () => {
+    const json = { ...(makeFuelJson() as object), has_work_data: false, photo_problem: 'blurry', items: [] };
+
+    expect(validateReading(json)).toMatchObject({ ok: true, reading: { photo_problem: 'blurry' } });
+  });
+
+  it('fails the read when the photo problem is not one the reader may give', () => {
+    const json = { ...(makeFuelJson() as object), photo_problem: 'dark' };
+
+    expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
+
+  it('reads a reading without a photo problem as no photo problem', () => {
+    expect(validateReading(makeFuelJson())).toMatchObject({ ok: true, reading: { photo_problem: null } });
+  });
+
   it('fails the read when a date does not exist', () => {
     const attempt = validateReading(makeFuelJson({ occurred_on: '2026-02-30' }));
 

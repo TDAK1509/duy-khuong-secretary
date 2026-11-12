@@ -7,6 +7,7 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
   "has_work_data":{"type":"boolean"},
   "needs_explanation":{"type":"boolean"},
   "has_question":{"type":"boolean"},
+  "photo_problem":{"type":["string","null"],"enum":["blurry","cut_off","not_work",null]},
   "items":{"type":"array","items":{"type":"object","additionalProperties":false,
    "properties":{
     "category":{"type":"string"},
@@ -28,4 +29,4 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
         "meaning":{"type":["string","null"]},"item":{"type":["string","null"]},"date_time":{"type":["string","null"]}},
       "required":["label","value","number","unit","meaning","item","date_time"]}}},
    "required":["category","document_title","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","document_kind","stage","parties","details"]}}},
- "required":["has_work_data","needs_explanation","has_question","items"]};
+ "required":["has_work_data","needs_explanation","has_question","photo_problem","items"]};
