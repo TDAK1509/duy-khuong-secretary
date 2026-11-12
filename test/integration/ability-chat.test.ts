@@ -26,4 +26,14 @@ describe('the abilities the bot lists in a chat', () => {
     expect(request?.system).toContain(buildAbilitySection(request?.tools ?? []));
     expect(request?.system).not.toContain(INVITE_ABILITY_LINE);
   });
+
+  it('lists to an admin the abilities of the tools in the request', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await harness.receiveText('zu-duy', ASK_ABILITIES);
+
+    const request = harness.chat.requests[0];
+    expect(request?.system).toContain(buildAbilitySection(request?.tools ?? []));
+    expect(request?.system).toContain(INVITE_ABILITY_LINE);
+  });
 });
