@@ -73,4 +73,15 @@ describe('the migration that merges the names that are waiting', () => {
       { organization_id: chengLoongId },
     ]);
   });
+
+  it('lets the earliest waiting party pick the company', async () => {
+    const otherCompanyId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Cheng Long Khác' });
+    await insertWaitingParty('Chống Loong', chengLoongId);
+    await insertWaitingParty('Chống Loong', otherCompanyId);
+
+    await runMigration();
+
+    expect(await database.query('SELECT DISTINCT organization_id FROM document_parties')).toEqual([{ organization_id: chengLoongId }]);
+    expect(await database.query('SELECT organization_id FROM merged_names')).toEqual([{ organization_id: chengLoongId }]);
+  });
 });
