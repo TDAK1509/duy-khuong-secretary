@@ -203,5 +203,20 @@ describe('the chat finds the original message of a record', () => {
         { kind: 'image', to: 'zu-duy', photo },
       ]);
     });
+
+    it('sends a card longer than the channel limit in parts and stores it in full', async () => {
+      const longText = 'Đổ dầu '.repeat(Math.ceil(harness.channel.maxTextLength / 7) + 10).trim();
+      const recordId = await insertRecordRow(database, { workspaceId, userId: harness.hungUserId, senderName: 'Hùng', messageText: longText });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-duy', 'lấy từ đâu?');
+      await harness.sendAllQueuedTexts();
+
+      const cardParts = harness.channel.sends.slice(1).map((sent) => (sent.kind === 'text' ? sent.text : ''));
+      expect(cardParts.length).toBeGreaterThan(1);
+      expect(cardParts.every((part) => Array.from(part).length <= harness.channel.maxTextLength)).toBe(true);
+      const [stored] = await database.query<{ text: string }>(`SELECT text FROM messages WHERE reply_kind = 'answer'`);
+      expect(stored?.text).toContain(`Nguyên văn: "${longText}"`);
+    });
   });
 });
