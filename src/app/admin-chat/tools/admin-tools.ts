@@ -1,5 +1,6 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 import { LIST_DOCUMENT_NUMBERS_SPEC, LIST_DOCUMENTS_SPEC, LIST_ORGANIZATIONS_SPEC, TOTAL_DOCUMENT_NUMBERS_SPEC } from './document-number-specs.ts';
+import { LIST_MERGED_NAMES_SPEC, SPLIT_MERGED_NAME_SPEC } from './merged-name-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-source-specs.ts';
 import {
@@ -25,6 +26,8 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   CREATE_SCHEDULED_TASK_SPEC,
   LIST_SCHEDULED_TASKS_SPEC,
   CANCEL_SCHEDULED_TASK_SPEC,
+  LIST_MERGED_NAMES_SPEC,
+  SPLIT_MERGED_NAME_SPEC,
   LIST_DOCUMENT_NUMBERS_SPEC,
   TOTAL_DOCUMENT_NUMBERS_SPEC,
   LIST_ORGANIZATIONS_SPEC,
