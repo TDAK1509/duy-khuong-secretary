@@ -4,6 +4,7 @@ import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -111,6 +112,7 @@ describe('the tools of a member in the chat', () => {
       database: pool,
       clock: new FakeClock(new Date('2026-11-02T14:05:00+07:00')),
       attachments: new PhotoAttachments(),
+      sources: new SourceCards(),
       created: new CreatedTasks(null),
       invites: new CreatedInvites(),
       nameReview: new NameReviewRequest(),

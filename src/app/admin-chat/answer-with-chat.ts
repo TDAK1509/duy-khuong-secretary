@@ -21,6 +21,7 @@ import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
+import { SourceCards } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
 import { NameReviewRequest } from './name-review-request.ts';
 import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
@@ -66,7 +67,7 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile, view.hideFlaggedAnswers);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }

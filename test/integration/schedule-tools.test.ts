@@ -4,6 +4,7 @@ import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -35,7 +36,7 @@ describe('the scheduling tools', () => {
   });
 
   function runTool(scope: AccessScope, name: string, args: unknown, created = new CreatedTasks(null), guard = new AdminTextGuard(false)): Promise<string> {
-    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), created, invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
+    const dependencies = { database: harness.pool, clock: harness.clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created, invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
     return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
   }
 

@@ -6,6 +6,7 @@ import { CreatedInvites } from '../admin-chat/created-invites.ts';
 import { NameReviewRequest } from '../admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
+import { SourceCards } from '../admin-chat/source-cards.ts';
 import { runToolLoop } from '../admin-chat/run-tool-loop.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
@@ -58,7 +59,7 @@ async function askModel(
   { userTurn, dueRecords }: { userTurn: string; dueRecords: DueRecord[] },
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
-  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(true) };
+  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(true) };
   const result = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );

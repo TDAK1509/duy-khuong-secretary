@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AccessScope } from '../../src/app/access/access-scope.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
+import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { CreatedInvites } from '../../src/app/admin-chat/created-invites.ts';
 import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.ts';
 import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
@@ -70,7 +71,7 @@ describe('the service connected as the runtime role', () => {
       const filters = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
 
       const output = await runAdminTool(
-        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) },
+        { database: pool, clock: new FakeClock(NOW), attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) },
         duy,
         { id: 'call_1', name: 'search_records', argumentsJson: JSON.stringify(filters) },
       );
