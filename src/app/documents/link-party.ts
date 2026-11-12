@@ -3,15 +3,12 @@ import { toAccentFreeForm } from '../reading/normalize.ts';
 import type { ReadingParty } from '../reading/reading.ts';
 import { insertOrganization } from './insert-organization.ts';
 
-export type PartyLink = { organization_id: string | null; proposed_organization_id: string | null };
-
-export async function linkParty(transaction: Transaction, workspaceId: string, party: ReadingParty, matchKey: string): Promise<PartyLink> {
+export async function linkParty(transaction: Transaction, workspaceId: string, party: ReadingParty, matchKey: string): Promise<string> {
   const aliased = await findAliasedOrganization(transaction, workspaceId, matchKey);
-  if (aliased) return { organization_id: aliased, proposed_organization_id: null };
-  const proposed = await findOrganizationNamed(transaction, workspaceId, party.known_name);
-  if (proposed) return { organization_id: null, proposed_organization_id: proposed };
-  const created = await insertOrganization(transaction, workspaceId, { type: party.type, printedName: party.printed_name, matchKey });
-  return { organization_id: created, proposed_organization_id: null };
+  if (aliased) return aliased;
+  const merged = await findOrganizationNamed(transaction, workspaceId, party.known_name);
+  if (merged) return merged;
+  return insertOrganization(transaction, workspaceId, { type: party.type, printedName: party.printed_name, matchKey });
 }
 
 export async function findAliasedOrganization(transaction: Transaction, workspaceId: string, matchKey: string): Promise<string | null> {

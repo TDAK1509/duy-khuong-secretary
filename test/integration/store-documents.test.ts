@@ -212,24 +212,16 @@ describe('storing the documents of a saved message', () => {
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
-      { organization_id: organizationId, proposed_organization_id: null },
-    ]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
   });
 
-  it('proposes the organization of a known name when the printed name is not an alias', async () => {
-    const organizationId = await insertOrganizationWithAlias(database, {
-      workspaceId: harness.workspaceId,
-      name: 'Công ty TNHH Cheng Loong Bình Dương Paper',
-    });
-    const misread = makeParty('issuer', 'Công ty TNHH Chống Loong Bình Dương Paper', 'Công ty TNHH Cheng Loong Bình Dương Paper');
-    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [misread] })]));
+  it('counts a new spelling of a saved company under it at once', async () => {
+    const organizationId = await insertChengLoong();
+    harness.reader.answerWith(makeReading([makeTicketItem({ parties: [makeMisreadIssuer()] })]));
 
     await harness.receivePhoto('zu-hung');
 
-    expect(await database.query('SELECT organization_id, proposed_organization_id FROM document_parties')).toEqual([
-      { organization_id: null, proposed_organization_id: organizationId },
-    ]);
+    expect(await database.query('SELECT organization_id FROM document_parties')).toEqual([{ organization_id: organizationId }]);
   });
 
   it('stores the name the reader gave next to the printed name', async () => {
