@@ -65,6 +65,7 @@ export async function searchRecords(database: Database, scope: AccessScope, filt
 export function buildWhere(scope: AccessScope, filters: RecordFilters): WhereClause {
   const where = new WhereClause();
   where.require(`record.workspace_id = ${where.bind(scope.workspaceId)}`);
+  if (scope.role === 'member') where.require(`record.user_id = ${where.bind(scope.userId)}`);
   if (filters.text !== null) where.require(buildTextCondition(where, filters.text));
   if (filters.member !== null) where.require(buildAccentFreeEquals(where, 'record.sender_name', filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);

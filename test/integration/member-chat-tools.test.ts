@@ -10,8 +10,20 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const SEARCH_WITHOUT_FILTERS = {
+  text: null,
+  category: null,
+  member: null,
+  plate: null,
+  added_from: null,
+  added_to: null,
+  occurred_from: null,
+  occurred_to: null,
+  cursor: null,
+};
 const NO_PERMISSION = '{"ok":false,"error":"Không có quyền."}';
 
 describe('the tools of a member in the chat', () => {
@@ -19,6 +31,7 @@ describe('the tools of a member in the chat', () => {
   let pool: PostgresPool;
   let workspaceId: string;
   let lan: AccessScope;
+  let hungUserId: string;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
@@ -26,6 +39,7 @@ describe('the tools of a member in the chat', () => {
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
     lan = { workspaceId, userId: lanUserId, role: 'member' };
+    hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
   });
 
   afterEach(async () => {
@@ -55,5 +69,16 @@ describe('the tools of a member in the chat', () => {
 
     expect(output).toBe(NO_PERMISSION);
     expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
+  });
+
+  it('finds only the records of the member in a search without filters', async () => {
+    await insertRecordRow(database, { workspaceId, userId: lan.userId, senderName: 'Lan', summary: 'dầu của Lan 1' });
+    await insertRecordRow(database, { workspaceId, userId: lan.userId, senderName: 'Lan', summary: 'dầu của Lan 2' });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', summary: 'dầu của Hùng 1' });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng', summary: 'dầu của Hùng 2' });
+
+    const output = await runTool('search_records', SEARCH_WITHOUT_FILTERS);
+
+    expect(JSON.parse(output).items.map((item: { summary: string }) => item.summary).sort()).toEqual(['dầu của Lan 1', 'dầu của Lan 2']);
   });
 });
