@@ -6,6 +6,9 @@ import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts'
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
+import { linkParty } from '../../src/app/documents/link-party.ts';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { formatVietnamDate } from '../../src/app/time/format-vietnam-date.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -136,6 +139,22 @@ describe('the merged names of an admin', () => {
     expect(merged).toEqual([]);
     expect(aliases).toEqual([{ name: CHONG_LOONG }]);
   });
+
+  it('keeps a split spelling apart when it is read again', async () => {
+    await runSplitMergedName(CHONG_LOONG);
+
+    const organizationId = await readSpellingAgain();
+
+    const merged = await database.query(`SELECT 1 FROM merged_names WHERE match_key = ${literal(buildMatchKey(CHONG_LOONG))}`);
+    const [organization] = await database.query<{ name: string }>(`SELECT name FROM organizations WHERE id = ${literal(organizationId)}`);
+    expect(organization?.name).toBe(CHONG_LOONG);
+    expect(merged).toEqual([]);
+  });
+
+  function readSpellingAgain(): Promise<string> {
+    const party = { role: 'customer', type: 'company', printed_name: CHONG_LOONG, known_name: CHENG_LOONG } as const;
+    return runInTransaction(scopeDatabase(pool, { workspaceId }), (transaction) => linkParty(transaction, workspaceId, party, buildMatchKey(CHONG_LOONG)));
+  }
 
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
