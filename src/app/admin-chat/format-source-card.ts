@@ -4,7 +4,8 @@ import type { RecordSource } from '../records/record-source.ts';
 
 export function formatSourceCard(cardNumber: number, source: RecordSource): string {
   const kind = source.kind === 'photo' ? 'ảnh' : 'tin nhắn';
-  const header = `Nguồn ${cardNumber}: ${source.sender} gửi ${kind} lúc ${formatVietnamTime(source.sentAt)} ngày ${formatVietnamDate(source.sentAt)}.`;
+  const sender = source.isOwn ? 'Bạn' : source.sender;
+  const header = `Nguồn ${cardNumber}: ${sender} gửi ${kind} lúc ${formatVietnamTime(source.sentAt)} ngày ${formatVietnamDate(source.sentAt)}.`;
   const paperDates = source.paperDates.length === 0 ? [] : [`Ngày trên giấy tờ: ${source.paperDates.join(', ')}.`];
   const original = source.text === null ? [] : [`Nguyên văn: "${source.text}"`];
   return [header, ...paperDates, ...original].join('\n');

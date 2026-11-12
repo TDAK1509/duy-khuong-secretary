@@ -26,4 +26,10 @@ describe('a source card', () => {
 
     expect(formatSourceCard(2, source)).toBe('Nguồn 2: Hùng gửi ảnh lúc 08:15 ngày 12/11/2026.\nNgày trên giấy tờ: 30/10/2026.');
   });
+
+  it('says "Bạn" for the caller\'s own message', () => {
+    const source = makeSource({ isOwn: true });
+
+    expect(formatSourceCard(1, source)).toMatch(/^Nguồn 1: Bạn gửi tin nhắn/);
+  });
 });
