@@ -60,6 +60,15 @@ describe('the merged names of an admin', () => {
     expect(listed.left_out).toBe(0);
   });
 
+  it('lists the newest merge first', async () => {
+    await insertMergedName({ printedName: 'Kim Nhân Đạo cũ', documentCount: 0, createdAt: '2000-01-01T10:00:00+07:00' });
+    await insertMergedName({ printedName: 'Kim Nhân Đạo mới', documentCount: 0, createdAt: '2100-01-01T10:00:00+07:00' });
+
+    const listed = await runListMergedNames();
+
+    expect(listed.merged_names.map((merged) => merged.printed_name)).toEqual(['Kim Nhân Đạo mới', CHONG_LOONG, 'Kim Nhân Đạo cũ']);
+  });
+
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
     await database.query(
