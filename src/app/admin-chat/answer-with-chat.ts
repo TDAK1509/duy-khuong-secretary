@@ -1,5 +1,5 @@
 import type { ChatRequest, ChatService } from '../../services/chat/chat-service.ts';
-import { isCurrentAdmin } from '../access/is-current-admin.ts';
+import { isCurrentMember } from '../access/is-current-member.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
@@ -13,7 +13,7 @@ import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
-import { loadAdminProfile, type AdminProfile } from './load-admin-profile.ts';
+import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
@@ -27,7 +27,7 @@ import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
 export async function answerWithChat(context: IntakeContext, message: ChatMessage): Promise<void> {
-  const profile = await loadAdminProfile(context.dependencies.database, context.sender.membershipId);
+  const profile = await loadChatProfile(context.dependencies.database, context.sender.membershipId);
   if (profile === null) return;
   const answer = await produceAnswer(context, message, profile);
   await context.stages.runStage({
@@ -37,6 +37,7 @@ export async function answerWithChat(context: IntakeContext, message: ChatMessag
 }
 
 type Answer = {
+  role: ChatProfile['role'];
   text: string;
   photos: AttachablePhoto[];
   createdTaskIds: string[];
@@ -46,7 +47,7 @@ type Answer = {
   holdsOtherText: boolean;
 };
 
-async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
+async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
   const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote });
   const isRefusedOnlyByHistory = first.answer.changeRefused && first.hasFlaggedAnswer && !hasNote;
@@ -56,18 +57,19 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
 
 type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean };
 
-async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: AdminProfile, view: ChatTurnView): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
+async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
   const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile, view.hideFlaggedAnswers);
-  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
+  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, attachments: new PhotoAttachments(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runAdminTool(dependencies, caller, call));
-  return { answer: collectAnswer(result.text, dependencies), hasFlaggedAnswer };
+  return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
 
-function collectAnswer(text: string, { attachments, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
+function collectAnswer(text: string, role: ChatProfile['role'], { attachments, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
   return {
+    role,
     text,
     photos: attachments.list(),
     createdTaskIds: created.listTaskIds(),
@@ -90,7 +92,7 @@ async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, r
   }
 }
 
-async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: AdminProfile, hideFlaggedAnswers: boolean): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, hideFlaggedAnswers: boolean): Promise<{ request: ChatRequest; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const request = {
@@ -114,16 +116,17 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
-  if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
+  if (!(await isCurrentMember(transaction, sender.membershipId, answer.role))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const text = joinAnswerParts(answer, summaries);
   await storeBotReply(transaction, messageId, { text, kind: 'answer', holdsOtherText: answer.holdsOtherText });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
-  await enqueueReply(transaction, context, text, { adminMembershipId: sender.membershipId });
-  for (const code of answer.inviteCodes) await enqueueReply(transaction, context, code, { adminMembershipId: sender.membershipId });
-  await enqueueReplyPhotos(transaction, context, answer.photos, sender.membershipId);
+  const adminMembershipId = answer.role === 'admin' ? sender.membershipId : undefined;
+  await enqueueReply(transaction, context, text, { adminMembershipId });
+  for (const code of answer.inviteCodes) await enqueueReply(transaction, context, code, { adminMembershipId });
+  await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
   if (answer.hasNameReview) await queueNameProposalToSender(transaction, context);
 }
 

@@ -24,7 +24,7 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
 }
 
 async function replyWithPlan(context: IntakeContext, message: MessageToRead, { attempt, plan }: FirstReading): Promise<IntakeOutcome> {
-  if (isSentToChat(context, plan, message)) {
+  if (isSentToChat(plan, message)) {
     logIntake(context, message.id, toLoggedReading({ attempt, plan }), 'admin_chat');
     await answerWithChat(context, message);
     return { kind: 'replied' };
@@ -78,6 +78,6 @@ async function replyOnRereadPhoto(
   return { kind: 'replied' };
 }
 
-function isSentToChat({ sender }: IntakeContext, { situation }: ReplyPlan, { photo }: MessageToRead): boolean {
-  return sender.role === 'admin' && photo === null && situation === 'no_work_data';
+function isSentToChat({ situation }: ReplyPlan, { photo }: MessageToRead): boolean {
+  return photo === null && situation === 'no_work_data';
 }

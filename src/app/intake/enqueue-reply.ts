@@ -8,7 +8,7 @@ import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { hasSeveralPhotos } from './intake-parts.ts';
 
-export type ReplyOptions = { adminMembershipId?: string; quote?: QuotedMessage };
+export type ReplyOptions = { adminMembershipId?: string | undefined; quote?: QuotedMessage };
 
 export async function enqueueReply(
   transaction: Transaction,
@@ -84,14 +84,14 @@ export async function enqueueReplyPhotos(
   transaction: Transaction,
   context: IntakeContext,
   photos: AttachablePhoto[],
-  adminMembershipId: string,
+  adminMembershipId: string | undefined,
 ): Promise<void> {
   for (const photo of photos) {
     await enqueueImage(transaction, {
       to: findRecipient(context),
       photoKey: photo.imageKey,
       availableAt: context.dependencies.clock.now(),
-      adminMembershipId,
+      ...(adminMembershipId !== undefined && { adminMembershipId }),
     });
   }
 }

@@ -27,18 +27,6 @@ describe('storing what a member sends', () => {
     ]);
   });
 
-  it('replies to a text that only photos and work data are accepted', async () => {
-    await receiveText('zu-hung', 'Hôm qua tôi gửi gì?');
-    await sendQueuedTexts();
-
-    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
-      [
-        'zu-hung',
-        'Trợ lý chỉ nhận ảnh và thông tin công việc. Bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng để lưu nhé.',
-      ],
-    ]);
-  });
-
   it('stores the reply as a bot message linked to the user message', async () => {
     await receiveText('zu-hung', 'chào');
 

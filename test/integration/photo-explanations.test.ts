@@ -207,7 +207,7 @@ describe('asking what an unclear photo is for', () => {
     await harness.sendAllQueuedTexts();
 
     expect((await readTextsTo('zu-hung')).slice(textsBefore)).toEqual([
-      { text: UPLOAD_ONLY_TEXT, quoteMessageId: undefined },
+      { text: 'Chào anh', quoteMessageId: undefined },
     ]);
     expect(await readPhoto('zmsg-1')).toEqual({ status: 'unresolved', hasBotReply: true });
     expect(await readPhoto('zmsg-2')).toEqual({ status: 'unresolved', hasBotReply: false });
