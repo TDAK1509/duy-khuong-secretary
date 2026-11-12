@@ -93,5 +93,13 @@ describe('which stored bot replies may hold text that the chatting user did not 
 
       expect(await readReplyFlags()).toEqual([false]);
     });
+
+    it('is not flagged when it saves a record read from a text message', async () => {
+      harness.reader.answerWith(makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: '29C-123.45', amount_vnd: 500000 })]));
+
+      await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ xe 29C-123.45');
+
+      expect(await readReplyFlags()).toEqual([false]);
+    });
   });
 });
