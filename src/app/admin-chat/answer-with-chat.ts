@@ -76,7 +76,7 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, c
     inviteCodes: invites.listCodes(),
     hasNameReview: nameReview.isRequested(),
     changeRefused: guard.hasRefused(),
-    holdsOtherText: guard.hasSeenOtherText(),
+    holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
   };
 }
 

@@ -153,6 +153,16 @@ describe('a member chats with the bot', () => {
     ]);
   });
 
+  it('stores the answer to a member as holding text from others', async () => {
+    harness.chat.replyWith('Chào bạn!');
+
+    await harness.receiveText('zu-hung', 'Chào bạn');
+
+    expect(await harness.database.query(`SELECT holds_other_text FROM messages WHERE reply_kind = 'answer'`)).toEqual([
+      { holds_other_text: true },
+    ]);
+  });
+
   function makeFuelItem() {
     return makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: '2026-10-30', vehicle_plate: '29C-123.45' });
   }
