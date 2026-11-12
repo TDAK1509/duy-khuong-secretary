@@ -48,6 +48,12 @@ describe('validateReading', () => {
     expect(validateReading(json)).toMatchObject({ ok: true, reading: { photo_problem: 'blurry' } });
   });
 
+  it('fails the read when the photo problem is not one the reader may give', () => {
+    const json = { ...(makeFuelJson() as object), photo_problem: 'dark' };
+
+    expect(validateReading(json)).toEqual({ ok: false, reason: 'invalid_output' });
+  });
+
   it('fails the read when a date does not exist', () => {
     const attempt = validateReading(makeFuelJson({ occurred_on: '2026-02-30' }));
 
