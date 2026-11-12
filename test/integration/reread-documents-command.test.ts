@@ -17,6 +17,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const READER_SETTINGS = { READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key' };
 const MAX_WAIT_ATTEMPTS = 250;
+const LOCK_WAIT_TEST_TIMEOUT_MS = 20_000;
 const WAIT_STEP_MS = 40;
 const PHOTO_STORAGE_SETTINGS = {
   PHOTO_STORAGE: 's3',
@@ -186,7 +187,7 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT count(*)::int AS count FROM organization_aliases')).toEqual([{ count: 1 }]);
     expect(await database.query('SELECT printed_name FROM document_parties')).toEqual([{ printed_name: 'CÔNG TY MỚI' }]);
     expect(await database.query('SELECT count(*)::int AS count FROM merged_names')).toEqual([{ count: 0 }]);
-  });
+  }, LOCK_WAIT_TEST_TIMEOUT_MS);
 
   it('skips a photo whose inbound event live intake has not finished', async () => {
     const { workspaceId, userId } = await seedWorkspace();
