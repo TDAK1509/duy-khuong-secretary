@@ -52,6 +52,16 @@ describe('the document list of an admin', () => {
     expect(listed.documents.map((document) => document.id)).toEqual([documentId]);
   });
 
+  it('lists only the document-level numbers when the lines are document', async () => {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0002' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 26380, unit: 'kg' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 1, meaning: 'khối lượng', number: 500, unit: 'kg', item: 'Giấy cuộn' });
+
+    const listed = await runList({ lines: 'document' });
+
+    expect(listed.documents[0]?.numbers).toEqual([{ line_no: 0, item: null, label: 'khối lượng', value: '26380 kg', number: '26380', unit: 'kg' }]);
+  });
+
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
     return JSON.parse(await runTool('list_documents', args, scope)) as ListOutput;
