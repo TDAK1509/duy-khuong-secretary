@@ -67,6 +67,15 @@ describe('the document tables for the runtime role', () => {
     expect(count).toBe(0);
   });
 
+  it('hides the merged names from a member scope', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertMergedName(workspaceId, 'Chống Loong');
+
+    const count = await countRows('merged_names', { workspaceId, ownerUserId: lanUserId });
+
+    expect(count).toBe(0);
+  });
+
   it('refuses an organization written into another workspace', async () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải V');
 
@@ -237,6 +246,13 @@ describe('the document tables for the runtime role', () => {
     );
     if (!row) throw new Error('organization not inserted');
     return row.id;
+  }
+
+  async function insertMergedName(inWorkspaceId: string, printedName: string): Promise<void> {
+    const organizationId = await insertOrganization(inWorkspaceId, 'Cheng Loong');
+    const row = `${literal(inWorkspaceId)}, ${literal(organizationId)}, ${literal(printedName)}, 'chongloong'`;
+    await database.query(`INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key) VALUES (${row})`);
+    await database.query(`INSERT INTO merged_names (workspace_id, organization_id, printed_name, match_key) VALUES (${row})`);
   }
 
   async function insertMeaning(inWorkspaceId: string, name: string): Promise<string> {
