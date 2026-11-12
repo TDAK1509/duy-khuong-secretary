@@ -11,7 +11,6 @@ import { linkParty } from '../../src/app/documents/link-party.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
-import { formatVietnamDate } from '../../src/app/time/format-vietnam-date.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
@@ -46,7 +45,7 @@ describe('the merged names of an admin', () => {
     hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
     duy = { workspaceId, userId: duyUserId, role: 'admin' };
     chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: CHENG_LOONG });
-    await insertMergedName({ printedName: CHONG_LOONG, documentCount: 2 });
+    await insertMergedName({ printedName: CHONG_LOONG, documentCount: 2, createdAt: '2026-11-05T10:00:00+07:00' });
     await insertDocumentOf(CHENG_LOONG, '0003');
   });
 
@@ -59,7 +58,7 @@ describe('the merged names of an admin', () => {
     const listed = await runListMergedNames();
 
     expect(listed.merged_names).toEqual([
-      { printed_name: CHONG_LOONG, organization: CHENG_LOONG, merged_on: formatVietnamDate(new Date()), document_count: 2 },
+      { printed_name: CHONG_LOONG, organization: CHENG_LOONG, merged_on: '05/11/2026', document_count: 2 },
     ]);
     expect(listed.left_out).toBe(0);
   });
