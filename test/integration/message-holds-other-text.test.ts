@@ -47,5 +47,13 @@ describe('which stored bot replies may hold text that the chatting user did not 
 
       expect(await readAnswerFlags()).toEqual([true]);
     });
+
+    it('is not flagged after the model read only the member list', async () => {
+      followRounds(replyWithToolCalls(callTool('list_members', {})), replyWithText('Nhóm có Duy và Hùng.'));
+
+      await harness.receiveText('zu-duy', 'Nhóm có ai?');
+
+      expect(await readAnswerFlags()).toEqual([false]);
+    });
   });
 });

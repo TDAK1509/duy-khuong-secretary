@@ -43,6 +43,7 @@ type Answer = {
   inviteCodes: string[];
   hasNameReview: boolean;
   changeRefused: boolean;
+  holdsOtherText: boolean;
 };
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: AdminProfile): Promise<Answer> {
@@ -73,6 +74,7 @@ function collectAnswer(text: string, { attachments, created, invites, nameReview
     inviteCodes: invites.listCodes(),
     hasNameReview: nameReview.isRequested(),
     changeRefused: guard.hasRefused(),
+    holdsOtherText: guard.hasSeenOtherText(),
   };
 }
 
@@ -115,7 +117,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   if (!(await isCurrentAdmin(transaction, sender.membershipId))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const text = joinAnswerParts(answer, summaries);
-  await storeBotReply(transaction, messageId, { text, kind: 'answer', holdsOtherText: true });
+  await storeBotReply(transaction, messageId, { text, kind: 'answer', holdsOtherText: answer.holdsOtherText });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
