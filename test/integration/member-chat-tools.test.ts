@@ -81,4 +81,13 @@ describe('the tools of a member in the chat', () => {
 
     expect(JSON.parse(output).items.map((item: { summary: string }) => item.summary).sort()).toEqual(['dầu của Lan 1', 'dầu của Lan 2']);
   });
+
+  it('refuses a search for another member by name', async () => {
+    await insertRecordRow(database, { workspaceId, userId: lan.userId, senderName: 'Lan' });
+    await insertRecordRow(database, { workspaceId, userId: hungUserId, senderName: 'Hùng' });
+
+    const output = await runTool('search_records', { ...SEARCH_WITHOUT_FILTERS, member: 'Hùng' });
+
+    expect(output).toBe(NO_PERMISSION);
+  });
 });
