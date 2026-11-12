@@ -16,7 +16,7 @@ export async function runListSources(dependencies: AdminToolDependencies, scope:
   const found = await findRecordSources(dependencies.database, scope, args.record_ids.filter(isUuid));
   const listed = found.flatMap((source) => numberSource(dependencies, source));
   const listedRecordCount = listed.reduce((count, { source }) => count + source.recordIds.length, 0);
-  return JSON.stringify({ sources: listed.map(describeSource), left_out: new Set(args.record_ids).size - listedRecordCount });
+  return JSON.stringify({ sources: listed.map((listedSource) => describeSource(dependencies, listedSource)), left_out: new Set(args.record_ids).size - listedRecordCount });
 }
 
 function numberSource({ sources }: AdminToolDependencies, source: RecordSource): ListedSource[] {
@@ -24,7 +24,7 @@ function numberSource({ sources }: AdminToolDependencies, source: RecordSource):
   return card === null ? [] : [{ card, source }];
 }
 
-function describeSource({ card, source }: ListedSource) {
+function describeSource({ sources }: AdminToolDependencies, { card, source }: ListedSource) {
   return {
     card,
     record_ids: source.recordIds,
@@ -32,6 +32,7 @@ function describeSource({ card, source }: ListedSource) {
     sent_at: `${formatVietnamTime(source.sentAt)} ${formatVietnamDate(source.sentAt)}`,
     kind: source.kind,
     paper_dates: source.paperDates,
+    quoted: sources.isQuoted(source.messageId),
   };
 }
 

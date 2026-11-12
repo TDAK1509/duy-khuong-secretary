@@ -2,7 +2,7 @@ import type { ChatRequest, ChatService, ToolSpec } from '../../services/chat/cha
 import { isCurrentMember } from '../access/is-current-member.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
-import { enqueueReply, enqueueReplyPhotos } from '../intake/enqueue-reply.ts';
+import { enqueueReply, enqueueReplyPhotos, enqueueSourceCard } from '../intake/enqueue-reply.ts';
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { listChatTools } from './tools/chat-tools.ts';
@@ -21,7 +21,7 @@ import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
-import { SourceCards, type SourceCard } from './source-cards.ts';
+import { SourceCards, type Conversation, type SourceCard } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
 import { NameReviewRequest } from './name-review-request.ts';
 import { queueNameProposalToSender } from '../name-matches/queue-name-proposal.ts';
@@ -68,9 +68,13 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const { request, hasFlaggedAnswer } = await buildChatRequest(context, message, profile, view.hideFlaggedAnswers);
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
+  const dependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard };
   const result = await runLoggedToolLoop(context, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
+}
+
+function readConversation({ event }: IntakeContext): Conversation {
+  return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
 function collectAnswer(text: string, role: ChatProfile['role'], { attachments, sources, created, invites, nameReview, guard }: AdminToolDependencies): Answer {
@@ -148,7 +152,8 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
   const adminMembershipId = answer.role === 'admin' ? context.sender.membershipId : undefined;
   await enqueueReply(transaction, context, text, { adminMembershipId });
-  for (const followUp of [...answer.inviteCodes, ...answer.sourceCards.map((card) => card.text)]) await enqueueReply(transaction, context, followUp, { adminMembershipId });
+  for (const inviteCode of answer.inviteCodes) await enqueueReply(transaction, context, inviteCode, { adminMembershipId });
+  for (const card of answer.sourceCards) await enqueueSourceCard(transaction, context, card, adminMembershipId);
   await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
 }
 

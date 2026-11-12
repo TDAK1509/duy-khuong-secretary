@@ -63,7 +63,7 @@ describe('the chat finds the original message of a record', () => {
     await harness.receiveText('zu-duy', 'đổ dầu của Hùng hôm nay lấy từ đâu?');
 
     expect(readToolOutput()).toBe(
-      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[]}],"left_out":0}`,
+      `{"sources":[{"card":1,"record_ids":["${recordId}"],"sender":"Hùng","sent_at":"08:15 12/11/2026","kind":"text","paper_dates":[],"quoted":false}],"left_out":0}`,
     );
   });
 
@@ -274,6 +274,31 @@ describe('the chat finds the original message of a record', () => {
       expect(harness.channel.texts.map((sent) => sent.text)).toEqual([
         'Đây là nguồn.',
         'Nguồn 1: Hùng gửi ảnh lúc 10:00 ngày 02/11/2026.\nNgày trên giấy tờ: 29/10/2026, 30/10/2026.\nNguyên văn: "tin nhắn"',
+      ]);
+    });
+  });
+
+  describe('quotes in the conversation', () => {
+    function readOutboundMessages() {
+      return database.query(`SELECT kind, body, quote_message_id, fallback_photo_key, photo_key FROM outbound_messages ORDER BY seq`);
+    }
+
+    it('quotes the own text source of a member', async () => {
+      const recordId = await insertRecordRow(database, {
+        workspaceId,
+        userId: harness.hungUserId,
+        senderName: 'Hùng',
+        messageText: 'Đổ dầu 500k',
+        event: { externalEventId: 'msg-1', sentAt: '2026-11-12T08:15:00+07:00' },
+      });
+      listSourcesThenReply([recordId]);
+
+      await harness.receiveText('zu-hung', 'cái này lấy từ đâu?');
+
+      expect(readToolOutput()).toContain('"quoted":true');
+      expect(await readOutboundMessages()).toMatchObject([
+        { kind: 'text', body: 'Đây là nguồn.', quote_message_id: null },
+        { kind: 'text', body: expect.stringContaining('Nguồn 1: Bạn gửi tin nhắn'), quote_message_id: 'msg-1' },
       ]);
     });
   });

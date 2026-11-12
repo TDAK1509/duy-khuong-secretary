@@ -24,6 +24,11 @@ export class SourceCards {
     return [...this.sources.keys()].indexOf(source.messageId) + 1;
   }
 
+  isQuoted(messageId: string): boolean {
+    const source = this.sources.get(messageId);
+    return source !== undefined && findQuote(source, this.conversation) !== null;
+  }
+
   list(): SourceCard[] {
     return [...this.sources.values()].map((source, index) => this.describeCard(index + 1, source));
   }

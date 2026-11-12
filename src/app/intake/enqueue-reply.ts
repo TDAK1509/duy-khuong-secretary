@@ -5,6 +5,7 @@ import { enqueueText } from '../delivery/enqueue-text.ts';
 import { splitText } from '../delivery/split-text.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
+import type { SourceCard } from '../admin-chat/source-cards.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { hasSeveralPhotos } from './intake-parts.ts';
 
@@ -25,6 +26,17 @@ export async function enqueueReply(
     ...(adminMembershipId !== undefined && { adminMembershipId }),
     ...(quote !== undefined && { quote }),
   });
+}
+
+export async function enqueueSourceCard(
+  transaction: Transaction,
+  context: IntakeContext,
+  { text, quote }: SourceCard,
+  adminMembershipId: string | undefined,
+): Promise<void> {
+  const [firstPart = '', ...otherParts] = splitText(text, context.dependencies.channel.maxTextLength);
+  await enqueueReply(transaction, context, firstPart, { adminMembershipId, quote });
+  for (const part of otherParts) await enqueueReply(transaction, context, part, { adminMembershipId });
 }
 
 export async function enqueueRefusal(transaction: Transaction, context: IntakeContext, text: string): Promise<void> {
