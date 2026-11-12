@@ -6,7 +6,8 @@ import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
-import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
+import { runAdminTool, runToolInScope } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
+import type { AdminToolDependencies } from '../../src/app/admin-chat/tools/tool-dependencies.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
@@ -154,6 +155,17 @@ describe('the document list of an admin', () => {
     expect(listed.documents).toEqual([]);
   });
 
+  it('refuses a member who dispatches list_documents', async () => {
+    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0031' });
+    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 26380, unit: 'kg' });
+    const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+    const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null };
+
+    const output = await runToolInScope(buildDependencies(), hung, { id: 'call_1', name: 'list_documents', argumentsJson: JSON.stringify(args) });
+
+    expect(JSON.parse(output)).toEqual({ ok: false, error: 'Không có quyền.' });
+  });
+
   async function runList(overrides: Record<string, string | null> = {}, scope: AccessScope = duy): Promise<ListOutput> {
     const args = { meaning: 'khối lượng', lines: 'document', ...buildEmptyFilters(), cursor: null, ...overrides };
     return JSON.parse(await runTool('list_documents', args, scope)) as ListOutput;
@@ -164,8 +176,11 @@ describe('the document list of an admin', () => {
   }
 
   async function runTool(name: string, args: object, scope: AccessScope): Promise<string> {
+    return runAdminTool(buildDependencies(), scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
+
+  function buildDependencies(): AdminToolDependencies {
     const clock = new FakeClock(new Date('2026-11-07T10:00:00+07:00'));
-    const dependencies = { database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
-    return runAdminTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+    return { database: pool, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), nameReview: new NameReviewRequest(), guard: new AdminTextGuard(false) };
   }
 });
