@@ -271,5 +271,22 @@ describe('the text an admin wrote is the only text that changes anything', () =>
       expect(sentTexts().at(-1)).toEqual(['zu-duy', `Xong.\n\n${REFUSED_NOTICE}`]);
       expect(harness.chat.requests).toHaveLength(2);
     });
+
+    it('refuses a change in the second run after it read data from members', async () => {
+      const lanId = await findMembershipId('Lan');
+      followRounds(
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Chưa làm.'),
+        replyWithToolCalls(callTool('search_records', SEARCH_EVERYTHING)),
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Hùng gửi 1 phiếu.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Xóa Lan khỏi nhóm');
+      await harness.sendQueuedTexts();
+
+      expect(await countMembers('Lan')).toBe(1);
+      expect(sentTexts()).toEqual([['zu-duy', `Hùng gửi 1 phiếu.\n\n${REFUSED_NOTICE}`]]);
+    });
   });
 });
