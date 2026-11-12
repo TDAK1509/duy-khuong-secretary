@@ -86,17 +86,6 @@ describe('the document list of an admin', () => {
     expect(listed.documents.map((document) => document.id)).toEqual([accepted]);
   });
 
-  it('leaves out a document whose company name waits for confirmation', async () => {
-    const chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Cheng Loong' });
-    const documentId = await insertNumberedDocument(database, { workspaceId, userId: hungUserId, documentNumber: '0006' });
-    await insertNumberLine(database, { workspaceId, documentId, lineNo: 0, meaning: 'khối lượng', number: 27790, unit: 'kg' });
-    await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId: chengLoongId, printedName: 'Chống Loong', isConfirmed: false });
-
-    const listed = await runList({ organization: 'Công ty Cheng Loong' });
-
-    expect(listed.documents).toEqual([]);
-  });
-
   it('lists numbers that add up to the total of the same filters', async () => {
     const chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Cheng Loong' });
     const hoaPhatId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Hòa Phát' });

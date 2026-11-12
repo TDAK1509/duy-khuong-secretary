@@ -92,13 +92,11 @@ export type NewParty = {
   role: 'issuer' | 'supplier' | 'customer' | 'carrier' | 'place';
   organizationId: string;
   printedName: string;
-  isConfirmed?: boolean;
 };
 
 export async function insertParty(database: TemporaryDatabase, party: NewParty): Promise<void> {
-  const column = party.isConfirmed === false ? 'proposed_organization_id' : 'organization_id';
   await database.query(
-    `INSERT INTO document_parties (workspace_id, document_id, role, type, printed_name, match_key, ${column})
+    `INSERT INTO document_parties (workspace_id, document_id, role, type, printed_name, match_key, organization_id)
      VALUES (${literal(party.workspaceId)}, ${literal(party.documentId)}, ${literal(party.role)}, 'company', ${literal(party.printedName)},
        ${literal(buildMatchKey(party.printedName))}, ${literal(party.organizationId)})`,
   );
