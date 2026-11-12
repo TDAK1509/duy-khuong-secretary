@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
 
@@ -43,6 +44,22 @@ describe('a member chats with the bot', () => {
       ['zu-hung', MEMBER_FUEL_SAVED_REPLY],
       ['zu-hung', 'Tháng này bạn đổ dầu 3 lần.'],
     ]);
+  });
+
+  it('answers a question left owed after a chat failure without a second record', async () => {
+    harness.reader.answerWith(makeReading([makeFuelItem()], { has_question: true }));
+    harness.chat.follow((_request, callNumber) => {
+      if (callNumber === 1) throw new Error('the worker stopped');
+      return replyWithText('Đây là câu trả lời.');
+    });
+    await harness.receiveText('zu-hung', FUEL_TEXT_WITH_QUESTION);
+    await harness.database.query(`UPDATE inbound_events SET status = 'processing', locked_until = '2026-11-01T00:00:00Z', attempts = 1`);
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM records')).toHaveLength(1);
+    expect(sentTexts().filter(([, text]) => text === 'Đây là câu trả lời.')).toHaveLength(1);
   });
 
   function makeFuelItem() {
