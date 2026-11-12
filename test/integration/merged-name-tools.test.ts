@@ -5,6 +5,7 @@ import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
+import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { linkParty } from '../../src/app/documents/link-party.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
@@ -166,6 +167,30 @@ describe('the merged names of an admin', () => {
     expect(output).toBe('{"ok":false,"error":"Không tìm thấy tên đã gộp này."}');
     expect(counts).toEqual([{ organizations: 1, aliases: 2, moved: 3 }]);
   });
+
+  it('refuses both tools to a member in the chat and changes nothing', async () => {
+    const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+
+    const listed = await runChatToolAs(hung, 'list_merged_names', { text: null });
+    const split = await runChatToolAs(hung, 'split_merged_name', { printed_name: CHONG_LOONG });
+
+    const merged = await database.query(`SELECT 1 FROM merged_names`);
+    expect([listed, split]).toEqual(['{"ok":false,"error":"Không có quyền."}', '{"ok":false,"error":"Không có quyền."}']);
+    expect(merged).toHaveLength(1);
+  });
+
+  function runChatToolAs(scope: AccessScope, name: string, args: object): Promise<string> {
+    const dependencies = {
+      database: pool,
+      clock: new FakeClock(new Date('2026-11-12T10:00:00+07:00')),
+      attachments: new PhotoAttachments(),
+      sources: new SourceCards(),
+      created: new CreatedTasks(null),
+      invites: new CreatedInvites(),
+      guard: new AdminTextGuard(false),
+    };
+    return runChatTool(dependencies, scope, { id: 'call_1', name, argumentsJson: JSON.stringify(args) });
+  }
 
   async function insertMergedName(row: { printedName: string; documentCount: number; createdAt?: string }): Promise<void> {
     const matchKey = buildMatchKey(row.printedName);
