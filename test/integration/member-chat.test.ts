@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText } from '../fakes/fake-chat-service.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 
 const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 500.000đ xe 29C-123.45. Tháng này tôi đổ mấy lần?';
@@ -92,6 +93,15 @@ describe('a member chats with the bot', () => {
       ['zu-hung', MEMBER_FUEL_SAVED_REPLY],
       ['zu-hung', 'Tháng này bạn đổ dầu 3 lần.'],
     ]);
+  });
+
+  it('keeps a member message waiting while chat is not configured', async () => {
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text: 'Chào bạn' });
+
+    await harness.runInbound({ chat: null });
+
+    expect(await harness.database.query('SELECT status, attempts FROM inbound_events')).toEqual([{ status: 'queued', attempts: 0 }]);
+    expect(harness.reader.requests).toEqual([]);
   });
 
   function makeFuelItem() {
