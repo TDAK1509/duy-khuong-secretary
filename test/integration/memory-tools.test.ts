@@ -6,6 +6,7 @@ import { NameReviewRequest } from '../../src/app/admin-chat/name-review-request.
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -124,6 +125,16 @@ describe('the memory tools of a user in the chat', () => {
     await Promise.all([runTool('remember', { fact: 'A' }), runTool('remember', { fact: 'B' })]);
 
     expect((await readUserMemory(database, lan.userId))?.split('\n').sort()).toEqual(['- A', '- B']);
+  });
+
+  it('deletes the memory of a member that an admin removes', async () => {
+    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const [lanMembership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${lan.userId}'`);
+
+    await removeMember(runtimePool, { workspaceId, callerUserId: duyUserId, membershipId: lanMembership?.id ?? '' });
+
+    expect(await readUserMemory(database, lan.userId)).toBeNull();
   });
 
   it('stores the memory of an admin under the owner scope of the admin', async () => {
