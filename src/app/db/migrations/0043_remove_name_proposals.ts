@@ -8,4 +8,5 @@ export function up(pgm: MigrationBuilder): void {
     WHERE status IN ('queued', 'held')
       AND (offered_choice ->> 'kind' = 'name_match' OR starts_with(body, '${PROPOSAL_PREFIX}'))
   `);
+  pgm.sql(`UPDATE channel_identities SET pending_choice = NULL WHERE pending_choice ->> 'kind' = 'name_match'`);
 }
