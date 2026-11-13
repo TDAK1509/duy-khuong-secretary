@@ -62,4 +62,18 @@ describe('the workspace credit history page', () => {
 
     expect(readTableRows(response.body).map((cells) => cells[1])).toEqual(['Đọc ảnh', 'Nạp: tặng khi bắt đầu']);
   });
+
+  it('does not find an unknown workspace', async () => {
+    const response = await getAdminPage(pool, clock, '/admin/workspaces/6f1c2d3e-0000-4000-8000-000000000000');
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toContain('Không tìm thấy nhóm này.');
+  });
+
+  it('does not find a workspace id that is not a uuid', async () => {
+    const response = await getAdminPage(pool, clock, '/admin/workspaces/khong-phai-uuid');
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toContain('Không tìm thấy nhóm này.');
+  });
 });
