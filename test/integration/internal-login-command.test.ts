@@ -76,6 +76,16 @@ describe('asking for an admin page login code in Zalo', () => {
     ]);
   });
 
+  it('refuses a user who is not internal and stores no code', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'đăng nhập quản trị');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual(['Bạn không có quyền vào trang quản trị Trợ lý.']);
+    expect(await database.query('SELECT user_id FROM internal_login_codes')).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({

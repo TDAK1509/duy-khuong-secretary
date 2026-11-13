@@ -2,7 +2,7 @@ import { generateLoginCode, hashLoginCode } from '../chatgpt/login-code.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { Reply } from '../delivery/reply.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
-import { LOGIN_CODE_EXPLANATION } from './internal-admin-texts.ts';
+import { LOGIN_CODE_EXPLANATION, NOT_INTERNAL_TEXT } from './internal-admin-texts.ts';
 
 const LOGIN_CODE_VALID_FOR_MS = 10 * 60 * 1000;
 const INTERNAL_LOGIN_COMMAND = 'dang nhap quan tri';
@@ -11,8 +11,8 @@ export function isInternalLoginCommand(text: string): boolean {
   return toAccentFreeForm(text) === INTERNAL_LOGIN_COMMAND;
 }
 
-export async function answerInternalLoginCommand(transaction: Transaction, userId: string, now: Date): Promise<Reply | null> {
-  if (!(await isInternalUser(transaction, userId))) return null;
+export async function answerInternalLoginCommand(transaction: Transaction, userId: string, now: Date): Promise<Reply> {
+  if (!(await isInternalUser(transaction, userId))) return { text: NOT_INTERNAL_TEXT };
   const code = generateLoginCode();
   await storeLoginCode(transaction, { userId, code, now });
   return { text: LOGIN_CODE_EXPLANATION, followUpText: code };
