@@ -10,10 +10,10 @@ export function generateLoginCode(): string {
   return `${characters.slice(0, GROUP_LENGTH).join('')}-${characters.slice(GROUP_LENGTH).join('')}`;
 }
 
-function normalizeLoginCode(text: string): string {
-  return text.toUpperCase().replaceAll(/[\s\p{Dash}]/gu, '');
-}
-
 export function hashLoginCode(code: string): string {
   return hashSecretToken(normalizeLoginCode(code));
+}
+
+function normalizeLoginCode(text: string): string {
+  return text.toUpperCase().replaceAll(/[\s\p{Dash}]/gu, '');
 }
