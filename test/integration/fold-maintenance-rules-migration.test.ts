@@ -73,4 +73,19 @@ describe('the migration that folds the maintenance rules into the instruction', 
 
     expect(await readInstructions()).toEqual(['Nhắc bảo dưỡng']);
   });
+
+  it('leaves a task unchanged when the folded instruction would pass 2000 characters', async () => {
+    const longInstruction = 'a'.repeat(1990);
+    await insertScheduledTask(database, {
+      workspaceId,
+      createdBy: duyUserId,
+      status: 'active',
+      instruction: longInstruction,
+      maintenanceRules: OIL_AND_TYRES,
+    });
+
+    await runMigration();
+
+    expect(await readInstructions()).toEqual([longInstruction]);
+  });
 });
