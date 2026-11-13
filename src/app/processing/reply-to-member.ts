@@ -10,7 +10,6 @@ export type MemberMessage = {
   userId: string;
   workspaceId: string;
   text: string | null;
-  now: Date;
 };
 
 export async function replyToMember(transaction: Transaction, message: MemberMessage): Promise<Reply | null> {
