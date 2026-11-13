@@ -51,6 +51,16 @@ describe('the data read from a photo in the reply', () => {
     ]);
   });
 
+  it("ends a member's text save reply with the data read", async () => {
+    harness.reader.answerWith(makeReading([makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: null })]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ hôm nay');
+    await harness.sendAllQueuedTexts();
+
+    const [reply] = readTextsTo('zu-hung');
+    expect(reply?.endsWith('Dữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số tiền: 500.000đ')).toBe(true);
+  });
+
   it('loses no line of a block longer than one message', async () => {
     const details = Array.from({ length: 80 }, (_, index) => ({ label: `Dòng ${index + 1}`, value: `giá trị số ${index + 1} của phiếu cân` }));
     harness.reader.answerWith(
