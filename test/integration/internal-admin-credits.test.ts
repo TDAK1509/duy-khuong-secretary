@@ -1,0 +1,171 @@
+import { randomUUID } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
+import { insertWorkspaceWithCredits } from './credit-history-rows.ts';
+import { postCreditsForm, SESSION_TOKEN } from './internal-admin-requests.ts';
+import { insertInternalSession, makeUserInternal, makeUserNotInternal } from './internal-user-rows.ts';
+import { makeSignal, waitUntilATransactionWaitsForALock } from './lock-signals.ts';
+import { readCreditBalance } from './llm-call-rows.ts';
+import { createMigratedDatabase } from './migrated-database.ts';
+import type { TemporaryDatabase } from './temporary-database.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
+
+const NOW = new Date('2026-11-02T10:00:00+07:00');
+const SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
+const CREDITS_TEXT = 'Số credit phải là số nguyên từ 1 đến 1.000.000.';
+const NOTE_TEXT = 'Ghi chú không được để trống và dài tối đa 500 ký tự.';
+const WORKSPACE_TEXT = 'Không tìm thấy nhóm này.';
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+describe('POST /admin/credits', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let clock: FakeClock;
+  let duyUserId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.runtimeUrl);
+    clock = new FakeClock(NOW);
+    const homeWorkspaceId = await insertWorkspace(database, 'Nhóm của người vận hành');
+    duyUserId = await insertMember(database, { workspaceId: homeWorkspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, duyUserId);
+    await insertInternalSession(database, { userId: duyUserId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+    workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 150);
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('adds the credits of a valid form', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(303);
+    expect(response.headers['location']).toBe('/admin');
+    expect(await database.query("SELECT added_by, note FROM credit_additions WHERE source = 'internal_user'")).toEqual([{ added_by: duyUserId, note: 'Nạp thử' }]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('250.000');
+  });
+
+  it('adds once when the same request id is posted twice', async () => {
+    const form = { request_id: randomUUID(), workspace_id: workspaceId, credits: '100', note: 'Nạp thử' };
+
+    await postCreditsForm(pool, clock, form);
+    const second = await postCreditsForm(pool, clock, form);
+
+    expect(second.statusCode).toBe(303);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toHaveLength(1);
+    expect(await readCreditBalance(database, workspaceId)).toBe('250.000');
+  });
+
+  it('refuses a wrong CSRF token', async () => {
+    const response = await postCreditsForm(pool, clock, { csrf: 'wrong-token', workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses a post with no session', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'Nạp thử' }, null);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses zero credits', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '0', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(`<p role="alert">${CREDITS_TEXT}</p>`);
+    expect(response.body).toContain('<form method="post" action="/admin/credits">');
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses negative credits', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '-5', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(CREDITS_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses fractional credits', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '1.5', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(CREDITS_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses more than 1,000,000 credits', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '1000001', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(CREDITS_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses an empty note', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: '   ' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(NOTE_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses a note longer than 500 characters', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(NOTE_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses an unknown workspace', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: randomUUID(), credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(WORKSPACE_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses a request id that is not a uuid', async () => {
+    const response = await postCreditsForm(pool, clock, { request_id: 'not-a-uuid', workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses a user who stops being internal while the post waits for the workspace lock', async () => {
+    const lockHeld = makeSignal();
+    const lockMayRelease = makeSignal();
+    const holder = runInTransaction(pool, async (transaction) => {
+      await transaction.query('SELECT 1 FROM workspaces WHERE id = $1 FOR UPDATE', [workspaceId]);
+      lockHeld.send();
+      await lockMayRelease.promise;
+    });
+    await Promise.race([lockHeld.promise, holder]);
+    const post = postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    try {
+      await waitUntilATransactionWaitsForALock(database);
+      await makeUserNotInternal(database, duyUserId);
+    } finally {
+      lockMayRelease.send();
+      await Promise.allSettled([holder, post]);
+    }
+
+    const response = await post;
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('150.000');
+  });
+});

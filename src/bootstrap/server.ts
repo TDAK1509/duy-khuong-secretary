@@ -10,7 +10,7 @@ import {
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
 import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
-import { createLoginRateLimit, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
+import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -76,6 +76,7 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
   void server.register(async (scope) => {
     parseFormBodies(scope);
     scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, loginRateLimit, request.body)));
+    scope.post('/admin/credits', async (request, reply) => sendResponse(reply, await handleAddCredits(internalAdmin, request.headers.cookie, request.body)));
   });
 }
 

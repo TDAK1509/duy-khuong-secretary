@@ -48,3 +48,12 @@ export const SOURCE_LABELS = {
   starting_grant: 'Nạp: tặng khi bắt đầu',
   internal_user: 'Nạp: người vận hành',
 };
+export const INVALID_SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
+export const CREDITS_INVALID_TEXT = 'Số credit phải là số nguyên từ 1 đến 1.000.000.';
+export const NOTE_INVALID_TEXT = 'Ghi chú không được để trống và dài tối đa 500 ký tự.';
+export const RECENT_ADDITIONS_HEADING = 'Các lần nạp gần đây';
+export const ADD_CREDITS_HEADING = 'Nạp credit';
+export const WORKSPACE_FIELD_LABEL = 'Nhóm';
+export const CREDITS_FIELD_LABEL = 'Số credit';
+export const NOTE_FIELD_LABEL = 'Ghi chú';
+export const ADD_CREDITS_BUTTON_LABEL = 'Nạp credit';

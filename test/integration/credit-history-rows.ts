@@ -1,6 +1,6 @@
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertWorkspace } from './workspace-rows.ts';
+import { insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 export type NewAddition = {
   workspaceId: string;
@@ -40,7 +40,7 @@ export async function insertCall(database: TemporaryDatabase, call: NewCall): Pr
 }
 
 export async function insertWorkspaceWithCredits(database: TemporaryDatabase, name: string, credits: number): Promise<string> {
-  const workspaceId = await insertWorkspace(database, name);
+  const workspaceId = await insertWorkspaceWithoutCredits(database, name);
   await insertAddition(database, { workspaceId, credits, balanceAfter: credits });
   await database.query(`UPDATE workspaces SET credit_balance = ${credits} WHERE id = ${literal(workspaceId)}`);
   return workspaceId;

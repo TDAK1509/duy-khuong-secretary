@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
+import { isValidCsrfToken, makeCsrfToken } from '../internal-admin/csrf-token.ts';
+import { isUuid } from '../internal-admin/is-uuid.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
-import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { INVALID_SESSION_TEXT, NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { addInternalCredits, readCreditsForm } from '../internal-admin/add-internal-credits.ts';
 import { findWorkspaceName } from '../internal-admin/find-workspace-name.ts';
 import { readCreditHistory } from '../internal-admin/read-credit-history.ts';
 import { readDashboard } from '../internal-admin/read-dashboard.ts';
@@ -27,13 +31,18 @@ const ADMIN_HEADERS = {
 export type InternalAdminDependencies = { database: Database; clock: Clock };
 
 export async function handleAdminPage(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<HttpResponse> {
-  const userId = await findSessionUser(dependencies, cookieHeader);
-  if (userId === null) return respondWithAdminHtml(renderLoginPage(null));
-  return respondWithAdminHtml(renderDashboardPage(await readDashboard(dependencies.database, dependencies.clock.now())));
+  const token = readCookie(cookieHeader, SESSION_COOKIE);
+  const userId = await findSessionUser(dependencies, token);
+  if (userId === null || token === null) return respondWithAdminHtml(renderLoginPage(null));
+  return respondWithDashboard(dependencies, token, null);
 }
 
-async function findSessionUser(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<string | null> {
-  const token = readCookie(cookieHeader, SESSION_COOKIE);
+async function respondWithDashboard(dependencies: InternalAdminDependencies, token: string, message: string | null, status = 200): Promise<HttpResponse> {
+  const dashboard = await readDashboard(dependencies.database, dependencies.clock.now());
+  return respondWithAdminHtml(renderDashboardPage(dashboard, { csrfToken: makeCsrfToken(token), requestId: randomUUID(), message }), status);
+}
+
+async function findSessionUser(dependencies: InternalAdminDependencies, token: string | null): Promise<string | null> {
   if (token === null) return null;
   return findInternalSessionUser(dependencies.database, token, dependencies.clock.now());
 }
@@ -47,7 +56,7 @@ function addAdminHeaders(response: HttpResponse): HttpResponse {
 }
 
 export async function handleWorkspaceHistory(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, workspaceId: string): Promise<HttpResponse> {
-  const userId = await findSessionUser(dependencies, cookieHeader);
+  const userId = await findSessionUser(dependencies, readCookie(cookieHeader, SESSION_COOKIE));
   if (userId === null) return respondWithAdminHtml(renderLoginPage(null));
   const name = await findWorkspaceName(dependencies.database, workspaceId);
   if (name === null) return respondWithAdminHtml(renderMessagePage(WORKSPACE_NOT_FOUND_TEXT), 404);
@@ -80,3 +89,14 @@ function formatSessionCookie(token: string): string {
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_LIFETIME_MS / 1000}; Secure; HttpOnly; SameSite=Strict`;
 }
 
+
+export async function handleAddCredits(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, body: unknown): Promise<HttpResponse> {
+  const form = readCreditsForm(body);
+  const token = readCookie(cookieHeader, SESSION_COOKIE);
+  if (token === null || !isValidCsrfToken(token, form.csrf) || !isUuid(form.requestId)) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  if ((await findSessionUser(dependencies, token)) === null) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  const outcome = await addInternalCredits(dependencies.database, { token, now: dependencies.clock.now() }, form);
+  if (outcome.kind === 'no_session') return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  if (outcome.kind === 'refused') return respondWithDashboard(dependencies, token, outcome.text, 422);
+  return { status: 303, headers: { location: '/admin' }, body: '' };
+}
