@@ -46,6 +46,14 @@ describe('the member memories for the runtime role', () => {
     expect(rows).toEqual([]);
   });
 
+  it('refuses to write facts in an owner scope', async () => {
+    const insert = runInTransaction(scopeDatabase(runtimePool, { workspaceId, ownerUserId: hungUserId }), (transaction) =>
+      transaction.query(`INSERT INTO member_memories (workspace_id, user_id, markdown) VALUES ($1, $2, '- A')`, [workspaceId, hungUserId]),
+    );
+
+    await expect(insert).rejects.toMatchObject({ code: ROW_LEVEL_SECURITY_VIOLATION });
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM member_memories'),
