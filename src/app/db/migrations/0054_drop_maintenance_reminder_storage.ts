@@ -19,6 +19,7 @@ function foldRulesIntoInstructions(pgm: MigrationBuilder): void {
       FROM scheduled_tasks
       CROSS JOIN LATERAL jsonb_array_elements(scheduled_tasks.maintenance_rules) WITH ORDINALITY AS rule (value, position)
       WHERE scheduled_tasks.status = 'active'
+        AND scheduled_tasks.instruction NOT LIKE '%Mốc nhắc bảo dưỡng:%'
       GROUP BY scheduled_tasks.id, scheduled_tasks.instruction
     ) AS folded
     WHERE task.id = folded.id AND char_length(folded.instruction) <= 2000

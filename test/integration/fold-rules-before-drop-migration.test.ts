@@ -48,4 +48,14 @@ describe('the migration that drops the maintenance reminder storage', () => {
       'Nhắc bảo dưỡng\n\nMốc nhắc bảo dưỡng: dầu máy sau 30 ngày; lốp sau 90 ngày. Dùng maintenance_status để xem lần gửi gần nhất của từng xe. Chỉ nhắc xe có số ngày kể từ lần gửi gần nhất từ mốc trở lên.',
     ]);
   });
+
+  it('does not fold the rules of a task twice', async () => {
+    const foldedInstruction = 'Nhắc bảo dưỡng\n\nMốc nhắc bảo dưỡng: dầu máy sau 30 ngày. Dùng maintenance_status để xem lần gửi gần nhất của từng xe. Chỉ nhắc xe có số ngày kể từ lần gửi gần nhất từ mốc trở lên.';
+    const taskId = await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', instruction: foldedInstruction });
+    await storeMaintenanceRules(database, taskId, OIL_AND_TYRES);
+
+    await runMigration();
+
+    expect(await readInstructions()).toEqual([foldedInstruction]);
+  });
 });
