@@ -11,4 +11,19 @@ const LIST_MEMBER_FACTS_SPEC: ToolSpec = {
   },
 };
 
-export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC];
+const ADD_MEMBER_FACT_SPEC: ToolSpec = {
+  name: 'add_member_fact',
+  description:
+    'Thêm một thông tin lâu dài về một người trong nhóm. Khi người đó gửi ảnh hoặc tin nhắn, hệ thống dùng thông tin này để đọc giá trị không rõ hoặc bị thiếu. Giá trị in rõ trên giấy tờ luôn được giữ. Không thay thế các thông tin đã lưu. Nếu thông tin này đã có, giữ nguyên.',
+  parameters: {
+    type: 'object',
+    properties: {
+      member_id: { type: 'string', description: 'id của người được lưu thông tin, lấy từ list_members.' },
+      fact: { type: 'string', description: 'Thông tin cần lưu, một câu ngắn trên một dòng, từ 1 đến 200 ký tự. Giữ đúng số, mã và tên quản lý viết.' },
+    },
+    required: ['member_id', 'fact'],
+    additionalProperties: false,
+  },
+};
+
+export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC, ADD_MEMBER_FACT_SPEC];
