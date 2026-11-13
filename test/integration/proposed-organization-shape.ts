@@ -1,4 +1,8 @@
+import { RESTORE_THE_MAINTENANCE_REMINDER_STORAGE } from './maintenance-reminder-storage.ts';
+
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0054_drop_maintenance_reminder_storage';
+  ${RESTORE_THE_MAINTENANCE_REMINDER_STORAGE}
   DELETE FROM pgmigrations WHERE name = '0053_create_private_memories_and_member_facts';
   DROP TABLE member_facts, private_memories;
   DELETE FROM pgmigrations WHERE name = '0052_drop_chatgpt_tables';
