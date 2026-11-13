@@ -117,15 +117,25 @@ describe('POST /admin/login', () => {
     expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
   });
 
+  it('blocks the 21st login post of one client address', async () => {
+    const server = buildServer(pool, null, { internalAdmin: { database: pool, clock } });
+    for (let post = 0; post < 20; post += 1) await postCode(server, 'AAAA-AAAA', { 'cf-connecting-ip': '203.0.113.7' });
+
+    const response = await postCode(server, 'AAAA-AAAA', { 'cf-connecting-ip': '203.0.113.7' });
+
+    expect(response.statusCode).toBe(429);
+    expect(response.body).toContain('Có quá nhiều lần nhập mã. Thử lại sau 10 phút.');
+  });
+
   function submitCode(code: string) {
     return postCode(buildServer(pool, null, { internalAdmin: { database: pool, clock } }), code);
   }
 
-  function postCode(server: ReturnType<typeof buildServer>, code: string) {
+  function postCode(server: ReturnType<typeof buildServer>, code: string, headers: Record<string, string> = {}) {
     return server.inject({
       method: 'POST',
       url: '/admin/login',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
       payload: new URLSearchParams({ code }).toString(),
     });
   }
