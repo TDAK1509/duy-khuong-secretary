@@ -240,4 +240,16 @@ describe('the scheduling tools', () => {
     expect(output).toBe('{"ok":true,"title":"Báo cáo hằng ngày"}');
     expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([{ status: 'cancelled', next_run_at: null }]);
   });
+
+  it('cannot cancel the task of another workspace', async () => {
+    const duy = await addAdmin();
+    const otherWorkspaceId = await insertWorkspace(harness.database, 'Xe tải Thử');
+    const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    const taskId = await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, status: 'active' });
+
+    const output = await runTool(duy, 'cancel_scheduled_task', { task_id: taskId });
+
+    expect(output).toBe('{"ok":false,"error":"Không tìm thấy lịch này."}');
+    expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
+  });
 });
