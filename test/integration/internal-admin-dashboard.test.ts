@@ -90,6 +90,16 @@ describe('the admin dashboard', () => {
 
     expect(response.body).toMatch(/Xe tải Duy Khương<\/a><\/td>\s*<td>19\.000 <strong>Số dư không khớp với lịch sử credit\.<\/strong>/);
   });
+
+  it('shows no warning for a balance that matches its history', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), balanceAfter: 19960.4 });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('19.960,4');
+    expect(response.body).not.toContain('Số dư không khớp với lịch sử credit.');
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {
