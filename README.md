@@ -129,7 +129,7 @@ The `readers` group is on only when `READER_PROVIDER` and `READER_API_KEY` are s
 | `READER_PROVIDER` | none, required | `openai-compatible` |
 | `READER_API_KEY` | `LLM_API_KEY` | Key of the reader |
 | `READER_BASE_URL` | `https://api.openai.com/v1` | Chat Completions endpoint of the reader |
-| `READER_MODEL` | `gpt-6.1-sol` | Model of the reader |
+| `READER_MODEL` | `gpt-6.1-sol` | Model of the reader. It needs a price in `src/app/credits/price-call.ts`, else the start fails |
 | `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
 | `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
 
@@ -142,9 +142,13 @@ The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` 
 | Env var | Default | Meaning |
 |---|---|---|
 | `CHAT_PROVIDER` | none, required | `openai-compatible` |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | Chat Completions endpoint, key and model (`gpt-6-luna` in production) |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | Chat Completions endpoint, key and model (`gpt-6-luna` in production). The model needs a price in `src/app/credits/price-call.ts`, else the start fails |
 | `LLM_TIMEOUT_MS` | `60000` | Wait for one chat reply |
 | `LLM_REASONING_EFFORT` | `none` | Sent as `reasoning_effort`; an empty value means it is not sent. `gpt-6-luna` supports function calling on Chat Completions only with `none` |
+
+## Credits
+
+Every LLM call of a workspace is one row in `llm_calls`: its kind, model, tokens, cost in USD and credits. 1 credit is $0.001 of price, and the price is the OpenAI cost times 1.5. A charged call lowers `workspaces.credit_balance` by its credits and stores the balance after it. The operator commands `reread-documents` and `backfill-detail-numbers` are recorded with their cost and 0 credits, and never change the balance. Each credit addition is one row in `credit_additions`. Existing workspaces started with 20,000 credits, and a new workspace starts with 0. Nothing stops work at a zero balance yet. Only `src/app/credits/credit-balance.ts` writes `credit_balance`.
 
 The search uses the Postgres `unaccent` extension. The migrations enable it.
 
