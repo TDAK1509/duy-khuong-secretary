@@ -9,6 +9,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
+const ONE_MINUTE_MS = 60 * 1000;
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập quản trị" cho Trợ lý để lấy mã mới.';
@@ -83,6 +84,16 @@ describe('POST /admin/login', () => {
 
     expect(response.body).toContain(WRONG_CODE_TEXT);
     expect(await database.query('SELECT user_id FROM internal_sessions')).toHaveLength(1);
+  });
+
+  it('refuses a code that expired a minute ago', async () => {
+    await database.query('DELETE FROM internal_login_codes');
+    await insertInternalLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS) });
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.body).toContain(WRONG_CODE_TEXT);
+    expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
   });
 
   function submitCode(code: string) {
