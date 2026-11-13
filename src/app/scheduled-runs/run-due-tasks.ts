@@ -13,7 +13,6 @@ import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
-import type { ScheduledRunResult } from './scheduled-run-result.ts';
 import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { describeFailedRun, describeSkippedRun } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
@@ -40,12 +39,12 @@ export async function runDueTasks(dependencies: ScheduledRunDependencies): Promi
 async function runClaimedTask(dependencies: ScheduledRunDependencies, task: ClaimedTask): Promise<void> {
   const creator = await findTaskCreator(dependencies.database, task);
   if (creator === null) return turnOffTask(dependencies.database, task);
-  const result = await produceResult(dependencies, task, creator);
-  await finishScheduledRun(dependencies, task, creator, result);
+  const text = await produceResult(dependencies, task, creator);
+  await finishScheduledRun(dependencies, task, creator, text);
 }
 
-async function produceResult(dependencies: ScheduledRunDependencies, task: ClaimedTask, creator: TaskCreator): Promise<ScheduledRunResult> {
-  if (!(await hasCredits(dependencies.database, task.workspaceId))) return { text: describeSkippedRun(task.title), remindedRecordIds: [] };
+async function produceResult(dependencies: ScheduledRunDependencies, task: ClaimedTask, creator: TaskCreator): Promise<string> {
+  if (!(await hasCredits(dependencies.database, task.workspaceId))) return describeSkippedRun(task.title);
   return runModel(dependencies, task, creator);
 }
 
@@ -53,15 +52,15 @@ async function runModel(
   { database, clock, chat, channel }: ScheduledRunDependencies,
   task: ClaimedTask,
   creator: TaskCreator,
-): Promise<ScheduledRunResult> {
+): Promise<string> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
   const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, charged: { clock, maxTextLength: channel.maxTextLength } }, 'scheduled_run');
   const result = await runToolLoop(meteredChat, buildRunRequest(task, creator, clock.now()), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );
-  if (result.outcome !== 'answered' || result.text.trim() === '') return { text: describeFailedRun(task.title), remindedRecordIds: [] };
-  return { text: result.text, remindedRecordIds: [] };
+  if (result.outcome !== 'answered' || result.text.trim() === '') return describeFailedRun(task.title);
+  return result.text;
 }
 
 function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date): ChatRequest {

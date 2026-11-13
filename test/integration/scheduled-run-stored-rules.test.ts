@@ -48,4 +48,16 @@ describe('a scheduled task that still has stored maintenance rules', () => {
 
     expect(harness.chat.requests[0]?.turns).toEqual([{ role: 'user', text: 'Nhắc thay dầu' }]);
   });
+
+  it('queues the answer to the creator and writes no reminder notification', async () => {
+    harness.chat.replyWith('Xe 29C12345 cần thay dầu máy.');
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
+      ['zu-duy', 'Xe 29C12345 cần thay dầu máy.'],
+    ]);
+    expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
+  });
 });
