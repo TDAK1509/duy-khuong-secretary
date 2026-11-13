@@ -7,3 +7,8 @@ export async function insertMemberMemory(database: TemporaryDatabase, memory: { 
      VALUES (${literal(memory.workspaceId)}, ${literal(memory.userId)}, ${literal(memory.markdown)})`,
   );
 }
+
+export async function readMemberMemory(database: TemporaryDatabase, userId: string): Promise<string | null> {
+  const [row] = await database.query<{ markdown: string }>(`SELECT markdown FROM member_memories WHERE user_id = ${literal(userId)}`);
+  return row?.markdown ?? null;
+}
