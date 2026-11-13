@@ -56,7 +56,7 @@ describe('a scheduled task that still has stored maintenance rules', () => {
     await harness.sendQueuedTexts();
 
     expect(harness.channel.texts.map((sent) => [sent.to.externalUserId, sent.text])).toEqual([
-      ['zu-duy', 'Xe 29C12345 cần thay dầu máy.'],
+      ['zu-duy', 'Lịch "Báo cáo hằng ngày":\nXe 29C12345 cần thay dầu máy.'],
     ]);
     expect(await database.query('SELECT 1 FROM maintenance_notifications')).toEqual([]);
   });

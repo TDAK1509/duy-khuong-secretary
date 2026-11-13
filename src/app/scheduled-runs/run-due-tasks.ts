@@ -14,7 +14,7 @@ import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
 import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
-import { describeFailedRun, describeSkippedRun } from './scheduled-run-texts.ts';
+import { describeFailedRun, describeSkippedRun, labelAnswer } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
@@ -60,7 +60,7 @@ async function runModel(
     runScheduledTool(toolDependencies, caller, call),
   );
   if (result.outcome !== 'answered' || result.text.trim() === '') return describeFailedRun(task.title);
-  return result.text;
+  return labelAnswer(task.title, result.text);
 }
 
 function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date): ChatRequest {
