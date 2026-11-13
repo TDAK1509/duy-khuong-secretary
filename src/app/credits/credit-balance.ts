@@ -20,8 +20,11 @@ export type CreditAddition = {
   note: string;
 };
 
+const NO_CREDITS = '0.000';
+
 export async function chargeCall(transaction: Transaction, call: RecordedCall): Promise<void> {
-  const balanceAfter = call.isCharged ? await lowerBalance(transaction, call.workspaceId, call.price.credits) : null;
+  const credits = call.isCharged ? call.price.credits : NO_CREDITS;
+  const balanceAfter = call.isCharged ? await lowerBalance(transaction, call.workspaceId, credits) : null;
   await transaction.query(
     `INSERT INTO llm_calls (workspace_id, kind, model, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, cost_usd, credits, balance_after)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -34,7 +37,7 @@ export async function chargeCall(transaction: Transaction, call: RecordedCall): 
       call.usage?.cacheWrite ?? null,
       call.usage?.output ?? null,
       call.price.costUsd,
-      call.price.credits,
+      credits,
       balanceAfter,
     ],
   );
