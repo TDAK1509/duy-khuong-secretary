@@ -1,5 +1,6 @@
 import { formatVietnamDate } from '../time/format-vietnam-date.ts';
 import { buildDocumentRules, type ReaderCatalog } from './document-rules.ts';
+import { buildMemberFactsRules } from './member-facts-rule.ts';
 
 export const SHARED_NUMBER_RULE =
   'Nếu giá trị là khối lượng, thể tích, quãng đường hoặc tiền, chỉ ghi số khi đơn vị được ghi hoặc được ngữ cảnh xác định rõ. Trên phiếu cân, đơn trạm cân hoặc giấy tờ cân xe khác, trọng lượng hoặc khối lượng chỉ ghi số mà không ghi đơn vị là kg; ví dụ "Trọng lượng tịnh 26380" là 26380 kg. Nếu có đơn vị được ghi, dùng đơn vị đó để đổi số. Ghi số đã đổi vào number và đơn vị chuẩn vào unit. Đơn vị chuẩn: "kg" cho khối lượng, "l" cho thể tích, "km" cho quãng đường, "vnd" cho tiền đồng. Đổi đơn vị: 1 tấn = 1000 kg; 1 m3 = 1000 l; 1000 ml = 1 l; 1000 m = 1 km. Đọc dấu chấm và dấu phẩy theo ngữ cảnh. Ví dụ: "27,420 Kg" là 27420 kg; "27.410 Tonne" là 27,41 tấn, tức 27410 kg. number là số không âm. Với tiền tệ khác tiền đồng, unit là mã tiền tệ 3 chữ cái viết thường, ví dụ "usd". Với phần trăm, ghi number là số phần trăm và unit là "%". Với số cái, số chiếc, số hộp hoặc số đếm khác, ghi number là số đếm và unit là đơn vị đếm in trên giấy tờ, chữ thường, ví dụ "hộp". Với ngày, giờ, mã, tên, số điện thoại, biển số hoặc số chứng từ, đặt cả number và unit là null. Nếu không chắc số hoặc đơn vị, đặt cả hai là null.';
@@ -36,7 +37,7 @@ export function buildReaderPrompt(today: Date, labels: string[], catalog: Reader
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: buildWorkspaceLabelsLine(labels),
-    documentRules: ['', ...buildDocumentRules(catalog)].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts)].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules)\}/g, (_, name: string) => fills[name] ?? '');
 }
