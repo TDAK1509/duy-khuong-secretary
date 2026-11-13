@@ -61,3 +61,28 @@ export async function insertRecordRow(database: TemporaryDatabase, row: NewRecor
 function nullable(value: string | null): string {
   return value === null ? 'NULL' : literal(value);
 }
+
+export type NewRecordRows = {
+  workspaceId: string;
+  userId: string;
+  senderName: string;
+  label: string;
+  count: number;
+  firstCreatedAt: Date;
+};
+
+export async function insertRecordRows(database: TemporaryDatabase, rows: NewRecordRows): Promise<void> {
+  await database.query(
+    `WITH saved_messages AS (
+       INSERT INTO messages (workspace_id, user_id, author, text, created_at)
+       SELECT ${literal(rows.workspaceId)}, ${literal(rows.userId)}, 'bot', 'tin nhắn',
+         ${timestamp(rows.firstCreatedAt)}::timestamptz + number * interval '1 second'
+       FROM generate_series(1, ${rows.count}) AS number
+       RETURNING id, created_at
+     )
+     INSERT INTO records (workspace_id, user_id, message_id, item_index, sender_name, category, summary, details, created_at)
+     SELECT ${literal(rows.workspaceId)}, ${literal(rows.userId)}, id, 0, ${literal(rows.senderName)}, 'đổ xăng dầu', 'Mục',
+       ${literal(JSON.stringify([{ label: rows.label, value: 'giá trị' }]))}::jsonb, created_at
+     FROM saved_messages`,
+  );
+}

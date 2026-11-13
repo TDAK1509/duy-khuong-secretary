@@ -5,7 +5,7 @@ import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { scopeDatabase } from '../../src/app/db/scoped-database.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { insertRecordRow } from './record-rows.ts';
+import { insertRecordRow, insertRecordRows } from './record-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -87,12 +87,30 @@ describe('listWorkspaceLabels', () => {
     expect(await listLabels()).toEqual(['a'.repeat(60)]);
   });
 
+  it('leaves out a label used only beyond the newest 500 records', async () => {
+    await saveRecord(['Nhãn cũ']);
+    await saveNewerRecords('Nhãn mới', 500);
+
+    expect(await listLabels()).toEqual(['Nhãn mới']);
+  });
+
   function saveRecord(labels: string[]): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
       userId: hungUserId,
       senderName: 'Hùng',
       details: labels.map((label) => ({ label, value: 'giá trị' })),
+    });
+  }
+
+  function saveNewerRecords(label: string, count: number): Promise<void> {
+    return insertRecordRows(database, {
+      workspaceId,
+      userId: hungUserId,
+      senderName: 'Hùng',
+      label,
+      count,
+      firstCreatedAt: new Date('2026-11-01T10:00:00+07:00'),
     });
   }
 
