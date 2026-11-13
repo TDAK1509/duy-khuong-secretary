@@ -16,7 +16,7 @@ describe('the source tools outside the admin and member chat', () => {
       connect: () => Promise.reject(new Error('the database must not be used')),
       query: () => Promise.reject(new Error('the database must not be used')),
     };
-    const runtime = { database, clock: new FakeClock(new Date('2026-11-07T10:00:00+07:00')), photoStorage: null, reader: null };
+    const runtime = { database, clock: new FakeClock(new Date('2026-11-07T10:00:00+07:00')), photoStorage: null, reader: null, maxTextLength: 2000 };
     const scope = { workspaceId: 'workspace-1', userId: 'user-1', role: 'admin' } as const;
 
     const names = describeMcpServer(runtime, scope).tools.map((tool) => tool.name);

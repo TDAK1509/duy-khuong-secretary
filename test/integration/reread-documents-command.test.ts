@@ -83,7 +83,6 @@ describe('the reread-documents command', () => {
 
   it('records the reads as operator rereads and does not charge them', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await setCreditBalance(database, workspaceId, 20000);
     await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
     const reader = new FakeReader();
     reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn' })]), PHOTO_READ_USAGE);
@@ -94,6 +93,19 @@ describe('the reread-documents command', () => {
       { kind: 'operator_reread', cost_usd: '0.026400000', credits: '0.000', balance_after: null },
     ]);
     expect(await readCreditBalance(database, workspaceId)).toBe('20000.000');
+  });
+
+  it('still reads when the workspace has no credits', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    await setCreditBalance(database, workspaceId, 0);
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn' })]), PHOTO_READ_USAGE);
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests).toHaveLength(1);
+    expect(await listLlmCalls(database, workspaceId)).toMatchObject([{ kind: 'operator_reread', credits: '0.000' }]);
   });
 
   it('reads a photo that was never saved too', async () => {

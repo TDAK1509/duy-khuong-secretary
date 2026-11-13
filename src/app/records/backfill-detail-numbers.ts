@@ -23,7 +23,7 @@ export async function backfillDetailNumbers(
   workspaceId: string,
 ): Promise<BackfillSummary> {
   const scoped = scopeDatabase(database, { workspaceId });
-  const meteredReader = meterReader(reader, { database: scoped, workspaceId, isCharged: false }, () => 'operator_backfill');
+  const meteredReader = meterReader(reader, { database: scoped, workspaceId, charged: null }, () => 'operator_backfill');
   const failures: BackfillFailure[] = [];
   let checked = 0;
   let added = 0;

@@ -27,7 +27,7 @@ describe('a text an admin saved through ChatGPT', () => {
   async function saveThroughChatGpt(text: string): Promise<void> {
     const chatGptReader = new FakeReader();
     chatGptReader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
-    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader };
+    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader, maxTextLength: 2000 };
     await saveRecordFromText(runtime, duyScope, { text });
   }
 

@@ -5,6 +5,7 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import { isCurrentWorkspaceAdmin } from '../access/is-current-admin.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
+import { hasCredits } from '../credits/has-credits.ts';
 import { meterReader } from '../credits/meter-reader.ts';
 import { REFUSAL_ERROR } from '../admin-chat/tools/tool-result.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
@@ -20,14 +21,16 @@ import { storeMcpMessage } from './store-mcp-message.ts';
 
 const NO_WORK_DATA_TEXT = 'Không có dữ liệu công việc để lưu.';
 const UNCLEAR_TEXT = 'Chưa lưu vì nội dung chưa đủ rõ. Hãy gửi lại đầy đủ việc gì, cho xe nào, ngày nào và số tiền nếu có.';
+const OUT_OF_CREDIT_TEXT = 'Chưa lưu vì nhóm đã hết credit. Quản lý nhóm cần liên hệ bên cung cấp Trợ lý để nạp thêm credit.';
 const READER_FAILED_TEXT = 'Chưa lưu được vì Trợ lý đang lỗi. Hãy thử lại sau.';
 
 const argumentsSchema = z.object({ text: z.string() });
 
-export type SaveRecordRuntime = { database: Database; clock: Clock; reader: ReaderService };
+export type SaveRecordRuntime = { database: Database; clock: Clock; reader: ReaderService; maxTextLength: number };
 
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
+  if (!(await hasCredits(runtime.database, scope.workspaceId))) return { text: OUT_OF_CREDIT_TEXT, isError: true };
   const catalog = await readReaderCatalog(runtime.database, scope);
   const attempt = await readWithReader(meterSavingReader(runtime, scope), runtime.clock.now(), { text, photo: null }, [], catalog, []);
   if (!attempt.ok) return { text: READER_FAILED_TEXT, isError: true };
@@ -37,7 +40,7 @@ export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: Acce
 }
 
 function meterSavingReader(runtime: SaveRecordRuntime, scope: AccessScope): ReaderService {
-  const meter = { database: runtime.database, workspaceId: scope.workspaceId, isCharged: true };
+  const meter = { database: runtime.database, workspaceId: scope.workspaceId, charged: { clock: runtime.clock, maxTextLength: runtime.maxTextLength } };
   return meterReader(runtime.reader, meter, () => 'chatgpt_text_save');
 }
 

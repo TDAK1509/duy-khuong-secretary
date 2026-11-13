@@ -36,7 +36,7 @@ const READ_TOOL_SPECS = [SEARCH_RECORDS_SPEC, COUNT_RECORDS_SPEC, LIST_MEMBERS_S
 const CHANGE_TOOL_SPECS = [CREATE_INVITE_SPEC, REMOVE_MEMBER_SPEC, CREATE_SCHEDULED_TASK_SPEC, CANCEL_SCHEDULED_TASK_SPEC];
 const failedOutputSchema = z.object({ ok: z.literal(false) });
 
-export type McpRuntime = { database: Database; clock: Clock; photoStorage: PhotoStorage | null; reader: ReaderService | null };
+export type McpRuntime = { database: Database; clock: Clock; photoStorage: PhotoStorage | null; reader: ReaderService | null; maxTextLength: number };
 
 export function describeMcpServer(runtime: McpRuntime, scope: AccessScope): McpServerDefinition {
   const readTools = READ_TOOL_SPECS.map((spec) => describeAdminTool(runtime, scope, spec, READ_ONLY_ANNOTATIONS));
@@ -45,9 +45,9 @@ export function describeMcpServer(runtime: McpRuntime, scope: AccessScope): McpS
   return { ...MCP_SERVER_IDENTITY, tools: [...readTools, ...photoTools, ...changeTools, ...describeSaveRecordTools(runtime, scope)] };
 }
 
-function describeSaveRecordTools({ database, clock, reader }: McpRuntime, scope: AccessScope): McpTool[] {
+function describeSaveRecordTools({ database, clock, reader, maxTextLength }: McpRuntime, scope: AccessScope): McpTool[] {
   if (reader === null) return [];
-  const call = (args: unknown) => saveRecordFromText({ database, clock, reader }, scope, args);
+  const call = (args: unknown) => saveRecordFromText({ database, clock, reader, maxTextLength }, scope, args);
   return [describeTool(SAVE_RECORD_FROM_TEXT_MCP_SPEC, CHANGE_ANNOTATIONS, call)];
 }
 

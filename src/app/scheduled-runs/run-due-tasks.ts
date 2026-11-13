@@ -7,6 +7,7 @@ import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
 import { SourceCards } from '../admin-chat/source-cards.ts';
 import { runToolLoop } from '../admin-chat/run-tool-loop.ts';
+import { hasCredits } from '../credits/has-credits.ts';
 import { meterChat } from '../credits/meter-chat.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
@@ -16,7 +17,7 @@ import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
 import type { ScheduledRunResult } from './scheduled-run-result.ts';
 import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
-import { describeFailedRun, NOTHING_TO_REPORT } from './scheduled-run-texts.ts';
+import { describeFailedRun, describeSkippedRun, NOTHING_TO_REPORT } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
 import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
@@ -52,15 +53,22 @@ async function produceResult(dependencies: ScheduledRunDependencies, task: Claim
   return askModel(dependencies, task, creator, { userTurn: buildDueRecordsTurn(task.instruction, dueRecords), dueRecords });
 }
 
-async function askModel(
-  { database, clock, chat }: ScheduledRunDependencies,
+type ModelTurn = { userTurn: string; dueRecords: DueRecord[] };
+
+async function askModel(dependencies: ScheduledRunDependencies, task: ClaimedTask, creator: TaskCreator, turn: ModelTurn): Promise<ScheduledRunResult> {
+  if (!(await hasCredits(dependencies.database, task.workspaceId))) return { text: describeSkippedRun(task.title), remindedRecordIds: [] };
+  return runModel(dependencies, task, creator, turn);
+}
+
+async function runModel(
+  { database, clock, chat, channel }: ScheduledRunDependencies,
   task: ClaimedTask,
   creator: TaskCreator,
-  { userTurn, dueRecords }: { userTurn: string; dueRecords: DueRecord[] },
+  { userTurn, dueRecords }: ModelTurn,
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
-  const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, isCharged: true }, 'scheduled_run');
+  const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, charged: { clock, maxTextLength: channel.maxTextLength } }, 'scheduled_run');
   const result = await runToolLoop(meteredChat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );

@@ -5,7 +5,7 @@ import { FakeReader } from '../fakes/fake-reader.ts';
 import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE, TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
+import { listLlmCalls, readCreditBalance } from './llm-call-rows.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -14,7 +14,6 @@ describe('recording and charging the LLM calls of a workspace', () => {
 
   beforeEach(async () => {
     harness = await createIntakeHarness();
-    await setCreditBalance(harness.database, harness.workspaceId, 20000);
   });
 
   afterEach(async () => {
@@ -103,7 +102,7 @@ describe('recording and charging the LLM calls of a workspace', () => {
     const duyId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const chatGptReader = new FakeReader();
     chatGptReader.answerWith(makeReading([makeItem()]), TEXT_READ_USAGE);
-    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader };
+    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader, maxTextLength: 2000 };
 
     await saveRecordFromText(runtime, { workspaceId: harness.workspaceId, userId: duyId, role: 'admin' }, { text: 'Đổ dầu 500.000đ' });
 

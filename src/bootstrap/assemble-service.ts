@@ -105,7 +105,15 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
       maxTextLength: channel.maxTextLength,
       qrCode: new QrCodeGeneratorRenderer(),
     },
-    chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint(), photoStorage, reader },
+    chatgptMcp: zalo && channel && {
+      database: pool,
+      clock,
+      publicBaseUrl: zalo.publicBaseUrl,
+      endpoint: new SdkMcpEndpoint(),
+      photoStorage,
+      reader,
+      maxTextLength: channel.maxTextLength,
+    },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     verifierFile: config.verifierFile,
   };

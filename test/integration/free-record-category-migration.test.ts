@@ -4,7 +4,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { insertChatMessage } from './message-rows.ts';
 import { RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE } from './proposed-organization-shape.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 const migrationsDirectory = new URL('../../src/app/db/migrations/', import.meta.url);
 
@@ -66,7 +66,7 @@ describe('the migration that frees the record categories', () => {
   beforeEach(async () => {
     database = await createMigratedDatabase();
     await database.query(RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION);
-    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    workspaceId = await insertWorkspaceWithoutCredits(database, 'Xe tải Duy Khương');
     userId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
   });
 

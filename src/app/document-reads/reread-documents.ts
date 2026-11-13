@@ -18,7 +18,7 @@ export async function rereadDocuments(
   const scoped = scopeDatabase(database, { workspaceId });
   const testPhotos = await removeTestPhotoData(scoped, workspaceId, testPhotoIds);
   const summary: RereadSummary = { stored: 0, noDocument: 0, testPhotos, failures: [] };
-  const meter = { database: scoped, workspaceId, isCharged: false };
+  const meter = { database: scoped, workspaceId, charged: null };
   const meteredServices = { ...services, reader: meterReader(services.reader, meter, () => 'operator_reread') };
   for (const messageId of await findMessagesToReread(scoped, workspaceId, testPhotoIds)) {
     countOutcome(summary, messageId, await rereadMessage(scoped, meteredServices, messageId));

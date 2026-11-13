@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as grantStartingCredits } from '../../src/app/db/migrations/0048_grant_starting_credits.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertWorkspace } from './workspace-rows.ts';
+import { insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 describe('the migration that grants the starting credits', () => {
   let database: TemporaryDatabase;
@@ -22,8 +22,8 @@ describe('the migration that grants the starting credits', () => {
   }
 
   it('gives each workspace 20,000 credits and one starting grant', async () => {
-    await insertWorkspace(database, 'Xe tải Duy Khương');
-    await insertWorkspace(database, 'Xe tải Lan');
+    await insertWorkspaceWithoutCredits(database, 'Xe tải Duy Khương');
+    await insertWorkspaceWithoutCredits(database, 'Xe tải Lan');
 
     await runMigration();
 
