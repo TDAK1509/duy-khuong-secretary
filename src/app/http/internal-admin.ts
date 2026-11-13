@@ -9,6 +9,7 @@ import { isUuid } from '../internal-admin/is-uuid.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
 import { INVALID_SESSION_TEXT, NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
 import { addInternalCredits, readCreditsForm } from '../internal-admin/add-internal-credits.ts';
+import { readClientAddress } from '../internal-admin/read-client-address.ts';
 import { findWorkspaceName } from '../internal-admin/find-workspace-name.ts';
 import { readCreditHistory } from '../internal-admin/read-credit-history.ts';
 import { readDashboard } from '../internal-admin/read-dashboard.ts';
@@ -21,7 +22,6 @@ import { respondWithHtml, type HttpResponse } from './http-response.ts';
 import { readCookie } from './read-cookie.ts';
 
 const SESSION_COOKIE = '__Host-internal-session';
-const LOGIN_RATE_LIMIT_KEY = 'internal-login';
 const ADMIN_HEADERS = {
   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
   'cache-control': 'no-store',
@@ -68,8 +68,10 @@ export function createLoginRateLimit(): RequestRateLimit {
   return new RequestRateLimit(MAX_LOGIN_POSTS, LOGIN_POST_WINDOW_MS);
 }
 
-export async function handleAdminLogin(dependencies: InternalAdminDependencies, rateLimit: RequestRateLimit, body: unknown): Promise<HttpResponse> {
-  if (!rateLimit.allows(LOGIN_RATE_LIMIT_KEY, dependencies.clock.now())) return respondWithAdminHtml(renderMessagePage(TOO_MANY_LOGINS_TEXT), 429);
+export type LoginRequest = { body: unknown; connectingIpHeader: string | string[] | undefined };
+
+export async function handleAdminLogin(dependencies: InternalAdminDependencies, rateLimit: RequestRateLimit, { body, connectingIpHeader }: LoginRequest): Promise<HttpResponse> {
+  if (!rateLimit.allows(readClientAddress(connectingIpHeader), dependencies.clock.now())) return respondWithAdminHtml(renderMessagePage(TOO_MANY_LOGINS_TEXT), 429);
   const outcome = await startInternalSession(dependencies.database, { typedCode: readTypedCode(body), now: dependencies.clock.now() });
   return addAdminHeaders(respondToLogin(outcome));
 }

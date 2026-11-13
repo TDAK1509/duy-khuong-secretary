@@ -127,6 +127,16 @@ describe('POST /admin/login', () => {
     expect(response.body).toContain('Có quá nhiều lần nhập mã. Thử lại sau 10 phút.');
   });
 
+  it('lets another client address log in after the first one reached the limit', async () => {
+    const server = buildServer(pool, null, { internalAdmin: { database: pool, clock } });
+    for (let post = 0; post < 20; post += 1) await postCode(server, 'AAAA-AAAA', { 'cf-connecting-ip': '203.0.113.7' });
+
+    const response = await postCode(server, 'K7M2-QX4P', { 'cf-connecting-ip': '198.51.100.9' });
+
+    expect(response.statusCode).toBe(303);
+    expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([{ user_id: duyUserId }]);
+  });
+
   function submitCode(code: string) {
     return postCode(buildServer(pool, null, { internalAdmin: { database: pool, clock } }), code);
   }

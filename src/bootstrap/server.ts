@@ -58,7 +58,7 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
   const loginRateLimit = createLoginRateLimit();
   void server.register(async (scope) => {
     parseFormBodies(scope);
-    scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, loginRateLimit, request.body)));
+    scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, loginRateLimit, { body: request.body, connectingIpHeader: request.headers['cf-connecting-ip'] })));
     scope.post('/admin/credits', async (request, reply) => sendResponse(reply, await handleAddCredits(internalAdmin, request.headers.cookie, request.body)));
   });
 }
