@@ -457,7 +457,7 @@ describe('the document number tools of an admin', () => {
   }
 
   async function runListOrganizations(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<OrganizationsOutput> {
-    return JSON.parse(await runTool('list_organizations', { text: null, ...overrides }, scope)) as OrganizationsOutput;
+    return JSON.parse(await runTool('list_organizations', { text: null, cursor: null, ...overrides }, scope)) as OrganizationsOutput;
   }
 
   async function runTotal(overrides: TotalArguments = {}, scope: AccessScope = duy): Promise<TotalOutput> {
