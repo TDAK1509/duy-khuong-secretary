@@ -122,6 +122,15 @@ describe('OpenAiCompatibleChat', () => {
     expect(result).toMatchObject({ ok: true, usage: { input: 5700, cachedInput: 4000, cacheWrite: 0, output: 200, reasoning: 0 } });
   });
 
+  it('returns the usage of a tool-call answer', async () => {
+    const usage = { prompt_tokens: 5700, completion_tokens: 80, completion_tokens_details: { reasoning_tokens: 30 } };
+    const server = await startServer(makeToolCallReply([{ id: 'call_1', name: 'list_members', arguments: '{}' }], usage));
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 5700, cachedInput: 0, cacheWrite: 0, output: 80, reasoning: 30 } });
+  });
+
   it('turns a slow answer into a timeout', async () => {
     const server = await startServer({ ...TEXT_REPLY, delayMs: 500 });
 
