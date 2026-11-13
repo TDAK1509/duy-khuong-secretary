@@ -87,4 +87,29 @@ describe('the workspace credit history page', () => {
     expect(response.body).not.toContain('Xe tải Duy Khương');
     expect(response.body).not.toContain('Credit ban đầu');
   });
+
+  it('shows operator calls with 0 credits and no balance', async () => {
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), kind: 'operator_reread', credits: 0 });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`);
+
+    expect(readTableRows(response.body)).toEqual([['02/11/2026', 'Đọc lại (vận hành)', '1', '0', '$0.0264', '', '', '']]);
+  });
+
+  it('names the internal user who added credits', async () => {
+    const [duy] = await database.query<{ id: string }>(`SELECT user_id AS id FROM memberships WHERE workspace_id = '${workspaceId}'`);
+    await insertAddition(database, {
+      workspaceId,
+      credits: 100,
+      balanceAfter: 100,
+      source: 'internal_user',
+      addedBy: duy?.id ?? '',
+      note: 'Nạp thử',
+      createdAt: new Date('2026-11-01T09:00:00+07:00'),
+    });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`);
+
+    expect(readTableRows(response.body)).toEqual([['01/11/2026 09:00', 'Nạp: người vận hành', '', '+100', '', 'Duy', 'Nạp thử', '100']]);
+  });
 });
