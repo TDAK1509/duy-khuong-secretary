@@ -67,6 +67,14 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống không dùng thông tin này khi đọc ảnh và tin nhắn Hùng gửi.');
   });
 
+  it('says that the system uses a fact that only the admins can read when the fact is about an admin', async () => {
+    const lan = await insertAdminLan();
+
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lan.userId), fact: PLATE_FACT, readers: 'admins' });
+
+    expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống dùng thông tin này khi đọc ảnh và tin nhắn Lan gửi.');
+  });
+
   it('tells the author that only they can read a fact saved for the author only', async () => {
     const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'author' });
 

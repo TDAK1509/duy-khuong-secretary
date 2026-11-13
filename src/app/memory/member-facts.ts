@@ -9,14 +9,14 @@ export type SavedFact = FactAccess & { id: string; fact: string };
 
 export type NewMemberFact = { fact: string; readers: FactReaders };
 
-export type MemberFacts = { displayName: string; facts: SavedFact[] };
+export type MemberFacts = { displayName: string; role: FactReader['role']; facts: SavedFact[] };
 
-type Member = { userId: string; displayName: string };
+type Member = { userId: string; displayName: string; role: FactReader['role'] };
 
 type FactRow = { id: string; member_user_id: string; author_user_id: string | null; readers: FactReaders; fact: string };
 
 export async function readMemberFacts(database: Database, ref: MemberRef, caller: FactReader): Promise<MemberFacts | null> {
-  return changeMemberFacts(database, ref, async (transaction, member) => ({ displayName: member.displayName, facts: await selectReadableFacts(transaction, ref, member, caller) }));
+  return changeMemberFacts(database, ref, async (transaction, member) => ({ displayName: member.displayName, role: member.role, facts: await selectReadableFacts(transaction, ref, member, caller) }));
 }
 
 export async function addMemberFact(
@@ -29,10 +29,10 @@ export async function addMemberFact(
   return changeMemberFacts(database, ref, async (transaction, member) => {
     const facts = await selectReadableFacts(transaction, ref, member, author);
     const duplicate = facts.find((saved) => saved.fact === fact);
-    if (duplicate) return { displayName: member.displayName, facts, saved: duplicate };
+    if (duplicate) return { displayName: member.displayName, role: member.role, facts, saved: duplicate };
     if (exceedsMemoryLimit([...facts.map((saved) => saved.fact), fact])) throw new ToolRefusal(fullError);
     const saved = await insertFact(transaction, ref, member, author, { fact, readers });
-    return { displayName: member.displayName, facts: [...facts, saved], saved };
+    return { displayName: member.displayName, role: member.role, facts: [...facts, saved], saved };
   });
 }
 
@@ -42,14 +42,14 @@ export async function removeMemberFact(database: Database, ref: MemberRef, calle
     const removed = facts.filter((saved) => saved.fact === fact);
     if (removed.length === 0) throw new ToolRefusal(notFoundError);
     await deleteFacts(transaction, removed);
-    return { displayName: member.displayName, facts: facts.filter((saved) => saved.fact !== fact) };
+    return { displayName: member.displayName, role: member.role, facts: facts.filter((saved) => saved.fact !== fact) };
   });
 }
 
 export async function clearMemberFacts(database: Database, ref: MemberRef, caller: FactReader): Promise<MemberFacts | null> {
   return changeMemberFacts(database, ref, async (transaction, member) => {
     await deleteFacts(transaction, await selectReadableFacts(transaction, ref, member, caller));
-    return { displayName: member.displayName, facts: [] };
+    return { displayName: member.displayName, role: member.role, facts: [] };
   });
 }
 
@@ -68,11 +68,11 @@ async function changeMemberFacts<Result>(
 }
 
 async function findMember(transaction: Transaction, { workspaceId, membershipId }: MemberRef): Promise<Member | null> {
-  const [row] = await transaction.query<{ user_id: string; display_name: string }>(
-    'SELECT user_id, display_name FROM memberships WHERE id = $1 AND workspace_id = $2',
+  const [row] = await transaction.query<{ user_id: string; display_name: string; role: FactReader['role'] }>(
+    'SELECT user_id, display_name, role FROM memberships WHERE id = $1 AND workspace_id = $2',
     [membershipId, workspaceId],
   );
-  return row ? { userId: row.user_id, displayName: row.display_name } : null;
+  return row ? { userId: row.user_id, displayName: row.display_name, role: row.role } : null;
 }
 
 async function lockMemberFacts(transaction: Transaction, workspaceId: string, userId: string): Promise<void> {

@@ -16,3 +16,7 @@ export function mayRead(fact: FactAccess, reader: FactReader): boolean {
       return reader.role === 'admin' || reader.userId === fact.memberUserId;
   }
 }
+
+export function mayFeedReader(fact: FactAccess, sender: FactReader): boolean {
+  return fact.readers !== 'author' && mayRead(fact, sender);
+}

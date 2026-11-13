@@ -1,7 +1,9 @@
-import { mayRead, type FactAccess } from '../../memory/fact-readers.ts';
+import { mayFeedReader, type FactAccess, type FactReader } from '../../memory/fact-readers.ts';
 
-export function buildFactNote(memberName: string, fact: FactAccess): string {
-  return `${describeReaders(fact, memberName)} ${describeUse(fact, memberName)}`;
+type Subject = { displayName: string; role: FactReader['role'] };
+
+export function buildFactNote(subject: Subject, fact: FactAccess): string {
+  return `${describeReaders(fact, subject.displayName)} ${describeUse(fact, subject)}`;
 }
 
 function describeReaders({ readers }: FactAccess, memberName: string): string {
@@ -15,8 +17,7 @@ function describeReaders({ readers }: FactAccess, memberName: string): string {
   }
 }
 
-function describeUse(fact: FactAccess, memberName: string): string {
-  const memberAsReader = { userId: fact.memberUserId, role: 'member' } as const;
-  const verb = mayRead(fact, memberAsReader) ? 'dùng' : 'không dùng';
-  return `Hệ thống ${verb} thông tin này khi đọc ảnh và tin nhắn ${memberName} gửi.`;
+function describeUse(fact: FactAccess, subject: Subject): string {
+  const verb = mayFeedReader(fact, { userId: fact.memberUserId, role: subject.role }) ? 'dùng' : 'không dùng';
+  return `Hệ thống ${verb} thông tin này khi đọc ảnh và tin nhắn ${subject.displayName} gửi.`;
 }
