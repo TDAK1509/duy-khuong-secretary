@@ -144,12 +144,13 @@ describe('the admin tool list', () => {
     });
   });
 
-  it('offers list_organizations with the exact text and the text filter', () => {
+  it('offers list_organizations with the exact text, the text filter and the cursor', () => {
     const tool = ADMIN_TOOLS.find((candidate) => candidate.name === 'list_organizations');
 
     expect(tool).toStrictEqual({
       name: 'list_organizations',
-      description: 'Liệt kê các công ty và nơi chốn đã lưu trong nhóm: tên, loại, các cách viết đã gặp và số giấy tờ. Lọc theo text nếu có.',
+      description:
+        'Liệt kê các công ty và nơi chốn đã lưu trong nhóm: tên, loại, các cách viết đã gặp và số giấy tờ. Lọc theo text nếu có. Trả về tối đa 50 tên mỗi trang, theo thứ tự tên. Nếu next_cursor khác null, gọi lại với cursor đó để đọc trang tiếp theo.',
       parameters: {
         type: 'object',
         properties: {
@@ -157,8 +158,12 @@ describe('the admin tool list', () => {
             type: ['string', 'null'],
             description: 'Một phần tên cần tìm, không phân biệt dấu và chữ hoa. null để lấy tất cả.',
           },
+          cursor: {
+            type: ['string', 'null'],
+            description: 'Giá trị next_cursor của trang trước. null cho trang đầu. Giữ nguyên text khi xem trang tiếp theo.',
+          },
         },
-        required: ['text'],
+        required: ['text', 'cursor'],
         additionalProperties: false,
       },
     });
