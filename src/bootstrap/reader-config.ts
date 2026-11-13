@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hasPrice } from '../app/credits/price-call.ts';
 
 const REQUIRED_NAMES = ['READER_PROVIDER', 'READER_API_KEY'];
 
@@ -33,11 +34,17 @@ export function loadReaderConfig(suppliedEnvironment: NodeJS.ProcessEnv): Reader
       provider: settings.READER_PROVIDER,
       baseUrl: settings.READER_BASE_URL,
       apiKey: environment['READER_API_KEY'] ?? '',
-      model: environment['READER_MODEL'] ?? '',
+      model: readPricedModel(environment),
       timeoutMs: settings.READER_TIMEOUT_MS,
       reasoningEffort: environment['READER_REASONING_EFFORT'] || undefined,
     },
   };
+}
+
+function readPricedModel(environment: NodeJS.ProcessEnv): string {
+  const model = environment['READER_MODEL'] ?? '';
+  if (!hasPrice(model)) throw new Error(`Invalid configuration: READER_MODEL "${model}" has no price`);
+  return model;
 }
 
 function applyDefaults(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
