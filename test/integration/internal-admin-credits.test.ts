@@ -114,4 +114,12 @@ describe('POST /admin/credits', () => {
     expect(response.body).toContain(NOTE_TEXT);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
+
+  it('refuses a note longer than 500 characters', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(NOTE_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
 });
