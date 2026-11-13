@@ -18,7 +18,7 @@ const addArgumentsSchema = z.strictObject({ member_id: z.string(), fact: z.strin
 
 export async function runListMemberFacts(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const { member_id: memberId } = memberArgumentsSchema.parse(parsedArguments);
-  const memory = await withMemberRef(scope, memberId, (ref) => readMemberFacts(database, ref));
+  const memory = await withMemberRef(scope, memberId, (ref) => readMemberFacts(database, ref, scope));
   return memory === null ? failTool(MEMBER_NOT_FOUND_ERROR) : JSON.stringify({ member: memory.displayName, facts: describeFacts(memory) });
 }
 

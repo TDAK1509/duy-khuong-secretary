@@ -1,6 +1,6 @@
 import { ToolRefusal } from '../admin-chat/tools/tool-result.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
-import type { FactAccess, FactReader, FactReaders } from './fact-readers.ts';
+import { mayRead, type FactAccess, type FactReader, type FactReaders } from './fact-readers.ts';
 import { exceedsMemoryLimit } from './memory-facts.ts';
 
 export type MemberRef = { workspaceId: string; membershipId: string };
@@ -15,8 +15,8 @@ type Member = { userId: string; displayName: string };
 
 type FactRow = { id: string; member_user_id: string; author_user_id: string | null; readers: FactReaders; fact: string };
 
-export async function readMemberFacts(database: Database, ref: MemberRef): Promise<MemberFacts | null> {
-  return changeMemberFacts(database, ref, async (transaction, member) => ({ displayName: member.displayName, facts: await selectFacts(transaction, ref, member) }));
+export async function readMemberFacts(database: Database, ref: MemberRef, caller: FactReader): Promise<MemberFacts | null> {
+  return changeMemberFacts(database, ref, async (transaction, member) => ({ displayName: member.displayName, facts: await selectReadableFacts(transaction, ref, member, caller) }));
 }
 
 export async function addMemberFact(
@@ -82,6 +82,11 @@ async function lockMemberFacts(transaction: Transaction, workspaceId: string, us
 async function holdMembership(transaction: Transaction, { workspaceId, membershipId }: MemberRef): Promise<boolean> {
   const rows = await transaction.query('SELECT 1 FROM memberships WHERE id = $1 AND workspace_id = $2 FOR SHARE', [membershipId, workspaceId]);
   return rows.length > 0;
+}
+
+async function selectReadableFacts(transaction: Transaction, ref: MemberRef, member: Member, caller: FactReader): Promise<SavedFact[]> {
+  const facts = await selectFacts(transaction, ref, member);
+  return facts.filter((saved) => mayRead(saved, caller));
 }
 
 async function selectFacts(transaction: Transaction, { workspaceId }: MemberRef, member: Member): Promise<SavedFact[]> {

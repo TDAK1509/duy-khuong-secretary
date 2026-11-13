@@ -9,7 +9,7 @@ import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { readPrivateMemory } from './private-memory-rows.ts';
-import { insertSharedMemberFacts, readMemberFacts } from './member-fact-rows.ts';
+import { insertMemberFact, insertSharedMemberFacts, readMemberFacts } from './member-fact-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -134,6 +134,17 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [shared(PLATE_FACT), shared(CUSTOMER_FACT)] });
   });
 
+  it('lists to another admin only the facts that admin may read', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: 'Các quản lý xem' });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: '- Thông tin cũ' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('list_member_facts', { member_id: hungMembershipId }, lan);
+
+    expect(JSON.parse(output).facts).toEqual([{ fact: 'Các quản lý xem', readers: 'admins' }, shared('Thông tin cũ')]);
+  });
+
   it('lists an empty list for a member with no facts', async () => {
     const output = await runTool('list_member_facts', { member_id: hungMembershipId });
 
@@ -195,6 +206,11 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
     expect(await readPrivateMemory(database, duy.userId)).toBeNull();
   });
+
+  async function insertAdminLan(): Promise<AccessScope> {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan-admin', displayName: 'Lan', role: 'admin' });
+    return { workspaceId, userId, role: 'admin' };
+  }
 
   function shared(fact: string): object {
     return { fact, readers: SHARED };
