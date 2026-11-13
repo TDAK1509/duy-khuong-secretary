@@ -8,7 +8,7 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleAuthorizationServerMetadata, handleTokenRequest, type TokenDependencies } from '../app/http/chatgpt-token.ts';
+import { handleAuthorizationServerMetadata, type TokenDependencies } from '../app/http/chatgpt-token.ts';
 import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
@@ -55,7 +55,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
 }
 
 function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: TokenDependencies | null): void {
-  registerFormPostRoutes(server, chatgptOAuth);
   server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
     sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
   );
@@ -91,13 +90,6 @@ function registerMcpPostRoute(server: FastifyInstance, chatgptMcp: McpDependenci
     if (access.kind === 'refused') return sendResponse(reply, access.response);
     reply.hijack();
     return access.serve({ request: request.raw, response: reply.raw, body: request.body });
-  });
-}
-
-function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: TokenDependencies | null): void {
-  void server.register(async (scope) => {
-    parseFormBodies(scope);
-    scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(chatgptOAuth, request.body)));
   });
 }
 
