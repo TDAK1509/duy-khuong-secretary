@@ -31,4 +31,15 @@ describe('a workspace with no credits', () => {
     ]);
     expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT, quoteMessageId: 'zmsg-photo' }]);
   });
+
+  it('stores the text of a member without reading it and tells the member', async () => {
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.reader.requests).toEqual([]);
+    expect(await harness.database.query('SELECT author, text, submission_status FROM messages')).toEqual([
+      { author: 'user', text: 'Đổ dầu 500.000đ', submission_status: 'pending' },
+    ]);
+    expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT }]);
+  });
 });
