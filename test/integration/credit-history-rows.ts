@@ -31,12 +31,19 @@ export type NewCall = {
 };
 
 export async function insertCall(database: TemporaryDatabase, call: NewCall): Promise<void> {
+  const [workspace] = await database.query<{ credit_balance: string }>(
+    `UPDATE workspaces SET credit_balance = credit_balance - ${call.credits ?? 39.6} WHERE id = ${literal(call.workspaceId)} RETURNING credit_balance`,
+  );
+  const balanceAfter = call.balanceAfter === undefined ? describeChargedBalance(call, workspace?.credit_balance) : call.balanceAfter;
   await database.query(
     `INSERT INTO llm_calls (workspace_id, kind, model, cost_usd, credits, balance_after, created_at)
      VALUES (${literal(call.workspaceId)}, ${literal(call.kind ?? 'photo_read')}, 'gpt-6.1-sol', ${call.costUsd ?? 0.0264}, ${call.credits ?? 39.6},
-       ${call.balanceAfter ?? 'NULL'}, ${timestamp(call.createdAt)})`,
+       ${balanceAfter ?? 'NULL'}, ${timestamp(call.createdAt)})`,
   );
-  await database.query(`UPDATE workspaces SET credit_balance = credit_balance - ${call.credits ?? 39.6} WHERE id = ${literal(call.workspaceId)}`);
+}
+
+function describeChargedBalance(call: NewCall, balance: string | undefined): string | null {
+  return call.kind?.startsWith('operator_') ? null : (balance ?? null);
 }
 
 export async function insertWorkspaceWithCredits(database: TemporaryDatabase, name: string, credits: number): Promise<string> {

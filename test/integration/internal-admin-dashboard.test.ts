@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { insertCall, insertWorkspaceWithCredits } from './credit-history-rows.ts';
+import { insertAddition, insertCall, insertWorkspaceWithCredits } from './credit-history-rows.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertWorkspace, insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -15,13 +15,14 @@ describe('the admin dashboard', () => {
   let database: TemporaryDatabase;
   let pool: PostgresPool;
   let clock: FakeClock;
+  let duyUserId: string;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
     const workspaceId = await insertWorkspace(database, 'Nhóm của người vận hành');
-    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await makeUserInternal(database, duyUserId);
     await insertInternalSession(database, { userId: duyUserId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
   });
@@ -43,8 +44,8 @@ describe('the admin dashboard', () => {
 
   it('starts today at midnight Vietnam time', async () => {
     const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
-    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T00:30:00+07:00') });
     await insertCall(database, { workspaceId, createdAt: new Date('2026-11-01T23:30:00+07:00') });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T00:30:00+07:00') });
 
     const response = await getAdminPage(pool, clock, '/admin');
 
@@ -98,6 +99,35 @@ describe('the admin dashboard', () => {
     const response = await getAdminPage(pool, clock, '/admin');
 
     expect(response.body).toContain('19.960,4');
+    expect(response.body).not.toContain('Số dư không khớp với lịch sử credit.');
+  });
+
+  it('compares the balance with the newest entry when a top-up follows a call', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), balanceAfter: 19960.4 });
+    await insertAddition(database, { workspaceId, credits: 100, balanceAfter: 20060.4, source: 'internal_user', addedBy: duyUserId, createdAt: new Date('2026-11-02T09:00:00+07:00') });
+    await database.query(`UPDATE workspaces SET credit_balance = 20060.4 WHERE id = '${workspaceId}'`);
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).not.toContain('Số dư không khớp với lịch sử credit.');
+  });
+
+  it('warns when the balance differs from the newest call even if an older top-up matches', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), balanceAfter: 19960.4 });
+    await database.query(`UPDATE workspaces SET credit_balance = 20000 WHERE id = '${workspaceId}'`);
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('Số dư không khớp với lịch sử credit.');
+  });
+
+  it('shows no warning for a new workspace with no history and no credits', async () => {
+    await insertWorkspaceWithoutCredits(database, 'Xe tải Duy Khương');
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
     expect(response.body).not.toContain('Số dư không khớp với lịch sử credit.');
   });
 
