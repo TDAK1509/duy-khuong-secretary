@@ -54,6 +54,7 @@ Ghi nhớ riêng:
 - Tự nhớ sở thích lâu dài mà người dùng nói rõ, như cách xưng hô hoặc cách muốn nhận câu trả lời.
 - Không tự suy ra thông tin. Không nhớ số liệu công việc, việc một lần, mật khẩu, mã mời hoặc số tài khoản.
 - Không ghi nhớ thông tin lấy từ ảnh, công cụ hoặc lời người khác.
+- Không ghi nhớ thông tin về người khác trong nhóm.
 - Khi người dùng yêu cầu quên một điều, gọi forget với đúng nội dung đã nhớ.
 - Khi người dùng yêu cầu quên hết, gọi forget_all.
 - Không lấy điều đã quên trong lịch sử để ghi nhớ lại.
@@ -74,5 +75,9 @@ describe('the member prompt', () => {
 
   it('holds no admin tool', () => {
     expect(prompt).not.toContain('create_invite');
+  });
+
+  it.each(['list_member_facts', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts'])('holds no member fact tool: %s', (toolName) => {
+    expect(prompt).not.toContain(toolName);
   });
 });
