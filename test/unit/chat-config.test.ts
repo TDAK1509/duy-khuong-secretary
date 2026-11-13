@@ -43,6 +43,12 @@ describe('loadChatConfig', () => {
     expect(result).toMatchObject({ ok: true, config: { timeoutMs: 30000, reasoningEffort: 'low' } });
   });
 
+  it('refuses a chat model with no price and names the value', () => {
+    expect(() => loadChatConfig({ ...COMPLETE_ENVIRONMENT, LLM_MODEL: 'gpt-x' })).toThrow(
+      'Invalid configuration: LLM_MODEL "gpt-x" has no price',
+    );
+  });
+
   it('refuses a provider other than openai-compatible and names the value', () => {
     expect(() => loadChatConfig({ ...COMPLETE_ENVIRONMENT, CHAT_PROVIDER: 'other' })).toThrow(/CHAT_PROVIDER/);
   });
