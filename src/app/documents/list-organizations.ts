@@ -22,7 +22,7 @@ const SELECT_ORGANIZATION_PAGE = `WITH page AS (
     LIMIT ${PAGE_SIZE + 1}
   )
   SELECT page.id, page.name, page.type,
-    (SELECT array_agg(alias.printed_name ORDER BY alias.created_at, alias.id) FROM organization_aliases alias WHERE alias.organization_id = page.id) AS aliases,
+    (SELECT coalesce(array_agg(alias.printed_name ORDER BY alias.created_at, alias.id), ARRAY[]::text[]) FROM organization_aliases alias WHERE alias.organization_id = page.id) AS aliases,
     (SELECT count(DISTINCT party.document_id)::int FROM document_parties party WHERE party.organization_id = page.id) AS document_count
   FROM page
   ORDER BY page.name, page.id`;

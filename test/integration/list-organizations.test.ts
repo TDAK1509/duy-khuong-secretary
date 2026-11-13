@@ -12,6 +12,7 @@ import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
 import { insertAlias, insertNumberedDocument, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -128,6 +129,14 @@ describe('the organization list of an admin', () => {
     const page = await runListOrganizations({ text: null, cursor: null });
 
     expect(page.organizations).toEqual([{ name: 'Hòa Phát', type: 'company', aliases: ['Hòa Phát', 'HOA PHAT JSC'], document_count: 3 }]);
+  });
+
+  it('lists a company without an alias with an empty alias list', async () => {
+    await database.query(`INSERT INTO organizations (workspace_id, type, name) VALUES (${literal(workspaceId)}, 'place', 'Bến xe Miền Đông')`);
+
+    const page = await runListOrganizations({ text: null, cursor: null });
+
+    expect(page.organizations).toEqual([{ name: 'Bến xe Miền Đông', type: 'place', aliases: [], document_count: 0 }]);
   });
 
   async function insertCompanies(count: number): Promise<void> {
