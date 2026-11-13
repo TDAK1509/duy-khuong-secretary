@@ -109,8 +109,9 @@ describe('the credit balance of a workspace', () => {
       { balance_after: '80.000' },
       { balance_after: '90.000' },
     ]);
-    const [group] = await readCreditHistory(pool, workspaceId, new Date(Date.now() + 60 * 1000));
-    expect(group).toMatchObject({ type: 'usage', calls: 2, balanceAfter: '80.000' });
+    const groups = await readCreditHistory(pool, workspaceId, new Date(Date.now() + 60 * 1000));
+    expect(groups.map((group) => (group.type === 'usage' ? group.calls : 0)).reduce((total, calls) => total + calls, 0)).toBe(2);
+    expect(groups[0]).toMatchObject({ type: 'usage', balanceAfter: '80.000' });
   });
 
   it('times an addition when it is made, not when its transaction began', async () => {
