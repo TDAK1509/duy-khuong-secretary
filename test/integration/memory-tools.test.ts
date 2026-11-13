@@ -127,6 +127,16 @@ describe('the memory tools of a user in the chat', () => {
     expect(await readPrivateMemory(database, lan.userId)).toBeNull();
   });
 
+  it('keeps the memory of another user when it forgets all', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+    await insertPrivateMemory(database, { workspaceId, userId: hungUserId, markdown: '- C' });
+
+    await runTool('forget_all', {});
+
+    expect(await database.query('SELECT fact FROM private_memories')).toEqual([{ fact: 'C' }]);
+  });
+
   it('keeps both facts when two remembers wait on the same lock', async () => {
     const lockHolder = await runtimePool.connect();
     await lockHolder.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [`private_memories:${workspaceId}:${lan.userId}`]);
