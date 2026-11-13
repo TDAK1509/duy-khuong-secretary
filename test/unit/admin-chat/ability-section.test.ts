@@ -42,6 +42,18 @@ describe('the ability section of the prompt', () => {
     );
   });
 
+  it('holds the four member fact lines after the remove member line', () => {
+    const lines = buildAbilitySection(ADMIN_TOOLS).split('\n');
+
+    const removeMemberIndex = lines.indexOf('- Xóa một người khỏi nhóm.');
+    expect(lines.slice(removeMemberIndex + 1, removeMemberIndex + 5)).toEqual([
+      '- Cho biết các thông tin đã lưu về một người trong nhóm.',
+      '- Lưu thông tin về một người trong nhóm để đọc giấy tờ người đó gửi tốt hơn.',
+      '- Xóa một thông tin đã lưu về một người trong nhóm.',
+      '- Xóa mọi thông tin đã lưu về một người trong nhóm.',
+    ]);
+  });
+
   it('holds the seven member lines and the two fixed lines for the member tools', () => {
     const section = buildAbilitySection([...MEMBER_TOOLS, ...MEMORY_TOOLS]);
 
