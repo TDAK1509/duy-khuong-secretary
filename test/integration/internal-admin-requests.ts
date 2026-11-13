@@ -11,3 +11,8 @@ export function getAdminPage(pool: PostgresPool, clock: FakeClock, url: string, 
     ...(token !== null && { headers: { cookie: `__Host-internal-session=${token}` } }),
   });
 }
+
+export function readTableRows(page: string): string[][] {
+  const rows = [...page.matchAll(/<tr>(.*?)<\/tr>/g)].map((row) => [...(row[1] ?? '').matchAll(/<td>(.*?)<\/td>/g)].map((cell) => cell[1] ?? ''));
+  return rows.filter((cells) => cells.length > 0);
+}

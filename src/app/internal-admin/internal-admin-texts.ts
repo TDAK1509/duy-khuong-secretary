@@ -35,3 +35,16 @@ export const KIND_LABELS: Record<LlmCallKind, string> = {
   operator_backfill: 'Bổ sung số (vận hành)',
 };
 export const DRIFT_WARNING = 'Số dư không khớp với lịch sử credit.';
+export const HISTORY_HEADING_PREFIX = 'Lịch sử credit: ';
+export const TIME_COLUMN = 'Thời gian';
+export const ADDER_COLUMN = 'Người nạp';
+export const NOTE_COLUMN = 'Ghi chú';
+export const BALANCE_AFTER_COLUMN = 'Số dư sau';
+export const BACK_LINK_TEXT = 'Quay lại trang quản trị';
+export const STARTING_GRANT_ADDER = 'Tặng khi bắt đầu';
+export const WORKSPACE_NOT_FOUND_TEXT = 'Không tìm thấy nhóm này.';
+
+export const SOURCE_LABELS = {
+  starting_grant: 'Nạp: tặng khi bắt đầu',
+  internal_user: 'Nạp: người vận hành',
+};

@@ -10,7 +10,7 @@ import {
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
 import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
-import { createLoginRateLimit, handleAdminLogin, handleAdminPage, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
+import { createLoginRateLimit, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -68,6 +68,10 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
   if (internalAdmin === null) return;
   server.get('/admin', async (request, reply) => sendResponse(reply, await handleAdminPage(internalAdmin, request.headers.cookie)));
+  server.get('/admin/workspaces/:workspaceId', async (request, reply) => {
+    const { workspaceId } = request.params as { workspaceId: string };
+    return sendResponse(reply, await handleWorkspaceHistory(internalAdmin, request.headers.cookie, workspaceId));
+  });
   const loginRateLimit = createLoginRateLimit();
   void server.register(async (scope) => {
     parseFormBodies(scope);

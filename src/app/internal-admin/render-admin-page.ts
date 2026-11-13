@@ -1,18 +1,27 @@
 import { escapeHtml } from '../chatgpt/escape-html.ts';
 import { formatCredits, formatUsage, formatUsd } from './format-credits.ts';
+import type { HistoryEntry, UsageEntry } from './read-credit-history.ts';
 import type { Dashboard } from './read-dashboard.ts';
 import type { KindUsage } from './read-usage-by-kind.ts';
 import type { WorkspaceOverview } from './read-workspace-overview.ts';
 import {
   ADMIN_TITLE,
   BALANCE_AND_USAGE_HEADING,
+  ADDER_COLUMN,
+  BACK_LINK_TEXT,
+  BALANCE_AFTER_COLUMN,
   BALANCE_COLUMN,
   CALLS_COLUMN,
   COST_COLUMN,
   CREDITS_COLUMN,
   DRIFT_WARNING,
   KIND_COLUMN,
+  HISTORY_HEADING_PREFIX,
   KIND_LABELS,
+  NOTE_COLUMN,
+  SOURCE_LABELS,
+  STARTING_GRANT_ADDER,
+  TIME_COLUMN,
   CODE_FIELD_LABEL,
   LAST_MONTH_COLUMN,
   LAST_WEEK_COLUMN,
@@ -97,6 +106,37 @@ function renderKindTable(usageByKind: KindUsage[]): string {
 function renderKindRow(usage: KindUsage): string {
   const cells = [escapeHtml(usage.workspaceName), KIND_LABELS[usage.kind], String(usage.calls), formatCredits(usage.credits), formatUsd(usage.costUsd)];
   return `<tr>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+}
+
+export function renderHistoryPage(workspaceName: string, entries: HistoryEntry[]): string {
+  return renderDocument(
+    [`<h1>${HISTORY_HEADING_PREFIX}${escapeHtml(workspaceName)}</h1>`, renderHistoryTable(entries), `<p><a href="/admin">${BACK_LINK_TEXT}</a></p>`].join('\n'),
+  );
+}
+
+function renderHistoryTable(entries: HistoryEntry[]): string {
+  const columns = [TIME_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_COLUMN, ADDER_COLUMN, NOTE_COLUMN, BALANCE_AFTER_COLUMN];
+  return [
+    '<table>',
+    `<tr>${columns.map((column) => `<th>${column}</th>`).join('')}</tr>`,
+    ...entries.map((entry) => renderRow(entry.type === 'addition' ? listAdditionCells(entry) : listUsageCells(entry))),
+    '</table>',
+  ].join('\n');
+}
+
+function renderRow(cells: string[]): string {
+  return `<tr>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+}
+
+function listAdditionCells(entry: Extract<HistoryEntry, { type: 'addition' }>): string[] {
+  const adder = entry.adder === null ? STARTING_GRANT_ADDER : escapeHtml(entry.adder);
+  return [entry.time, SOURCE_LABELS[entry.source], '', `+${formatCredits(entry.credits)}`, '', adder, escapeHtml(entry.note), formatCredits(entry.balanceAfter)];
+}
+
+function listUsageCells(entry: UsageEntry): string[] {
+  const credits = Number(entry.credits) === 0 ? '0' : `−${formatCredits(entry.credits)}`;
+  const balanceAfter = entry.balanceAfter === null ? '' : formatCredits(entry.balanceAfter);
+  return [entry.day, KIND_LABELS[entry.kind], String(entry.calls), credits, formatUsd(entry.costUsd), '', '', balanceAfter];
 }
 
 export function renderMessagePage(message: string): string {

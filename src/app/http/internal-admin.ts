@@ -4,10 +4,12 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
-import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { findWorkspaceName } from '../internal-admin/find-workspace-name.ts';
+import { readCreditHistory } from '../internal-admin/read-credit-history.ts';
 import { readDashboard } from '../internal-admin/read-dashboard.ts';
 import { startInternalSession, type SessionStartOutcome } from '../internal-admin/start-internal-session.ts';
-import { renderDashboardPage, renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
+import { renderDashboardPage, renderHistoryPage, renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
 import { respondWithHtml, type HttpResponse } from './http-response.ts';
 import { readCookie } from './read-cookie.ts';
 
@@ -31,6 +33,15 @@ async function findSessionUser(dependencies: InternalAdminDependencies, cookieHe
   const token = readCookie(cookieHeader, SESSION_COOKIE);
   if (token === null) return null;
   return findInternalSessionUser(dependencies.database, token, dependencies.clock.now());
+}
+
+export async function handleWorkspaceHistory(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, workspaceId: string): Promise<HttpResponse> {
+  const userId = await findSessionUser(dependencies, cookieHeader);
+  if (userId === null) return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
+  const name = await findWorkspaceName(dependencies.database, workspaceId);
+  if (name === null) return addAdminHeaders(respondWithHtml(renderMessagePage(WORKSPACE_NOT_FOUND_TEXT), 404));
+  const entries = await readCreditHistory(dependencies.database, workspaceId, dependencies.clock.now());
+  return addAdminHeaders(respondWithHtml(renderHistoryPage(name, entries)));
 }
 
 export function createLoginRateLimit(): RequestRateLimit {
