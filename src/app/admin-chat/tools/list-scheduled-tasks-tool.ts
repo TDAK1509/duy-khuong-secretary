@@ -8,8 +8,8 @@ import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 const argumentsSchema = z.object({ scope: z.enum(['mine', 'all']) });
 
 export async function runListScheduledTasks(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  argumentsSchema.parse(parsedArguments);
-  const tasks = await listActiveTasks(database, scope);
+  const { scope: owner } = argumentsSchema.parse(parsedArguments);
+  const tasks = await listActiveTasks(database, scope, owner);
   return JSON.stringify({
     tasks: tasks.map((task) => ({
       id: task.id,
@@ -17,6 +17,8 @@ export async function runListScheduledTasks(database: Database, scope: AccessSco
       instruction: task.instruction,
       schedule: formatSchedule(task.schedule),
       next_run: task.nextRunAt === null ? null : formatVietnamDateTime(task.nextRunAt),
+      creator: task.creatorName,
+      mine: task.isMine,
     })),
   });
 }

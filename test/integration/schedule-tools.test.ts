@@ -146,9 +146,23 @@ describe('the scheduling tools', () => {
 
     expect(JSON.parse(output)).toEqual({
       tasks: [
-        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026' },
+        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026', creator: 'Duy', mine: true },
       ],
     });
+  });
+
+  it('lists every active task of the workspace with its creator when the scope is all', async () => {
+    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const lanUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Của Duy', status: 'active' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: lanUserId, title: 'Của Lan', status: 'active' });
+
+    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', { scope: 'all' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string; creator: string; mine: boolean }) => [task.title, task.creator, task.mine])).toEqual([
+      ['Của Duy', 'Duy', true],
+      ['Của Lan', 'Lan', false],
+    ]);
   });
 
   it('lists an active task without a next run as null', async () => {
