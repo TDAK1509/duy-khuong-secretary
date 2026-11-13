@@ -157,6 +157,16 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberMemory(database, lanUserId)).toBe(`- ${CUSTOMER_FACT}`);
   });
 
+  it('refuses a member who adds a fact about another member and stores nothing', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
+
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT }, hung);
+
+    expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
+    expect(await readMemberMemory(database, lanUserId)).toBeNull();
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
