@@ -140,6 +140,28 @@ describe('the text an admin wrote is the only text that changes anything', () =>
     expect(sentTexts()).toEqual([['zu-duy', `Xong.\n\n${REFUSED_NOTICE}`]]);
   });
 
+  describe('when a turn counts records and then removes a person', () => {
+    const COUNT_TODAY = { added_from: '2026-10-31', added_to: '2026-10-31' };
+
+    beforeEach(async () => {
+      const lanId = await findMembershipId('Lan');
+      followRounds(
+        replyWithToolCalls(callTool('count_records', COUNT_TODAY)),
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Hôm nay có 0 phiếu.'),
+      );
+    });
+
+    it('refuses the removal and tells the admin', async () => {
+      await harness.receiveText('zu-duy', 'Đếm hôm nay rồi xóa Lan');
+      await harness.sendQueuedTexts();
+
+      expect(harness.chat.requests[2]?.turns.at(-1)).toMatchObject({ role: 'tool_result', output: REFUSED_RESULT });
+      expect(await countMembers('Lan')).toBe(1);
+      expect(sentTexts()).toEqual([['zu-duy', `Hôm nay có 0 phiếu.\n\n${REFUSED_NOTICE}`]]);
+    });
+  });
+
   it('cannot change anything in a message with a photo', async () => {
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
     followRounds(
