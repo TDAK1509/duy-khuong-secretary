@@ -137,6 +137,14 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
+  it('deletes the row when it removes the last fact', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+
+    await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
+    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
