@@ -116,8 +116,23 @@ describe('POST /admin/login', () => {
     expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
   });
 
+  it('limits the login posts to 20 in 10 minutes', async () => {
+    const server = buildServer(pool, null, { internalAdmin: { database: pool, clock } });
+    for (let post = 0; post < 20; post += 1) await postCode(server, 'AAAA-AAAA');
+
+    const response = await postCode(server, 'K7M2-QX4P');
+
+    expect(response.statusCode).toBe(429);
+    expect(response.body).toContain('Có quá nhiều lần nhập mã. Thử lại sau 10 phút.');
+    expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
+  });
+
   function submitCode(code: string) {
-    return buildServer(pool, null, { internalAdmin: { database: pool, clock } }).inject({
+    return postCode(buildServer(pool, null, { internalAdmin: { database: pool, clock } }), code);
+  }
+
+  function postCode(server: ReturnType<typeof buildServer>, code: string) {
+    return server.inject({
       method: 'POST',
       url: '/admin/login',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
