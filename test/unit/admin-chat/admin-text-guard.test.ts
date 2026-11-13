@@ -17,8 +17,8 @@ describe('the kinds of admin tool', () => {
 
   it('names the tools of each kind', () => {
     expect(CHANGE_TOOLS).toEqual(['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name']);
-    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents']);
-    expect(ADMIN_TEXT_TOOLS).toEqual(['count_records', 'list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos']);
+    expect(MEMBER_TEXT_TOOLS).toEqual(['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents']);
+    expect(ADMIN_TEXT_TOOLS).toEqual(['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos']);
   });
 });
 
