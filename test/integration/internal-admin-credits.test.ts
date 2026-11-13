@@ -64,4 +64,12 @@ describe('POST /admin/credits', () => {
     expect(response.body).toContain(SESSION_TEXT);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
+
+  it('refuses a post with no session', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'Nạp thử' }, null);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
 });
