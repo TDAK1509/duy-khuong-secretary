@@ -4,6 +4,7 @@ import type { Dashboard } from './read-dashboard.ts';
 import type { RecentAddition } from './read-recent-additions.ts';
 import type { KindUsage } from './read-usage-by-kind.ts';
 import type { WorkspaceOverview } from './read-workspace-overview.ts';
+import { renderAddCreditsForm, type AddCreditsFormView } from './render-add-credits-form.ts';
 import { renderDocument, renderTable } from './render-document.ts';
 import {
   ADDER_COLUMN,
@@ -27,7 +28,7 @@ import {
   WORKSPACE_COLUMN,
 } from './internal-admin-texts.ts';
 
-export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }: Dashboard): string {
+export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }: Dashboard, form: AddCreditsFormView): string {
   return renderDocument(
     [
       `<h1>${ADMIN_TITLE}</h1>`,
@@ -35,6 +36,7 @@ export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }
       renderTable([WORKSPACE_COLUMN, BALANCE_COLUMN, TODAY_COLUMN, LAST_WEEK_COLUMN, LAST_MONTH_COLUMN], workspaces.map(listOverviewCells)),
       `<h2>${USAGE_BY_KIND_HEADING}</h2>`,
       renderTable([WORKSPACE_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_COLUMN], usageByKind.map(listKindCells)),
+      renderAddCreditsForm(form, workspaces),
       `<h2>${RECENT_ADDITIONS_HEADING}</h2>`,
       renderTable([TIME_COLUMN, WORKSPACE_COLUMN, CREDITS_COLUMN, ADDER_COLUMN, NOTE_COLUMN], recentAdditions.map(listAdditionCells)),
     ].join('\n'),

@@ -80,7 +80,8 @@ describe('POST /admin/credits', () => {
     const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '0', note: 'Nạp thử' });
 
     expect(response.statusCode).toBe(422);
-    expect(response.body).toContain(CREDITS_TEXT);
+    expect(response.body).toContain(`<p role="alert">${CREDITS_TEXT}</p>`);
+    expect(response.body).toContain('<form method="post" action="/admin/credits">');
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
 

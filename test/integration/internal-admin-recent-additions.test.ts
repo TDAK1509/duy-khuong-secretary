@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertAddition } from './credit-history-rows.ts';
-import { getAdminPage, readTableRows, SESSION_TOKEN } from './internal-admin-requests.ts';
+import { getAdminPage, makeCsrfToken, readTableRows, SESSION_TOKEN } from './internal-admin-requests.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -68,5 +68,20 @@ describe('the recent additions on the admin page', () => {
 
     const notes = readTableRows(response.body).filter((cells) => cells.length === 5 && cells[4]?.startsWith('Lần ')).map((cells) => cells[4]);
     expect(notes).toEqual(Array.from({ length: 20 }, (_, index) => `Lần ${21 - index}`));
+  });
+
+  it('shows the add-credits form with a CSRF token, a request id and a choice of workspaces', async () => {
+    await insertWorkspace(database, '<b>x</b>');
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('<form method="post" action="/admin/credits">');
+    expect(response.body).toContain(`<input type="hidden" name="csrf" value="${makeCsrfToken()}">`);
+    expect(response.body).toMatch(/<input type="hidden" name="request_id" value="[0-9a-f-]{36}">/);
+    expect(response.body).toContain(`<option value="${workspaceId}">Xe tải Duy Khương</option>`);
+    expect(response.body).toContain('&lt;b&gt;x&lt;/b&gt;</option>');
+    for (const text of ['<h2>Nạp credit</h2>', '>Nhóm</label>', '>Số credit</label>', '>Ghi chú</label>', '>Nạp credit</button>']) {
+      expect(response.body).toContain(text);
+    }
   });
 });
