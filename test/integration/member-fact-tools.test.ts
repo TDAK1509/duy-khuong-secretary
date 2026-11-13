@@ -17,6 +17,7 @@ const PLATE_FACT = 'Lái xe biển số 93A-1234';
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
 const MEMBER_FACTS_FULL_RESULT =
   '{"ok":false,"error":"Thông tin về người này đã đủ 2000 ký tự. Tôi chưa thêm thông tin mới và vẫn giữ mọi thông tin cũ."}';
+const NOT_FOUND_RESULT = '{"ok":false,"error":"Không tìm thấy người này."}';
 
 describe('the member fact tools of an admin in the chat', () => {
   let database: TemporaryDatabase;
@@ -84,6 +85,12 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(output).toBe(MEMBER_FACTS_FULL_RESULT);
     expect(await readMemberMemory(database, hungUserId)).toBe(oldMarkdown);
+  });
+
+  it('answers not found for a member id that is not a uuid', async () => {
+    const output = await runTool('add_member_fact', { member_id: 'abc', fact: PLATE_FACT });
+
+    expect(output).toBe(NOT_FOUND_RESULT);
   });
 
   async function findMembershipId(userId: string): Promise<string> {
