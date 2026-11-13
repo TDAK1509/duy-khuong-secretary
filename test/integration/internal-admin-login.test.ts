@@ -4,7 +4,7 @@ import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertLoginCode } from './chatgpt-login-code-rows.ts';
-import { insertInternalLoginCode, makeUserInternal } from './internal-user-rows.ts';
+import { insertInternalLoginCode, makeUserInternal, makeUserNotInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -103,6 +103,16 @@ describe('POST /admin/login', () => {
     const response = await submitCode('ABCD-EFGH');
 
     expect(response.body).toContain(WRONG_CODE_TEXT);
+    expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
+  });
+
+  it('refuses the code of a user who stopped being internal', async () => {
+    await makeUserNotInternal(database, duyUserId);
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain('Bạn không có quyền vào trang quản trị Trợ lý.');
     expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
   });
 

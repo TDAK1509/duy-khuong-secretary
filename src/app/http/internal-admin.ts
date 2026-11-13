@@ -2,9 +2,9 @@ import { z } from 'zod';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
-import { WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { NOT_INTERNAL_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
 import { startInternalSession, type SessionStartOutcome } from '../internal-admin/start-internal-session.ts';
-import { renderLoginPage } from '../internal-admin/render-admin-page.ts';
+import { renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
 import { respondWithHtml, type HttpResponse } from './http-response.ts';
 
 const SESSION_COOKIE = '__Host-internal-session';
@@ -30,7 +30,8 @@ function addAdminHeaders(response: HttpResponse): HttpResponse {
 }
 
 function respondToLogin(outcome: SessionStartOutcome): HttpResponse {
-  if (outcome.kind !== 'started') return respondWithHtml(renderLoginPage(WRONG_CODE_TEXT));
+  if (outcome.kind === 'wrong_code') return respondWithHtml(renderLoginPage(WRONG_CODE_TEXT));
+  if (outcome.kind === 'not_internal') return respondWithHtml(renderMessagePage(NOT_INTERNAL_TEXT), 403);
   return { status: 303, headers: { location: '/admin', 'set-cookie': formatSessionCookie(outcome.token) }, body: '' };
 }
 
