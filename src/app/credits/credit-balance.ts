@@ -22,25 +22,19 @@ export type CreditAddition = {
 
 const NO_CREDITS = '0.000';
 
+const INSERT_CALL = `
+  INSERT INTO llm_calls (workspace_id, kind, model, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, cost_usd, credits, balance_after)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
+
 export async function chargeCall(transaction: Transaction, call: RecordedCall): Promise<void> {
   const credits = call.isCharged ? call.price.credits : NO_CREDITS;
   const balanceAfter = call.isCharged ? await lowerBalance(transaction, call.workspaceId, credits) : null;
-  await transaction.query(
-    `INSERT INTO llm_calls (workspace_id, kind, model, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, cost_usd, credits, balance_after)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [
-      call.workspaceId,
-      call.kind,
-      call.model,
-      call.usage?.input ?? null,
-      call.usage?.cachedInput ?? null,
-      call.usage?.cacheWrite ?? null,
-      call.usage?.output ?? null,
-      call.price.costUsd,
-      credits,
-      balanceAfter,
-    ],
-  );
+  const tokenCounts = listTokenCounts(call.usage);
+  await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, credits, balanceAfter]);
+}
+
+function listTokenCounts(usage: TokenUsage | null): (number | null)[] {
+  return [usage?.input ?? null, usage?.cachedInput ?? null, usage?.cacheWrite ?? null, usage?.output ?? null];
 }
 
 export async function addCredits(transaction: Transaction, addition: CreditAddition): Promise<void> {
