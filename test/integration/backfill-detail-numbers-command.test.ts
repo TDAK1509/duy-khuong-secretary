@@ -5,7 +5,7 @@ import { SHARED_NUMBER_RULE } from '../../src/app/reading/reader-prompt.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
-import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
+import { listLlmCalls, readCreditBalance } from './llm-call-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -129,7 +129,6 @@ describe('the backfill-detail-numbers command', () => {
 
   it('records the read as an operator backfill and does not charge it', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await setCreditBalance(database, workspaceId, 20000);
     const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();

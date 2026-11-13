@@ -1,11 +1,33 @@
+import { addCredits } from '../../src/app/credits/credit-balance.ts';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { hashInviteCode } from '../../src/app/workspaces/invite-code.ts';
+import { createPostgresPool } from '../../src/providers/database/postgres.ts';
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
+const STARTING_CREDITS = '20000.000';
+
 export async function insertWorkspace(database: TemporaryDatabase, name: string): Promise<string> {
+  const id = await insertWorkspaceWithoutCredits(database, name);
+  await grantStartingCredits(database, id);
+  return id;
+}
+
+export async function insertWorkspaceWithoutCredits(database: TemporaryDatabase, name: string): Promise<string> {
   const [row] = await database.query<{ id: string }>(`INSERT INTO workspaces (name) VALUES (${literal(name)}) RETURNING id`);
   if (!row) throw new Error('workspace not inserted');
   return row.id;
+}
+
+async function grantStartingCredits(database: TemporaryDatabase, workspaceId: string): Promise<void> {
+  const pool = createPostgresPool(database.url);
+  try {
+    await runInTransaction(pool, (transaction) =>
+      addCredits(transaction, { workspaceId, credits: STARTING_CREDITS, source: 'starting_grant', addedBy: null, note: 'Credit ban đầu' }),
+    );
+  } finally {
+    await pool.end();
+  }
 }
 
 export type NewInvite = {

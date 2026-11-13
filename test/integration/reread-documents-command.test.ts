@@ -10,7 +10,7 @@ import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
-import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
+import { listLlmCalls, readCreditBalance } from './llm-call-rows.ts';
 import { insertMemberMemory } from './member-memory-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertSentMessage, type NewSentMessage } from './sent-message-rows.ts';
@@ -83,7 +83,6 @@ describe('the reread-documents command', () => {
 
   it('records the reads as operator rereads and does not charge them', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await setCreditBalance(database, workspaceId, 20000);
     await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
     const reader = new FakeReader();
     reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn' })]), PHOTO_READ_USAGE);

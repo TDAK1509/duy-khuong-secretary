@@ -97,7 +97,7 @@ describe('the credit balance of a workspace', () => {
     );
 
     expect(await readCreditBalance(database, workspaceId)).toBe('130.000');
-    expect(await database.query('SELECT credits, source, added_by, note, balance_after FROM credit_additions')).toEqual([
+    expect(await database.query("SELECT credits, source, added_by, note, balance_after FROM credit_additions WHERE source = 'internal_user'")).toEqual([
       { credits: '50.000', source: 'internal_user', added_by: duyId, note: 'Nạp thử', balance_after: '130.000' },
     ]);
   });

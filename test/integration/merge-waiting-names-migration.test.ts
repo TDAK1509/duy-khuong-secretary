@@ -7,7 +7,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import { RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE } from './proposed-organization-shape.ts';
 import { literal } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 describe('the migration that merges the names that are waiting', () => {
   let database: TemporaryDatabase;
@@ -19,7 +19,7 @@ describe('the migration that merges the names that are waiting', () => {
   beforeEach(async () => {
     database = await createMigratedDatabase();
     await database.query(RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE);
-    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    workspaceId = await insertWorkspaceWithoutCredits(database, 'Xe tải Duy Khương');
     userId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
     chengLoongId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Cheng Loong' });
     documentCount = 0;
