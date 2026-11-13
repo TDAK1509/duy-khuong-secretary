@@ -8,6 +8,7 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { readUserMemory } from './user-memory-rows.ts';
 import { insertMemberMemory, readMemberMemory } from './member-memory-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -165,6 +166,12 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
     expect(await readMemberMemory(database, lanUserId)).toBeNull();
+  });
+
+  it('leaves the private memory of the admin empty when it adds a fact about a member', async () => {
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
+    expect(await readUserMemory(database, duy.userId)).toBeNull();
   });
 
   async function findMembershipId(userId: string): Promise<string> {
