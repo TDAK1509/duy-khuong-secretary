@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import type { ChatService } from '../../services/chat/chat-service.ts';
+import type { ReaderService } from '../../services/reading/reader-service.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { meterChat } from '../credits/meter-chat.ts';
+import { meterReader } from '../credits/meter-reader.ts';
 import { hasOfferedChoice } from '../delivery/has-offered-choice.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -32,11 +36,24 @@ export async function receiveIntake(
   if (chat === null) return { kind: 'not_configured', group: 'chat' };
   if (event.kind === 'images' && photoStorage === null) return { kind: 'not_configured', group: 'photos' };
   if (reader === null) return { kind: 'not_configured', group: 'readers' };
-  const context = { dependencies, reader, stages, event, sender };
+  const context = { ...meterServices(dependencies, reader, chat, sender), stages, event, sender };
   const parts = readIntakeParts(event);
   const outcomes: IntakeOutcome[] = [];
   for (const part of parts) outcomes.push(await receivePart(context, part));
   return stages.finishEvent((transaction) => finishIntake(transaction, context, readAnsweredText(event, parts), outcomes));
+}
+
+function meterServices(
+  dependencies: IntakeDependencies,
+  reader: ReaderService,
+  chat: ChatService,
+  sender: IntakeSender,
+): Pick<IntakeContext, 'dependencies' | 'reader'> {
+  const meter = { database: dependencies.database, workspaceId: sender.workspaceId, isCharged: true };
+  return {
+    dependencies: { ...dependencies, chat: meterChat(chat, meter, 'chat_answer') },
+    reader: meterReader(reader, meter, (request) => (request.image === null ? 'text_read' : 'photo_read')),
+  };
 }
 
 function readAnsweredText(event: ClaimedEvent, parts: IntakePart[]): string | null {
