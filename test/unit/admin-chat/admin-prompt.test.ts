@@ -12,6 +12,18 @@ describe('the scheduling section of the admin prompt', () => {
     expect(prompt.split('\n')).toContain(line);
   });
 
+  it('tells the model to put the part and the days in the instruction of a reminder', () => {
+    expect(prompt.split('\n')).toContain(
+      '- Hệ thống không tự chạy khi thành viên gửi dữ liệu. Để nhắc việc sau một khoảng thời gian kể từ lần gửi (ví dụ thay dầu sau 30 ngày), đặt lịch hằng ngày và ghi rõ bộ phận và số ngày trong "instruction".',
+    );
+  });
+
+  it('gives a maintenance example that uses maintenance_status', () => {
+    expect(prompt.split('\n')).toContain(
+      '"Dùng maintenance_status để xem lần bảo dưỡng gần nhất của từng xe. Nhắc tôi các xe có dầu máy đã từ 30 ngày trở lên kể từ lần gửi gần nhất. Mỗi dòng ghi biển số xe, bộ phận, ngày gửi gần nhất, người gửi và số ngày đã qua."',
+    );
+  });
+
   it('no longer speaks of a draft', () => {
     expect(prompt).not.toContain('bản nháp');
   });
