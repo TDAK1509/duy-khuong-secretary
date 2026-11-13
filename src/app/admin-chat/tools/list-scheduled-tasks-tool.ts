@@ -17,6 +17,7 @@ export async function runListScheduledTasks(database: Database, scope: AccessSco
       instruction: task.instruction,
       schedule: formatSchedule(task.schedule),
       next_run: task.nextRunAt === null ? null : formatVietnamDateTime(task.nextRunAt),
+      last_run: task.lastRunAt === null ? null : formatVietnamDateTime(task.lastRunAt),
       creator: task.creatorName,
       mine: task.isMine,
     })),

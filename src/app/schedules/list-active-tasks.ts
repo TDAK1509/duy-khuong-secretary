@@ -11,6 +11,7 @@ export type ActiveTask = {
   instruction: string;
   schedule: Schedule;
   nextRunAt: Date | null;
+  lastRunAt: Date | null;
   creatorName: string | null;
   isMine: boolean;
 };
@@ -20,13 +21,14 @@ type ActiveTaskRow = ScheduleRow & {
   title: string;
   instruction: string;
   next_run_at: Date | null;
+  last_run_at: Date | null;
   creator_name: string | null;
   is_mine: boolean;
 };
 
 export async function listActiveTasks(database: Database, scope: AccessScope, owner: TaskOwner): Promise<ActiveTask[]> {
   const { rows } = await database.query<ActiveTaskRow>(
-    `SELECT task.id, task.title, task.instruction, task.next_run_at, membership.display_name AS creator_name,
+    `SELECT task.id, task.title, task.instruction, task.next_run_at, task.last_run_at, membership.display_name AS creator_name,
        task.created_by = $2 AS is_mine, ${SCHEDULE_COLUMNS}
      FROM scheduled_tasks task
      LEFT JOIN memberships membership ON membership.workspace_id = task.workspace_id AND membership.user_id = task.created_by
@@ -40,6 +42,7 @@ export async function listActiveTasks(database: Database, scope: AccessScope, ow
     instruction: row.instruction,
     schedule: readSchedule(row),
     nextRunAt: row.next_run_at,
+    lastRunAt: row.last_run_at,
     creatorName: row.creator_name,
     isMine: row.is_mine,
   }));

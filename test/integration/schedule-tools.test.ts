@@ -146,7 +146,7 @@ describe('the scheduling tools', () => {
 
     expect(JSON.parse(output)).toEqual({
       tasks: [
-        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026', creator: 'Duy', mine: true },
+        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026', last_run: null, creator: 'Duy', mine: true },
       ],
     });
   });
@@ -175,6 +175,19 @@ describe('the scheduling tools', () => {
     const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'all' });
 
     expect(JSON.parse(output).tasks.map((task: { title: string }) => task.title)).toEqual(['Của Duy']);
+  });
+
+  it('shows when a task last ran and null for a task that never ran', async () => {
+    const duy = await addAdmin();
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Đã chạy', status: 'active', lastRunAt: new Date('2026-10-30T18:00:00+07:00') });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Chưa chạy', status: 'active' });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'mine' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string; last_run: string | null }) => [task.title, task.last_run])).toEqual([
+      ['Đã chạy', '18:00 30/10/2026'],
+      ['Chưa chạy', null],
+    ]);
   });
 
   it('lists an active task without a next run as null', async () => {
