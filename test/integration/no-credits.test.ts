@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { setCreditBalance } from './llm-call-rows.ts';
@@ -66,5 +67,21 @@ describe('a workspace with no credits', () => {
 
     expect(await harness.database.query('SELECT 1 FROM messages WHERE image_key IS NOT NULL')).toHaveLength(3);
     expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT }]);
+  });
+
+  it('does not read the photo that waits for an explanation', async () => {
+    await setCreditBalance(harness.database, harness.workspaceId, 20000);
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
+    await harness.receivePhoto('zu-hung');
+    await setCreditBalance(harness.database, harness.workspaceId, 0);
+    harness.reader.requests.length = 0;
+
+    await harness.receiveText('zu-hung', 'Lốp mới thay cho xe 29C-123.45');
+
+    expect(harness.reader.requests).toEqual([]);
+    expect(await harness.database.query("SELECT submission_status FROM messages WHERE image_key IS NOT NULL")).toEqual([
+      { submission_status: 'needs_explanation' },
+    ]);
   });
 });
