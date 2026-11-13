@@ -169,8 +169,10 @@ describe('the member fact tools of an admin in the chat', () => {
   });
 
   it('leaves the private memory of the admin empty when it adds a fact about a member', async () => {
-    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
 
+    expect(JSON.parse(output).ok).toBe(true);
+    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
     expect(await readUserMemory(database, duy.userId)).toBeNull();
   });
 
