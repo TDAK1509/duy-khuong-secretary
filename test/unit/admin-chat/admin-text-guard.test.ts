@@ -43,6 +43,13 @@ describe('the admin text guard', () => {
     expect(guard.refuses(changeTool)).toBe(true);
   });
 
+  it('refuses a change after a count of records', () => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('count_records');
+
+    expect(guard.refuses('create_invite')).toBe(true);
+  });
+
   it('refuses a change after the maintenance status', () => {
     const guard = new AdminTextGuard(false);
     guard.noteCall('maintenance_status');
