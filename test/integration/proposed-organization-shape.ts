@@ -1,4 +1,6 @@
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0050_index_outbound_messages_sending';
+  DROP INDEX outbound_messages_sending_idx;
   DELETE FROM pgmigrations WHERE name = '0049_add_internal_users';
   DROP TABLE internal_sessions;
   DROP TABLE internal_login_codes;

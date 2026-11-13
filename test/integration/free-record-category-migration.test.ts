@@ -126,7 +126,7 @@ describe('the migration that frees the record categories', () => {
       { directory: migrationsDirectory, log: (line) => lines.push(line) },
     );
     expect(lines).toEqual([
-      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source, 0037_create_document_tables, 0038_create_document_reads, 0039_split_documents_by_plate, 0040_add_message_holds_other_text, 0041_create_user_memories, 0042_merge_close_names, 0043_remove_name_proposals, 0044_merge_waiting_names, 0045_drop_proposed_organization, 0046_create_member_memories, 0047_create_llm_calls_and_credits, 0048_grant_starting_credits, 0049_add_internal_users',
+      '[migrate] applied: 0030_free_record_category, 0031_allow_photo_explanation_status, 0032_add_message_code_choice, 0033_drop_two_reader_columns, 0034_create_chatgpt_sign_in_tables, 0035_create_chatgpt_connections, 0036_add_message_source, 0037_create_document_tables, 0038_create_document_reads, 0039_split_documents_by_plate, 0040_add_message_holds_other_text, 0041_create_user_memories, 0042_merge_close_names, 0043_remove_name_proposals, 0044_merge_waiting_names, 0045_drop_proposed_organization, 0046_create_member_memories, 0047_create_llm_calls_and_credits, 0048_grant_starting_credits, 0049_add_internal_users, 0050_index_outbound_messages_sending',
     ]);
     expect(exitCode).toBe(0);
   }
