@@ -48,6 +48,16 @@ describe('recording and charging the LLM calls of a workspace', () => {
     expect(await listKinds()).toEqual(['text_read']);
   });
 
+  it('records the read and the chat answer of an admin question', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }), TEXT_READ_USAGE);
+    harness.chat.replyWith('Chào anh', CHAT_ROUND_USAGE);
+
+    await harness.receiveText('zu-duy', 'Hôm nay ai gửi gì?');
+
+    expect(await listKinds()).toEqual(['text_read', 'chat_answer']);
+  });
+
   async function listKinds(): Promise<string[]> {
     return (await listLlmCalls(harness.database, harness.workspaceId)).map((call) => call.kind);
   }
