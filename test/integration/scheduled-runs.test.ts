@@ -233,6 +233,15 @@ describe('the ticker runs the due scheduled tasks', () => {
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 
+  it('queues nothing when the model answers exactly KHONG_CO_THONG_BAO', async () => {
+    await insertDueTask({ title: 'Báo cáo hằng ngày' });
+    harness.chat.replyWith('KHONG_CO_THONG_BAO');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
   function holdFirstAnswer(): { started: Promise<void>; release: () => void } {
     let release = (): void => {};
     let markStarted = (): void => {};
