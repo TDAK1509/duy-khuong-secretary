@@ -6,7 +6,7 @@ import { getAdminPage, makeCsrfToken, readTableRows, SESSION_TOKEN } from './int
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertMember, insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertWorkspace, insertWorkspaceWithoutCredits } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -22,7 +22,7 @@ describe('the recent additions on the admin page', () => {
     database = await createMigratedDatabase();
     pool = createPostgresPool(database.url);
     clock = new FakeClock(NOW);
-    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+    workspaceId = await insertWorkspaceWithoutCredits(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     await makeUserInternal(database, duyUserId);
     await insertInternalSession(database, { userId: duyUserId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });

@@ -108,7 +108,7 @@ describe('the credit balance of a workspace', () => {
     secondCommitted.send();
     await first;
 
-    expect(await database.query('SELECT balance_after FROM credit_additions ORDER BY created_at DESC, id DESC')).toEqual([
+    expect(await database.query("SELECT balance_after FROM credit_additions WHERE source = 'internal_user' ORDER BY created_at DESC, id DESC")).toEqual([
       { balance_after: '120.000' },
       { balance_after: '110.000' },
     ]);
@@ -151,6 +151,6 @@ describe('the credit balance of a workspace', () => {
     await Promise.all([first, second]);
 
     expect(await readCreditBalance(database, workspaceId)).toBe('130.000');
-    expect(await database.query('SELECT balance_after FROM credit_additions')).toEqual([{ balance_after: '130.000' }]);
+    expect(await database.query("SELECT balance_after FROM credit_additions WHERE source = 'internal_user'")).toEqual([{ balance_after: '130.000' }]);
   });
 });
