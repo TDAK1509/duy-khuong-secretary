@@ -143,7 +143,7 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
 
 async function replyToOtherMessage(transaction: Transaction, { identity, text, now }: ReceivedMessage): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
-  if (text !== null && isInternalLoginCommand(text)) return answerInternalLoginCommand(transaction, identity.userId);
+  if (text !== null && isInternalLoginCommand(text)) return answerInternalLoginCommand(transaction, identity.userId, now);
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
   return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text, now });

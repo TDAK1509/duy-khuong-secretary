@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { hashLoginCode } from '../../src/app/chatgpt/login-code.ts';
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
@@ -61,6 +62,18 @@ describe('asking for an admin page login code in Zalo', () => {
       'Mã đăng nhập trang quản trị Trợ lý ở tin nhắn tiếp theo. Nhấn giữ tin nhắn đó để sao chép, rồi dán vào trang quản trị. Mã hết hạn sau 10 phút. Không đưa mã này cho ai, kể cả người nói là của Trợ lý.',
     );
     expect(channel.texts[1]?.text).toMatch(/^\S{4}-\S{4}$/);
+  });
+
+  it('stores the hash of the code with an expiry 10 minutes from now', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+
+    await receiveText('zu-duy', 'đăng nhập quản trị');
+    await sendAllQueuedTexts();
+
+    expect(await database.query('SELECT user_id, code_hash, expires_at FROM internal_login_codes')).toEqual([
+      { user_id: userId, code_hash: hashLoginCode(channel.texts[1]?.text ?? ''), expires_at: new Date('2026-11-02T10:10:00+07:00') },
+    ]);
   });
 
   async function receiveText(externalUserId: string, text: string): Promise<void> {
