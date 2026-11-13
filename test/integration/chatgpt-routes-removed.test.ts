@@ -46,4 +46,10 @@ describe('the removed ChatGPT connector routes', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it('answers 404 on the authorization server metadata', async () => {
+    const response = await service.server.inject({ method: 'GET', url: '/.well-known/oauth-authorization-server' });
+
+    expect(response.statusCode).toBe(404);
+  });
 });

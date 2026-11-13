@@ -97,12 +97,6 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
   const { pool, clock, zalo, alerts, connection, channel, webhookConfig, photoStorage, reader } = parts;
   return {
     oauthCallback: connection,
-    chatgptOAuth: zalo && channel && {
-      database: pool,
-      clock,
-      publicBaseUrl: zalo.publicBaseUrl,
-      maxTextLength: channel.maxTextLength,
-    },
     chatgptMcp: zalo && channel && {
       database: pool,
       clock,

@@ -8,7 +8,6 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleAuthorizationServerMetadata, type TokenDependencies } from '../app/http/chatgpt-token.ts';
 import { handleProtectedResourceMetadata, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
@@ -22,7 +21,6 @@ export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
-  chatgptOAuth?: TokenDependencies | null;
   chatgptMcp?: McpDependencies | null;
   internalAdmin?: InternalAdminDependencies | null;
 };
@@ -43,7 +41,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
-  registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
   registerMcpRoutes(server, options.chatgptMcp ?? null);
   registerInternalAdminRoutes(server, options.internalAdmin ?? null);
   const { verifierFile } = options;
@@ -52,12 +49,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
       sendResponse(reply, respondWithHtml(verifierFile.content)),
     );
   }
-}
-
-function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: TokenDependencies | null): void {
-  server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
-    sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
-  );
 }
 
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
