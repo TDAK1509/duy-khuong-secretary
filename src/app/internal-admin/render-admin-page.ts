@@ -1,17 +1,20 @@
 import { escapeHtml } from '../chatgpt/escape-html.ts';
-import { formatCredits } from './format-credits.ts';
+import { formatCredits, formatUsage } from './format-credits.ts';
 import type { WorkspaceOverview } from './read-workspace-overview.ts';
 import {
   ADMIN_TITLE,
   BALANCE_AND_USAGE_HEADING,
   BALANCE_COLUMN,
   CODE_FIELD_LABEL,
+  LAST_MONTH_COLUMN,
+  LAST_WEEK_COLUMN,
   LOGIN_BUTTON_LABEL,
   LOGIN_INTRO,
   LOGIN_STEP_COPY_CODE,
   LOGIN_STEP_OPEN_CHAT,
   LOGIN_STEP_SEND_COMMAND,
   LOGIN_STEP_SUBMIT,
+  TODAY_COLUMN,
   WORKSPACE_COLUMN,
 } from './internal-admin-texts.ts';
 
@@ -53,7 +56,7 @@ export function renderDashboardPage(workspaces: WorkspaceOverview[]): string {
 function renderOverviewTable(workspaces: WorkspaceOverview[]): string {
   return [
     '<table>',
-    `<tr><th>${WORKSPACE_COLUMN}</th><th>${BALANCE_COLUMN}</th></tr>`,
+    `<tr><th>${WORKSPACE_COLUMN}</th><th>${BALANCE_COLUMN}</th><th>${TODAY_COLUMN}</th><th>${LAST_WEEK_COLUMN}</th><th>${LAST_MONTH_COLUMN}</th></tr>`,
     ...workspaces.map(renderOverviewRow),
     '</table>',
   ].join('\n');
@@ -61,7 +64,8 @@ function renderOverviewTable(workspaces: WorkspaceOverview[]): string {
 
 function renderOverviewRow(workspace: WorkspaceOverview): string {
   const link = `<a href="/admin/workspaces/${workspace.id}">${escapeHtml(workspace.name)}</a>`;
-  return `<tr><td>${link}</td><td>${formatCredits(workspace.balance)}</td></tr>`;
+  const usageCells = [workspace.today, workspace.lastWeek, workspace.lastMonth].map((usage) => `<td>${formatUsage(usage)}</td>`);
+  return `<tr><td>${link}</td><td>${formatCredits(workspace.balance)}</td>${usageCells.join('')}</tr>`;
 }
 
 export function renderMessagePage(message: string): string {

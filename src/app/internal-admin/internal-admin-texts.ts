@@ -14,3 +14,6 @@ export const TOO_MANY_LOGINS_TEXT = 'Có quá nhiều lần nhập mã. Thử l�
 export const BALANCE_AND_USAGE_HEADING = 'Số dư và mức dùng';
 export const WORKSPACE_COLUMN = 'Nhóm';
 export const BALANCE_COLUMN = 'Số dư';
+export const TODAY_COLUMN = 'Hôm nay';
+export const LAST_WEEK_COLUMN = '7 ngày qua';
+export const LAST_MONTH_COLUMN = '30 ngày qua';

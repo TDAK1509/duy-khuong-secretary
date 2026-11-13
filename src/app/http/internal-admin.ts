@@ -24,7 +24,7 @@ export type InternalAdminDependencies = { database: Database; clock: Clock };
 export async function handleAdminPage(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<HttpResponse> {
   const userId = await findSessionUser(dependencies, cookieHeader);
   if (userId === null) return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
-  return addAdminHeaders(respondWithHtml(renderDashboardPage(await readWorkspaceOverview(dependencies.database))));
+  return addAdminHeaders(respondWithHtml(renderDashboardPage(await readWorkspaceOverview(dependencies.database, dependencies.clock.now()))));
 }
 
 async function findSessionUser(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<string | null> {
