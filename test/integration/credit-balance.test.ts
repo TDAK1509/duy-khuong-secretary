@@ -1,28 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addCredits, chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
 import { readCreditHistory } from '../../src/app/internal-admin/read-credit-history.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { makeSignal, waitUntilATransactionWaitsForALock } from './lock-signals.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
-
-const LOCK_WAIT_LIMIT_MS = 2000;
-const LOCK_WAIT_STEP_MS = 20;
-
-type Signal = { promise: Promise<void>; send: () => void };
-
-function makeSignal(): Signal {
-  let send: () => void = () => {};
-  const promise = new Promise<void>((resolve) => {
-    send = resolve;
-  });
-  return { promise, send };
-}
 
 describe('the credit balance of a workspace', () => {
   let database: TemporaryDatabase;
@@ -64,7 +51,7 @@ describe('the credit balance of a workspace', () => {
     const second = runInTransaction(pool, (transaction) => chargeCall(transaction, makeTenCreditCall()));
 
     try {
-      await waitUntilAChargeWaitsForALock();
+      await waitUntilATransactionWaitsForALock(database);
     } finally {
       firstMayCommit.send();
       await Promise.allSettled([first, second]);
@@ -77,19 +64,6 @@ describe('the credit balance of a workspace', () => {
       { balance_after: '80.000' },
     ]);
   });
-
-  async function waitUntilAChargeWaitsForALock(): Promise<void> {
-    const giveUpAt = Date.now() + LOCK_WAIT_LIMIT_MS;
-    while (Date.now() < giveUpAt) {
-      const [row] = await database.query<{ waiting: number }>(
-        `SELECT count(*)::int AS waiting FROM pg_locks lock JOIN pg_stat_activity session ON session.pid = lock.pid
-         WHERE NOT lock.granted AND session.datname = current_database()`,
-      );
-      if (row && row.waiting > 0) return;
-      await setTimeout(LOCK_WAIT_STEP_MS);
-    }
-    throw new Error('the second charge never waited for the lock of the first');
-  }
 
   it('times a charge when it is made, not when its transaction began', async () => {
     await setCreditBalance(database, workspaceId, 100);
@@ -154,15 +128,27 @@ describe('the credit balance of a workspace', () => {
     ]);
   });
 
-  it('adds credits once when two additions with the same id run at the same time', async () => {
+  it('adds credits once when a second addition with the same id waits for the first', async () => {
     await setCreditBalance(database, workspaceId, 80);
-    const addition = { id: randomUUID(), workspaceId, credits: '50.000', source: 'internal_user', addedBy: null, note: 'Nạp thử' } as const;
     const duyId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const addition = { id: randomUUID(), workspaceId, credits: '50.000', source: 'internal_user', addedBy: duyId, note: 'Nạp thử' } as const;
+    const firstAdded = makeSignal();
+    const firstMayCommit = makeSignal();
+    const first = runInTransaction(pool, async (transaction) => {
+      await addCredits(transaction, addition);
+      firstAdded.send();
+      await firstMayCommit.promise;
+    });
+    await Promise.race([firstAdded.promise, first]);
+    const second = runInTransaction(pool, (transaction) => addCredits(transaction, addition));
 
-    await Promise.all([
-      runInTransaction(pool, (transaction) => addCredits(transaction, { ...addition, addedBy: duyId })),
-      runInTransaction(pool, (transaction) => addCredits(transaction, { ...addition, addedBy: duyId })),
-    ]);
+    try {
+      await waitUntilATransactionWaitsForALock(database);
+    } finally {
+      firstMayCommit.send();
+      await Promise.allSettled([first, second]);
+    }
+    await Promise.all([first, second]);
 
     expect(await readCreditBalance(database, workspaceId)).toBe('130.000');
     expect(await database.query('SELECT balance_after FROM credit_additions')).toEqual([{ balance_after: '130.000' }]);
