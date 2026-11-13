@@ -71,6 +71,14 @@ describe('the member memories for the runtime role', () => {
     expect(await database.query('SELECT user_id FROM member_memories')).toEqual([]);
   });
 
+  it('refuses facts for a user who is not a member', async () => {
+    const [stranger] = await database.query<{ id: string }>('INSERT INTO users DEFAULT VALUES RETURNING id');
+
+    const insert = insertMemberMemory(database, { workspaceId, userId: stranger?.id ?? '', markdown: PLATE_FACT });
+
+    await expect(insert).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM member_memories'),
