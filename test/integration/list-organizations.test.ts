@@ -75,6 +75,14 @@ describe('the organization list of an admin', () => {
     expect(page.organizations.map(({ name }) => name)).toEqual(['Hòa Phát']);
   });
 
+  it('finds a company by its name when no alias holds the text', async () => {
+    await insertOrganizationWithAlias(database, { workspaceId, name: 'Đông Á', aliasPrintedName: 'DA TRANSPORT' });
+
+    const page = await runListOrganizations({ text: 'dong a', cursor: null });
+
+    expect(page.organizations.map(({ name }) => name)).toEqual(['Đông Á']);
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
