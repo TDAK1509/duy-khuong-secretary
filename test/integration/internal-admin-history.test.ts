@@ -53,4 +53,13 @@ describe('the workspace credit history page', () => {
 
     expect(readTableRows(response.body)).toEqual([['02/11/2026', 'Đọc ảnh', '3', '−118,8', '$0.0792', '', '', '19.881,2']]);
   });
+
+  it('lists the entries newest first', async () => {
+    await insertAddition(database, { workspaceId, credits: 20000, balanceAfter: 20000, createdAt: new Date('2026-11-01T09:00:00+07:00') });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), balanceAfter: 19960.4 });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`);
+
+    expect(readTableRows(response.body).map((cells) => cells[1])).toEqual(['Đọc ảnh', 'Nạp: tặng khi bắt đầu']);
+  });
 });
