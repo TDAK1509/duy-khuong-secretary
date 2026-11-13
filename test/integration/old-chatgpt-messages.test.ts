@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { FakeReader } from '../fakes/fake-reader.ts';
+import type { ReaderResult } from '../../src/services/reading/reader-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
+import { createIntakeHarness, NOW, type IntakeHarness } from './intake-harness.ts';
 import { literal } from './sql-literals.ts';
 import { insertMember } from './workspace-rows.ts';
+
+const MINUTE_IN_MS = 60 * 1000;
+const RECENT_MESSAGES_HEADER = 'Các tin nhắn gần đây của người gửi';
+const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 
 describe('an old message that an admin saved through ChatGPT', () => {
   let harness: IntakeHarness;
@@ -40,11 +47,21 @@ describe('an old message that an admin saved through ChatGPT', () => {
 
   it('stays out of the recent-message context of the reader', async () => {
     await insertOldChatGptMessage('xe 29C-123.45');
-    harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
-    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    await sendUnclearTextSentMinutesAgo('Lốp mới thay', 4);
+    const reader = makeUnclearReader();
 
-    await harness.receivePhoto('zu-duy');
+    await harness.receiveText('zu-duy', 'giá 3.500.000đ', { reader });
 
-    expect(JSON.stringify(harness.reader.requests.map(({ text }) => text))).not.toContain('29C-123.45');
+    expect(reader.requests.at(-1)?.text).toBe(`${RECENT_MESSAGES_HEADER}, từ cũ đến mới:\n- Lốp mới thay\n- giá 3.500.000đ`);
   });
+
+  async function sendUnclearTextSentMinutesAgo(text: string, minutesAgo: number): Promise<void> {
+    const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-duy', text, sentAt });
+    await harness.runInbound({ reader: makeUnclearReader() });
+  }
 });
+
+function makeUnclearReader(): FakeReader {
+  return new FakeReader((): ReaderResult => ({ ok: true, usage: null, json: UNCLEAR }));
+}
