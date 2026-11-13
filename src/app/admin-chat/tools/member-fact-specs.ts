@@ -26,4 +26,18 @@ const ADD_MEMBER_FACT_SPEC: ToolSpec = {
   },
 };
 
-export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC, ADD_MEMBER_FACT_SPEC];
+const FORGET_MEMBER_FACT_SPEC: ToolSpec = {
+  name: 'forget_member_fact',
+  description: 'Xóa đúng một thông tin đã lưu về một người trong nhóm. Không sửa hoặc xóa thông tin khác.',
+  parameters: {
+    type: 'object',
+    properties: {
+      member_id: { type: 'string', description: 'id của người có thông tin cần xóa, lấy từ list_members.' },
+      fact: { type: 'string', description: 'Nội dung thông tin cần xóa, chép đúng như kết quả của list_member_facts.' },
+    },
+    required: ['member_id', 'fact'],
+    additionalProperties: false,
+  },
+};
+
+export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC, ADD_MEMBER_FACT_SPEC, FORGET_MEMBER_FACT_SPEC];
