@@ -1,5 +1,7 @@
 import type { MigrationBuilder } from '../migration-builder.ts';
 
+const MEMORY_BELONGS_TO_AUTHOR = `workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid
+  AND author_user_id = nullif(current_setting('app.owner_user_id', true), '')::uuid`;
 const SPLIT_INTO_NUMBERED_LINES = `regexp_split_to_table(memory.markdown, E'\\n') WITH ORDINALITY AS line(text, position)`;
 const LINE_WITHOUT_ITS_DASH = `substr(line.text, 3)`;
 const LINE_ORDER_AFTER_THE_LAST_UPDATE = `memory.updated_at + line.position * interval '1 microsecond'`;
@@ -22,6 +24,8 @@ function createPrivateMemories(pgm: MigrationBuilder): void {
     )
   `);
   pgm.sql('CREATE INDEX private_memories_workspace_id_author_user_id_created_at_idx ON private_memories (workspace_id, author_user_id, created_at)');
+  pgm.sql('ALTER TABLE private_memories ENABLE ROW LEVEL SECURITY');
+  pgm.sql(`CREATE POLICY in_scope ON private_memories USING (${MEMORY_BELONGS_TO_AUTHOR}) WITH CHECK (${MEMORY_BELONGS_TO_AUTHOR})`);
   pgm.sql(`
     INSERT INTO private_memories (workspace_id, author_user_id, fact, created_at)
     SELECT memory.workspace_id, memory.user_id, ${LINE_WITHOUT_ITS_DASH}, ${LINE_ORDER_AFTER_THE_LAST_UPDATE}
