@@ -8,7 +8,7 @@ import { readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
-const MAX_LOCK_WAIT_ATTEMPTS = 250;
+const LOCK_WAIT_LIMIT_MS = 2000;
 const LOCK_WAIT_STEP_MS = 20;
 
 type Signal = { promise: Promise<void>; send: () => void };
@@ -57,11 +57,15 @@ describe('the credit balance of a workspace', () => {
       firstCharged.send();
       await firstMayCommit.promise;
     });
-    await firstCharged.promise;
+    await Promise.race([firstCharged.promise, first]);
     const second = runInTransaction(pool, (transaction) => chargeCall(transaction, makeTenCreditCall()));
 
-    await waitUntilAChargeWaitsForALock();
-    firstMayCommit.send();
+    try {
+      await waitUntilAChargeWaitsForALock();
+    } finally {
+      firstMayCommit.send();
+      await Promise.allSettled([first, second]);
+    }
     await Promise.all([first, second]);
 
     expect(await readCreditBalance(database, workspaceId)).toBe('80.000');
@@ -72,7 +76,8 @@ describe('the credit balance of a workspace', () => {
   });
 
   async function waitUntilAChargeWaitsForALock(): Promise<void> {
-    for (let attempt = 0; attempt < MAX_LOCK_WAIT_ATTEMPTS; attempt += 1) {
+    const giveUpAt = Date.now() + LOCK_WAIT_LIMIT_MS;
+    while (Date.now() < giveUpAt) {
       const [row] = await database.query<{ waiting: number }>(
         `SELECT count(*)::int AS waiting FROM pg_locks lock JOIN pg_stat_activity session ON session.pid = lock.pid
          WHERE NOT lock.granted AND session.datname = current_database()`,
