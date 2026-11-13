@@ -8,7 +8,7 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { readMemberMemory } from './member-memory-rows.ts';
+import { insertMemberMemory, readMemberMemory } from './member-memory-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -42,6 +42,14 @@ describe('the member fact tools of an admin in the chat', () => {
     const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
 
     expect(output).toBe(`{"ok":true,"member":"Hùng","facts":["${PLATE_FACT}"]}`);
+    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+  });
+
+  it('keeps one line when the same fact is added twice', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
