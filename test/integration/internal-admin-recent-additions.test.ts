@@ -57,4 +57,16 @@ describe('the recent additions on the admin page', () => {
 
     expect(readTableRows(response.body)).toContainEqual(['30/10/2026 09:15', 'Xe tải Duy Khương', '20.000', 'Tặng khi bắt đầu', 'Credit ban đầu']);
   });
+
+  it('lists only the last 20 additions, newest first', async () => {
+    for (let minute = 0; minute < 21; minute++) {
+      const createdAt = new Date(Date.UTC(2026, 9, 30, 2, minute));
+      await insertAddition(database, { workspaceId, credits: minute + 1, balanceAfter: minute + 1, note: `Lần ${minute + 1}`, createdAt });
+    }
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    const notes = readTableRows(response.body).filter((cells) => cells.length === 5 && cells[4]?.startsWith('Lần ')).map((cells) => cells[4]);
+    expect(notes).toEqual(Array.from({ length: 20 }, (_, index) => `Lần ${21 - index}`));
+  });
 });
