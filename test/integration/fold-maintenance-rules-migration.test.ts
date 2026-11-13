@@ -51,4 +51,12 @@ describe('the migration that folds the maintenance rules into the instruction', 
       'Nhắc bảo dưỡng\n\nMốc nhắc bảo dưỡng: dầu máy sau 30 ngày; lốp sau 90 ngày. Dùng maintenance_status để xem lần gửi gần nhất của từng xe. Chỉ nhắc xe có số ngày kể từ lần gửi gần nhất từ mốc trở lên.',
     ]);
   });
+
+  it('leaves an active task with no rules unchanged', async () => {
+    await insertScheduledTask(database, { workspaceId, createdBy: duyUserId, status: 'active', instruction: 'Lập báo cáo.' });
+
+    await runMigration();
+
+    expect(await readInstructions()).toEqual(['Lập báo cáo.']);
+  });
 });
