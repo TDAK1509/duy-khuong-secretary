@@ -295,11 +295,22 @@ export const CREATE_SCHEDULED_TASK_SPEC: ToolSpec = {
 
 export const LIST_SCHEDULED_TASKS_SPEC: ToolSpec = {
   "name": "list_scheduled_tasks",
-  "description": "Liệt kê các lịch tự động đang chạy do quản lý đang trò chuyện đặt.",
+  "description": "Liệt kê các lịch tự động đang chạy. scope \"mine\": lịch do quản lý đang trò chuyện đặt. scope \"all\": mọi lịch trong nhóm, kèm tên người đặt.",
   "parameters": {
     "type": "object",
-    "properties": {},
-    "required": [],
+    "properties": {
+      "scope": {
+        "type": "string",
+        "enum": [
+          "mine",
+          "all"
+        ],
+        "description": "\"mine\" cho lịch của quản lý đang trò chuyện. \"all\" khi quản lý hỏi lịch của cả nhóm hoặc của quản lý khác."
+      }
+    },
+    "required": [
+      "scope"
+    ],
     "additionalProperties": false
   }
 };

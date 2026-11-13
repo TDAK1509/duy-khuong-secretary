@@ -79,7 +79,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   attach_photos: runAttachPhotos,
   list_sources: runListSources,
   create_scheduled_task: runCreateScheduledTask,
-  list_scheduled_tasks: ({ database }, scope) => runListScheduledTasks(database, scope),
+  list_scheduled_tasks: ({ database }, scope, args) => runListScheduledTasks(database, scope, args),
   cancel_scheduled_task: ({ database }, scope, args) => runCancelScheduledTask(database, scope, args),
   remember: ({ database }, scope, args) => runRemember(database, scope, args),
   forget: ({ database }, scope, args) => runForget(database, scope, args),

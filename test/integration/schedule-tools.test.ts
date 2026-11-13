@@ -142,7 +142,7 @@ describe('the scheduling tools', () => {
     await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, title: 'Của Khương', status: 'active', nextRunAt });
     await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active', nextRunAt });
 
-    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', {});
+    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', { scope: 'mine' });
 
     expect(JSON.parse(output)).toEqual({
       tasks: [
@@ -155,9 +155,17 @@ describe('the scheduling tools', () => {
     const duy = await addAdmin();
     await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'active', nextRunAt: null });
 
-    const output = await runTool(duy, 'list_scheduled_tasks', {});
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'mine' });
 
     expect(JSON.parse(output)).toMatchObject({ tasks: [{ title: 'Báo cáo hằng ngày', next_run: null }] });
+  });
+
+  it('refuses a list call without a scope', async () => {
+    const duy = await addAdmin();
+
+    const output = await runTool(duy, 'list_scheduled_tasks', {});
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: scope"}');
   });
 
   it('cancels a task of the caller and clears its next run', async () => {

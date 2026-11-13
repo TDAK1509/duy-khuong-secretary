@@ -1,10 +1,14 @@
+import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { formatSchedule } from '../../schedules/format-schedule.ts';
 import { listActiveTasks } from '../../schedules/list-active-tasks.ts';
 import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 
-export async function runListScheduledTasks(database: Database, scope: AccessScope): Promise<string> {
+const argumentsSchema = z.object({ scope: z.enum(['mine', 'all']) });
+
+export async function runListScheduledTasks(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
+  argumentsSchema.parse(parsedArguments);
   const tasks = await listActiveTasks(database, scope);
   return JSON.stringify({
     tasks: tasks.map((task) => ({
