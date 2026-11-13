@@ -9,6 +9,7 @@ import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
+import { insertMemberMemory } from './member-memory-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertSentMessage, type NewSentMessage } from './sent-message-rows.ts';
 import { literal } from './sql-literals.ts';
@@ -578,6 +579,18 @@ describe('the reread-documents command', () => {
     }
     throw new Error('the reread did not wait on the advisory lock');
   }
+
+  it('gives the reader no facts about the sender', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await insertMemberMemory(database, { workspaceId, userId, markdown: '- Lái xe biển số 93A-1234' });
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+
+    await runReread(workspaceId, reader);
+
+    expect(reader.requests).toHaveLength(1);
+    expect(reader.requests[0]?.system).not.toContain('18. Thông tin quản lý đã lưu về người gửi:');
+  });
 
   async function seedWorkspace(): Promise<{ workspaceId: string; userId: string }> {
     const workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
