@@ -31,4 +31,12 @@ describe('the users table for the runtime role', () => {
 
     await expect(update).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE });
   });
+
+  it('cannot insert an internal user', async () => {
+    const runtime = await database.openRuntimeSession();
+
+    const insert = runtime.query('INSERT INTO users (is_internal) VALUES (true)');
+
+    await expect(insert).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE });
+  });
 });
