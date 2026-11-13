@@ -55,4 +55,16 @@ describe('a workspace with no credits', () => {
     expect(harness.chat.requests).toEqual([]);
     expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT, to: { externalUserId: 'zu-duy' } }]);
   });
+
+  it('gives one message for three photos sent in one event', async () => {
+    const photoUrls = ['https://z.test/1.jpg', 'https://z.test/2.jpg', 'https://z.test/3.jpg'];
+    for (const [index, url] of photoUrls.entries()) harness.channel.attachments.set(url, { ok: true, bytes: makeJpeg(1000 + index) });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: photoUrls });
+
+    await harness.runInbound();
+    await harness.sendAllQueuedTexts();
+
+    expect(await harness.database.query('SELECT 1 FROM messages WHERE image_key IS NOT NULL')).toHaveLength(3);
+    expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT }]);
+  });
 });
