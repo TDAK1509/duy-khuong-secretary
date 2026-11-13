@@ -33,4 +33,10 @@ describe('buildReaderPrompt member facts', () => {
     expect(lines[ruleEighteenIndex + 1]).toBe('');
     expect(lines[ruleEighteenIndex + 2]).toBe('Quy tắc:');
   });
+
+  it('keeps two facts in their saved order', () => {
+    const prompt = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, ['Lái xe biển số 93A-1234', 'Chở hàng cho nhà máy Cheng Loong']);
+
+    expect(prompt).toContain(buildRule18('["Lái xe biển số 93A-1234","Chở hàng cho nhà máy Cheng Loong"]'));
+  });
 });
