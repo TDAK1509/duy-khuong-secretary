@@ -13,11 +13,28 @@ export class RequestRateLimit {
   allows(key: string, now: Date): boolean {
     const nowMs = now.getTime();
     const window = this.windows.get(key);
-    if (window === undefined || nowMs - window.startedAtMs >= this.windowMs) {
+    if (window === undefined || this.hasExpired(window, nowMs)) {
+      this.deleteExpiredWindows(nowMs);
+      this.windows.delete(key);
       this.windows.set(key, { startedAtMs: nowMs, count: 1 });
       return true;
     }
     window.count += 1;
     return window.count <= this.limit;
+  }
+
+  countTrackedKeys(): number {
+    return this.windows.size;
+  }
+
+  private hasExpired(window: RequestWindow, nowMs: number): boolean {
+    return nowMs - window.startedAtMs >= this.windowMs;
+  }
+
+  private deleteExpiredWindows(nowMs: number): void {
+    for (const [key, window] of this.windows) {
+      if (!this.hasExpired(window, nowMs)) return;
+      this.windows.delete(key);
+    }
   }
 }
