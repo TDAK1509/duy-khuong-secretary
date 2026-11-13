@@ -145,6 +145,18 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberMemory(database, hungUserId)).toBeNull();
   });
 
+  it('removes all facts of one member and keeps the facts of another', async () => {
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+    await insertMemberMemory(database, { workspaceId, userId: lanUserId, markdown: `- ${CUSTOMER_FACT}` });
+
+    const output = await runTool('forget_all_member_facts', { member_id: hungMembershipId });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [] });
+    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+    expect(await readMemberMemory(database, lanUserId)).toBe(`- ${CUSTOMER_FACT}`);
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);

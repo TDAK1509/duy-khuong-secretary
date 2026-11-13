@@ -36,6 +36,13 @@ export async function runForgetMemberFact(database: Database, scope: AccessScope
   return describeChange(memory);
 }
 
+export async function runForgetAllMemberFacts(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
+  const { member_id } = memberArgumentsSchema.parse(parsedArguments);
+  if (!uuidSchema.safeParse(member_id).success) return failTool(MEMBER_NOT_FOUND_ERROR);
+  const memory = await updateMemberMemory(database, { workspaceId: scope.workspaceId, membershipId: member_id }, () => '');
+  return describeChange(memory);
+}
+
 function describeChange(memory: MemberMemory | null): string {
   if (memory === null) return failTool(MEMBER_NOT_FOUND_ERROR);
   return JSON.stringify({ ok: true, member: memory.displayName, facts: listFacts(memory.markdown) });
