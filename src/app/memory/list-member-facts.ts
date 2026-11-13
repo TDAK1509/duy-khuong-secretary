@@ -1,12 +1,11 @@
 import type { Transaction } from '../db/transaction.ts';
-import { listFacts } from './memory-facts.ts';
 
 export async function listMemberFacts(transaction: Transaction, workspaceId: string, userId: string): Promise<string[]> {
   return transaction.withScope({ workspaceId }, async () => {
-    const [row] = await transaction.query<{ markdown: string }>(
-      'SELECT markdown FROM member_memories WHERE workspace_id = $1 AND user_id = $2',
+    const rows = await transaction.query<{ fact: string }>(
+      'SELECT fact FROM member_facts WHERE workspace_id = $1 AND member_user_id = $2 ORDER BY created_at, id',
       [workspaceId, userId],
     );
-    return listFacts(row?.markdown ?? '');
+    return rows.map((row) => row.fact);
   });
 }

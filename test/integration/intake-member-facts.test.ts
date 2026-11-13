@@ -4,7 +4,7 @@ import type { ReaderRequest, ReaderResult } from '../../src/services/reading/rea
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { insertMemberMemory } from './member-memory-rows.ts';
+import { insertSharedMemberFacts } from './member-fact-rows.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 const PLATE_FACT = 'Lái xe biển số 93A-1234';
@@ -24,7 +24,7 @@ describe('giving the reader the facts saved about the sender', () => {
   beforeEach(async () => {
     harness = await createIntakeHarness();
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-    await insertMemberMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: `- ${PLATE_FACT}` });
+    await insertSharedMemberFacts(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: `- ${PLATE_FACT}` });
   });
 
   afterEach(async () => {
@@ -52,7 +52,7 @@ describe('giving the reader the facts saved about the sender', () => {
     const { database, hungUserId } = harness;
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
     await insertMembership(database, { workspaceId: otherWorkspaceId, userId: hungUserId, displayName: 'Hùng' });
-    await insertMemberMemory(database, { workspaceId: otherWorkspaceId, userId: hungUserId, markdown: '- Lái xe biển số 51C-55555' });
+    await insertSharedMemberFacts(database, { workspaceId: otherWorkspaceId, userId: hungUserId, markdown: '- Lái xe biển số 51C-55555' });
 
     await harness.receivePhoto('zu-hung');
 

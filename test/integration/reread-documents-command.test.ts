@@ -11,7 +11,7 @@ import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
 import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
-import { insertMemberMemory } from './member-memory-rows.ts';
+import { insertSharedMemberFacts } from './member-fact-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertSentMessage, type NewSentMessage } from './sent-message-rows.ts';
 import { literal } from './sql-literals.ts';
@@ -612,7 +612,7 @@ describe('the reread-documents command', () => {
 
   it('gives the reader no facts about the sender', async () => {
     const { workspaceId, userId } = await seedWorkspace();
-    await insertMemberMemory(database, { workspaceId, userId, markdown: '- Lái xe biển số 93A-1234' });
+    await insertSharedMemberFacts(database, { workspaceId, userId, markdown: '- Lái xe biển số 93A-1234' });
     await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
     const reader = new FakeReader();
 
