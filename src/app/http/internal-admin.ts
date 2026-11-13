@@ -28,8 +28,8 @@ export type InternalAdminDependencies = { database: Database; clock: Clock };
 
 export async function handleAdminPage(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<HttpResponse> {
   const userId = await findSessionUser(dependencies, cookieHeader);
-  if (userId === null) return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
-  return addAdminHeaders(respondWithHtml(renderDashboardPage(await readDashboard(dependencies.database, dependencies.clock.now()))));
+  if (userId === null) return respondWithAdminHtml(renderLoginPage(null));
+  return respondWithAdminHtml(renderDashboardPage(await readDashboard(dependencies.database, dependencies.clock.now())));
 }
 
 async function findSessionUser(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<string | null> {
@@ -40,11 +40,11 @@ async function findSessionUser(dependencies: InternalAdminDependencies, cookieHe
 
 export async function handleWorkspaceHistory(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, workspaceId: string): Promise<HttpResponse> {
   const userId = await findSessionUser(dependencies, cookieHeader);
-  if (userId === null) return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
+  if (userId === null) return respondWithAdminHtml(renderLoginPage(null));
   const name = await findWorkspaceName(dependencies.database, workspaceId);
-  if (name === null) return addAdminHeaders(respondWithHtml(renderMessagePage(WORKSPACE_NOT_FOUND_TEXT), 404));
+  if (name === null) return respondWithAdminHtml(renderMessagePage(WORKSPACE_NOT_FOUND_TEXT), 404);
   const entries = await readCreditHistory(dependencies.database, workspaceId, dependencies.clock.now());
-  return addAdminHeaders(respondWithHtml(renderHistoryPage(name, entries)));
+  return respondWithAdminHtml(renderHistoryPage(name, entries));
 }
 
 export function createLoginRateLimit(): RequestRateLimit {
@@ -52,9 +52,13 @@ export function createLoginRateLimit(): RequestRateLimit {
 }
 
 export async function handleAdminLogin(dependencies: InternalAdminDependencies, rateLimit: RequestRateLimit, body: unknown): Promise<HttpResponse> {
-  if (!rateLimit.allows(LOGIN_RATE_LIMIT_KEY, dependencies.clock.now())) return addAdminHeaders(respondWithHtml(renderMessagePage(TOO_MANY_LOGINS_TEXT), 429));
+  if (!rateLimit.allows(LOGIN_RATE_LIMIT_KEY, dependencies.clock.now())) return respondWithAdminHtml(renderMessagePage(TOO_MANY_LOGINS_TEXT), 429);
   const outcome = await startInternalSession(dependencies.database, { typedCode: readTypedCode(body), now: dependencies.clock.now() });
   return addAdminHeaders(respondToLogin(outcome));
+}
+
+function respondWithAdminHtml(body: string, status = 200): HttpResponse {
+  return addAdminHeaders(respondWithHtml(body, status));
 }
 
 function addAdminHeaders(response: HttpResponse): HttpResponse {
