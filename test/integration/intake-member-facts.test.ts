@@ -116,4 +116,15 @@ describe('giving the reader the facts saved about the sender', () => {
     expect(request?.system).not.toContain('Hay giao trễ');
     expect(request?.system).not.toContain('Chỉ Duy xem');
   });
+
+  it('shows the reader of an admin the facts that only the admins may read about that admin', async () => {
+    const { database, workspaceId } = harness;
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertMemberFact(database, { workspaceId, memberUserId: duyUserId, authorUserId: duyUserId, readers: 'admins', fact: 'Hay đi xe số sàn' });
+
+    await harness.receivePhoto('zu-duy');
+
+    const [request] = harness.reader.requests;
+    expect(request?.system).toContain('18. Thông tin quản lý đã lưu về người gửi: ["Hay đi xe số sàn"]. Danh sách này');
+  });
 });
