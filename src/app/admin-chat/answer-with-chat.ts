@@ -16,7 +16,7 @@ import { buildUserTurn } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
-import { readUserMemory } from '../memory/user-memory.ts';
+import { readPrivateMemory } from '../memory/private-memory.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
@@ -122,7 +122,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
 
 async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {
   const ownerScope = { workspaceId: sender.workspaceId, ownerUserId: sender.userId };
-  return readUserMemory(scopeDatabase(dependencies.database, ownerScope), sender);
+  return readPrivateMemory(scopeDatabase(dependencies.database, ownerScope), sender);
 }
 
 function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: ToolSpec[]): string {

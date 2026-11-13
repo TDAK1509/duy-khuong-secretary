@@ -8,7 +8,7 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { readUserMemory } from './user-memory-rows.ts';
+import { readPrivateMemory } from './private-memory-rows.ts';
 import { insertMemberMemory, readMemberMemory } from './member-memory-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -173,7 +173,7 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(JSON.parse(output).ok).toBe(true);
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
-    expect(await readUserMemory(database, duy.userId)).toBeNull();
+    expect(await readPrivateMemory(database, duy.userId)).toBeNull();
   });
 
   async function findMembershipId(userId: string): Promise<string> {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, type IntakeHarness } from './intake-harness.ts';
-import { insertUserMemory, readUserMemory } from './user-memory-rows.ts';
+import { insertPrivateMemory, readPrivateMemory } from './private-memory-rows.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const SEARCH_EVERYTHING = { text: null, category: null, member: null, plate: null, added_from: null, added_to: null, cursor: null };
@@ -23,7 +23,7 @@ describe('the memory of a user in the chat', () => {
   });
 
   it('puts the memory of the user in the system prompt as a JSON string', async () => {
-    await insertUserMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: '- Tôi lái xe 29C-123.45' });
+    await insertPrivateMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: '- Tôi lái xe 29C-123.45' });
 
     await harness.receiveText('zu-hung', 'Chào bạn');
 
@@ -31,7 +31,7 @@ describe('the memory of a user in the chat', () => {
   });
 
   it('puts the memory of another member nowhere in the prompt of a member', async () => {
-    await insertUserMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: '- Tôi lái xe 29C-123.45' });
+    await insertPrivateMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: '- Tôi lái xe 29C-123.45' });
     await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
 
     await harness.receiveText('zu-lan', 'Chào bạn');
@@ -52,7 +52,7 @@ describe('the memory of a user in the chat', () => {
     await harness.receiveText('zu-duy', 'Hùng gửi gì? Nhớ là A');
     await harness.sendQueuedTexts();
 
-    expect(await readUserMemory(harness.database, duyUserId)).toBeNull();
+    expect(await readPrivateMemory(harness.database, duyUserId)).toBeNull();
     expect(harness.channel.texts.map((sent) => sent.text)).toEqual([`Hùng gửi 1 phiếu.\n\n${MEMORY_REFUSED_NOTICE}`]);
   });
 
@@ -65,7 +65,7 @@ describe('the memory of a user in the chat', () => {
 
     await harness.receiveText('zu-hung', 'Tôi gửi gì hôm nay? Nhớ là A');
 
-    expect(await readUserMemory(harness.database, harness.hungUserId)).toBe('- A');
+    expect(await readPrivateMemory(harness.database, harness.hungUserId)).toBe('- A');
   });
 
   it('logs the memory tool by name and argument name without the fact', async () => {
