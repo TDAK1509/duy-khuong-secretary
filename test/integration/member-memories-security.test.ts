@@ -7,6 +7,9 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
+const ROW_LEVEL_SECURITY_VIOLATION = '42501';
+const FOREIGN_KEY_VIOLATION = '23503';
+const CHECK_VIOLATION = '23514';
 const PLATE_FACT = '- Lái xe biển số 93A-1234';
 
 describe('the member memories for the runtime role', () => {
@@ -33,6 +36,14 @@ describe('the member memories for the runtime role', () => {
     const rows = await selectMemories({ workspaceId });
 
     expect(rows).toEqual([{ user_id: hungUserId, markdown: PLATE_FACT }]);
+  });
+
+  it('shows the owner scope of the member no facts', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: PLATE_FACT });
+
+    const rows = await selectMemories({ workspaceId, ownerUserId: hungUserId });
+
+    expect(rows).toEqual([]);
   });
 
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
