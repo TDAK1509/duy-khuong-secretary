@@ -49,4 +49,12 @@ describe('the recent additions on the admin page', () => {
     expect(response.body).toContain('Các lần nạp gần đây');
     expect(readTableRows(response.body)).toContainEqual(['02/11/2026 09:15', 'Xe tải Duy Khương', '100', 'Duy', 'Nạp thử']);
   });
+
+  it('shows a starting grant as a gift', async () => {
+    await insertAddition(database, { workspaceId, credits: 20000, balanceAfter: 20000, createdAt: new Date('2026-10-30T09:15:00+07:00') });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(readTableRows(response.body)).toContainEqual(['30/10/2026 09:15', 'Xe tải Duy Khương', '20.000', 'Tặng khi bắt đầu', 'Credit ban đầu']);
+  });
 });
