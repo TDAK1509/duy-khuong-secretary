@@ -8,10 +8,7 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
-import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
-import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
@@ -23,8 +20,6 @@ export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
-  chatgptOAuth?: SignInDependencies | null;
-  chatgptMcp?: McpDependencies | null;
   internalAdmin?: InternalAdminDependencies | null;
 };
 
@@ -44,8 +39,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
-  registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
-  registerMcpRoutes(server, options.chatgptMcp ?? null);
   registerInternalAdminRoutes(server, options.internalAdmin ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
@@ -53,16 +46,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
       sendResponse(reply, respondWithHtml(verifierFile.content)),
     );
   }
-}
-
-function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
-  server.get('/oauth/authorize', async (request, reply) =>
-    sendResponse(reply, await handleSignInPage(chatgptOAuth, request.query as SignInQuery)),
-  );
-  registerFormPostRoutes(server, chatgptOAuth);
-  server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
-    sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
-  );
 }
 
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
@@ -77,34 +60,6 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
     parseFormBodies(scope);
     scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, loginRateLimit, request.body)));
     scope.post('/admin/credits', async (request, reply) => sendResponse(reply, await handleAddCredits(internalAdmin, request.headers.cookie, request.body)));
-  });
-}
-
-function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
-  registerMcpPostRoute(server, chatgptMcp);
-  server.route({ method: ['GET', 'DELETE'], url: '/mcp', handler: async (_request, reply) => sendResponse(reply, refuseMcpMethod()) });
-  server.get('/.well-known/oauth-protected-resource', async (_request, reply) =>
-    sendResponse(reply, handleProtectedResourceMetadata(chatgptMcp)),
-  );
-}
-
-function registerMcpPostRoute(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
-  const rateLimit = createMcpRateLimit();
-  server.post('/mcp', async (request, reply) => {
-    const access = await authorizeMcpRequest(chatgptMcp, rateLimit, request.headers.authorization);
-    if (access.kind === 'refused') return sendResponse(reply, access.response);
-    reply.hijack();
-    return access.serve({ request: request.raw, response: reply.raw, body: request.body });
-  });
-}
-
-function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
-  void server.register(async (scope) => {
-    parseFormBodies(scope);
-    scope.post('/oauth/authorize', async (request, reply) =>
-      sendResponse(reply, await handleSignInSubmission(chatgptOAuth, { cookieHeader: request.headers.cookie, body: request.body })),
-    );
-    scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(chatgptOAuth, request.body)));
   });
 }
 

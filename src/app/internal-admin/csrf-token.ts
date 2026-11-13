@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { hashSecretToken } from '../chatgpt/secret-token.ts';
+import { hashSecretToken } from './secret-token.ts';
 
 export function makeCsrfToken(sessionToken: string): string {
   return hashSecretToken(`csrf:${sessionToken}`);

@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { saveRecordFromText } from '../../src/app/chatgpt/save-record-from-text.ts';
 import { replyWithText, replyWithToolCallsUsing } from '../fakes/fake-chat-service.ts';
-import { FakeReader } from '../fakes/fake-reader.ts';
 import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE, TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -96,17 +94,6 @@ describe('recording and charging the LLM calls of a workspace', () => {
 
     expect(await listKindsOf(harness.workspaceId)).toEqual(['scheduled_run']);
     expect(await listKindsOf(otherWorkspaceId)).toEqual([]);
-  });
-
-  it('records the read of a text saved through ChatGPT', async () => {
-    const duyId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
-    const chatGptReader = new FakeReader();
-    chatGptReader.answerWith(makeReading([makeItem()]), TEXT_READ_USAGE);
-    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader, maxTextLength: 2000 };
-
-    await saveRecordFromText(runtime, { workspaceId: harness.workspaceId, userId: duyId, role: 'admin' }, { text: 'Đổ dầu 500.000đ' });
-
-    expect(await listKinds()).toEqual(['chatgpt_text_save']);
   });
 
   function listKinds(): Promise<string[]> {

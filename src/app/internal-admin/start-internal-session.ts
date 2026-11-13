@@ -1,5 +1,5 @@
-import { hashLoginCode } from '../chatgpt/login-code.ts';
-import { generateSecretToken, hashSecretToken } from '../chatgpt/secret-token.ts';
+import { hashLoginCode } from './login-code.ts';
+import { generateSecretToken, hashSecretToken } from './secret-token.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { SESSION_LIFETIME_MS } from './internal-admin-limits.ts';
 import { isInternalUser } from './is-internal-user.ts';

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
+import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import type { PostgresPool } from '../../src/providers/database/postgres.ts';
 import type { FakeClock } from '../fakes/fake-clock.ts';

@@ -1,5 +1,5 @@
-import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
-import { hashLoginCode } from '../../src/app/chatgpt/login-code.ts';
+import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
+import { hashLoginCode } from '../../src/app/internal-admin/login-code.ts';
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 

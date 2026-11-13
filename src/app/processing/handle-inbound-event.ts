@@ -146,5 +146,5 @@ async function replyToOtherMessage(transaction: Transaction, { identity, text, n
   if (text !== null && isInternalLoginCommand(text)) return answerInternalLoginCommand(transaction, identity.userId, now);
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
-  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text, now });
+  return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
 }

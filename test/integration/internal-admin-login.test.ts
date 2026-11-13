@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
+import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { insertLoginCode } from './chatgpt-login-code-rows.ts';
 import { insertInternalLoginCode, makeUserInternal, makeUserNotInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -92,15 +91,6 @@ describe('POST /admin/login', () => {
     await insertInternalLoginCode(database, { userId: duyUserId, code: 'K7M2-QX4P', expiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS) });
 
     const response = await submitCode('K7M2-QX4P');
-
-    expect(response.body).toContain(WRONG_CODE_TEXT);
-    expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
-  });
-
-  it('refuses a ChatGPT login code', async () => {
-    await insertLoginCode(database, { userId: duyUserId, code: 'ABCD-EFGH', expiresAt: new Date(NOW.getTime() + TEN_MINUTES_MS) });
-
-    const response = await submitCode('ABCD-EFGH');
 
     expect(response.body).toContain(WRONG_CODE_TEXT);
     expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([]);
