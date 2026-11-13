@@ -6,6 +6,7 @@ const LINE_ORDER_AFTER_THE_LAST_UPDATE = `memory.updated_at + line.position * in
 
 export function up(pgm: MigrationBuilder): void {
   createPrivateMemories(pgm);
+  createMemberFacts(pgm);
 }
 
 function createPrivateMemories(pgm: MigrationBuilder): void {
@@ -25,5 +26,27 @@ function createPrivateMemories(pgm: MigrationBuilder): void {
     INSERT INTO private_memories (workspace_id, author_user_id, fact, created_at)
     SELECT memory.workspace_id, memory.user_id, ${LINE_WITHOUT_ITS_DASH}, ${LINE_ORDER_AFTER_THE_LAST_UPDATE}
     FROM user_memories memory CROSS JOIN LATERAL ${SPLIT_INTO_NUMBERED_LINES}
+  `);
+}
+
+function createMemberFacts(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    CREATE TABLE member_facts (
+      id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id uuid NOT NULL,
+      member_user_id uuid NOT NULL,
+      author_user_id uuid REFERENCES users (id),
+      readers text NOT NULL CHECK (readers IN ('author', 'admins', 'admins_and_member')),
+      fact text NOT NULL CHECK (btrim(fact) <> ''),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CHECK (readers <> 'author' OR author_user_id IS NOT NULL),
+      FOREIGN KEY (workspace_id, member_user_id) REFERENCES memberships (workspace_id, user_id) ON DELETE CASCADE
+    )
+  `);
+  pgm.sql('CREATE INDEX member_facts_workspace_id_member_user_id_created_at_idx ON member_facts (workspace_id, member_user_id, created_at)');
+  pgm.sql(`
+    INSERT INTO member_facts (workspace_id, member_user_id, author_user_id, readers, fact, created_at)
+    SELECT memory.workspace_id, memory.user_id, NULL, 'admins_and_member', ${LINE_WITHOUT_ITS_DASH}, ${LINE_ORDER_AFTER_THE_LAST_UPDATE}
+    FROM member_memories memory CROSS JOIN LATERAL ${SPLIT_INTO_NUMBERED_LINES}
   `);
 }

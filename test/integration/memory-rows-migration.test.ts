@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as createMemoryRows } from '../../src/app/db/migrations/0053_create_private_memories_and_member_facts.ts';
+import { insertMemberMemory } from './member-memory-rows.ts';
 import { insertUserMemory } from './user-memory-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -9,12 +10,14 @@ describe('the migration that gives each memory line its own row', () => {
   let database: TemporaryDatabase;
   let workspaceId: string;
   let lanUserId: string;
+  let hungUserId: string;
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
-    await database.query('DROP TABLE private_memories');
+    await database.query('DROP TABLE private_memories, member_facts');
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
   });
 
   afterEach(async () => {
@@ -35,6 +38,16 @@ describe('the migration that gives each memory line its own row', () => {
     expect(await database.query('SELECT author_user_id, readers, fact FROM private_memories ORDER BY created_at')).toEqual([
       { author_user_id: lanUserId, readers: 'author', fact: 'A' },
       { author_user_id: lanUserId, readers: 'author', fact: 'B' },
+    ]);
+  });
+
+  it('turns the facts about a member into shared rows with no author', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: '- X' });
+
+    await runMigration();
+
+    expect(await database.query('SELECT member_user_id, author_user_id, readers, fact FROM member_facts')).toEqual([
+      { member_user_id: hungUserId, author_user_id: null, readers: 'admins_and_member', fact: 'X' },
     ]);
   });
 });
