@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { setCreditBalance } from './llm-call-rows.ts';
+import { insertMember } from './workspace-rows.ts';
 
 const OUT_OF_CREDIT_TEXT =
   'Nhóm của bạn đã hết credit nên Trợ lý chưa đọc tin nhắn này. Quản lý nhóm cần liên hệ bên cung cấp Trợ lý để nạp thêm credit. Sau khi nạp, bạn gửi lại tin nhắn này nhé.';
@@ -41,5 +42,17 @@ describe('a workspace with no credits', () => {
       { author: 'user', text: 'Đổ dầu 500.000đ', submission_status: 'pending' },
     ]);
     expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT }]);
+  });
+
+  it('calls no LLM for the question of an admin when the balance is below zero', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await setCreditBalance(harness.database, harness.workspaceId, -5);
+
+    await harness.receiveText('zu-duy', 'Hôm nay ai gửi gì?');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.reader.requests).toEqual([]);
+    expect(harness.chat.requests).toEqual([]);
+    expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT, to: { externalUserId: 'zu-duy' } }]);
   });
 });
