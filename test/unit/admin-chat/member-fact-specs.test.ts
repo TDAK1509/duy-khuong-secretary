@@ -54,6 +54,21 @@ describe('the member fact tool specs', () => {
     });
   });
 
+  it('offers forget_all_member_facts with the exact text', () => {
+    const tool = findTool('forget_all_member_facts');
+
+    expect(tool).toStrictEqual({
+      name: 'forget_all_member_facts',
+      description: 'Xóa mọi thông tin đã lưu về một người trong nhóm. Chỉ dùng khi quản lý yêu cầu xóa hết thông tin về người này.',
+      parameters: {
+        type: 'object',
+        properties: { member_id: { type: 'string', description: 'id của người cần xóa hết thông tin, lấy từ list_members.' } },
+        required: ['member_id'],
+        additionalProperties: false,
+      },
+    });
+  });
+
   function findTool(name: string) {
     return MEMBER_FACT_TOOLS.find((candidate) => candidate.name === name);
   }

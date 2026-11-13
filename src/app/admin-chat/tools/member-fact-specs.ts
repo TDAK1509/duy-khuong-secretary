@@ -40,4 +40,15 @@ const FORGET_MEMBER_FACT_SPEC: ToolSpec = {
   },
 };
 
-export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC, ADD_MEMBER_FACT_SPEC, FORGET_MEMBER_FACT_SPEC];
+const FORGET_ALL_MEMBER_FACTS_SPEC: ToolSpec = {
+  name: 'forget_all_member_facts',
+  description: 'Xóa mọi thông tin đã lưu về một người trong nhóm. Chỉ dùng khi quản lý yêu cầu xóa hết thông tin về người này.',
+  parameters: {
+    type: 'object',
+    properties: { member_id: { type: 'string', description: 'id của người cần xóa hết thông tin, lấy từ list_members.' } },
+    required: ['member_id'],
+    additionalProperties: false,
+  },
+};
+
+export const MEMBER_FACT_TOOLS: ToolSpec[] = [LIST_MEMBER_FACTS_SPEC, ADD_MEMBER_FACT_SPEC, FORGET_MEMBER_FACT_SPEC, FORGET_ALL_MEMBER_FACTS_SPEC];
