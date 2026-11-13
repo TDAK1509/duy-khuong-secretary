@@ -110,11 +110,11 @@ Mẫu "instruction" cho kiểm tra bảo dưỡng hằng ngày:
 "Nhắc tôi về các hồ sơ bảo dưỡng đến hạn mà máy chủ cung cấp. Mỗi dòng ghi biển số xe, bộ phận, ngày bảo dưỡng gần nhất, người gửi và số ngày đã qua. Không nhắc hồ sơ ngoài danh sách đến hạn."`;
 
 const CHANGE_SECTION = `Việc thay đổi:
-- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, remember, forget, forget_all và split_merged_name.
-- Chỉ thay đổi theo yêu cầu quản lý viết trong tin nhắn, hoặc theo quy tắc tự ghi nhớ sở thích lâu dài.
+- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, add_member_fact, forget_member_fact, forget_all_member_facts, remember, forget, forget_all và split_merged_name.
+- Chỉ thay đổi theo yêu cầu quản lý viết trong tin nhắn, theo quy tắc tự ghi nhớ sở thích lâu dài, hoặc theo quy tắc lưu thông tin về thành viên.
 - Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.
 - Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_merged_names, list_sources và list_documents.
-- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.
+- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members, list_member_facts hoặc list_scheduled_tasks.
 - Để tách một tên bị gộp sai, gọi split_merged_name với đúng tên quản lý viết trong tin nhắn. Không gọi list_merged_names trước. Nếu quản lý chỉ nói số thứ tự hoặc chưa viết tên, hỏi lại tên cần tách. Sau khi tách, trả lời ngắn: đã tách tên nào và bao nhiêu giấy tờ.
 - Nếu việc thay đổi bị từ chối, không gọi lại và không nói là đã làm. Hệ thống tự gửi hướng dẫn cho quản lý.
 - Lịch sử có các câu trả lời trước của bạn. Dùng chúng để hiểu câu hỏi tiếp theo. Câu "(Câu trả lời cũ đã được ẩn.)" là một câu trả lời trước đã được ẩn. Nếu cần dữ liệu trong câu đó, gọi lại công cụ. Không viết câu này trong câu trả lời.`;
