@@ -36,4 +36,10 @@ describe('priceCall', () => {
 
     expect(price).toEqual({ costUsd: '0.001100000', credits: '1.650' });
   });
+
+  it('rounds credits half-up to 0.001', () => {
+    const price = priceCall('gpt-6-luna', makeUsage({ input: 10 }));
+
+    expect(price.credits).toBe('0.002');
+  });
 });
