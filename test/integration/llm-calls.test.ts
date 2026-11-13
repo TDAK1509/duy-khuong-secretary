@@ -71,6 +71,18 @@ describe('recording and charging the LLM calls of a workspace', () => {
     expect(await listKinds()).toEqual(['text_read', 'chat_answer', 'chat_answer']);
   });
 
+  it('records a timed-out read at zero cost', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.failWith('timeout');
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await listLlmCalls(harness.database, harness.workspaceId)).toMatchObject([
+      { kind: 'photo_read', input_tokens: null, cost_usd: '0.000000000', credits: '0.000' },
+    ]);
+    expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('20000.000');
+  });
+
   async function listKinds(): Promise<string[]> {
     return (await listLlmCalls(harness.database, harness.workspaceId)).map((call) => call.kind);
   }
