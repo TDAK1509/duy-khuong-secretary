@@ -78,6 +78,7 @@ describe('OpenAiCompatibleChat', () => {
     expect(result).toEqual({
       ok: true,
       reply: { kind: 'tool_calls', calls: [{ id: 'call_1', name: 'list_members', argumentsJson: '{}' }] },
+      usage: null,
     });
   });
 
@@ -109,7 +110,16 @@ describe('OpenAiCompatibleChat', () => {
 
     const result = await makeChat(server).respond(REQUEST);
 
-    expect(result).toEqual({ ok: true, reply: { kind: 'text', text: 'Chào anh' } });
+    expect(result).toEqual({ ok: true, reply: { kind: 'text', text: 'Chào anh' }, usage: null });
+  });
+
+  it('returns the usage of a text answer', async () => {
+    const usage = { prompt_tokens: 5700, completion_tokens: 200, prompt_tokens_details: { cached_tokens: 4000 } };
+    const server = await startServer(makeCompletionReply('Chào anh', usage));
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 5700, cachedInput: 4000, cacheWrite: 0, output: 200, reasoning: 0 } });
   });
 
   it('turns a slow answer into a timeout', async () => {

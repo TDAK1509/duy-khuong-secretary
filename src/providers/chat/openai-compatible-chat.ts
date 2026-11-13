@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall, ToolSpec } from '../../services/chat/chat-service.ts';
+import { readTokenUsage } from '../../services/usage/read-token-usage.ts';
 
 export type OpenAiCompatibleChatSettings = {
   baseUrl: string;
@@ -11,7 +12,7 @@ export type OpenAiCompatibleChatSettings = {
 
 export class OpenAiCompatibleChat implements ChatService {
   private readonly client: OpenAI;
-  private readonly model: string;
+  readonly model: string;
   private readonly reasoningEffort: OpenAI.ReasoningEffort | undefined;
 
   constructor(settings: OpenAiCompatibleChatSettings) {
@@ -28,7 +29,7 @@ export class OpenAiCompatibleChat implements ChatService {
   async respond(request: ChatRequest): Promise<ChatResult> {
     try {
       const completion = await this.client.chat.completions.create(this.buildParameters(request));
-      return { ok: true, reply: readReply(completion) };
+      return { ok: true, reply: readReply(completion), usage: readTokenUsage(completion.usage) };
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
       return { ok: false, reason: 'unavailable' };

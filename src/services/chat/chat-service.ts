@@ -1,4 +1,5 @@
 import type { JsonSchema } from '../reading/reader-service.ts';
+import type { TokenUsage } from '../usage/token-usage.ts';
 
 export interface ToolSpec {
   name: string;
@@ -25,9 +26,10 @@ export interface ChatRequest {
 }
 
 export type ChatResult =
-  | { ok: true; reply: { kind: 'text'; text: string } | { kind: 'tool_calls'; calls: ToolCall[] } }
+  | { ok: true; reply: { kind: 'text'; text: string } | { kind: 'tool_calls'; calls: ToolCall[] }; usage: TokenUsage | null }
   | { ok: false; reason: 'timeout' | 'unavailable' };
 
 export interface ChatService {
+  readonly model: string;
   respond(request: ChatRequest): Promise<ChatResult>;
 }
