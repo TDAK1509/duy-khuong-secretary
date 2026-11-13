@@ -63,6 +63,14 @@ describe('the member memories for the runtime role', () => {
     expect(rows).toEqual([]);
   });
 
+  it('deletes the facts of a member when the membership is removed', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: PLATE_FACT });
+
+    await database.query(`DELETE FROM memberships WHERE user_id = '${hungUserId}'`);
+
+    expect(await database.query('SELECT user_id FROM member_memories')).toEqual([]);
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM member_memories'),
