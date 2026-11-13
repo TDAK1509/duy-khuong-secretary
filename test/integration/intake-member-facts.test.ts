@@ -4,7 +4,7 @@ import type { ReaderRequest, ReaderResult } from '../../src/services/reading/rea
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { insertSharedMemberFacts } from './member-fact-rows.ts';
+import { insertMemberFact, insertSharedMemberFacts } from './member-fact-rows.ts';
 import { insertMember, insertMembership, insertWorkspace } from './workspace-rows.ts';
 
 const PLATE_FACT = 'Lái xe biển số 93A-1234';
@@ -102,4 +102,18 @@ describe('giving the reader the facts saved about the sender', () => {
       json: text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR,
     }));
   }
+
+  it('shows the reader only the facts the member may read', async () => {
+    const { database, workspaceId, hungUserId } = harness;
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duyUserId, readers: 'admins', fact: 'Hay giao trễ' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duyUserId, readers: 'author', fact: 'Chỉ Duy xem' });
+
+    await harness.receivePhoto('zu-hung');
+
+    const [request] = harness.reader.requests;
+    expect(request?.system).toContain(RULE_18_WITH_PLATE_FACT);
+    expect(request?.system).not.toContain('Hay giao trễ');
+    expect(request?.system).not.toContain('Chỉ Duy xem');
+  });
 });

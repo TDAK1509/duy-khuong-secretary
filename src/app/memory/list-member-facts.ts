@@ -1,11 +1,14 @@
 import type { Transaction } from '../db/transaction.ts';
+import { mayRead, type FactReader, type FactReaders } from './fact-readers.ts';
 
-export async function listMemberFacts(transaction: Transaction, workspaceId: string, userId: string): Promise<string[]> {
+type FactRow = { member_user_id: string; author_user_id: string | null; readers: FactReaders; fact: string };
+
+export async function listMemberFacts(transaction: Transaction, workspaceId: string, sender: FactReader): Promise<string[]> {
   return transaction.withScope({ workspaceId }, async () => {
-    const rows = await transaction.query<{ fact: string }>(
-      'SELECT fact FROM member_facts WHERE workspace_id = $1 AND member_user_id = $2 ORDER BY created_at, id',
-      [workspaceId, userId],
+    const rows = await transaction.query<FactRow>(
+      'SELECT member_user_id, author_user_id, readers, fact FROM member_facts WHERE workspace_id = $1 AND member_user_id = $2 ORDER BY created_at, id',
+      [workspaceId, sender.userId],
     );
-    return rows.map((row) => row.fact);
+    return rows.filter((row) => mayRead({ readers: row.readers, authorUserId: row.author_user_id, memberUserId: row.member_user_id }, sender)).map((row) => row.fact);
   });
 }
