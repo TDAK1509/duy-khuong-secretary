@@ -50,7 +50,7 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
              AND earlier.status IN ('queued', 'sending')
              AND earlier.seq < outbound_messages.seq
          )
-         AND (SELECT coalesce(sum(${callsOf('recent.kind')}), 0) FROM outbound_messages recent WHERE recent.sent_at > $3 OR recent.status = 'sending')
+         AND ${countRecentCallsSql('$3')}
            + ${callsOf('outbound_messages.kind')} <= $4
        ORDER BY seq
        LIMIT 1
@@ -63,6 +63,10 @@ function claimNextRow(transaction: Transaction, now: Date, maxPerMinute: number)
      RETURNING outbound_messages.id, channel, account_id, external_user_id, kind, body, photo_key, quote_message_id, fallback_photo_key, template_id, template_params, admin_membership_id, scheduled_task_id, requires_open_window, attempts`,
     [now, new Date(now.getTime() + LOCK_MS), new Date(now.getTime() - THROTTLE_WINDOW_MS), maxPerMinute],
   );
+}
+
+export function countRecentCallsSql(sinceExpression: string): string {
+  return `(SELECT coalesce(sum(${callsOf('recent.kind')}), 0) FROM outbound_messages recent WHERE recent.sent_at > ${sinceExpression} OR recent.status = 'sending')`;
 }
 
 function callsOf(kindColumn: string): string {
