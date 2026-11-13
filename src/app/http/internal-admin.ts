@@ -38,6 +38,14 @@ async function findSessionUser(dependencies: InternalAdminDependencies, cookieHe
   return findInternalSessionUser(dependencies.database, token, dependencies.clock.now());
 }
 
+function respondWithAdminHtml(body: string, status = 200): HttpResponse {
+  return addAdminHeaders(respondWithHtml(body, status));
+}
+
+function addAdminHeaders(response: HttpResponse): HttpResponse {
+  return { ...response, headers: { ...response.headers, ...ADMIN_HEADERS } };
+}
+
 export async function handleWorkspaceHistory(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, workspaceId: string): Promise<HttpResponse> {
   const userId = await findSessionUser(dependencies, cookieHeader);
   if (userId === null) return respondWithAdminHtml(renderLoginPage(null));
@@ -57,12 +65,9 @@ export async function handleAdminLogin(dependencies: InternalAdminDependencies, 
   return addAdminHeaders(respondToLogin(outcome));
 }
 
-function respondWithAdminHtml(body: string, status = 200): HttpResponse {
-  return addAdminHeaders(respondWithHtml(body, status));
-}
-
-function addAdminHeaders(response: HttpResponse): HttpResponse {
-  return { ...response, headers: { ...response.headers, ...ADMIN_HEADERS } };
+function readTypedCode(body: unknown): string {
+  const parsed = z.object({ code: z.string() }).safeParse(body);
+  return parsed.success ? parsed.data.code : '';
 }
 
 function respondToLogin(outcome: SessionStartOutcome): HttpResponse {
@@ -75,7 +80,3 @@ function formatSessionCookie(token: string): string {
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_LIFETIME_MS / 1000}; Secure; HttpOnly; SameSite=Strict`;
 }
 
-function readTypedCode(body: unknown): string {
-  const parsed = z.object({ code: z.string() }).safeParse(body);
-  return parsed.success ? parsed.data.code : '';
-}
