@@ -12,4 +12,10 @@ describe('priceCall', () => {
 
     expect(price).toEqual({ costUsd: '0.026400000', credits: '39.600' });
   });
+
+  it('prices a text read from its tokens', () => {
+    const price = priceCall('gpt-6.1-sol', makeUsage({ input: 4300, output: 50 }));
+
+    expect(price).toEqual({ costUsd: '0.009100000', credits: '13.650' });
+  });
 });
