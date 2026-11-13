@@ -10,7 +10,7 @@ export async function readUsageByKind(database: Database, now: Date): Promise<Ki
     `SELECT workspace.name, call.kind, count(*) AS calls, sum(call.credits) AS credits, sum(call.cost_usd) AS cost_usd
      FROM llm_calls call
      JOIN workspaces workspace ON workspace.id = call.workspace_id
-     WHERE call.created_at >= $1::timestamptz - interval '7 days'
+     WHERE call.created_at >= $1::timestamptz - interval '7 days' AND call.created_at <= $1
      GROUP BY workspace.id, workspace.name, call.kind
      ORDER BY workspace.name, workspace.id, call.kind`,
     [now],

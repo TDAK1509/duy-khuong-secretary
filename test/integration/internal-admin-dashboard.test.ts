@@ -100,6 +100,16 @@ describe('the admin dashboard', () => {
     expect(response.body).toContain('19.960,4');
     expect(response.body).not.toContain('Số dư không khớp với lịch sử credit.');
   });
+
+  it('does not count a call from one minute after now', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date(NOW.getTime() + 60 * 1000) });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(readUsageCells(response.body, 'Xe tải Duy Khương')).toEqual(['0 credit / $0.0000', '0 credit / $0.0000', '0 credit / $0.0000']);
+    expect(response.body).not.toContain('Đọc ảnh');
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {

@@ -37,7 +37,7 @@ const OVERVIEW_QUERY = `
     coalesce(sum(call.cost_usd), 0) AS month_cost
   FROM workspaces workspace
   CROSS JOIN windows
-  LEFT JOIN llm_calls call ON call.workspace_id = workspace.id AND call.created_at >= windows.month_start
+  LEFT JOIN llm_calls call ON call.workspace_id = workspace.id AND call.created_at >= windows.month_start AND call.created_at <= $1
   GROUP BY workspace.id, workspace.name, workspace.credit_balance
   ORDER BY workspace.name, workspace.id`;
 

@@ -112,4 +112,13 @@ describe('the workspace credit history page', () => {
 
     expect(readTableRows(response.body)).toEqual([['01/11/2026 09:00', 'Nạp: người vận hành', '', '+100', '', 'Duy', 'Nạp thử', '100']]);
   });
+
+  it('does not list an entry from one minute after now', async () => {
+    await insertAddition(database, { workspaceId, credits: 20000, balanceAfter: 20000, createdAt: new Date(NOW.getTime() + 60 * 1000) });
+    await insertCall(database, { workspaceId, createdAt: new Date(NOW.getTime() + 60 * 1000) });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`);
+
+    expect(readTableRows(response.body)).toEqual([]);
+  });
 });
