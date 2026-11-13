@@ -1,4 +1,6 @@
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0053_create_private_memories_and_member_facts';
+  DROP TABLE private_memories;
   DELETE FROM pgmigrations WHERE name = '0052_drop_chatgpt_tables';
   CREATE TABLE chatgpt_login_codes (
     user_id uuid NOT NULL PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
