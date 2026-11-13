@@ -86,6 +86,16 @@ describe('asking for an admin page login code in Zalo', () => {
     expect(await database.query('SELECT user_id FROM internal_login_codes')).toEqual([]);
   });
 
+  it('never reaches the reader', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+
+    await receiveText('zu-duy', 'đăng nhập quản trị');
+
+    expect(reader.requests).toEqual([]);
+    expect(await database.query('SELECT id FROM llm_calls')).toEqual([]);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
