@@ -37,16 +37,19 @@ describe('the credit balance of a workspace', () => {
 
   it('gives two charges at the same time their own balance after', async () => {
     await setCreditBalance(database, workspaceId, 100);
-    const secondStarted = Promise.withResolvers<void>();
+    let markSecondStarted: () => void = () => {};
+    const secondStarted = new Promise<void>((resolve) => {
+      markSecondStarted = resolve;
+    });
 
     await Promise.all([
       runInTransaction(pool, async (transaction) => {
         await chargeCall(transaction, makeTenCreditCall());
-        await secondStarted.promise;
+        await secondStarted;
         await setTimeout(50);
       }),
       runInTransaction(pool, async (transaction) => {
-        secondStarted.resolve();
+        markSecondStarted();
         await chargeCall(transaction, makeTenCreditCall());
       }),
     ]);
