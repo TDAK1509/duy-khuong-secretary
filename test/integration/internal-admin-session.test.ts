@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
-import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
+import { insertInternalSession, makeUserInternal, makeUserNotInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
+const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 describe('GET /admin with a session cookie', () => {
@@ -38,5 +39,14 @@ describe('GET /admin with a session cookie', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain('Số dư và mức dùng');
     expect(response.body).not.toContain('Đăng nhập');
+  });
+
+  it('shows the login page for a session that expired a minute ago', async () => {
+    await insertInternalSession(database, { userId: duyUserId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() - ONE_MINUTE_MS) });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('Mã đăng nhập');
+    expect(response.body).not.toContain('Số dư và mức dùng');
   });
 });
