@@ -107,6 +107,15 @@ describe('OpenAiCompatibleReader', () => {
     expect(result).toMatchObject({ ok: true, usage: null });
   });
 
+  it('counts zero cached and zero written tokens for usage without details', async () => {
+    const usage = { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140 };
+    const server = await startServer(makeCompletionReply(VALID_JSON, usage));
+
+    const result = await makeReader(server).read(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 0 } });
+  });
+
   it('keeps the token counts of a reply that is not JSON', async () => {
     const usage = { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 };
     const server = await startServer(makeCompletionReply('not json', usage));
