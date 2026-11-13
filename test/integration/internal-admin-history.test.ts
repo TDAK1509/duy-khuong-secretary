@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { insertAddition } from './credit-history-rows.ts';
+import { insertAddition, insertCall } from './credit-history-rows.ts';
 import { getAdminPage, readTableRows, SESSION_TOKEN } from './internal-admin-requests.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -42,5 +42,15 @@ describe('the workspace credit history page', () => {
     expect(readTableRows(response.body)).toEqual([
       ['30/10/2026 09:15', 'Nạp: tặng khi bắt đầu', '', '+20.000', '', 'Tặng khi bắt đầu', 'Credit ban đầu', '20.000'],
     ]);
+  });
+
+  it('groups the usage per day and kind', async () => {
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00'), balanceAfter: 19960.4 });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:30:00+07:00'), balanceAfter: 19920.8 });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T09:00:00+07:00'), balanceAfter: 19881.2 });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`);
+
+    expect(readTableRows(response.body)).toEqual([['02/11/2026', 'Đọc ảnh', '3', '−118,8', '$0.0792', '', '', '19.881,2']]);
   });
 });
