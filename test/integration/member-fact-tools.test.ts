@@ -169,6 +169,16 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
+  it('refuses another admin who forgets a fact hidden from that admin', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: 'Chỉ Duy xem' }, lan);
+
+    expect(output).toBe(FACT_NOT_FOUND_RESULT);
+    expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
+  });
+
   it('deletes the row when it removes the last fact', async () => {
     await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 
