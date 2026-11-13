@@ -21,6 +21,13 @@ describe('createWorkspaceWithFirstAdminInvite', () => {
     await database.drop();
   });
 
+  it('starts a new workspace at zero credits with no credit addition', async () => {
+    await createWorkspaceWithFirstAdminInvite(pool, newWorkspace, now, () => 'MOI-AAAAAA');
+
+    expect(await database.query('SELECT credit_balance FROM workspaces')).toEqual([{ credit_balance: '0.000' }]);
+    expect(await database.query('SELECT count(*)::int AS n FROM credit_additions')).toEqual([{ n: 0 }]);
+  });
+
   it('draws a fresh code when the generated code is already taken', async () => {
     await createWorkspaceWithFirstAdminInvite(pool, newWorkspace, now, () => 'MOI-AAAAAA');
 

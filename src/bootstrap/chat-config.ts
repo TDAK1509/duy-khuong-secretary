@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hasPrice } from '../app/credits/price-call.ts';
 
 const REQUIRED_NAMES = ['CHAT_PROVIDER', 'LLM_BASE_URL', 'LLM_API_KEY', 'LLM_MODEL'];
 
@@ -29,11 +30,17 @@ export function loadChatConfig(environment: NodeJS.ProcessEnv): ChatConfigResult
       provider: settings.CHAT_PROVIDER,
       baseUrl: settings.LLM_BASE_URL,
       apiKey: environment['LLM_API_KEY'] ?? '',
-      model: environment['LLM_MODEL'] ?? '',
+      model: readPricedModel(environment),
       timeoutMs: settings.LLM_TIMEOUT_MS,
       reasoningEffort: readReasoningEffort(environment),
     },
   };
+}
+
+function readPricedModel(environment: NodeJS.ProcessEnv): string {
+  const model = environment['LLM_MODEL'] ?? '';
+  if (!hasPrice(model)) throw new Error(`Invalid configuration: LLM_MODEL "${model}" has no price`);
+  return model;
 }
 
 function readReasoningEffort(environment: NodeJS.ProcessEnv): string | undefined {

@@ -3,7 +3,9 @@ import { runBackfillDetailNumbersCommand } from '../../src/bootstrap/backfill-de
 import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { SHARED_NUMBER_RULE } from '../../src/app/reading/reader-prompt.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
+import { TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -125,12 +127,26 @@ describe('the backfill-detail-numbers command', () => {
     ]);
   });
 
+  it('records the read as an operator backfill and does not charge it', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await setCreditBalance(database, workspaceId, 20000);
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, TEXT_READ_USAGE);
+
+    await runBackfill(workspaceId, reader);
+
+    expect(await listLlmCalls(database, workspaceId)).toMatchObject([{ kind: 'operator_backfill', credits: '0.000', balance_after: null }]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('20000.000');
+  });
+
   it('logs one reader line with the token counts for each record read', async () => {
     const { workspaceId, userId } = await seedWorkspace();
     const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
-    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, { input: 100, output: 40, reasoning: 10 });
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 10 });
     const loggedLines = spyOnConsoleLog();
 
     await runBackfill(workspaceId, reader);
@@ -143,7 +159,7 @@ describe('the backfill-detail-numbers command', () => {
     const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
-    reader.answerWith({ unexpected: true }, { input: 100, output: 40, reasoning: 10 });
+    reader.answerWith({ unexpected: true }, { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 10 });
     const loggedLines = spyOnConsoleLog();
 
     await runBackfill(workspaceId, reader);
@@ -364,7 +380,7 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
       calls += 1;
       return calls === 1
         ? { ok: false, reason: 'unavailable' }
-        : { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+        : { ok: true, usage: null, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
     });
 
     const { exitCode, lines } = await runBackfill(workspaceId, reader);
@@ -389,9 +405,10 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     });
     const concurrentDetails = [{ label: 'Trọng lượng hàng', value: '30,000 Kg' }];
     const reader: ReaderService = {
+      model: 'gpt-6.1-sol',
       read: async () => {
         await database.query(`UPDATE records SET details = '${JSON.stringify(concurrentDetails)}'::jsonb`);
-        return { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+        return { ok: true, usage: null, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
       },
     };
 

@@ -7,6 +7,7 @@ import { CreatedTasks } from '../admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../admin-chat/photo-attachments.ts';
 import { SourceCards } from '../admin-chat/source-cards.ts';
 import { runToolLoop } from '../admin-chat/run-tool-loop.ts';
+import { meterChat } from '../credits/meter-chat.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
 import { buildDueRecordsTurn } from './due-records-turn.ts';
@@ -59,7 +60,8 @@ async function askModel(
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
-  const result = await runToolLoop(chat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
+  const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, isCharged: true }, 'scheduled_run');
+  const result = await runToolLoop(meteredChat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );
   if (result.outcome !== 'answered' || result.text.trim() === '') return { text: describeFailedRun(task.title), remindedRecordIds: [] };

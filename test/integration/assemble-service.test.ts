@@ -16,14 +16,14 @@ const READER_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_PROVIDER: 'openai-compatible',
   READER_BASE_URL: 'https://ai.test/v1',
   READER_API_KEY: 'key',
-  READER_MODEL: 'model',
+  READER_MODEL: 'gpt-6.1-sol',
 };
 
 const CHAT_ENVIRONMENT: NodeJS.ProcessEnv = {
   CHAT_PROVIDER: 'openai-compatible',
   LLM_BASE_URL: 'https://ai.test/v1',
   LLM_API_KEY: 'key',
-  LLM_MODEL: 'model',
+  LLM_MODEL: 'gpt-6-luna',
 };
 
 describe('assembling the service', () => {

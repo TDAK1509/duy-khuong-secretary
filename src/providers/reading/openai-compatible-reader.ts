@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { Photo } from '../../services/storage/photo-storage.ts';
-import type { ReaderRequest, ReaderResult, ReaderService, TokenUsage } from '../../services/reading/reader-service.ts';
+import type { ReaderRequest, ReaderResult, ReaderService } from '../../services/reading/reader-service.ts';
+import { readTokenUsage } from '../../services/usage/read-token-usage.ts';
 
 export type OpenAiCompatibleReaderSettings = {
   baseUrl: string;
@@ -12,7 +13,7 @@ export type OpenAiCompatibleReaderSettings = {
 
 export class OpenAiCompatibleReader implements ReaderService {
   private readonly client: OpenAI;
-  private readonly model: string;
+  readonly model: string;
   private readonly reasoningEffort: OpenAI.ReasoningEffort | undefined;
 
   constructor(settings: OpenAiCompatibleReaderSettings) {
@@ -53,20 +54,12 @@ export class OpenAiCompatibleReader implements ReaderService {
 }
 
 function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
-  const usage = readUsage(completion.usage);
+  const usage = readTokenUsage(completion.usage);
   try {
     return { ok: true, json: JSON.parse(completion.choices[0]?.message.content ?? ''), usage };
   } catch {
     return { ok: false, reason: 'invalid_output', usage };
   }
-}
-
-function readUsage(usage: OpenAI.CompletionUsage | undefined): TokenUsage {
-  return {
-    input: usage?.prompt_tokens ?? 'unknown',
-    output: usage?.completion_tokens ?? 'unknown',
-    reasoning: usage?.completion_tokens_details?.reasoning_tokens ?? 'unknown',
-  };
 }
 
 function buildUserContent(request: ReaderRequest): OpenAI.Chat.ChatCompletionContentPart[] {

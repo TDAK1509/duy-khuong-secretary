@@ -5,7 +5,7 @@ const COMPLETE_ENVIRONMENT: NodeJS.ProcessEnv = {
   READER_PROVIDER: 'openai-compatible',
   READER_BASE_URL: 'https://ai.test/v1',
   READER_API_KEY: 'key',
-  READER_MODEL: 'model-x',
+  READER_MODEL: 'gpt-6.1-sol',
 };
 
 describe('loadReaderConfig', () => {
@@ -14,7 +14,7 @@ describe('loadReaderConfig', () => {
 
     expect(result).toMatchObject({
       ok: true,
-      config: { baseUrl: 'https://ai.test/v1', apiKey: 'key', model: 'model-x' },
+      config: { baseUrl: 'https://ai.test/v1', apiKey: 'key', model: 'gpt-6.1-sol' },
     });
   });
 
@@ -25,7 +25,7 @@ describe('loadReaderConfig', () => {
   });
 
   it('uses the OpenAI URL without READER_BASE_URL', () => {
-    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key', READER_MODEL: 'model-x' });
+    const result = loadReaderConfig({ READER_PROVIDER: 'openai-compatible', READER_API_KEY: 'key', READER_MODEL: 'gpt-6.1-sol' });
 
     expect(result).toMatchObject({ ok: true, config: { baseUrl: 'https://api.openai.com/v1' } });
   });
@@ -61,7 +61,7 @@ describe('loadReaderConfig', () => {
         provider: 'openai-compatible',
         baseUrl: 'https://ai.test/v1',
         apiKey: 'key',
-        model: 'model-x',
+        model: 'gpt-6.1-sol',
         timeoutMs: 60000,
         reasoningEffort: undefined,
       },
@@ -82,6 +82,12 @@ describe('loadReaderConfig', () => {
     const result = loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_REASONING_EFFORT: '' });
 
     expect(result).toMatchObject({ ok: true, config: { reasoningEffort: undefined } });
+  });
+
+  it('refuses a reader model with no price and names the value', () => {
+    expect(() => loadReaderConfig({ ...COMPLETE_ENVIRONMENT, READER_MODEL: 'gpt-x' })).toThrow(
+      'Invalid configuration: READER_MODEL "gpt-x" has no price',
+    );
   });
 
   it('refuses a provider other than openai-compatible and names the value', () => {

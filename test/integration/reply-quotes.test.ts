@@ -167,7 +167,7 @@ function makeFuelItem() {
 }
 
 function readFuelItemByPhotoSize(): FakeReader {
-  return new FakeReader(({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
+  return new FakeReader(({ image }) => ({ ok: true, usage: null, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
 }
 
 function makeFuelItemFor(photoSize: number | undefined) {

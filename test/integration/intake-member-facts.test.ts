@@ -98,6 +98,7 @@ describe('giving the reader the facts saved about the sender', () => {
   function makeReaderAnsweringWithRecentMessages(): FakeReader {
     return new FakeReader(({ text }: ReaderRequest): ReaderResult => ({
       ok: true,
+      usage: null,
       json: text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR,
     }));
   }

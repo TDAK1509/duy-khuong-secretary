@@ -21,7 +21,7 @@ describe('logging the token use of a reader call', () => {
 
   it('logs one token line when a member photo is read', async () => {
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
-    harness.reader.answerWith(makeReading([makeItem()]), { input: 100, output: 40, reasoning: 10 });
+    harness.reader.answerWith(makeReading([makeItem()]), { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 10 });
 
     await harness.receivePhoto('zu-hung');
 

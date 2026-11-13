@@ -1,4 +1,5 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
+import { meterReader } from '../credits/meter-reader.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database } from '../db/transaction.ts';
 import { logReaderCall } from '../intake/log-reader-call.ts';
@@ -22,6 +23,7 @@ export async function backfillDetailNumbers(
   workspaceId: string,
 ): Promise<BackfillSummary> {
   const scoped = scopeDatabase(database, { workspaceId });
+  const meteredReader = meterReader(reader, { database: scoped, workspaceId, isCharged: false }, () => 'operator_backfill');
   const failures: BackfillFailure[] = [];
   let checked = 0;
   let added = 0;
@@ -30,7 +32,7 @@ export async function backfillDetailNumbers(
     const batch = await findRecordsWithoutNumbers(database, workspaceId, afterId);
     const lastRecord = batch.at(-1);
     if (lastRecord === undefined) return { checked, added, failures };
-    const summary = await backfillBatch(scoped, reader, batch);
+    const summary = await backfillBatch(scoped, meteredReader, batch);
     failures.push(...summary.failures);
     added += summary.added;
     checked += batch.length;

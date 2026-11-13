@@ -17,11 +17,11 @@ export function makeCompletionReply(content: string, usage?: unknown): StubReply
   return { status: 200, body: { id: 'chatcmpl-1', object: 'chat.completion', created: 0, model: 'stub', choices: [choice], usage } };
 }
 
-export function makeToolCallReply(calls: { id: string; name: string; arguments: string }[]): StubReply {
+export function makeToolCallReply(calls: { id: string; name: string; arguments: string }[], usage?: unknown): StubReply {
   const toolCalls = calls.map((call) => ({ id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments } }));
   const message = { role: 'assistant', content: null, tool_calls: toolCalls };
   const choice = { index: 0, finish_reason: 'tool_calls', message };
-  return { status: 200, body: { id: 'chatcmpl-1', object: 'chat.completion', created: 0, model: 'stub', choices: [choice] } };
+  return { status: 200, body: { id: 'chatcmpl-1', object: 'chat.completion', created: 0, model: 'stub', choices: [choice], usage } };
 }
 
 export async function startStubChatServer(reply: StubReply): Promise<StubChatServer> {

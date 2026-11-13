@@ -4,11 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runRereadDocumentsCommand } from '../../src/bootstrap/reread-documents.ts';
 import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
+import { PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertDocumentWithSource } from './document-rows.ts';
+import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import { insertMemberMemory } from './member-memory-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertSentMessage, type NewSentMessage } from './sent-message-rows.ts';
@@ -77,6 +79,21 @@ describe('the reread-documents command', () => {
     expect(await database.query('SELECT message_id, outcome FROM document_reads ORDER BY message_id')).toEqual(
       [firstMessageId, secondMessageId].sort().map((messageId) => ({ message_id: messageId, outcome: 'saved' })),
     );
+  });
+
+  it('records the reads as operator rereads and does not charge them', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await setCreditBalance(database, workspaceId, 20000);
+    await insertSavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
+    const reader = new FakeReader();
+    reader.answerWith(makeReading([makeItem({ document_kind: 'hóa đơn' })]), PHOTO_READ_USAGE);
+
+    await runReread(workspaceId, reader);
+
+    expect(await listLlmCalls(database, workspaceId)).toMatchObject([
+      { kind: 'operator_reread', cost_usd: '0.026400000', credits: '0.000', balance_after: null },
+    ]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('20000.000');
   });
 
   it('reads a photo that was never saved too', async () => {
@@ -337,7 +354,7 @@ describe('the reread-documents command', () => {
     let calls = 0;
     const reader = new FakeReader(() => {
       calls += 1;
-      return calls === 1 ? { ok: false, reason: 'unavailable' } : { ok: true, json: makeReading([makeItem({ document_kind: 'hóa đơn' })]) };
+      return calls === 1 ? { ok: false, reason: 'unavailable' } : { ok: true, usage: null, json: makeReading([makeItem({ document_kind: 'hóa đơn' })]) };
     });
 
     const { exitCode, lines } = await runReread(workspaceId, reader);
@@ -488,7 +505,7 @@ describe('the reread-documents command', () => {
     let calls = 0;
     return new FakeReader(() => {
       calls += 1;
-      return { ok: true, json: calls === 1 ? makeReading([makeItem({ document_kind: 'hóa đơn' })]) : noWorkData };
+      return { ok: true, usage: null, json: calls === 1 ? makeReading([makeItem({ document_kind: 'hóa đơn' })]) : noWorkData };
     });
   }
 
@@ -531,11 +548,12 @@ describe('the reread-documents command', () => {
     const { workspaceId, userId } = await seedWorkspace();
     const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
     const readerThatLosesTheRace: ReaderService = {
+      model: 'gpt-6.1-sol',
       read: async () => {
         await database.query(
           `INSERT INTO document_reads (workspace_id, message_id, outcome) VALUES (${literal(workspaceId)}, ${literal(messageId)}, 'no_document')`,
         );
-        return { ok: true, json: makeReading([makeItem({ document_kind: 'hóa đơn', details: [{ label: 'Hàng', value: 'giấy' }] })]) };
+        return { ok: true, usage: null, json: makeReading([makeItem({ document_kind: 'hóa đơn', details: [{ label: 'Hàng', value: 'giấy' }] })]) };
       },
     };
 
