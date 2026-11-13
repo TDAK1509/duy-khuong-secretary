@@ -131,4 +131,12 @@ describe('POST /admin/credits', () => {
     expect(response.body).toContain(WORKSPACE_TEXT);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
+
+  it('refuses a request id that is not a uuid', async () => {
+    const response = await postCreditsForm(pool, clock, { request_id: 'not-a-uuid', workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
 });
