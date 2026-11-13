@@ -60,6 +60,12 @@ describe('the member fact tools of an admin in the chat', () => {
     ]);
   });
 
+  it('says that the system does not use a fact that only the admins can read', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'admins' });
+
+    expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống không dùng thông tin này khi đọc ảnh và tin nhắn Hùng gửi.');
+  });
+
   it('keeps one line when the same fact is added twice', async () => {
     await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 

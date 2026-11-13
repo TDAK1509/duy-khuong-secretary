@@ -1,3 +1,15 @@
-export function buildFactNote(memberName: string): string {
-  return `Các quản lý và ${memberName} xem được thông tin này. Hệ thống dùng thông tin này khi đọc ảnh và tin nhắn ${memberName} gửi.`;
+import { mayRead, type FactAccess } from '../../memory/fact-readers.ts';
+
+export function buildFactNote(memberName: string, fact: FactAccess): string {
+  return `${describeReaders(fact, memberName)} ${describeUse(fact, memberName)}`;
+}
+
+function describeReaders({ readers }: FactAccess, memberName: string): string {
+  return readers === 'admins' ? 'Chỉ các quản lý xem được thông tin này.' : `Các quản lý và ${memberName} xem được thông tin này.`;
+}
+
+function describeUse(fact: FactAccess, memberName: string): string {
+  const memberAsReader = { userId: fact.memberUserId, role: 'member' } as const;
+  const verb = mayRead(fact, memberAsReader) ? 'dùng' : 'không dùng';
+  return `Hệ thống ${verb} thông tin này khi đọc ảnh và tin nhắn ${memberName} gửi.`;
 }

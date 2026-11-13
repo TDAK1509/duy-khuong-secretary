@@ -28,7 +28,7 @@ export async function runAddMemberFact(database: Database, scope: AccessScope, p
   if (!isValidFact(fact)) throw new ToolRefusal(INVALID_FACT_ERROR);
   const memory = await withMemberRef(scope, memberId, (ref) => addMemberFact(database, ref, scope, { fact, readers }, MEMBER_FACTS_FULL_ERROR));
   if (memory === null) return failTool(MEMBER_NOT_FOUND_ERROR);
-  return JSON.stringify({ ok: true, member: memory.displayName, facts: describeFacts(memory), note: buildFactNote(memory.displayName) });
+  return JSON.stringify({ ok: true, member: memory.displayName, facts: describeFacts(memory), note: buildFactNote(memory.displayName, memory.saved) });
 }
 
 export async function runForgetMemberFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
