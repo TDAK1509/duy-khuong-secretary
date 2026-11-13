@@ -1,7 +1,6 @@
 import type { Database } from '../db/transaction.ts';
 import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from '../schedules/schedule-columns.ts';
-import { readStoredRules } from '../schedules/maintenance-rules.ts';
-import type { MaintenanceRule, Schedule } from '../schedules/schedule.ts';
+import type { Schedule } from '../schedules/schedule.ts';
 
 const LOCK_MS = 10 * 60 * 1000;
 
@@ -12,7 +11,6 @@ export type ClaimedTask = {
   title: string;
   instruction: string;
   schedule: Schedule;
-  maintenanceRules: MaintenanceRule[];
   claimedNextRunAt: string;
 };
 
@@ -22,7 +20,6 @@ type ClaimedRow = ScheduleRow & {
   created_by: string;
   title: string;
   instruction: string;
-  maintenance_rules: { maintenance_item: string; age_days: number }[];
   claimed_next_run_at: string;
 };
 
@@ -39,7 +36,7 @@ export async function claimDueTask(database: Database, now: Date): Promise<Claim
      SET locked_until = $2
      FROM candidate
      WHERE scheduled_tasks.id = candidate.id
-     RETURNING scheduled_tasks.id, workspace_id, created_by, title, instruction, maintenance_rules,
+     RETURNING scheduled_tasks.id, workspace_id, created_by, title, instruction,
        next_run_at::text AS claimed_next_run_at, ${SCHEDULE_COLUMNS}`,
     [now, new Date(now.getTime() + LOCK_MS)],
   );
@@ -55,7 +52,6 @@ function describeClaim(row: ClaimedRow): ClaimedTask {
     title: row.title,
     instruction: row.instruction,
     schedule: readSchedule(row),
-    maintenanceRules: readStoredRules(row.maintenance_rules),
     claimedNextRunAt: row.claimed_next_run_at,
   };
 }

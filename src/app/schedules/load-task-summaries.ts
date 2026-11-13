@@ -1,13 +1,11 @@
 import type { Transaction } from '../db/transaction.ts';
 import { formatTaskSummary } from './format-task-summary.ts';
 import { readSchedule, SCHEDULE_COLUMNS, type ScheduleRow } from './schedule-columns.ts';
-import { readStoredRules } from './maintenance-rules.ts';
 
 type SummaryRow = ScheduleRow & {
   id: string;
   title: string;
   instruction: string;
-  maintenance_rules: { maintenance_item: string; age_days: number }[];
   next_run_at: Date;
 };
 
@@ -18,7 +16,7 @@ export async function loadTaskSummaries(
 ): Promise<string[]> {
   if (taskIds.length === 0) return [];
   const rows = await transaction.query<SummaryRow>(
-    `SELECT id, title, instruction, maintenance_rules, next_run_at, ${SCHEDULE_COLUMNS} FROM scheduled_tasks
+    `SELECT id, title, instruction, next_run_at, ${SCHEDULE_COLUMNS} FROM scheduled_tasks
      WHERE id = ANY($1) AND created_by = $2 AND workspace_id = $3 AND status = 'active' AND next_run_at IS NOT NULL`,
     [taskIds, owner.userId, owner.workspaceId],
   );
@@ -31,6 +29,5 @@ function summarizeRow(row: SummaryRow): string {
     schedule: readSchedule(row),
     firstRun: row.next_run_at,
     instruction: row.instruction,
-    maintenanceRules: readStoredRules(row.maintenance_rules),
   });
 }

@@ -17,7 +17,6 @@ type TaskArguments = {
   time_of_day: string | null;
   weekday: number | null;
   day_of_month: number | null;
-  maintenance_rules: { maintenance_item: string; age_days: number }[];
 };
 
 const DAILY_REPORT: TaskArguments = {
@@ -28,7 +27,6 @@ const DAILY_REPORT: TaskArguments = {
   time_of_day: '18:00',
   weekday: null,
   day_of_month: null,
-  maintenance_rules: [],
 };
 
 describe('an admin creates a scheduled task by chat', () => {

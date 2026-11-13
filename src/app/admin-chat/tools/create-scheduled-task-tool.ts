@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { formatSchedule } from '../../schedules/format-schedule.ts';
-import type { MaintenanceRule, NewScheduledTask } from '../../schedules/schedule.ts';
+import type { NewScheduledTask } from '../../schedules/schedule.ts';
 import { MAX_ACTIVE_TASKS_PER_WORKSPACE, storeScheduledTask } from '../../schedules/store-scheduled-task.ts';
 import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 import { hasLengthBetween } from '../../workspaces/invite-rules.ts';
@@ -22,7 +22,6 @@ const argumentsSchema = z.object({
   time_of_day: z.string().nullable(),
   weekday: z.number().int().nullable(),
   day_of_month: z.number().int().nullable(),
-  maintenance_rules: z.array(z.object({ maintenance_item: z.string().trim().min(1), age_days: z.number().int().min(1) })),
 });
 
 type TaskArguments = z.infer<typeof argumentsSchema>;
@@ -51,12 +50,7 @@ function readTask(args: TaskArguments, scope: AccessScope, creationKey: string):
     title: readText(args.title, 'title', MAX_TITLE_LENGTH),
     instruction: readText(args.instruction, 'instruction', MAX_INSTRUCTION_LENGTH),
     schedule: readTaskSchedule(args),
-    maintenanceRules: args.maintenance_rules.map(readRule),
   };
-}
-
-function readRule(rule: TaskArguments['maintenance_rules'][number]): MaintenanceRule {
-  return { maintenanceItem: rule.maintenance_item.toLowerCase(), ageDays: rule.age_days };
 }
 
 function readText(text: string, field: string, maxLength: number): string {
