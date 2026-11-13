@@ -25,10 +25,16 @@ const OVERVIEW_QUERY = `
            $1::timestamptz - interval '30 days' AS month_start
   )
   SELECT workspace.id, workspace.name, workspace.credit_balance,
-    workspace.credit_balance IS DISTINCT FROM (
-      coalesce((SELECT sum(credits) FROM credit_additions WHERE workspace_id = workspace.id), 0)
-      - coalesce((SELECT sum(credits) FROM llm_calls WHERE workspace_id = workspace.id), 0)
-    ) AS has_drifted,
+    workspace.credit_balance IS DISTINCT FROM coalesce((
+      SELECT entry.balance_after FROM (
+        (SELECT balance_after, created_at, id FROM llm_calls
+         WHERE workspace_id = workspace.id AND balance_after IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1)
+        UNION ALL
+        (SELECT balance_after, created_at, id FROM credit_additions
+         WHERE workspace_id = workspace.id ORDER BY created_at DESC, id DESC LIMIT 1)
+      ) entry
+      ORDER BY entry.created_at DESC, entry.id DESC LIMIT 1
+    ), 0) AS has_drifted,
     coalesce(sum(call.credits) FILTER (WHERE call.created_at >= windows.today_start), 0) AS today_credits,
     coalesce(sum(call.cost_usd) FILTER (WHERE call.created_at >= windows.today_start), 0) AS today_cost,
     coalesce(sum(call.credits) FILTER (WHERE call.created_at >= windows.week_start), 0) AS week_credits,
