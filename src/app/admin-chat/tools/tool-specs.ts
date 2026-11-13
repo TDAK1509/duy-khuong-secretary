@@ -295,18 +295,29 @@ export const CREATE_SCHEDULED_TASK_SPEC: ToolSpec = {
 
 export const LIST_SCHEDULED_TASKS_SPEC: ToolSpec = {
   "name": "list_scheduled_tasks",
-  "description": "Liệt kê các lịch tự động đang chạy do quản lý đang trò chuyện đặt.",
+  "description": "Liệt kê các lịch tự động đang chạy. scope \"mine\": lịch do quản lý đang trò chuyện đặt. scope \"all\": mọi lịch trong nhóm, kèm tên người đặt.",
   "parameters": {
     "type": "object",
-    "properties": {},
-    "required": [],
+    "properties": {
+      "scope": {
+        "type": "string",
+        "enum": [
+          "mine",
+          "all"
+        ],
+        "description": "\"mine\" cho lịch của quản lý đang trò chuyện. \"all\" khi quản lý hỏi lịch của cả nhóm hoặc của quản lý khác."
+      }
+    },
+    "required": [
+      "scope"
+    ],
     "additionalProperties": false
   }
 };
 
 export const CANCEL_SCHEDULED_TASK_SPEC: ToolSpec = {
   "name": "cancel_scheduled_task",
-  "description": "Hủy một lịch tự động do quản lý đang trò chuyện đặt. Lấy id từ list_scheduled_tasks.",
+  "description": "Hủy một lịch tự động trong nhóm, kể cả lịch do quản lý khác đặt. Lấy id từ list_scheduled_tasks.",
   "parameters": {
     "type": "object",
     "properties": {

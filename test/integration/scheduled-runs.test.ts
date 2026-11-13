@@ -61,7 +61,17 @@ describe('the ticker runs the due scheduled tasks', () => {
     await harness.runTick();
     await harness.sendQueuedTexts();
 
-    expect(sentTexts()).toEqual([['zu-duy', 'Hôm nay Hùng gửi 3 mục.']]);
+    expect(sentTexts()).toEqual([['zu-duy', 'Lịch "Báo cáo hằng ngày":\nHôm nay Hùng gửi 3 mục.']]);
+  });
+
+  it('starts the stored and the queued result with the title of the task', async () => {
+    await insertDueTask({ title: 'Báo cáo hằng ngày' });
+    harness.chat.replyWith('Hôm nay 3 phiếu.');
+
+    await harness.runTick();
+
+    expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Lịch "Báo cáo hằng ngày":\nHôm nay 3 phiếu.' }]);
+    expect(await database.query('SELECT body FROM outbound_messages')).toEqual([{ body: 'Lịch "Báo cáo hằng ngày":\nHôm nay 3 phiếu.' }]);
   });
 
   it('writes no admin-chat line for a due task', async () => {
@@ -83,10 +93,10 @@ describe('the ticker runs the due scheduled tasks', () => {
     await harness.runTick();
 
     expect(await database.query(`SELECT author, text, reply_to, reply_kind FROM messages WHERE workspace_id = '${workspaceId}'`)).toEqual([
-      { author: 'bot', text: 'Hôm nay Hùng gửi 3 mục.', reply_to: null, reply_kind: null },
+      { author: 'bot', text: 'Lịch "Báo cáo hằng ngày":\nHôm nay Hùng gửi 3 mục.', reply_to: null, reply_kind: null },
     ]);
     expect(await database.query('SELECT body, scheduled_task_id FROM outbound_messages')).toEqual([
-      { body: 'Hôm nay Hùng gửi 3 mục.', scheduled_task_id: taskId },
+      { body: 'Lịch "Báo cáo hằng ngày":\nHôm nay Hùng gửi 3 mục.', scheduled_task_id: taskId },
     ]);
   });
 
@@ -210,7 +220,7 @@ describe('the ticker runs the due scheduled tasks', () => {
       await staleTick;
     }
 
-    expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Báo cáo của runner B' }]);
+    expect(await database.query('SELECT text FROM messages')).toEqual([{ text: 'Lịch "Báo cáo hằng ngày":\nBáo cáo của runner B' }]);
   });
 
   it('sends nothing when the run has nothing to report', async () => {
@@ -220,6 +230,15 @@ describe('the ticker runs the due scheduled tasks', () => {
     await harness.runTick();
 
     expect(await database.query('SELECT 1 FROM messages')).toEqual([]);
+    expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
+  });
+
+  it('queues nothing when the model answers exactly KHONG_CO_THONG_BAO', async () => {
+    await insertDueTask({ title: 'Báo cáo hằng ngày' });
+    harness.chat.replyWith('KHONG_CO_THONG_BAO');
+
+    await harness.runTick();
+
     expect(await database.query('SELECT 1 FROM outbound_messages')).toEqual([]);
   });
 

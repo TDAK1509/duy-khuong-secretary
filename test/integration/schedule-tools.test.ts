@@ -142,22 +142,69 @@ describe('the scheduling tools', () => {
     await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, title: 'Của Khương', status: 'active', nextRunAt });
     await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active', nextRunAt });
 
-    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', {});
+    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', { scope: 'mine' });
 
     expect(JSON.parse(output)).toEqual({
       tasks: [
-        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026' },
+        { id: expect.any(String), title: 'Của Duy', instruction: 'Lập báo cáo.', schedule: '18:00 hằng ngày', next_run: '18:00 02/11/2026', last_run: null, creator: 'Duy', mine: true },
       ],
     });
+  });
+
+  it('lists every active task of the workspace with its creator when the scope is all', async () => {
+    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const lanUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Của Duy', status: 'active' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: lanUserId, title: 'Của Lan', status: 'active' });
+
+    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'list_scheduled_tasks', { scope: 'all' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string; creator: string; mine: boolean }) => [task.title, task.creator, task.mine])).toEqual([
+      ['Của Duy', 'Duy', true],
+      ['Của Lan', 'Lan', false],
+    ]);
+  });
+
+  it('leaves out the tasks of another workspace when the scope is all', async () => {
+    const duy = await addAdmin();
+    const otherWorkspaceId = await insertWorkspace(harness.database, 'Xe tải Thử');
+    const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Của Duy', status: 'active' });
+    await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active' });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'all' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string }) => task.title)).toEqual(['Của Duy']);
+  });
+
+  it('shows when a task last ran and null for a task that never ran', async () => {
+    const duy = await addAdmin();
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Đã chạy', status: 'active', lastRunAt: new Date('2026-10-30T18:00:00+07:00') });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Chưa chạy', status: 'active' });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'mine' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string; last_run: string | null }) => [task.title, task.last_run])).toEqual([
+      ['Đã chạy', '18:00 30/10/2026'],
+      ['Chưa chạy', null],
+    ]);
   });
 
   it('lists an active task without a next run as null', async () => {
     const duy = await addAdmin();
     await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'active', nextRunAt: null });
 
-    const output = await runTool(duy, 'list_scheduled_tasks', {});
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'mine' });
 
     expect(JSON.parse(output)).toMatchObject({ tasks: [{ title: 'Báo cáo hằng ngày', next_run: null }] });
+  });
+
+  it('refuses a list call without a scope', async () => {
+    const duy = await addAdmin();
+
+    const output = await runTool(duy, 'list_scheduled_tasks', {});
+
+    expect(output).toBe('{"ok":false,"error":"Dữ liệu không hợp lệ: scope"}');
   });
 
   it('cancels a task of the caller and clears its next run', async () => {
@@ -167,7 +214,7 @@ describe('the scheduling tools', () => {
 
     const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'cancel_scheduled_task', { task_id: taskId });
 
-    expect(output).toBe('{"ok":true}');
+    expect(output).toBe('{"ok":true,"title":"Báo cáo hằng ngày"}');
     expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([
       { status: 'cancelled', next_run_at: null },
     ]);
@@ -183,12 +230,24 @@ describe('the scheduling tools', () => {
     expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
   });
 
-  it('cannot cancel the task of another admin', async () => {
-    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
-    const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
-    const taskId = await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, status: 'active' });
+  it('cancels the task of another admin of the workspace', async () => {
+    const lan = await addAdmin();
+    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy2', displayName: 'Duy', role: 'admin' });
+    const taskId = await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Báo cáo hằng ngày', status: 'active' });
 
-    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'cancel_scheduled_task', { task_id: taskId });
+    const output = await runTool(lan, 'cancel_scheduled_task', { task_id: taskId });
+
+    expect(output).toBe('{"ok":true,"title":"Báo cáo hằng ngày"}');
+    expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([{ status: 'cancelled', next_run_at: null }]);
+  });
+
+  it('cannot cancel the task of another workspace', async () => {
+    const duy = await addAdmin();
+    const otherWorkspaceId = await insertWorkspace(harness.database, 'Xe tải Thử');
+    const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    const taskId = await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, status: 'active' });
+
+    const output = await runTool(duy, 'cancel_scheduled_task', { task_id: taskId });
 
     expect(output).toBe('{"ok":false,"error":"Không tìm thấy lịch này."}');
     expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
