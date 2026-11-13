@@ -112,6 +112,12 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [PLATE_FACT, CUSTOMER_FACT] });
   });
 
+  it('lists an empty list for a member with no facts', async () => {
+    const output = await runTool('list_member_facts', { member_id: hungMembershipId });
+
+    expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [] });
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
