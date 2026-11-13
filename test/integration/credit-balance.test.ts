@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addCredits, chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
@@ -151,5 +152,19 @@ describe('the credit balance of a workspace', () => {
     expect(await database.query("SELECT credits, source, added_by, note, balance_after FROM credit_additions WHERE source = 'internal_user'")).toEqual([
       { credits: '50.000', source: 'internal_user', added_by: duyId, note: 'Nạp thử', balance_after: '130.000' },
     ]);
+  });
+
+  it('adds credits once when two additions with the same id run at the same time', async () => {
+    await setCreditBalance(database, workspaceId, 80);
+    const addition = { id: randomUUID(), workspaceId, credits: '50.000', source: 'internal_user', addedBy: null, note: 'Nạp thử' } as const;
+    const duyId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await Promise.all([
+      runInTransaction(pool, (transaction) => addCredits(transaction, { ...addition, addedBy: duyId })),
+      runInTransaction(pool, (transaction) => addCredits(transaction, { ...addition, addedBy: duyId })),
+    ]);
+
+    expect(await readCreditBalance(database, workspaceId)).toBe('130.000');
+    expect(await database.query('SELECT balance_after FROM credit_additions')).toEqual([{ balance_after: '130.000' }]);
   });
 });
