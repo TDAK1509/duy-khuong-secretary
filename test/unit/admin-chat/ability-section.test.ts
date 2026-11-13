@@ -21,6 +21,10 @@ describe('the ability section of the prompt', () => {
         '- Cho biết nhóm có những ai.',
         '- Tạo mã mời người mới vào nhóm.',
         '- Xóa một người khỏi nhóm.',
+        '- Cho biết các thông tin đã lưu về một người trong nhóm.',
+        '- Lưu thông tin về một người trong nhóm để đọc giấy tờ người đó gửi tốt hơn.',
+        '- Xóa một thông tin đã lưu về một người trong nhóm.',
+        '- Xóa mọi thông tin đã lưu về một người trong nhóm.',
         '- Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
         '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
         '- Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
@@ -36,6 +40,18 @@ describe('the ability section of the prompt', () => {
         CHAT_LINE,
       ].join('\n'),
     );
+  });
+
+  it('holds the four member fact lines after the remove member line', () => {
+    const lines = buildAbilitySection(ADMIN_TOOLS).split('\n');
+
+    const removeMemberIndex = lines.indexOf('- Xóa một người khỏi nhóm.');
+    expect(lines.slice(removeMemberIndex + 1, removeMemberIndex + 5)).toEqual([
+      '- Cho biết các thông tin đã lưu về một người trong nhóm.',
+      '- Lưu thông tin về một người trong nhóm để đọc giấy tờ người đó gửi tốt hơn.',
+      '- Xóa một thông tin đã lưu về một người trong nhóm.',
+      '- Xóa mọi thông tin đã lưu về một người trong nhóm.',
+    ]);
   });
 
   it('holds the seven member lines and the two fixed lines for the member tools', () => {

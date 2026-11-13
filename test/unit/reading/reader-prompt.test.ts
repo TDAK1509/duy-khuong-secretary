@@ -9,7 +9,16 @@ const NUMBER_AND_UNIT_LINE =
 const PHOTO_PROBLEM_LINE =
   '1c. photo_problem: chỉ dùng khi tin nhắn có ảnh, has_work_data là false và needs_explanation là false. "blurry" nếu ảnh mờ, tối, lóa hoặc chữ quá nhỏ nên không đọc được. "cut_off" nếu giấy tờ bị cắt mất phần quan trọng. "not_work" nếu ảnh rõ nhưng không phải giấy tờ hay việc công việc. null trong mọi trường hợp khác.';
 
+const HAS_WORK_DATA_LINE =
+  '1. has_work_data: true nếu tin nhắn có thông tin công việc cần lưu. Nhận mọi loại giấy tờ và ảnh công việc, không giới hạn trong một danh sách. false nếu tin nhắn chỉ là câu hỏi, lời chào, hoặc ảnh dùng để hỏi. false nếu tin nhắn không có ảnh và chỉ nói thông tin lâu dài về một người khác trong nhóm, không phải người gửi, ví dụ người đó lái xe nào, hay giao hàng cho ai hoặc hay ghi giấy tờ thế nào, mà không ghi lại một việc cụ thể; khi đó needs_explanation cũng là false.';
+
 describe('buildReaderPrompt', () => {
+  it('holds the has_work_data rule that leaves out long-term facts about another member', () => {
+    const prompt = buildReaderPrompt(new Date('2026-10-30T18:00:00Z'), [], EMPTY_READER_CATALOG, []);
+
+    expect(prompt.split('\n')).toContain(HAS_WORK_DATA_LINE);
+  });
+
   it("ends with today's Vietnam date", () => {
     const lateEveningUtc = new Date('2026-10-30T18:00:00Z');
 

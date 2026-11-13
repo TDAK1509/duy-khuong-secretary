@@ -4,11 +4,11 @@ import { buildAdminPrompt } from '../../../src/app/admin-chat/admin-prompt.ts';
 import { CHANGE_REFUSED_NOTICE } from '../../../src/app/admin-chat/chat-texts.ts';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
 
-const CHANGE_LINE = '- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, remember, forget, forget_all và split_merged_name.';
+const CHANGE_LINE = '- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, add_member_fact, forget_member_fact, forget_all_member_facts, remember, forget, forget_all và split_merged_name.';
 const MEMBER_DATA_LINE =
   '- Dữ liệu thành viên gồm kết quả của search_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_merged_names, list_sources và list_documents.';
 const ASK_FIRST_LINE =
-  '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members hoặc list_scheduled_tasks.';
+  '- Khi quản lý nhờ một việc thay đổi, không gọi các công cụ đọc dữ liệu thành viên. Để lấy id, dùng list_members, list_member_facts hoặc list_scheduled_tasks.';
 const SPLIT_LINE =
   '- Để tách một tên bị gộp sai, gọi split_merged_name với đúng tên quản lý viết trong tin nhắn. Không gọi list_merged_names trước. Nếu quản lý chỉ nói số thứ tự hoặc chưa viết tên, hỏi lại tên cần tách. Sau khi tách, trả lời ngắn: đã tách tên nào và bao nhiêu giấy tờ.';
 const MERGE_LINE =
@@ -70,7 +70,7 @@ describe('the texts of the merged name tools', () => {
 
   it('holds the refusal notice that names the split', () => {
     expect(CHANGE_REFUSED_NOTICE).toBe(
-      'Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên, tách tên đã gộp) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.\nNếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.',
+      'Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên, tách tên đã gộp, lưu hoặc xóa thông tin về thành viên) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.\nNếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.',
     );
   });
 });
