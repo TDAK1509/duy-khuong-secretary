@@ -12,7 +12,6 @@ import type { MessagingChannel } from '../services/messaging/messaging-channel.t
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
-import { QrCodeGeneratorRenderer } from '../providers/qr-code/qrcode-generator-renderer.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
@@ -103,7 +102,6 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
       clock,
       publicBaseUrl: zalo.publicBaseUrl,
       maxTextLength: channel.maxTextLength,
-      qrCode: new QrCodeGeneratorRenderer(),
     },
     chatgptMcp: zalo && channel && {
       database: pool,

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
-import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { MAX_TEXT_LENGTH, PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
@@ -25,7 +24,7 @@ describe('GET /.well-known/oauth-authorization-server', () => {
 
   it('publishes the OAuth metadata of the service', async () => {
     const server = buildServer(pool, null, {
-      chatgptOAuth: { database: pool, clock: new FakeClock(NOW), publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH, qrCode: new QrCodeGeneratorRenderer() },
+      chatgptOAuth: { database: pool, clock: new FakeClock(NOW), publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH },
     });
 
     const response = await server.inject({ method: 'GET', url: '/.well-known/oauth-authorization-server' });

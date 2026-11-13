@@ -5,7 +5,6 @@ import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
-import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -91,7 +90,6 @@ describe('announcing a ChatGPT connection in Zalo', () => {
         clock,
         publicBaseUrl: PUBLIC_BASE_URL,
         maxTextLength: MAX_TEXT_LENGTH,
-        qrCode: new QrCodeGeneratorRenderer(),
       },
     });
     await server.inject({

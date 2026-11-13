@@ -3,7 +3,6 @@ import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
 import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
-import { QrCodeGeneratorRenderer } from '../../src/providers/qr-code/qrcode-generator-renderer.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { insertConfirmedSignIn } from './chatgpt-sign-in-rows.ts';
@@ -284,7 +283,7 @@ describe('POST /oauth/token', () => {
 
   function requestToken(fields: Record<string, string>) {
     const server = buildServer(pool, null, {
-      chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH, qrCode: new QrCodeGeneratorRenderer() },
+      chatgptOAuth: { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, maxTextLength: MAX_TEXT_LENGTH },
     });
     return server.inject({
       method: 'POST',
