@@ -13,4 +13,11 @@ describe('the admin text guard and the member fact tools', () => {
 
     expect(guard.refuses('forget_member_fact')).toBe(false);
   });
+
+  it('refuses adding a fact after member data was read', () => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('search_records');
+
+    expect(guard.refuses('add_member_fact')).toBe(true);
+  });
 });
