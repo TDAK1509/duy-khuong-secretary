@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCallsUsing } from '../fakes/fake-chat-service.ts';
 import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE, TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
-import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { createIntakeHarness, makeJpeg, NOW, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
-import { insertMember } from './workspace-rows.ts';
+import { insertScheduledTask } from './scheduled-task-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('recording and charging the LLM calls of a workspace', () => {
   let harness: IntakeHarness;
@@ -83,7 +84,24 @@ describe('recording and charging the LLM calls of a workspace', () => {
     expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('20000.000');
   });
 
-  async function listKinds(): Promise<string[]> {
-    return (await listLlmCalls(harness.database, harness.workspaceId)).map((call) => call.kind);
+  it('records the chat call of a scheduled run in the workspace of its task', async () => {
+    const otherWorkspaceId = await insertWorkspace(harness.database, 'Xe tải khác');
+    const duyId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const dueAt = new Date(NOW.getTime() - 60_000);
+    await insertScheduledTask(harness.database, { workspaceId: harness.workspaceId, createdBy: duyId, status: 'active', runOnceAt: dueAt, nextRunAt: dueAt });
+    harness.chat.replyWith('Hôm nay Hùng gửi 3 mục.', CHAT_ROUND_USAGE);
+
+    await harness.runTick();
+
+    expect(await listKindsOf(harness.workspaceId)).toEqual(['scheduled_run']);
+    expect(await listKindsOf(otherWorkspaceId)).toEqual([]);
+  });
+
+  function listKinds(): Promise<string[]> {
+    return listKindsOf(harness.workspaceId);
+  }
+
+  async function listKindsOf(workspaceId: string): Promise<string[]> {
+    return (await listLlmCalls(harness.database, workspaceId)).map((call) => call.kind);
   }
 });
