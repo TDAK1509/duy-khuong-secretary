@@ -32,13 +32,18 @@ export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }
   return renderDocument(
     [
       `<h1>${ADMIN_TITLE}</h1>`,
-      `<h2>${BALANCE_AND_USAGE_HEADING}</h2>`,
-      renderTable([WORKSPACE_COLUMN, BALANCE_COLUMN, TODAY_COLUMN, LAST_WEEK_COLUMN, LAST_MONTH_COLUMN], workspaces.map(listOverviewCells)),
-      `<h2>${USAGE_BY_KIND_HEADING}</h2>`,
-      renderTable([WORKSPACE_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_COLUMN], usageByKind.map(listKindCells)),
-      renderAddCreditsForm(form, workspaces),
-      `<h2>${RECENT_ADDITIONS_HEADING}</h2>`,
-      renderTable([TIME_COLUMN, WORKSPACE_COLUMN, CREDITS_COLUMN, ADDER_COLUMN, NOTE_COLUMN], recentAdditions.map(listAdditionCells)),
+      `<section><h2>${BALANCE_AND_USAGE_HEADING}</h2>`,
+      renderTable('overview', [WORKSPACE_COLUMN, BALANCE_COLUMN, TODAY_COLUMN, LAST_WEEK_COLUMN, LAST_MONTH_COLUMN], workspaces.map(listOverviewCells)),
+      '</section>',
+      '<div class="columns">',
+      `<section>${renderAddCreditsForm(form, workspaces)}</section>`,
+      `<section><h2>${RECENT_ADDITIONS_HEADING}</h2>`,
+      renderTable('additions', [TIME_COLUMN, WORKSPACE_COLUMN, CREDITS_COLUMN, ADDER_COLUMN, NOTE_COLUMN], recentAdditions.map(listAdditionCells)),
+      '</section>',
+      '</div>',
+      `<section><h2>${USAGE_BY_KIND_HEADING}</h2>`,
+      renderTable('kinds', [WORKSPACE_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_COLUMN], usageByKind.map(listKindCells)),
+      '</section>',
     ].join('\n'),
   );
 }
