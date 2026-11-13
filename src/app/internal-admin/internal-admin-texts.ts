@@ -34,3 +34,4 @@ export const KIND_LABELS: Record<LlmCallKind, string> = {
   operator_reread: 'Đọc lại (vận hành)',
   operator_backfill: 'Bổ sung số (vận hành)',
 };
+export const DRIFT_WARNING = 'Số dư không khớp với lịch sử credit.';

@@ -81,6 +81,15 @@ describe('the admin dashboard', () => {
     expect(response.body).toContain('&lt;b&gt;x&lt;/b&gt;');
     expect(response.body).not.toContain('<b>x</b>');
   });
+
+  it('warns about a balance that does not match its history', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await database.query(`UPDATE workspaces SET credit_balance = 19000 WHERE id = '${workspaceId}'`);
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toMatch(/Xe tải Duy Khương<\/a><\/td>\s*<td>19\.000 <strong>Số dư không khớp với lịch sử credit\.<\/strong>/);
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {

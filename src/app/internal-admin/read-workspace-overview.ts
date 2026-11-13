@@ -1,12 +1,13 @@
 import type { Database } from '../db/transaction.ts';
 import type { Usage } from './format-credits.ts';
 
-export type WorkspaceOverview = { id: string; name: string; balance: string; today: Usage; lastWeek: Usage; lastMonth: Usage };
+export type WorkspaceOverview = { id: string; name: string; balance: string; hasDrifted: boolean; today: Usage; lastWeek: Usage; lastMonth: Usage };
 
 type OverviewRow = {
   id: string;
   name: string;
   credit_balance: string;
+  has_drifted: boolean;
   today_credits: string;
   today_cost: string;
   week_credits: string;
@@ -24,6 +25,10 @@ const OVERVIEW_QUERY = `
            $1::timestamptz - interval '30 days' AS month_start
   )
   SELECT workspace.id, workspace.name, workspace.credit_balance,
+    workspace.credit_balance IS DISTINCT FROM (
+      coalesce((SELECT sum(credits) FROM credit_additions WHERE workspace_id = workspace.id), 0)
+      - coalesce((SELECT sum(credits) FROM llm_calls WHERE workspace_id = workspace.id), 0)
+    ) AS has_drifted,
     coalesce(sum(call.credits) FILTER (WHERE call.created_at >= windows.today_start), 0) AS today_credits,
     coalesce(sum(call.cost_usd) FILTER (WHERE call.created_at >= windows.today_start), 0) AS today_cost,
     coalesce(sum(call.credits) FILTER (WHERE call.created_at >= windows.week_start), 0) AS week_credits,
@@ -46,6 +51,7 @@ function describeOverviewRow(row: OverviewRow): WorkspaceOverview {
     id: row.id,
     name: row.name,
     balance: row.credit_balance,
+    hasDrifted: row.has_drifted,
     today: { credits: row.today_credits, costUsd: row.today_cost },
     lastWeek: { credits: row.week_credits, costUsd: row.week_cost },
     lastMonth: { credits: row.month_credits, costUsd: row.month_cost },

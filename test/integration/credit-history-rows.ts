@@ -36,6 +36,7 @@ export async function insertCall(database: TemporaryDatabase, call: NewCall): Pr
      VALUES (${literal(call.workspaceId)}, ${literal(call.kind ?? 'photo_read')}, 'gpt-6.1-sol', ${call.costUsd ?? 0.0264}, ${call.credits ?? 39.6},
        ${call.balanceAfter ?? 'NULL'}, ${timestamp(call.createdAt)})`,
   );
+  await database.query(`UPDATE workspaces SET credit_balance = credit_balance - ${call.credits ?? 39.6} WHERE id = ${literal(call.workspaceId)}`);
 }
 
 export async function insertWorkspaceWithCredits(database: TemporaryDatabase, name: string, credits: number): Promise<string> {

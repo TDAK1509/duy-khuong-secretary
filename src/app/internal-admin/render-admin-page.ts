@@ -10,6 +10,7 @@ import {
   CALLS_COLUMN,
   COST_COLUMN,
   CREDITS_COLUMN,
+  DRIFT_WARNING,
   KIND_COLUMN,
   KIND_LABELS,
   CODE_FIELD_LABEL,
@@ -81,7 +82,7 @@ function renderOverviewTable(workspaces: WorkspaceOverview[]): string {
 function renderOverviewRow(workspace: WorkspaceOverview): string {
   const link = `<a href="/admin/workspaces/${workspace.id}">${escapeHtml(workspace.name)}</a>`;
   const usageCells = [workspace.today, workspace.lastWeek, workspace.lastMonth].map((usage) => `<td>${formatUsage(usage)}</td>`);
-  return `<tr><td>${link}</td><td>${formatCredits(workspace.balance)}</td>${usageCells.join('')}</tr>`;
+  return `<tr><td>${link}</td><td>${formatCredits(workspace.balance)}${workspace.hasDrifted ? ` <strong>${DRIFT_WARNING}</strong>` : ''}</td>${usageCells.join('')}</tr>`;
 }
 
 function renderKindTable(usageByKind: KindUsage[]): string {
