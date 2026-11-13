@@ -34,4 +34,10 @@ describe('the removed ChatGPT connector routes', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it('answers 404 on a POST to the MCP address', async () => {
+    const response = await service.server.inject({ method: 'POST', url: '/mcp' });
+
+    expect(response.statusCode).toBe(404);
+  });
 });

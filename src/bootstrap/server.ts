@@ -9,7 +9,7 @@ import {
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, type TokenDependencies } from '../app/http/chatgpt-token.ts';
-import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
+import { handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -76,21 +76,10 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
 }
 
 function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
-  registerMcpPostRoute(server, chatgptMcp);
   server.route({ method: ['GET', 'DELETE'], url: '/mcp', handler: async (_request, reply) => sendResponse(reply, refuseMcpMethod()) });
   server.get('/.well-known/oauth-protected-resource', async (_request, reply) =>
     sendResponse(reply, handleProtectedResourceMetadata(chatgptMcp)),
   );
-}
-
-function registerMcpPostRoute(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
-  const rateLimit = createMcpRateLimit();
-  server.post('/mcp', async (request, reply) => {
-    const access = await authorizeMcpRequest(chatgptMcp, rateLimit, request.headers.authorization);
-    if (access.kind === 'refused') return sendResponse(reply, access.response);
-    reply.hijack();
-    return access.serve({ request: request.raw, response: reply.raw, body: request.body });
-  });
 }
 
 function parseFormBodies(scope: FastifyInstance): void {
