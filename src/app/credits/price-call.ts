@@ -3,10 +3,10 @@ import type { TokenUsage } from '../../services/usage/token-usage.ts';
 const MARKUP_PERCENT = 150;
 const NANO_USD_PER_MILLI_CREDIT = 1000;
 
-type NanoUsdPerToken = { input: number; output: number };
+type NanoUsdPerToken = { input: number; cachedInput: number; output: number };
 
 const PRICES: Record<string, NanoUsdPerToken> = {
-  'gpt-6.1-sol': { input: 2000, output: 10000 },
+  'gpt-6.1-sol': { input: 2000, cachedInput: 100, output: 10000 },
 };
 
 export type PricedCall = { costUsd: string; credits: string };
@@ -14,7 +14,8 @@ export type PricedCall = { costUsd: string; credits: string };
 export function priceCall(model: string, usage: TokenUsage): PricedCall {
   const rates = PRICES[model];
   if (rates === undefined) throw new Error(`Model "${model}" has no price`);
-  const costNanoUsd = usage.input * rates.input + usage.output * rates.output;
+  const ordinaryInput = usage.input - usage.cachedInput;
+  const costNanoUsd = ordinaryInput * rates.input + usage.cachedInput * rates.cachedInput + usage.output * rates.output;
   return { costUsd: formatNanoUsd(costNanoUsd), credits: formatMilliCredits(toMilliCredits(costNanoUsd)) };
 }
 

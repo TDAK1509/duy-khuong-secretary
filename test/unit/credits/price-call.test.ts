@@ -18,4 +18,10 @@ describe('priceCall', () => {
 
     expect(price).toEqual({ costUsd: '0.009100000', credits: '13.650' });
   });
+
+  it('bills cached input tokens at the cached rate and not twice', () => {
+    const price = priceCall('gpt-6.1-sol', makeUsage({ input: 5700, cachedInput: 4000 }));
+
+    expect(price).toEqual({ costUsd: '0.003800000', credits: '5.700' });
+  });
 });
