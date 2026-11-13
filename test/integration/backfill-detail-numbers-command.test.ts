@@ -3,7 +3,9 @@ import { runBackfillDetailNumbersCommand } from '../../src/bootstrap/backfill-de
 import type { ReaderService } from '../../src/services/reading/reader-service.ts';
 import { SHARED_NUMBER_RULE } from '../../src/app/reading/reader-prompt.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
+import { TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -123,6 +125,20 @@ describe('the backfill-detail-numbers command', () => {
     expect(await database.query('SELECT details FROM records')).toEqual([
       { details: [{ label: 'Trọng lượng tịnh', value: '26380', number: 26380, unit: 'kg' }] },
     ]);
+  });
+
+  it('records the read as an operator backfill and does not charge it', async () => {
+    const { workspaceId, userId } = await seedWorkspace();
+    await setCreditBalance(database, workspaceId, 20000);
+    const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
+    const reader = new FakeReader();
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, TEXT_READ_USAGE);
+
+    await runBackfill(workspaceId, reader);
+
+    expect(await listLlmCalls(database, workspaceId)).toMatchObject([{ kind: 'operator_backfill', credits: '0.000', balance_after: null }]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('20000.000');
   });
 
   it('logs one reader line with the token counts for each record read', async () => {
