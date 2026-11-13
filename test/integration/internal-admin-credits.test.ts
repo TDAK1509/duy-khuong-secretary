@@ -11,6 +11,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
+const SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 describe('POST /admin/credits', () => {
@@ -54,5 +55,13 @@ describe('POST /admin/credits', () => {
     expect(second.statusCode).toBe(303);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toHaveLength(1);
     expect(await readCreditBalance(database, workspaceId)).toBe('250.000');
+  });
+
+  it('refuses a wrong CSRF token', async () => {
+    const response = await postCreditsForm(pool, clock, { csrf: 'wrong-token', workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
 });

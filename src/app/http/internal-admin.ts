@@ -3,6 +3,7 @@ import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
+import { isValidCsrfToken } from '../internal-admin/csrf-token.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
 import { INVALID_SESSION_TEXT, NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
 import { addInternalCredits, readCreditsForm } from '../internal-admin/add-internal-credits.ts';
@@ -83,8 +84,11 @@ function formatSessionCookie(token: string): string {
 
 
 export async function handleAddCredits(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, body: unknown): Promise<HttpResponse> {
-  const userId = await findSessionUser(dependencies, cookieHeader);
+  const form = readCreditsForm(body);
+  const token = readCookie(cookieHeader, SESSION_COOKIE);
+  if (token === null || !isValidCsrfToken(token, form.csrf)) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  const userId = await findInternalSessionUser(dependencies.database, token, dependencies.clock.now());
   if (userId === null) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
-  await addInternalCredits(dependencies.database, userId, readCreditsForm(body));
+  await addInternalCredits(dependencies.database, userId, form);
   return { status: 303, headers: { location: '/admin' }, body: '' };
 }
