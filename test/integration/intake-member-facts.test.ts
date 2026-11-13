@@ -59,4 +59,14 @@ describe('giving the reader the facts saved about the sender', () => {
     expect(request?.system).toContain(RULE_18_WITH_PLATE_FACT);
     expect(request?.system).not.toContain('51C-55555');
   });
+
+  it('shows the reader the facts when the member explains a photo', async () => {
+    harness.reader.answerWith(UNCLEAR);
+    await harness.receivePhoto('zu-hung');
+
+    await harness.receiveText('zu-hung', 'Lốp mới thay cho xe, giá 3.500.000đ');
+
+    expect(harness.reader.requests).toHaveLength(2);
+    expect(harness.reader.requests.at(-1)?.system).toContain(RULE_18_WITH_PLATE_FACT);
+  });
 });
