@@ -146,6 +146,15 @@ describe('POST /admin/login', () => {
     expect(response.statusCode).toBe(429);
   });
 
+  it('puts a client address that is not an IP into the shared limit', async () => {
+    const server = buildServer(pool, null, { internalAdmin: { database: pool, clock } });
+    for (let post = 0; post < 20; post += 1) await postCode(server, 'AAAA-AAAA', { 'cf-connecting-ip': 'not-an-ip' });
+
+    const response = await postCode(server, 'AAAA-AAAA');
+
+    expect(response.statusCode).toBe(429);
+  });
+
   function submitCode(code: string) {
     return postCode(buildServer(pool, null, { internalAdmin: { database: pool, clock } }), code);
   }
