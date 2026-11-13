@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
+import { replyWithText, replyWithToolCallsUsing } from '../fakes/fake-chat-service.ts';
+import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -109,5 +110,21 @@ describe('a workspace that runs out of credits during an action', () => {
     expect(harness.reader.requests).toHaveLength(1);
     expect(harness.channel.texts.map((text) => text.to.externalUserId)).toContain('zu-hung');
     expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('-29.600');
+  });
+
+  it('finishes all the chat rounds of an action that starts with credits', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await setCreditBalance(harness.database, harness.workspaceId, 1);
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
+    const listMembers = { id: 'call_1', name: 'list_members', argumentsJson: '{}' };
+    harness.chat.follow((_request, callNumber) =>
+      callNumber === 1 ? replyWithToolCallsUsing(CHAT_ROUND_USAGE, listMembers) : replyWithText('Nhóm có 2 người.', CHAT_ROUND_USAGE),
+    );
+
+    await harness.receiveText('zu-duy', 'Nhóm có mấy người?');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.chat.requests).toHaveLength(2);
+    expect(harness.channel.texts).toMatchObject([{ text: 'Nhóm có 2 người.', to: { externalUserId: 'zu-duy' } }]);
   });
 });
