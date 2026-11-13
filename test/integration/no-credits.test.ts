@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { replyWithText, replyWithToolCallsUsing } from '../fakes/fake-chat-service.ts';
-import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
+import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE, TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
@@ -140,6 +140,18 @@ describe('a workspace that runs out of credits during an action', () => {
     await harness.receivePhoto('zu-hung');
 
     expect(await listNoticesTo('zu-duy')).toEqual([{ body: OUT_OF_CREDIT_NOTICE, requires_open_window: true }]);
+  });
+
+  it('sends no second notice for a charge that starts below zero', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await setCreditBalance(harness.database, harness.workspaceId, 10);
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }), TEXT_READ_USAGE);
+    harness.chat.replyWith('Chào anh', CHAT_ROUND_USAGE);
+
+    await harness.receiveText('zu-duy', 'Hôm nay ai gửi gì?');
+
+    expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('-5.300');
+    expect(await listNoticesTo('zu-duy')).toHaveLength(1);
   });
 
   function listNoticesTo(externalUserId: string): Promise<{ body: string; requires_open_window: boolean }[]> {
