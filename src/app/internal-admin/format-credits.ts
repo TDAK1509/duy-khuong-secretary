@@ -11,5 +11,9 @@ export function formatCredits(credits: string): string {
 }
 
 export function formatUsage({ credits, costUsd }: Usage): string {
-  return `${wholeCreditFormat.format(Number(credits))} credit / $${Number(costUsd).toFixed(USD_DECIMALS)}`;
+  return `${wholeCreditFormat.format(Number(credits))} credit / ${formatUsd(costUsd)}`;
+}
+
+export function formatUsd(costUsd: string): string {
+  return `$${Number(costUsd).toFixed(USD_DECIMALS)}`;
 }

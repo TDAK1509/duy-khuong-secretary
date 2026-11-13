@@ -59,6 +59,19 @@ describe('the admin dashboard', () => {
 
     expect(readUsageCells(response.body, 'Xe tải Duy Khương')).toEqual(['0 credit / $0.0000', '0 credit / $0.0000', '40 credit / $0.0264']);
   });
+
+  it('counts the calls, credits and cost of the last 7 days per kind', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T08:00:00+07:00') });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T09:00:00+07:00') });
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-11-02T09:30:00+07:00'), kind: 'chat_answer', credits: 1.65, costUsd: 0.0011 });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('Mức dùng theo loại, 7 ngày qua');
+    expect(response.body).toMatch(/Xe tải Duy Khương<\/td><td>Đọc ảnh<\/td><td>2<\/td><td>79,2<\/td><td>\$0\.0528<\/td>/);
+    expect(response.body).toMatch(/Xe tải Duy Khương<\/td><td>Trả lời chat<\/td><td>1<\/td><td>1,65<\/td><td>\$0\.0011<\/td>/);
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {

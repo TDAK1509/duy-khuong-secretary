@@ -1,6 +1,8 @@
 export const LOGIN_CODE_EXPLANATION =
   'Mã đăng nhập trang quản trị Trợ lý ở tin nhắn tiếp theo. Nhấn giữ tin nhắn đó để sao chép, rồi dán vào trang quản trị. Mã hết hạn sau 10 phút. Không đưa mã này cho ai, kể cả người nói là của Trợ lý.';
 export const NOT_INTERNAL_TEXT = 'Bạn không có quyền vào trang quản trị Trợ lý.';
+import type { LlmCallKind } from '../credits/llm-call-kind.ts';
+
 export const ADMIN_TITLE = 'Trang quản trị Trợ lý';
 export const LOGIN_INTRO = 'Trang này chỉ dành cho người vận hành Trợ lý.';
 export const LOGIN_STEP_OPEN_CHAT = '1. Mở khung chat với Trợ lý trong Zalo.';
@@ -17,3 +19,18 @@ export const BALANCE_COLUMN = 'Số dư';
 export const TODAY_COLUMN = 'Hôm nay';
 export const LAST_WEEK_COLUMN = '7 ngày qua';
 export const LAST_MONTH_COLUMN = '30 ngày qua';
+export const USAGE_BY_KIND_HEADING = 'Mức dùng theo loại, 7 ngày qua';
+export const KIND_COLUMN = 'Loại';
+export const CALLS_COLUMN = 'Số lần gọi';
+export const CREDITS_COLUMN = 'Credit';
+export const COST_COLUMN = 'Chi phí';
+
+export const KIND_LABELS: Record<LlmCallKind, string> = {
+  photo_read: 'Đọc ảnh',
+  text_read: 'Đọc tin nhắn',
+  chat_answer: 'Trả lời chat',
+  scheduled_run: 'Lịch',
+  chatgpt_text_save: 'Lưu từ ChatGPT',
+  operator_reread: 'Đọc lại (vận hành)',
+  operator_backfill: 'Bổ sung số (vận hành)',
+};
