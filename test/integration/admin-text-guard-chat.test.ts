@@ -24,7 +24,6 @@ const DAILY_REPORT = {
   time_of_day: '18:00',
   weekday: null,
   day_of_month: null,
-  maintenance_rules: [],
 };
 
 describe('the text an admin wrote is the only text that changes anything', () => {

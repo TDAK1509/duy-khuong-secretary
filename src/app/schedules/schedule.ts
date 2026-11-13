@@ -14,5 +14,4 @@ export type NewScheduledTask = {
   title: string;
   instruction: string;
   schedule: Schedule;
-  maintenanceRules: MaintenanceRule[];
 };

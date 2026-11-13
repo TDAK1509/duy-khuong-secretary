@@ -1,7 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { computeNextRun } from './compute-next-run.ts';
 import { lockWorkspaceTasks } from './lock-workspace-tasks.ts';
-import { toStoredRules } from './maintenance-rules.ts';
 import type { NewScheduledTask, Schedule } from './schedule.ts';
 import { readSchedule, SCHEDULE_COLUMNS, toScheduleValues, type ScheduleRow } from './schedule-columns.ts';
 
@@ -57,15 +56,14 @@ async function insertTask(transaction: Transaction, task: NewScheduledTask, firs
   const [stored] = await transaction.query<{ id: string }>(
     `INSERT INTO scheduled_tasks
        (workspace_id, created_by, title, instruction, repeat, run_once_at, time_of_day, weekday, day_of_month,
-        maintenance_rules, status, next_run_at, creation_key)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', $11, $12) RETURNING id`,
+        status, next_run_at, creation_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10, $11) RETURNING id`,
     [
       task.workspaceId,
       task.createdBy,
       task.title,
       task.instruction,
       ...toScheduleValues(task.schedule),
-      JSON.stringify(toStoredRules(task.maintenanceRules)),
       firstRun,
       task.creationKey,
     ],

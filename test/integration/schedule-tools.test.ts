@@ -18,7 +18,6 @@ const DAILY_REPORT = {
   time_of_day: '18:00',
   weekday: null,
   day_of_month: null,
-  maintenance_rules: [],
 };
 
 describe('the scheduling tools', () => {
