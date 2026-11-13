@@ -42,4 +42,8 @@ describe('priceCall', () => {
 
     expect(price.credits).toBe('0.002');
   });
+
+  it('refuses a model with no price', () => {
+    expect(() => priceCall('gpt-x', makeUsage({ input: 1 }))).toThrow('Model "gpt-x" has no price');
+  });
 });
