@@ -5,6 +5,7 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import { isCurrentWorkspaceAdmin } from '../access/is-current-admin.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
+import { meterReader } from '../credits/meter-reader.ts';
 import { REFUSAL_ERROR } from '../admin-chat/tools/tool-result.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
@@ -28,11 +29,16 @@ export type SaveRecordRuntime = { database: Database; clock: Clock; reader: Read
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
   const catalog = await readReaderCatalog(runtime.database, scope);
-  const attempt = await readWithReader(runtime.reader, runtime.clock.now(), { text, photo: null }, [], catalog, []);
+  const attempt = await readWithReader(meterSavingReader(runtime, scope), runtime.clock.now(), { text, photo: null }, [], catalog, []);
   if (!attempt.ok) return { text: READER_FAILED_TEXT, isError: true };
   const plan = planReply(attempt, false);
   if (!plan.saved) return { text: plan.isUnclear ? UNCLEAR_TEXT : NO_WORK_DATA_TEXT, isError: false };
   return saveReadRecords(runtime.database, scope, text, plan);
+}
+
+function meterSavingReader(runtime: SaveRecordRuntime, scope: AccessScope): ReaderService {
+  const meter = { database: runtime.database, workspaceId: scope.workspaceId, isCharged: true };
+  return meterReader(runtime.reader, meter, () => 'chatgpt_text_save');
 }
 
 function readReaderCatalog(database: Database, scope: AccessScope): Promise<ReaderCatalog> {
