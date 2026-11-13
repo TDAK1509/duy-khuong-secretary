@@ -49,4 +49,14 @@ describe('GET /admin with a session cookie', () => {
     expect(response.body).toContain('Mã đăng nhập');
     expect(response.body).not.toContain('Số dư và mức dùng');
   });
+
+  it('shows the login page after the user stopped being internal', async () => {
+    await insertInternalSession(database, { userId: duyUserId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+    await makeUserNotInternal(database, duyUserId);
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('Mã đăng nhập');
+    expect(response.body).not.toContain('Số dư và mức dùng');
+  });
 });
