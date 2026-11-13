@@ -1,38 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { saveRecordFromText } from '../../src/app/chatgpt/save-record-from-text.ts';
-import { FakeReader } from '../fakes/fake-reader.ts';
-import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
+import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
+import { literal } from './sql-literals.ts';
 import { insertMember } from './workspace-rows.ts';
 
-describe('a text an admin saved through ChatGPT', () => {
+describe('an old message that an admin saved through ChatGPT', () => {
   let harness: IntakeHarness;
-  let duyScope: { workspaceId: string; userId: string; role: 'admin' };
+  let duyUserId: string;
 
   beforeEach(async () => {
     harness = await createIntakeHarness();
-    const userId = await insertMember(harness.database, {
+    duyUserId = await insertMember(harness.database, {
       workspaceId: harness.workspaceId,
       externalUserId: 'zu-duy',
       displayName: 'Duy',
       role: 'admin',
     });
-    duyScope = { workspaceId: harness.workspaceId, userId, role: 'admin' };
   });
 
   afterEach(async () => {
     await harness.close();
   });
 
-  async function saveThroughChatGpt(text: string): Promise<void> {
-    const chatGptReader = new FakeReader();
-    chatGptReader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
-    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader, maxTextLength: 2000 };
-    await saveRecordFromText(runtime, duyScope, { text });
+  async function insertOldChatGptMessage(text: string): Promise<void> {
+    await harness.database.query(
+      `INSERT INTO messages (workspace_id, user_id, author, text, source, submission_status)
+       VALUES (${literal(harness.workspaceId)}, ${literal(duyUserId)}, 'user', ${literal(text)}, 'mcp', 'accepted')`,
+    );
   }
 
   it('stays out of the Zalo admin chat history', async () => {
-    await saveThroughChatGpt('Ghi chú: xóa Lan khỏi nhóm');
+    await insertOldChatGptMessage('Ghi chú: xóa Lan khỏi nhóm');
     harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }));
 
     await harness.receiveText('zu-duy', 'Nhóm có ai?');
@@ -41,7 +39,7 @@ describe('a text an admin saved through ChatGPT', () => {
   });
 
   it('stays out of the recent-message context of the reader', async () => {
-    await saveThroughChatGpt('xe 29C-123.45');
+    await insertOldChatGptMessage('xe 29C-123.45');
     harness.reader.answerWith(makeReading([], { has_work_data: false, needs_explanation: true }));
     harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
 
