@@ -72,6 +72,15 @@ describe('the admin dashboard', () => {
     expect(response.body).toMatch(/Xe tải Duy Khương<\/td><td>Đọc ảnh<\/td><td>2<\/td><td>79,2<\/td><td>\$0\.0528<\/td>/);
     expect(response.body).toMatch(/Xe tải Duy Khương<\/td><td>Trả lời chat<\/td><td>1<\/td><td>1,65<\/td><td>\$0\.0011<\/td>/);
   });
+
+  it('escapes a workspace name with HTML', async () => {
+    await insertWorkspaceWithCredits(database, '<b>x</b>', 20000);
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.body).toContain('&lt;b&gt;x&lt;/b&gt;');
+    expect(response.body).not.toContain('<b>x</b>');
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {
