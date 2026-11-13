@@ -27,6 +27,13 @@ export async function runAddMemberFact(database: Database, scope: AccessScope, p
   return changeMemberFacts(database, scope, memberId, (markdown) => addFact(markdown, fact, MEMBER_FACTS_FULL_ERROR));
 }
 
+async function changeMemberFacts(database: Database, scope: AccessScope, memberId: string, change: (markdown: string) => string): Promise<string> {
+  if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
+  const memory = await updateMemberMemory(database, { workspaceId: scope.workspaceId, membershipId: memberId }, change);
+  if (memory === null) return failTool(MEMBER_NOT_FOUND_ERROR);
+  return JSON.stringify({ ok: true, member: memory.displayName, facts: listFacts(memory.markdown) });
+}
+
 export async function runForgetMemberFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const { member_id: memberId, fact } = factArgumentsSchema.parse(parsedArguments);
   return changeMemberFacts(database, scope, memberId, (markdown) => removeFact(markdown, fact, FACT_NOT_FOUND_ERROR));
@@ -35,11 +42,4 @@ export async function runForgetMemberFact(database: Database, scope: AccessScope
 export async function runForgetAllMemberFacts(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const { member_id: memberId } = memberArgumentsSchema.parse(parsedArguments);
   return changeMemberFacts(database, scope, memberId, () => '');
-}
-
-async function changeMemberFacts(database: Database, scope: AccessScope, memberId: string, change: (markdown: string) => string): Promise<string> {
-  if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
-  const memory = await updateMemberMemory(database, { workspaceId: scope.workspaceId, membershipId: memberId }, change);
-  if (memory === null) return failTool(MEMBER_NOT_FOUND_ERROR);
-  return JSON.stringify({ ok: true, member: memory.displayName, facts: listFacts(memory.markdown) });
 }
