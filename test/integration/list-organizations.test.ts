@@ -83,6 +83,16 @@ describe('the organization list of an admin', () => {
     expect(page.organizations.map(({ name }) => name)).toEqual(['Đông Á']);
   });
 
+  it('finds an alias match that sorts beyond the first 50 names', async () => {
+    await insertCompanies(60);
+    await insertOrganizationWithAlias(database, { workspaceId, name: 'Công ty Zulu', aliasPrintedName: 'ZETA LOGISTICS' });
+
+    const page = await runListOrganizations({ text: 'zeta', cursor: null });
+
+    expect(page.organizations.map(({ name }) => name)).toEqual(['Công ty Zulu']);
+    expect(page.next_cursor).toBeNull();
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
