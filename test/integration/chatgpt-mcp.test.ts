@@ -27,6 +27,7 @@ import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertConnection } from './chatgpt-connection-rows.ts';
 import { PUBLIC_BASE_URL } from './chatgpt-sign-in-requests.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
+import { insertMemberMemory } from './member-memory-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertRecordRow } from './record-rows.ts';
@@ -407,6 +408,16 @@ describe('the MCP address', () => {
     await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
 
     expect(reader.requests[0]?.system).toContain('14b. Các công ty và nơi chốn nhóm này đã lưu: ["Cheng Loong"]. Danh sách này');
+  });
+
+  it('gives the reader no facts about the admin when it saves a text', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: duyUserId, markdown: '- Lái xe biển số 93A-1234' });
+    reader.answerWith(makeReading([makeItem({ vehicle_plate: '29C-123.45' })]));
+
+    await postMcp(callToolRequest('save_record_from_text', { text: FUEL_TEXT }), { token: DUY_ACCESS_TOKEN });
+
+    expect(reader.requests).toHaveLength(1);
+    expect(reader.requests[0]?.system).not.toContain('18. Thông tin quản lý đã lưu về người gửi:');
   });
 
   it('adds no document source for a text rejected as a duplicate', async () => {
