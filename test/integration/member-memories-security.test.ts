@@ -54,6 +54,15 @@ describe('the member memories for the runtime role', () => {
     await expect(insert).rejects.toMatchObject({ code: ROW_LEVEL_SECURITY_VIOLATION });
   });
 
+  it('shows the workspace scope of another workspace no facts', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: PLATE_FACT });
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+
+    const rows = await selectMemories({ workspaceId: otherWorkspaceId });
+
+    expect(rows).toEqual([]);
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM member_memories'),
