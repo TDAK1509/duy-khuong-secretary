@@ -6,6 +6,7 @@ import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts'
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { readPrivateMemory } from './private-memory-rows.ts';
@@ -220,6 +221,14 @@ describe('the member fact tools of an admin in the chat', () => {
       { author_user_id: duy.userId, readers: 'author' },
       { author_user_id: lan.userId, readers: 'admins' },
     ]);
+  });
+
+  it('deletes the facts about a member that an admin removes from the workspace', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: PLATE_FACT });
+
+    await removeMember(pool, { workspaceId, callerUserId: duy.userId, membershipId: hungMembershipId });
+
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
   });
 
   it('refuses a member who adds a fact about another member and stores nothing', async () => {
