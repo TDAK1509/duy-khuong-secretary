@@ -1,4 +1,4 @@
-import { generateLoginCode, hashLoginCode } from '../chatgpt/login-code.ts';
+import { generateLoginCode, hashLoginCode } from './login-code.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { Reply } from '../delivery/reply.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';

@@ -1,6 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
-import { hashLoginCode, isLoginCodeShape } from './login-code.ts';
-import { generateSecretToken, hashSecretToken } from './secret-token.ts';
+import { hashLoginCode, isLoginCodeShape } from '../internal-admin/login-code.ts';
+import { generateSecretToken, hashSecretToken } from '../internal-admin/secret-token.ts';
 import { MAX_FAILED_ATTEMPTS } from './sign-in-limits.ts';
 
 export type SignInConfirmation = { browserKey: string; typedCode: string; now: Date };

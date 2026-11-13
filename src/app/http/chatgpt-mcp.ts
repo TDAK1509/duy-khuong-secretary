@@ -5,7 +5,7 @@ import type { McpEndpoint, McpExchange } from '../../services/mcp/mcp-endpoint.t
 import { describeProtectedResource } from '../chatgpt/describe-protected-resource.ts';
 import { describeMcpServer } from '../chatgpt/describe-mcp-server.ts';
 import { findAdminConnection, type AdminConnection } from '../chatgpt/find-admin-connection.ts';
-import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
+import { RequestRateLimit } from '../internal-admin/request-rate-limit.ts';
 import type { Database } from '../db/transaction.ts';
 import { respondWithJson, respondWithText, ZALO_OFF_TEXT, type HttpResponse } from './http-response.ts';
 

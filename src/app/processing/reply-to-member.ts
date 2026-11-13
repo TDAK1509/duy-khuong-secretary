@@ -3,7 +3,7 @@ import type { Transaction } from '../db/transaction.ts';
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { answerDisconnectCommand, isDisconnectCommand } from '../chatgpt/answer-disconnect-command.ts';
 import { answerLoginCommand } from '../chatgpt/answer-login-command.ts';
-import { isLoginCommand } from '../chatgpt/login-code.ts';
+import { isLoginCommand } from '../internal-admin/login-code.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
 import { NO_PENDING_CHOICE_TEXT } from './conversation-texts.ts';
 import { answerSwitchCommand, isSwitchCommand, pickWorkspace } from '../workspaces/switch-workspace.ts';

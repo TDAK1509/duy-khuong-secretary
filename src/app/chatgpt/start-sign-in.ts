@@ -1,5 +1,5 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
-import { generateSecretToken, hashSecretToken } from './secret-token.ts';
+import { generateSecretToken, hashSecretToken } from '../internal-admin/secret-token.ts';
 import { KEEP_EXPIRED_FOR_MS, MAX_OPEN_SIGN_INS, SIGN_IN_VALID_FOR_MS } from './sign-in-limits.ts';
 
 export type SignInRequest = {

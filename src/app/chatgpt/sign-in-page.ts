@@ -1,4 +1,4 @@
-import { escapeHtml } from './escape-html.ts';
+import { escapeHtml } from '../internal-admin/escape-html.ts';
 import {
   CODE_FIELD_LABEL,
   CONTINUE_BUTTON_LABEL,

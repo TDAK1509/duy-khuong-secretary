@@ -2,7 +2,7 @@ import { runInTransaction, type Database, type Transaction } from '../db/transac
 import { announceConnection } from './announce-connection.ts';
 import { computeCodeChallenge } from './compute-code-challenge.ts';
 import { issueTokens, type IssuedTokens } from './issue-tokens.ts';
-import { hashSecretToken } from './secret-token.ts';
+import { hashSecretToken } from '../internal-admin/secret-token.ts';
 
 export type CodeExchange = { code: string; codeVerifier: string; redirectUri: string; maxTextLength: number; now: Date };
 

@@ -1,4 +1,4 @@
-import { escapeHtml } from '../chatgpt/escape-html.ts';
+import { escapeHtml } from './escape-html.ts';
 import { formatCredits, formatUsage, formatUsd } from './format-credits.ts';
 import type { Dashboard } from './read-dashboard.ts';
 import type { RecentAddition } from './read-recent-additions.ts';

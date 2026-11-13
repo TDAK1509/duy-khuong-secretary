@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hashSecretToken } from '../../src/app/chatgpt/secret-token.ts';
+import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
 import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { buildServer } from '../../src/bootstrap/server.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';

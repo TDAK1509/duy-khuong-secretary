@@ -1,6 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
-import { hashSecretToken } from './secret-token.ts';
+import { hashSecretToken } from '../internal-admin/secret-token.ts';
 
 export type AdminConnection = { id: string; scope: AccessScope };
 

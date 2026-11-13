@@ -1,5 +1,5 @@
 import { isDisconnectCommand } from '../chatgpt/answer-disconnect-command.ts';
-import { isLoginCommand } from '../chatgpt/login-code.ts';
+import { isLoginCommand } from '../internal-admin/login-code.ts';
 import { isInternalLoginCommand } from '../internal-admin/answer-internal-login-command.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';

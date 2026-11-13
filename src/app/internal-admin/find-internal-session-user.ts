@@ -1,4 +1,4 @@
-import { hashSecretToken } from '../chatgpt/secret-token.ts';
+import { hashSecretToken } from './secret-token.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 
 const SESSION_USER_QUERY = `

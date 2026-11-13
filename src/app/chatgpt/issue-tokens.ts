@@ -1,4 +1,4 @@
-import { generateSecretToken, hashSecretToken } from './secret-token.ts';
+import { generateSecretToken, hashSecretToken } from '../internal-admin/secret-token.ts';
 
 export const ACCESS_TOKEN_VALID_FOR_MS = 60 * 60 * 1000;
 const REFRESH_TOKEN_VALID_FOR_MS = 30 * 24 * 60 * 60 * 1000;

@@ -1,7 +1,7 @@
 import type { Database } from '../db/transaction.ts';
 import { issueTokens } from './issue-tokens.ts';
 import type { TokenOutcome } from './exchange-authorization-code.ts';
-import { hashSecretToken } from './secret-token.ts';
+import { hashSecretToken } from '../internal-admin/secret-token.ts';
 
 export type TokenRefresh = { refreshToken: string; now: Date };
 

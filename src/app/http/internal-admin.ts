@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
+import { RequestRateLimit } from '../internal-admin/request-rate-limit.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';

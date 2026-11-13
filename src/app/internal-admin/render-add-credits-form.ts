@@ -1,4 +1,4 @@
-import { escapeHtml } from '../chatgpt/escape-html.ts';
+import { escapeHtml } from './escape-html.ts';
 import type { WorkspaceOverview } from './read-workspace-overview.ts';
 import {
   ADD_CREDITS_BUTTON_LABEL,

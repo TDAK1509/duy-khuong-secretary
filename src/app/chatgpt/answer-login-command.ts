@@ -1,6 +1,6 @@
 import type { Reply } from '../delivery/reply.ts';
 import type { Transaction } from '../db/transaction.ts';
-import { generateLoginCode, hashLoginCode } from './login-code.ts';
+import { generateLoginCode, hashLoginCode } from '../internal-admin/login-code.ts';
 import { SIGN_IN_VALID_FOR_MS } from './sign-in-limits.ts';
 
 export type LoginCommand = { userId: string; workspaceId: string; now: Date };
