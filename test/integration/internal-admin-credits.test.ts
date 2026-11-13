@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -41,6 +42,17 @@ describe('POST /admin/credits', () => {
     expect(response.statusCode).toBe(303);
     expect(response.headers['location']).toBe('/admin');
     expect(await database.query("SELECT added_by, note FROM credit_additions WHERE source = 'internal_user'")).toEqual([{ added_by: duyUserId, note: 'Nạp thử' }]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('250.000');
+  });
+
+  it('adds once when the same request id is posted twice', async () => {
+    const form = { request_id: randomUUID(), workspace_id: workspaceId, credits: '100', note: 'Nạp thử' };
+
+    await postCreditsForm(pool, clock, form);
+    const second = await postCreditsForm(pool, clock, form);
+
+    expect(second.statusCode).toBe(303);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toHaveLength(1);
     expect(await readCreditBalance(database, workspaceId)).toBe('250.000');
   });
 });

@@ -70,12 +70,20 @@ function toThousandths(credits: string): bigint {
 }
 
 export async function addCredits(transaction: Transaction, addition: CreditAddition): Promise<void> {
-  const balanceAfter = await raiseBalance(transaction, addition.workspaceId, addition.credits);
-  await transaction.query(
+  const balanceBefore = await lockBalance(transaction, addition.workspaceId);
+  const [inserted] = await transaction.query<{ id: string }>(
     `INSERT INTO credit_additions (id, workspace_id, credits, source, added_by, note, balance_after, created_at)
-     VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, clock_timestamp())`,
-    [addition.id ?? null, addition.workspaceId, addition.credits, addition.source, addition.addedBy, addition.note, balanceAfter],
+     VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7::numeric + $3::numeric, clock_timestamp())
+     ON CONFLICT (id) DO NOTHING RETURNING id`,
+    [addition.id ?? null, addition.workspaceId, addition.credits, addition.source, addition.addedBy, addition.note, balanceBefore],
   );
+  if (inserted) await raiseBalance(transaction, addition.workspaceId, addition.credits);
+}
+
+async function lockBalance(transaction: Transaction, workspaceId: string): Promise<string> {
+  const [row] = await transaction.query<{ credit_balance: string }>('SELECT credit_balance FROM workspaces WHERE id = $1 FOR UPDATE', [workspaceId]);
+  if (!row) throw new Error(`Workspace ${workspaceId} has no credit balance to change`);
+  return row.credit_balance;
 }
 
 function raiseBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {
