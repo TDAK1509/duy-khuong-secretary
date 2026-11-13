@@ -137,6 +137,15 @@ describe('POST /admin/login', () => {
     expect(await database.query('SELECT user_id FROM internal_sessions')).toEqual([{ user_id: duyUserId }]);
   });
 
+  it('blocks the 21st login post that has no client address header', async () => {
+    const server = buildServer(pool, null, { internalAdmin: { database: pool, clock } });
+    for (let post = 0; post < 20; post += 1) await postCode(server, 'AAAA-AAAA');
+
+    const response = await postCode(server, 'AAAA-AAAA');
+
+    expect(response.statusCode).toBe(429);
+  });
+
   function submitCode(code: string) {
     return postCode(buildServer(pool, null, { internalAdmin: { database: pool, clock } }), code);
   }
