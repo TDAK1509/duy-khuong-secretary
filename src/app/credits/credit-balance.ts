@@ -23,8 +23,8 @@ export type CreditAddition = {
 const NO_CREDITS = '0.000';
 
 const INSERT_CALL = `
-  INSERT INTO llm_calls (workspace_id, kind, model, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, cost_usd, credits, balance_after)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
+  INSERT INTO llm_calls (workspace_id, kind, model, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, cost_usd, credits, balance_after, created_at)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, clock_timestamp())`;
 
 export async function chargeCall(transaction: Transaction, call: RecordedCall): Promise<void> {
   const credits = call.isCharged ? call.price.credits : NO_CREDITS;
@@ -53,8 +53,8 @@ function listTokenCounts(usage: TokenUsage | null): (number | null)[] {
 export async function addCredits(transaction: Transaction, addition: CreditAddition): Promise<void> {
   const balanceAfter = await raiseBalance(transaction, addition.workspaceId, addition.credits);
   await transaction.query(
-    `INSERT INTO credit_additions (workspace_id, credits, source, added_by, note, balance_after)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+    `INSERT INTO credit_additions (workspace_id, credits, source, added_by, note, balance_after, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp())`,
     [addition.workspaceId, addition.credits, addition.source, addition.addedBy, addition.note, balanceAfter],
   );
 }
