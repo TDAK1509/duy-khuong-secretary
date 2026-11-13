@@ -61,6 +61,16 @@ describe('the data read from a photo in the reply', () => {
     expect(reply?.endsWith('Dữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số tiền: 500.000đ')).toBe(true);
   });
 
+  it("keeps the data read out of a member's reply when nothing is saved", async () => {
+    harness.reader.answerWith(makeReading([], { has_work_data: false }));
+    harness.chat.replyWith('Chào bạn!');
+
+    await harness.receiveText('zu-hung', 'chào bạn');
+    await harness.sendAllQueuedTexts();
+
+    expect(readTextsTo('zu-hung')).toEqual(['Chào bạn!']);
+  });
+
   it('loses no line of a block longer than one message', async () => {
     const details = Array.from({ length: 80 }, (_, index) => ({ label: `Dòng ${index + 1}`, value: `giá trị số ${index + 1} của phiếu cân` }));
     harness.reader.answerWith(
