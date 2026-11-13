@@ -18,6 +18,7 @@ const CUSTOMER_FACT = 'Chở hàng cho nhà máy Cheng Loong';
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
 const MEMBER_FACTS_FULL_RESULT =
   '{"ok":false,"error":"Thông tin về người này đã đủ 2000 ký tự. Tôi chưa thêm thông tin mới và vẫn giữ mọi thông tin cũ."}';
+const FACT_NOT_FOUND_RESULT = '{"ok":false,"error":"Không tìm thấy thông tin này trong các thông tin đã lưu về người này."}';
 const NOT_FOUND_RESULT = '{"ok":false,"error":"Không tìm thấy người này."}';
 
 describe('the member fact tools of an admin in the chat', () => {
@@ -125,6 +126,15 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [CUSTOMER_FACT] });
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${CUSTOMER_FACT}`);
+  });
+
+  it('changes nothing when it removes a fact that is not saved', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+
+    const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: 'Lái xe biển số 51C-55555' });
+
+    expect(output).toBe(FACT_NOT_FOUND_RESULT);
+    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
   async function findMembershipId(userId: string): Promise<string> {
