@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
+import { replyWithText, replyWithToolCallsUsing } from '../fakes/fake-chat-service.ts';
+import { CHAT_ROUND_USAGE, PHOTO_READ_USAGE, TEXT_READ_USAGE } from '../fakes/sample-usage.ts';
 import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 import { listLlmCalls, readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
+import { insertMember } from './workspace-rows.ts';
 
 describe('recording and charging the LLM calls of a workspace', () => {
   let harness: IntakeHarness;
@@ -37,4 +39,16 @@ describe('recording and charging the LLM calls of a workspace', () => {
     ]);
     expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('19960.400');
   });
+
+  it('records the text read of a member as a text read', async () => {
+    harness.reader.answerWith(makeReading([makeItem()]), TEXT_READ_USAGE);
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
+
+    expect(await listKinds()).toEqual(['text_read']);
+  });
+
+  async function listKinds(): Promise<string[]> {
+    return (await listLlmCalls(harness.database, harness.workspaceId)).map((call) => call.kind);
+  }
 });

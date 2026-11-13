@@ -33,3 +33,7 @@ export function replyWithText(text: string, usage: TokenUsage | null = null): Ch
 export function replyWithToolCalls(...calls: ToolCall[]): ChatResult {
   return { ok: true, reply: { kind: 'tool_calls', calls }, usage: null };
 }
+
+export function replyWithToolCallsUsing(usage: TokenUsage, ...calls: ToolCall[]): ChatResult {
+  return { ok: true, reply: { kind: 'tool_calls', calls }, usage };
+}
