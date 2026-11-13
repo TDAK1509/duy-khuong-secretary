@@ -70,7 +70,7 @@ describe('the texts of the merged name tools', () => {
 
   it('holds the refusal notice that names the split', () => {
     expect(CHANGE_REFUSED_NOTICE).toBe(
-      'Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên, tách tên đã gộp) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.\nNếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.',
+      'Có việc tôi chưa làm (đặt lịch, hủy lịch, mời hoặc xóa người, ghi nhớ hoặc quên, tách tên đã gộp, lưu hoặc xóa thông tin về thành viên) vì tin nhắn này đi kèm dữ liệu đọc từ ảnh, hoặc tôi đã đọc dữ liệu do thành viên gửi.\nNếu bạn vẫn muốn, hãy nhắn lại riêng yêu cầu này.',
     );
   });
 });
