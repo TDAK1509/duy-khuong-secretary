@@ -93,6 +93,15 @@ describe('the organization list of an admin', () => {
     expect(page.next_cursor).toBeNull();
   });
 
+  it('does not list the companies of another workspace', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    await insertOrganizationWithAlias(database, { workspaceId: otherWorkspaceId, name: 'Hòa Phát' });
+
+    const page = await runListOrganizations({ text: 'hoa phat', cursor: null });
+
+    expect(page.organizations).toEqual([]);
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
