@@ -127,4 +127,18 @@ describe('giving the reader the facts saved about the sender', () => {
     const [request] = harness.reader.requests;
     expect(request?.system).toContain('18. Thông tin quản lý đã lưu về người gửi: ["Hay đi xe số sàn"]. Danh sách này');
   });
+
+  it('skips the author-only fact that another admin saved about an admin', async () => {
+    const { database, workspaceId } = harness;
+    const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'admin' });
+    await insertMemberFact(database, { workspaceId, memberUserId: duyUserId, authorUserId: duyUserId, readers: 'author', fact: 'Duy tự ghi' });
+    await insertMemberFact(database, { workspaceId, memberUserId: duyUserId, authorUserId: lanUserId, readers: 'author', fact: 'Lan ghi về Duy' });
+
+    await harness.receivePhoto('zu-duy');
+
+    const [request] = harness.reader.requests;
+    expect(request?.system).toContain('18. Thông tin quản lý đã lưu về người gửi: ["Duy tự ghi"]. Danh sách này');
+    expect(request?.system).not.toContain('Lan ghi về Duy');
+  });
 });
