@@ -79,6 +79,12 @@ describe('the member memories for the runtime role', () => {
     await expect(insert).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
   });
 
+  it('refuses markdown longer than 2000 characters', async () => {
+    const insert = insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: 'a'.repeat(2001) });
+
+    await expect(insert).rejects.toMatchObject({ code: CHECK_VIOLATION });
+  });
+
   async function selectMemories(scope: { workspaceId: string; ownerUserId?: string }): Promise<object[]> {
     return runInTransaction(scopeDatabase(runtimePool, scope), (transaction) =>
       transaction.query('SELECT user_id, markdown FROM member_memories'),
