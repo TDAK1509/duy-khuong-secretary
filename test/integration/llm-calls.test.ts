@@ -58,6 +58,19 @@ describe('recording and charging the LLM calls of a workspace', () => {
     expect(await listKinds()).toEqual(['text_read', 'chat_answer']);
   });
 
+  it('records each round of the tool loop as its own chat answer', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    harness.reader.answerWith(makeReading([], { has_work_data: false, has_question: true }), TEXT_READ_USAGE);
+    const listMembers = { id: 'call_1', name: 'list_members', argumentsJson: '{}' };
+    harness.chat.follow((_request, callNumber) =>
+      callNumber === 1 ? replyWithToolCallsUsing(CHAT_ROUND_USAGE, listMembers) : replyWithText('Nhóm có 2 người.', CHAT_ROUND_USAGE),
+    );
+
+    await harness.receiveText('zu-duy', 'Nhóm có mấy người?');
+
+    expect(await listKinds()).toEqual(['text_read', 'chat_answer', 'chat_answer']);
+  });
+
   async function listKinds(): Promise<string[]> {
     return (await listLlmCalls(harness.database, harness.workspaceId)).map((call) => call.kind);
   }
