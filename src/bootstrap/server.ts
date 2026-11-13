@@ -8,7 +8,6 @@ import {
   type OAuthCallbackDependencies,
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
-import { handleProtectedResourceMetadata, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -21,7 +20,6 @@ export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
-  chatgptMcp?: McpDependencies | null;
   internalAdmin?: InternalAdminDependencies | null;
 };
 
@@ -41,7 +39,6 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
     sendResponse(reply, await handleZaloOAuthCallback(oauthCallback, request.query as OAuthCallbackQuery)),
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
-  registerMcpRoutes(server, options.chatgptMcp ?? null);
   registerInternalAdminRoutes(server, options.internalAdmin ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
@@ -64,12 +61,6 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
     scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, loginRateLimit, request.body)));
     scope.post('/admin/credits', async (request, reply) => sendResponse(reply, await handleAddCredits(internalAdmin, request.headers.cookie, request.body)));
   });
-}
-
-function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
-  server.get('/.well-known/oauth-protected-resource', async (_request, reply) =>
-    sendResponse(reply, handleProtectedResourceMetadata(chatgptMcp)),
-  );
 }
 
 function parseFormBodies(scope: FastifyInstance): void {

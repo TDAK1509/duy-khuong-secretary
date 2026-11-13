@@ -11,7 +11,6 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
-import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
@@ -53,7 +52,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const photoStorage = photoStorageConfig && buildPhotoStorage(photoStorageConfig);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
   const reader = readerConfig && buildReader(readerConfig);
-  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig, zalo, photoStorage, reader }));
+  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig }));
   const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
   const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
   const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
@@ -84,28 +83,16 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
 type HttpParts = {
   pool: PostgresPool;
   clock: Clock;
-  zalo: ZaloConfig | null;
   alerts: OperatorAlerts;
   connection: ReturnType<typeof buildConnectionDependencies> | null;
   channel: MessagingChannel | null;
   webhookConfig: ZaloWebhookConfig | null;
-  photoStorage: PhotoStorage | null;
-  reader: ReaderService | null;
 };
 
 function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
-  const { pool, clock, zalo, alerts, connection, channel, webhookConfig, photoStorage, reader } = parts;
+  const { pool, clock, alerts, connection, channel, webhookConfig } = parts;
   return {
     oauthCallback: connection,
-    chatgptMcp: zalo && channel && {
-      database: pool,
-      clock,
-      publicBaseUrl: zalo.publicBaseUrl,
-      endpoint: new SdkMcpEndpoint(),
-      photoStorage,
-      reader,
-      maxTextLength: channel.maxTextLength,
-    },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     internalAdmin: { database: pool, clock },
     verifierFile: config.verifierFile,

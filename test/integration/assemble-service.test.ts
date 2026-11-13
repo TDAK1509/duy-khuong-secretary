@@ -87,23 +87,4 @@ describe('assembling the service', () => {
     expect(response.body).toBe('Zalo connection failed. Run connect-zalo again.');
     expect(lines).toEqual([]);
   });
-
-  it('serves the protected resource metadata of the MCP address when Zalo is configured', async () => {
-    service = assembleService(
-      {
-        DATABASE_URL: testDatabaseUrl,
-        MESSAGING_PROVIDER: 'zalo-oa',
-        ZALO_APP_ID: 'app-1',
-        ZALO_APP_SECRET: 'sec-1',
-        CHANNEL_TOKEN_ENCRYPTION_KEY: 'a'.repeat(64),
-        PUBLIC_BASE_URL: 'https://x.test',
-      },
-      () => {},
-    );
-
-    const response = await service.server.inject({ method: 'GET', url: '/.well-known/oauth-protected-resource' });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json().resource).toBe('https://x.test/mcp');
-  });
 });

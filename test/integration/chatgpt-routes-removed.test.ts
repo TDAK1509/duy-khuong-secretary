@@ -52,4 +52,10 @@ describe('the removed ChatGPT connector routes', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it('answers 404 on the protected resource metadata', async () => {
+    const response = await service.server.inject({ method: 'GET', url: '/.well-known/oauth-protected-resource' });
+
+    expect(response.statusCode).toBe(404);
+  });
 });
