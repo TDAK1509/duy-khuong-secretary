@@ -57,6 +57,15 @@ describe('the organization list of an admin', () => {
     expect(nextPage.next_cursor).toBeNull();
   });
 
+  it('holds exactly 50 companies on one page', async () => {
+    await insertCompanies(50);
+
+    const page = await runListOrganizations({ text: null, cursor: null });
+
+    expect(page.organizations).toHaveLength(50);
+    expect(page.next_cursor).toBeNull();
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
