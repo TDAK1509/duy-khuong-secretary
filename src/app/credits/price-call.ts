@@ -7,6 +7,7 @@ type NanoUsdPerToken = { input: number; cachedInput: number; cacheWrite: number;
 
 const PRICES: Record<string, NanoUsdPerToken> = {
   'gpt-6.1-sol': { input: 2000, cachedInput: 100, cacheWrite: 2500, output: 10000 },
+  'gpt-6-luna': { input: 100, cachedInput: 10, cacheWrite: 125, output: 500 },
 };
 
 export type PricedCall = { costUsd: string; credits: string };

@@ -30,4 +30,10 @@ describe('priceCall', () => {
 
     expect(price).toEqual({ costUsd: '0.013900000', credits: '20.850' });
   });
+
+  it('prices the chat model with its own rates', () => {
+    const price = priceCall('gpt-6-luna', makeUsage({ input: 10000, output: 200 }));
+
+    expect(price).toEqual({ costUsd: '0.001100000', credits: '1.650' });
+  });
 });
