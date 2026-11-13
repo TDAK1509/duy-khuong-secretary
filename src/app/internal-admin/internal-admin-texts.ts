@@ -9,3 +9,4 @@ export const LOGIN_STEP_COPY_CODE = '3. Trợ lý gửi mã trong một tin nh�
 export const LOGIN_STEP_SUBMIT = '4. Bấm "Đăng nhập".';
 export const CODE_FIELD_LABEL = 'Mã đăng nhập';
 export const LOGIN_BUTTON_LABEL = 'Đăng nhập';
+export const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập quản trị" cho Trợ lý để lấy mã mới.';

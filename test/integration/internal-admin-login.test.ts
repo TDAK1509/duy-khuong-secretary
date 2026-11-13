@@ -11,6 +11,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập quản trị" cho Trợ lý để lấy mã mới.';
 
 describe('GET /admin without a session', () => {
   let database: TemporaryDatabase;
@@ -73,6 +74,15 @@ describe('POST /admin/login', () => {
       { token_hash: hashSecretToken(cookie?.[1] ?? ''), user_id: duyUserId, expires_at: new Date(NOW.getTime() + TWELVE_HOURS_MS) },
     ]);
     expect(await database.query('SELECT user_id FROM internal_login_codes')).toEqual([]);
+  });
+
+  it('refuses a code that already started a session', async () => {
+    await submitCode('K7M2-QX4P');
+
+    const response = await submitCode('K7M2-QX4P');
+
+    expect(response.body).toContain(WRONG_CODE_TEXT);
+    expect(await database.query('SELECT user_id FROM internal_sessions')).toHaveLength(1);
   });
 
   function submitCode(code: string) {
