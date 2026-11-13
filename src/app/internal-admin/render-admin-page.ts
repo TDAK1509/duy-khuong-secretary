@@ -1,6 +1,10 @@
+import { escapeHtml } from '../chatgpt/escape-html.ts';
+import { formatCredits } from './format-credits.ts';
+import type { WorkspaceOverview } from './read-workspace-overview.ts';
 import {
   ADMIN_TITLE,
   BALANCE_AND_USAGE_HEADING,
+  BALANCE_COLUMN,
   CODE_FIELD_LABEL,
   LOGIN_BUTTON_LABEL,
   LOGIN_INTRO,
@@ -8,6 +12,7 @@ import {
   LOGIN_STEP_OPEN_CHAT,
   LOGIN_STEP_SEND_COMMAND,
   LOGIN_STEP_SUBMIT,
+  WORKSPACE_COLUMN,
 } from './internal-admin-texts.ts';
 
 const PAGE_STYLE = `
@@ -41,8 +46,22 @@ function renderCodeForm(): string {
   ].join('\n');
 }
 
-export function renderDashboardPage(): string {
-  return renderDocument([`<h1>${ADMIN_TITLE}</h1>`, `<h2>${BALANCE_AND_USAGE_HEADING}</h2>`].join('\n'));
+export function renderDashboardPage(workspaces: WorkspaceOverview[]): string {
+  return renderDocument([`<h1>${ADMIN_TITLE}</h1>`, `<h2>${BALANCE_AND_USAGE_HEADING}</h2>`, renderOverviewTable(workspaces)].join('\n'));
+}
+
+function renderOverviewTable(workspaces: WorkspaceOverview[]): string {
+  return [
+    '<table>',
+    `<tr><th>${WORKSPACE_COLUMN}</th><th>${BALANCE_COLUMN}</th></tr>`,
+    ...workspaces.map(renderOverviewRow),
+    '</table>',
+  ].join('\n');
+}
+
+function renderOverviewRow(workspace: WorkspaceOverview): string {
+  const link = `<a href="/admin/workspaces/${workspace.id}">${escapeHtml(workspace.name)}</a>`;
+  return `<tr><td>${link}</td><td>${formatCredits(workspace.balance)}</td></tr>`;
 }
 
 export function renderMessagePage(message: string): string {

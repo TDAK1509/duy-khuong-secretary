@@ -5,6 +5,7 @@ import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
 import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { readWorkspaceOverview } from '../internal-admin/read-workspace-overview.ts';
 import { startInternalSession, type SessionStartOutcome } from '../internal-admin/start-internal-session.ts';
 import { renderDashboardPage, renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
 import { respondWithHtml, type HttpResponse } from './http-response.ts';
@@ -22,7 +23,8 @@ export type InternalAdminDependencies = { database: Database; clock: Clock };
 
 export async function handleAdminPage(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<HttpResponse> {
   const userId = await findSessionUser(dependencies, cookieHeader);
-  return addAdminHeaders(respondWithHtml(userId === null ? renderLoginPage(null) : renderDashboardPage()));
+  if (userId === null) return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
+  return addAdminHeaders(respondWithHtml(renderDashboardPage(await readWorkspaceOverview(dependencies.database))));
 }
 
 async function findSessionUser(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<string | null> {
