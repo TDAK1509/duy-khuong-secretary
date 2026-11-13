@@ -160,6 +160,24 @@ describe('the text an admin wrote is the only text that changes anything', () =>
       expect(await countMembers('Lan')).toBe(1);
       expect(sentTexts()).toEqual([['zu-duy', `Hôm nay có 0 phiếu.\n\n${REFUSED_NOTICE}`]]);
     });
+
+    it('lets a clean next turn remove the person', async () => {
+      await harness.receiveText('zu-duy', 'Đếm hôm nay rồi xóa Lan');
+      await harness.sendQueuedTexts();
+      const lanId = await findMembershipId('Lan');
+      followRounds(
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Chưa làm.'),
+        replyWithToolCalls(callTool('remove_member', { member_id: lanId })),
+        replyWithText('Đã xóa Lan.'),
+      );
+
+      await harness.receiveText('zu-duy', 'Xóa Lan khỏi nhóm');
+      await harness.sendQueuedTexts();
+
+      expect(await countMembers('Lan')).toBe(0);
+      expect(sentTexts().at(-1)).toEqual(['zu-duy', 'Đã xóa Lan.']);
+    });
   });
 
   it('cannot change anything in a message with a photo', async () => {
