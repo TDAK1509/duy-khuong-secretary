@@ -2,9 +2,10 @@ import { generateLoginCode, hashLoginCode } from '../chatgpt/login-code.ts';
 import type { Transaction } from '../db/transaction.ts';
 import type { Reply } from '../delivery/reply.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
+import { isInternalUser } from './is-internal-user.ts';
+import { LOGIN_CODE_VALID_FOR_MS } from './internal-admin-limits.ts';
 import { LOGIN_CODE_EXPLANATION, NOT_INTERNAL_TEXT } from './internal-admin-texts.ts';
 
-const LOGIN_CODE_VALID_FOR_MS = 10 * 60 * 1000;
 const INTERNAL_LOGIN_COMMAND = 'dang nhap quan tri';
 
 export function isInternalLoginCommand(text: string): boolean {
@@ -16,11 +17,6 @@ export async function answerInternalLoginCommand(transaction: Transaction, userI
   const code = generateLoginCode();
   await storeLoginCode(transaction, { userId, code, now });
   return { text: LOGIN_CODE_EXPLANATION, followUpText: code };
-}
-
-async function isInternalUser(transaction: Transaction, userId: string): Promise<boolean> {
-  const [user] = await transaction.query<{ is_internal: boolean }>('SELECT is_internal FROM users WHERE id = $1', [userId]);
-  return user?.is_internal === true;
 }
 
 type NewLoginCode = { userId: string; code: string; now: Date };

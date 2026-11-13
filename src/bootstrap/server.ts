@@ -10,7 +10,7 @@ import {
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
 import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
-import { handleAdminPage, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
+import { handleAdminLogin, handleAdminPage, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -68,6 +68,10 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
   if (internalAdmin === null) return;
   server.get('/admin', async (_request, reply) => sendResponse(reply, handleAdminPage()));
+  void server.register(async (scope) => {
+    parseFormBodies(scope);
+    scope.post('/admin/login', async (request, reply) => sendResponse(reply, await handleAdminLogin(internalAdmin, request.body)));
+  });
 }
 
 function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
@@ -90,15 +94,19 @@ function registerMcpPostRoute(server: FastifyInstance, chatgptMcp: McpDependenci
 
 function registerFormPostRoutes(server: FastifyInstance, chatgptOAuth: SignInDependencies | null): void {
   void server.register(async (scope) => {
-    scope.removeAllContentTypeParsers();
-    scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: FORM_LIMIT_BYTES }, (_request, body, done) =>
-      done(null, Object.fromEntries(new URLSearchParams(String(body)))),
-    );
+    parseFormBodies(scope);
     scope.post('/oauth/authorize', async (request, reply) =>
       sendResponse(reply, await handleSignInSubmission(chatgptOAuth, { cookieHeader: request.headers.cookie, body: request.body })),
     );
     scope.post('/oauth/token', async (request, reply) => sendResponse(reply, await handleTokenRequest(chatgptOAuth, request.body)));
   });
+}
+
+function parseFormBodies(scope: FastifyInstance): void {
+  scope.removeAllContentTypeParsers();
+  scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: FORM_LIMIT_BYTES }, (_request, body, done) =>
+    done(null, Object.fromEntries(new URLSearchParams(String(body)))),
+  );
 }
 
 function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {

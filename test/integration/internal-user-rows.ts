@@ -1,3 +1,4 @@
+import { hashLoginCode } from '../../src/app/chatgpt/login-code.ts';
 import { literal, timestamp } from './sql-literals.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 
@@ -19,4 +20,13 @@ export async function insertInternalUserWithoutWorkspace(database: TemporaryData
      VALUES ('zalo-oa', 'oa-1', ${literal(externalUserId)}, ${literal(user.id)}, ${timestamp(DEFAULT_LAST_INBOUND_AT)})`,
   );
   return user.id;
+}
+
+export type NewInternalLoginCode = { userId: string; code: string; expiresAt: Date };
+
+export async function insertInternalLoginCode(database: TemporaryDatabase, loginCode: NewInternalLoginCode): Promise<void> {
+  await database.query(
+    `INSERT INTO internal_login_codes (user_id, code_hash, expires_at)
+     VALUES (${literal(loginCode.userId)}, ${literal(hashLoginCode(loginCode.code))}, ${timestamp(loginCode.expiresAt)})`,
+  );
 }
