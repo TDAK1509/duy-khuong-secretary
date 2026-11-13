@@ -10,6 +10,9 @@ import { insertMember } from './workspace-rows.ts';
 const OUT_OF_CREDIT_TEXT =
   'Nhóm của bạn đã hết credit nên Trợ lý chưa đọc tin nhắn này. Quản lý nhóm cần liên hệ bên cung cấp Trợ lý để nạp thêm credit. Sau khi nạp, bạn gửi lại tin nhắn này nhé.';
 
+const OUT_OF_CREDIT_NOTICE =
+  'Nhóm "Xe tải Duy Khương" đã hết credit. Từ bây giờ, Trợ lý không đọc ảnh, không trả lời tin nhắn và không chạy lịch của nhóm. Trợ lý vẫn giữ ảnh và tin nhắn mọi người gửi. Bạn liên hệ bên cung cấp Trợ lý để nạp thêm credit.';
+
 describe('a workspace with no credits', () => {
   let harness: IntakeHarness;
 
@@ -125,6 +128,24 @@ describe('a workspace that runs out of credits during an action', () => {
     await harness.sendAllQueuedTexts();
 
     expect(harness.chat.requests).toHaveLength(2);
-    expect(harness.channel.texts).toMatchObject([{ text: 'Nhóm có 2 người.', to: { externalUserId: 'zu-duy' } }]);
+    expect(harness.channel.texts.map((text) => text.text)).toContain('Nhóm có 2 người.');
   });
+
+  it('tells each admin once when a charge takes the balance to zero or below', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await setCreditBalance(harness.database, harness.workspaceId, 10);
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([makeItem()]), PHOTO_READ_USAGE);
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await listNoticesTo('zu-duy')).toEqual([{ body: OUT_OF_CREDIT_NOTICE, requires_open_window: true }]);
+  });
+
+  function listNoticesTo(externalUserId: string): Promise<{ body: string; requires_open_window: boolean }[]> {
+    return harness.database.query(
+      `SELECT body, requires_open_window FROM outbound_messages
+       WHERE external_user_id = '${externalUserId}' AND body LIKE '%hết credit%'`,
+    );
+  }
 });

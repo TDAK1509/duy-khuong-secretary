@@ -1,6 +1,8 @@
 import type { TokenUsage } from '../../services/usage/token-usage.ts';
 import type { Transaction } from '../db/transaction.ts';
+import type { ChargeSetting } from './charge-setting.ts';
 import type { LlmCallKind } from './llm-call-kind.ts';
+import { notifyAdminsOfNoCredits } from './notify-admins-of-no-credits.ts';
 import type { PricedCall } from './price-call.ts';
 
 export type RecordedCall = {
@@ -9,7 +11,7 @@ export type RecordedCall = {
   model: string;
   usage: TokenUsage | null;
   price: PricedCall;
-  isCharged: boolean;
+  charged: ChargeSetting | null;
 };
 
 export type CreditAddition = {
@@ -27,10 +29,26 @@ const INSERT_CALL = `
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
 
 export async function chargeCall(transaction: Transaction, call: RecordedCall): Promise<void> {
-  const credits = call.isCharged ? call.price.credits : NO_CREDITS;
-  const balanceAfter = call.isCharged ? await lowerBalance(transaction, call.workspaceId, credits) : null;
+  const { charged } = call;
+  if (charged === null) return insertCall(transaction, call, { credits: NO_CREDITS, balanceAfter: null });
+  const credits = call.price.credits;
+  const balanceAfter = await lowerBalance(transaction, call.workspaceId, credits);
+  await insertCall(transaction, call, { credits, balanceAfter });
+  if (hasCrossedZero(balanceAfter, credits)) await notifyAdminsOfNoCredits(transaction, call.workspaceId, charged);
+}
+
+function hasCrossedZero(balanceAfter: string, credits: string): boolean {
+  const after = toThousandths(balanceAfter);
+  return after <= 0n && after + toThousandths(credits) > 0n;
+}
+
+function toThousandths(credits: string): bigint {
+  return BigInt(credits.replace('.', ''));
+}
+
+async function insertCall(transaction: Transaction, call: RecordedCall, charge: { credits: string; balanceAfter: string | null }): Promise<void> {
   const tokenCounts = listTokenCounts(call.usage);
-  await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, credits, balanceAfter]);
+  await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, charge.credits, charge.balanceAfter]);
 }
 
 function lowerBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {

@@ -561,7 +561,7 @@ describe('the MCP address', () => {
   }
 
   function makeMcpDependencies(): McpDependencies {
-    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint(), photoStorage, reader };
+    return { database: pool, clock, publicBaseUrl: PUBLIC_BASE_URL, endpoint: new SdkMcpEndpoint(), photoStorage, reader, maxTextLength: 2000 };
   }
 
   function postMcp(body: unknown, { token, mcp }: { token?: string; mcp?: McpDependencies | null } = {}) {

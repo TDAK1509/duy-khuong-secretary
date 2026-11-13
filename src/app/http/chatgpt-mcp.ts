@@ -13,7 +13,7 @@ const MAX_REQUESTS_PER_MINUTE = 60;
 const ONE_MINUTE_MS = 60 * 1000;
 const TOO_MANY_REQUESTS_TEXT = 'Too many requests.';
 
-export type McpDependencies = { database: Database; clock: Clock; publicBaseUrl: string; endpoint: McpEndpoint; photoStorage: PhotoStorage | null; reader: ReaderService | null };
+export type McpDependencies = { database: Database; clock: Clock; publicBaseUrl: string; endpoint: McpEndpoint; photoStorage: PhotoStorage | null; reader: ReaderService | null; maxTextLength: number };
 
 export type McpAccess =
   | { kind: 'refused'; response: HttpResponse }

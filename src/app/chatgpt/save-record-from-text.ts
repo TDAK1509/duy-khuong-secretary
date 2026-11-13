@@ -24,7 +24,7 @@ const READER_FAILED_TEXT = 'Chưa lưu được vì Trợ lý đang lỗi. Hãy 
 
 const argumentsSchema = z.object({ text: z.string() });
 
-export type SaveRecordRuntime = { database: Database; clock: Clock; reader: ReaderService };
+export type SaveRecordRuntime = { database: Database; clock: Clock; reader: ReaderService; maxTextLength: number };
 
 export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: AccessScope, args: unknown): Promise<McpToolResult> {
   const { text } = argumentsSchema.parse(args);
@@ -37,7 +37,7 @@ export async function saveRecordFromText(runtime: SaveRecordRuntime, scope: Acce
 }
 
 function meterSavingReader(runtime: SaveRecordRuntime, scope: AccessScope): ReaderService {
-  const meter = { database: runtime.database, workspaceId: scope.workspaceId, isCharged: true };
+  const meter = { database: runtime.database, workspaceId: scope.workspaceId, charged: { clock: runtime.clock, maxTextLength: runtime.maxTextLength } };
   return meterReader(runtime.reader, meter, () => 'chatgpt_text_save');
 }
 

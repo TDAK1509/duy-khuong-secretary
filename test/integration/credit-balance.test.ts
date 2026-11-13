@@ -2,6 +2,7 @@ import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addCredits, chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
@@ -44,7 +45,7 @@ describe('the credit balance of a workspace', () => {
       model: 'gpt-6-luna',
       usage: null,
       price: { costUsd: '0.006666667', credits: '10.000' },
-      isCharged: true,
+      charged: { clock: new FakeClock(new Date('2026-11-02T10:00:00+07:00')), maxTextLength: 2000 },
     };
   }
 

@@ -53,14 +53,14 @@ async function produceResult(dependencies: ScheduledRunDependencies, task: Claim
 }
 
 async function askModel(
-  { database, clock, chat }: ScheduledRunDependencies,
+  { database, clock, chat, channel }: ScheduledRunDependencies,
   task: ClaimedTask,
   creator: TaskCreator,
   { userTurn, dueRecords }: { userTurn: string; dueRecords: DueRecord[] },
 ): Promise<ScheduledRunResult> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
   const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
-  const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, isCharged: true }, 'scheduled_run');
+  const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, charged: { clock, maxTextLength: channel.maxTextLength } }, 'scheduled_run');
   const result = await runToolLoop(meteredChat, buildRunRequest(task, creator, clock.now(), userTurn), (call) =>
     runScheduledTool(toolDependencies, caller, call),
   );

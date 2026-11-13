@@ -102,7 +102,7 @@ describe('recording and charging the LLM calls of a workspace', () => {
     const duyId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const chatGptReader = new FakeReader();
     chatGptReader.answerWith(makeReading([makeItem()]), TEXT_READ_USAGE);
-    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader };
+    const runtime = { database: harness.pool, clock: harness.clock, reader: chatGptReader, maxTextLength: 2000 };
 
     await saveRecordFromText(runtime, { workspaceId: harness.workspaceId, userId: duyId, role: 'admin' }, { text: 'Đổ dầu 500.000đ' });
 
