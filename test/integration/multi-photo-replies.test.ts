@@ -106,7 +106,7 @@ describe('replies that come back as their photo', () => {
 });
 
 function readFuelItemByPhotoSize(): FakeReader {
-  return new FakeReader(({ image }) => ({ ok: true, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
+  return new FakeReader(({ image }) => ({ ok: true, usage: null, json: makeReading([makeFuelItemFor(image?.bytes.length)]) }));
 }
 
 function makeFuelItemFor(photoSize: number | undefined) {
@@ -119,5 +119,5 @@ function readManyFuelItems(): FakeReader {
   const items = Array.from({ length: 45 }, (_, index) =>
     makeItem({ category: 'đổ xăng dầu', amount_vnd: 1250000, occurred_on: '2026-10-30', document_number: String(index).padStart(7, '0') }),
   );
-  return new FakeReader(() => ({ ok: true, json: makeReading(items) }));
+  return new FakeReader(() => ({ ok: true, usage: null, json: makeReading(items) }));
 }

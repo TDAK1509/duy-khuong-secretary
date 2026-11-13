@@ -187,7 +187,7 @@ function makeContextReader(): FakeReader {
 }
 
 function makeReaderAnswering(respond: (request: ReaderRequest) => unknown): FakeReader {
-  return new FakeReader((request): ReaderResult => ({ ok: true, json: respond(request) }));
+  return new FakeReader((request): ReaderResult => ({ ok: true, usage: null, json: respond(request) }));
 }
 
 async function crashBeforeFinishing(): Promise<void> {

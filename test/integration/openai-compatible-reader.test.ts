@@ -80,25 +80,31 @@ describe('OpenAiCompatibleReader', () => {
     expect(result).toEqual({
       ok: true,
       json: { has_work_data: false, has_question: true, items: [] },
-      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
+      usage: null,
     });
   });
 
-  it('returns the token counts of a reply with usage', async () => {
-    const usage = { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140, completion_tokens_details: { reasoning_tokens: 10 } };
+  it('returns all five token counts of a reply with usage', async () => {
+    const usage = {
+      prompt_tokens: 5700,
+      completion_tokens: 1500,
+      total_tokens: 7200,
+      prompt_tokens_details: { cached_tokens: 4000, cache_write_tokens: 1000 },
+      completion_tokens_details: { reasoning_tokens: 900 },
+    };
     const server = await startServer(makeCompletionReply(VALID_JSON, usage));
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toMatchObject({ ok: true, usage: { input: 100, output: 40, reasoning: 10 } });
+    expect(result).toMatchObject({ ok: true, usage: { input: 5700, cachedInput: 4000, cacheWrite: 1000, output: 1500, reasoning: 900 } });
   });
 
-  it('returns unknown token counts for a reply without usage', async () => {
+  it('returns null usage for a reply without usage', async () => {
     const server = await startServer(VALID_REPLY);
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toMatchObject({ ok: true, usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' } });
+    expect(result).toMatchObject({ ok: true, usage: null });
   });
 
   it('keeps the token counts of a reply that is not JSON', async () => {
@@ -123,11 +129,7 @@ describe('OpenAiCompatibleReader', () => {
 
     const result = await makeReader(server).read(REQUEST);
 
-    expect(result).toEqual({
-      ok: false,
-      reason: 'invalid_output',
-      usage: { input: 'unknown', output: 'unknown', reasoning: 'unknown' },
-    });
+    expect(result).toEqual({ ok: false, reason: 'invalid_output', usage: null });
   });
 
   it('turns a server error into unavailable', async () => {

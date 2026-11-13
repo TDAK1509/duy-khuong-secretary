@@ -337,7 +337,7 @@ describe('the reread-documents command', () => {
     let calls = 0;
     const reader = new FakeReader(() => {
       calls += 1;
-      return calls === 1 ? { ok: false, reason: 'unavailable' } : { ok: true, json: makeReading([makeItem({ document_kind: 'hóa đơn' })]) };
+      return calls === 1 ? { ok: false, reason: 'unavailable' } : { ok: true, usage: null, json: makeReading([makeItem({ document_kind: 'hóa đơn' })]) };
     });
 
     const { exitCode, lines } = await runReread(workspaceId, reader);
@@ -488,7 +488,7 @@ describe('the reread-documents command', () => {
     let calls = 0;
     return new FakeReader(() => {
       calls += 1;
-      return { ok: true, json: calls === 1 ? makeReading([makeItem({ document_kind: 'hóa đơn' })]) : noWorkData };
+      return { ok: true, usage: null, json: calls === 1 ? makeReading([makeItem({ document_kind: 'hóa đơn' })]) : noWorkData };
     });
   }
 
@@ -531,11 +531,12 @@ describe('the reread-documents command', () => {
     const { workspaceId, userId } = await seedWorkspace();
     const messageId = await insertUnsavedPhoto(workspaceId, userId, '2026-11-02T10:00:00+07:00');
     const readerThatLosesTheRace: ReaderService = {
+      model: 'gpt-6.1-sol',
       read: async () => {
         await database.query(
           `INSERT INTO document_reads (workspace_id, message_id, outcome) VALUES (${literal(workspaceId)}, ${literal(messageId)}, 'no_document')`,
         );
-        return { ok: true, json: makeReading([makeItem({ document_kind: 'hóa đơn', details: [{ label: 'Hàng', value: 'giấy' }] })]) };
+        return { ok: true, usage: null, json: makeReading([makeItem({ document_kind: 'hóa đơn', details: [{ label: 'Hàng', value: 'giấy' }] })]) };
       },
     };
 

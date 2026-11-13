@@ -531,10 +531,11 @@ describe('the MCP address', () => {
     const started = new Promise<void>((resolve) => (markStarted = resolve));
     const finished = new Promise<void>((resolve) => (finish = resolve));
     const reader: ReaderService = {
+      model: 'gpt-6.1-sol',
       read: async () => {
         markStarted();
         await finished;
-        return { ok: true, json: reading };
+        return { ok: true, usage: null, json: reading };
       },
     };
     return { reader, started, finish };

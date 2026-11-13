@@ -130,7 +130,7 @@ describe('the backfill-detail-numbers command', () => {
     const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
-    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, { input: 100, output: 40, reasoning: 10 });
+    reader.answerWith({ details: [{ index: 0, number: 27420, unit: 'kg' }] }, { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 10 });
     const loggedLines = spyOnConsoleLog();
 
     await runBackfill(workspaceId, reader);
@@ -143,7 +143,7 @@ describe('the backfill-detail-numbers command', () => {
     const details = [{ label: 'Trọng lượng hàng', value: '27,420 Kg' }];
     await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', details });
     const reader = new FakeReader();
-    reader.answerWith({ unexpected: true }, { input: 100, output: 40, reasoning: 10 });
+    reader.answerWith({ unexpected: true }, { input: 100, cachedInput: 0, cacheWrite: 0, output: 40, reasoning: 10 });
     const loggedLines = spyOnConsoleLog();
 
     await runBackfill(workspaceId, reader);
@@ -364,7 +364,7 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
       calls += 1;
       return calls === 1
         ? { ok: false, reason: 'unavailable' }
-        : { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+        : { ok: true, usage: null, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
     });
 
     const { exitCode, lines } = await runBackfill(workspaceId, reader);
@@ -389,9 +389,10 @@ Với mỗi chi tiết: ${SHARED_NUMBER_RULE}`);
     });
     const concurrentDetails = [{ label: 'Trọng lượng hàng', value: '30,000 Kg' }];
     const reader: ReaderService = {
+      model: 'gpt-6.1-sol',
       read: async () => {
         await database.query(`UPDATE records SET details = '${JSON.stringify(concurrentDetails)}'::jsonb`);
-        return { ok: true, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
+        return { ok: true, usage: null, json: { details: [{ index: 0, number: 27420, unit: 'kg' }] } };
       },
     };
 
