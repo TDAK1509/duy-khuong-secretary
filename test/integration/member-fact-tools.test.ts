@@ -93,6 +93,16 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(output).toBe(NOT_FOUND_RESULT);
   });
 
+  it('answers not found for a member of another workspace and stores nothing', async () => {
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    const lanUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT });
+
+    expect(output).toBe(NOT_FOUND_RESULT);
+    expect(await readMemberMemory(database, lanUserId)).toBeNull();
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
