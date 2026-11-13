@@ -94,6 +94,13 @@ describe('listWorkspaceLabels', () => {
     expect(await listLabels()).toEqual(['Nhãn mới']);
   });
 
+  it('keeps a label used inside the newest 500 records', async () => {
+    await saveRecord(['Nhãn cũ']);
+    await saveNewerRecords('Nhãn mới', 499);
+
+    expect(await listLabels()).toEqual(['Nhãn mới', 'Nhãn cũ']);
+  });
+
   function saveRecord(labels: string[]): Promise<string> {
     return insertRecordRow(database, {
       workspaceId,
