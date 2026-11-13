@@ -94,9 +94,9 @@ export async function handleAddCredits(dependencies: InternalAdminDependencies, 
   const form = readCreditsForm(body);
   const token = readCookie(cookieHeader, SESSION_COOKIE);
   if (token === null || !isValidCsrfToken(token, form.csrf) || !isUuid(form.requestId)) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
-  const userId = await findSessionUser(dependencies, token);
-  if (userId === null) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
-  const outcome = await addInternalCredits(dependencies.database, userId, form);
+  if ((await findSessionUser(dependencies, token)) === null) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  const outcome = await addInternalCredits(dependencies.database, { token, now: dependencies.clock.now() }, form);
+  if (outcome.kind === 'no_session') return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
   if (outcome.kind === 'refused') return respondWithDashboard(dependencies, token, outcome.text, 422);
   return { status: 303, headers: { location: '/admin' }, body: '' };
 }

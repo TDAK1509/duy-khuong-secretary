@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertWorkspaceWithCredits } from './credit-history-rows.ts';
 import { postCreditsForm, SESSION_TOKEN } from './internal-admin-requests.ts';
-import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
+import { insertInternalSession, makeUserInternal, makeUserNotInternal } from './internal-user-rows.ts';
+import { makeSignal, waitUntilATransactionWaitsForALock } from './lock-signals.ts';
 import { readCreditBalance } from './llm-call-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -139,5 +141,31 @@ describe('POST /admin/credits', () => {
     expect(response.statusCode).toBe(403);
     expect(response.body).toContain(SESSION_TEXT);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses a user who stops being internal while the post waits for the workspace lock', async () => {
+    const lockHeld = makeSignal();
+    const lockMayRelease = makeSignal();
+    const holder = runInTransaction(pool, async (transaction) => {
+      await transaction.query('SELECT 1 FROM workspaces WHERE id = $1 FOR UPDATE', [workspaceId]);
+      lockHeld.send();
+      await lockMayRelease.promise;
+    });
+    await Promise.race([lockHeld.promise, holder]);
+    const post = postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: 'Nạp thử' });
+
+    try {
+      await waitUntilATransactionWaitsForALock(database);
+      await makeUserNotInternal(database, duyUserId);
+    } finally {
+      lockMayRelease.send();
+      await Promise.allSettled([holder, post]);
+    }
+
+    const response = await post;
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toContain(SESSION_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+    expect(await readCreditBalance(database, workspaceId)).toBe('150.000');
   });
 });

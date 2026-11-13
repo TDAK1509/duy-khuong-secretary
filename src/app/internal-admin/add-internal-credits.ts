@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { addCredits } from '../credits/credit-balance.ts';
-import { runInTransaction, type Database } from '../db/transaction.ts';
+import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
+import { findInternalSessionUserInTransaction } from './find-internal-session-user.ts';
 import { findWorkspaceName } from './find-workspace-name.ts';
 import { CREDITS_INVALID_TEXT, NOTE_INVALID_TEXT, WORKSPACE_NOT_FOUND_TEXT } from './internal-admin-texts.ts';
 
@@ -19,22 +20,32 @@ const CreditsFormSchema = z.object({
 
 export type CreditsForm = { csrf: string; requestId: string; workspaceId: string; credits: string; note: string };
 
-export type CreditsOutcome = { kind: 'added' } | { kind: 'refused'; text: string };
+export type CreditsSession = { token: string; now: Date };
+
+export type CreditsOutcome = { kind: 'added' } | { kind: 'refused'; text: string } | { kind: 'no_session' };
+
+type ValidAddition = { id: string; workspaceId: string; credits: string; note: string };
 
 export function readCreditsForm(body: unknown): CreditsForm {
   const form = CreditsFormSchema.catch(EMPTY_FORM).parse(body);
   return { csrf: form.csrf, requestId: form.request_id, workspaceId: form.workspace_id, credits: form.credits, note: form.note };
 }
 
-export async function addInternalCredits(database: Database, userId: string, form: CreditsForm): Promise<CreditsOutcome> {
+export async function addInternalCredits(database: Database, session: CreditsSession, form: CreditsForm): Promise<CreditsOutcome> {
   const credits = readCredits(form.credits);
   if (credits === null) return { kind: 'refused', text: CREDITS_INVALID_TEXT };
   const note = readNote(form.note);
   if (note === null) return { kind: 'refused', text: NOTE_INVALID_TEXT };
   if ((await findWorkspaceName(database, form.workspaceId)) === null) return { kind: 'refused', text: WORKSPACE_NOT_FOUND_TEXT };
-  await runInTransaction(database, (transaction) =>
-    addCredits(transaction, { id: form.requestId, workspaceId: form.workspaceId, credits, source: 'internal_user', addedBy: userId, note }),
-  );
+  const addition = { id: form.requestId, workspaceId: form.workspaceId, credits, note };
+  return runInTransaction(database, (transaction) => addIfSessionIsLive(transaction, session, addition));
+}
+
+async function addIfSessionIsLive(transaction: Transaction, session: CreditsSession, addition: ValidAddition): Promise<CreditsOutcome> {
+  await transaction.query('SELECT 1 FROM workspaces WHERE id = $1 FOR UPDATE', [addition.workspaceId]);
+  const userId = await findInternalSessionUserInTransaction(transaction, session.token, session.now);
+  if (userId === null) return { kind: 'no_session' };
+  await addCredits(transaction, { ...addition, source: 'internal_user', addedBy: userId });
   return { kind: 'added' };
 }
 
