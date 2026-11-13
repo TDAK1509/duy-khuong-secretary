@@ -11,7 +11,7 @@ import { runCancelScheduledTask } from './cancel-scheduled-task-tool.ts';
 import { runCountRecords } from './count-records-tool.ts';
 import { runCreateScheduledTask } from './create-scheduled-task-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
-import { runAddMemberFact, runListMemberFacts } from './member-fact-tools.ts';
+import { runAddMemberFact, runForgetMemberFact, runListMemberFacts } from './member-fact-tools.ts';
 import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
 import { runListDocuments } from './list-documents-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
@@ -72,6 +72,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   create_invite: runCreateInvite,
   remove_member: ({ database }, scope, args) => runRemoveMember(database, scope, args),
   list_member_facts: ({ database }, scope, args) => runListMemberFacts(database, scope, args),
+  forget_member_fact: ({ database }, scope, args) => runForgetMemberFact(database, scope, args),
   add_member_fact: ({ database }, scope, args) => runAddMemberFact(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,

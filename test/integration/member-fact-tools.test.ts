@@ -118,6 +118,15 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [] });
   });
 
+  it('removes one fact and keeps the others', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
+
+    const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
+    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [CUSTOMER_FACT] });
+    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${CUSTOMER_FACT}`);
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
