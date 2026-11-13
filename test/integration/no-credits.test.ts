@@ -39,6 +39,23 @@ describe('a workspace with no credits', () => {
     expect(harness.channel.texts).toMatchObject([{ text: OUT_OF_CREDIT_TEXT, quoteMessageId: 'zmsg-photo' }]);
   });
 
+  it('uploads the photo again when the event is processed again after a failed upload', async () => {
+    const photoBytes = makeJpeg(1000);
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: photoBytes });
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    harness.photoStorage.isFailing = true;
+    await harness.runInbound();
+    harness.photoStorage.isFailing = false;
+    harness.clock.advanceBy(60 * 60 * 1000);
+
+    await harness.runInbound();
+
+    expect(await harness.database.query('SELECT status FROM inbound_events')).toEqual([{ status: 'done' }]);
+    const [message] = await harness.database.query<{ image_key: string }>('SELECT image_key FROM messages WHERE image_key IS NOT NULL');
+    expect((await harness.photoStorage.get(message?.image_key ?? ''))?.bytes).toEqual(photoBytes);
+    expect(harness.reader.requests).toEqual([]);
+  });
+
   it('stores the text of a member without reading it and tells the member', async () => {
     await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ');
     await harness.sendAllQueuedTexts();

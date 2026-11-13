@@ -28,7 +28,7 @@ export async function receivePhoto(context: IntakeContext, part: PhotoPart): Pro
   return replyToMessage(context, { id: messageId, text: part.text, photo: downloaded.image.photo });
 }
 
-async function loadKeptPhoto(context: IntakeContext, message: StoredUserMessage): Promise<Photo | null> {
+export async function loadKeptPhoto(context: IntakeContext, message: StoredUserMessage): Promise<Photo | null> {
   if (message.imageKey === null) return null;
   return requirePhotoStorage(context).get(message.imageKey);
 }
