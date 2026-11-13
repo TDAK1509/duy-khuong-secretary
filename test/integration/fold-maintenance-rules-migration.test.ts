@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as foldMaintenanceRules } from '../../src/app/db/migrations/0051_fold_maintenance_rules_into_instructions.ts';
+import { restoreMaintenanceReminderStorage, storeMaintenanceRules } from './maintenance-reminder-storage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertScheduledTask } from './scheduled-task-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
@@ -17,6 +18,7 @@ describe('the migration that folds the maintenance rules into the instruction', 
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
+    await restoreMaintenanceReminderStorage(database);
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
   });
@@ -37,13 +39,13 @@ describe('the migration that folds the maintenance rules into the instruction', 
   }
 
   it('ends the instruction of an active task with its rules in words', async () => {
-    await insertScheduledTask(database, {
+    const taskId = await insertScheduledTask(database, {
       workspaceId,
       createdBy: duyUserId,
       status: 'active',
       instruction: 'Nhắc bảo dưỡng',
-      maintenanceRules: OIL_AND_TYRES,
     });
+    await storeMaintenanceRules(database, taskId, OIL_AND_TYRES);
 
     await runMigration();
 
@@ -61,13 +63,13 @@ describe('the migration that folds the maintenance rules into the instruction', 
   });
 
   it('leaves a cancelled task with rules unchanged', async () => {
-    await insertScheduledTask(database, {
+    const taskId = await insertScheduledTask(database, {
       workspaceId,
       createdBy: duyUserId,
       status: 'cancelled',
       instruction: 'Nhắc bảo dưỡng',
-      maintenanceRules: OIL_AND_TYRES,
     });
+    await storeMaintenanceRules(database, taskId, OIL_AND_TYRES);
 
     await runMigration();
 
@@ -76,13 +78,13 @@ describe('the migration that folds the maintenance rules into the instruction', 
 
   it('leaves a task unchanged when the folded instruction would pass 2000 characters', async () => {
     const longInstruction = 'a'.repeat(1990);
-    await insertScheduledTask(database, {
+    const taskId = await insertScheduledTask(database, {
       workspaceId,
       createdBy: duyUserId,
       status: 'active',
       instruction: longInstruction,
-      maintenanceRules: OIL_AND_TYRES,
     });
+    await storeMaintenanceRules(database, taskId, OIL_AND_TYRES);
 
     await runMigration();
 
