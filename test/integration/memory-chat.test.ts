@@ -41,6 +41,18 @@ describe('the memory of a user in the chat', () => {
     expect(system).not.toContain('29C-123.45');
   });
 
+  it('puts only the memory of the caller in the prompt when two members have a memory', async () => {
+    const lanUserId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertPrivateMemory(harness.database, { workspaceId: harness.workspaceId, userId: harness.hungUserId, markdown: '- Tôi lái xe 29C-123.45' });
+    await insertPrivateMemory(harness.database, { workspaceId: harness.workspaceId, userId: lanUserId, markdown: '- Tôi thích trả lời ngắn' });
+
+    await harness.receiveText('zu-lan', 'Chào bạn');
+
+    const system = harness.chat.requests[0]?.system ?? '';
+    expect(system).toContain('Bản ghi nhớ hiện tại, dưới dạng chuỗi JSON:\n"- Tôi thích trả lời ngắn"');
+    expect(system).not.toContain('29C-123.45');
+  });
+
   it('refuses an admin memory write after the admin read member data', async () => {
     const duyUserId = await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     harness.chat.follow((_request, callNumber) => {
