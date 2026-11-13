@@ -13,6 +13,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
 const CREDITS_TEXT = 'Số credit phải là số nguyên từ 1 đến 1.000.000.';
+const NOTE_TEXT = 'Ghi chú không được để trống và dài tối đa 500 ký tự.';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 describe('POST /admin/credits', () => {
@@ -103,6 +104,14 @@ describe('POST /admin/credits', () => {
 
     expect(response.statusCode).toBe(422);
     expect(response.body).toContain(CREDITS_TEXT);
+    expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
+  });
+
+  it('refuses an empty note', async () => {
+    const response = await postCreditsForm(pool, clock, { workspace_id: workspaceId, credits: '100', note: '   ' });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.body).toContain(NOTE_TEXT);
     expect(await database.query("SELECT id FROM credit_additions WHERE source = 'internal_user'")).toEqual([]);
   });
 });

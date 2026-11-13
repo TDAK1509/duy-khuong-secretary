@@ -50,3 +50,4 @@ export const SOURCE_LABELS = {
 };
 export const INVALID_SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
 export const CREDITS_INVALID_TEXT = 'Số credit phải là số nguyên từ 1 đến 1.000.000.';
+export const NOTE_INVALID_TEXT = 'Ghi chú không được để trống và dài tối đa 500 ký tự.';
