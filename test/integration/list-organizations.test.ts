@@ -5,6 +5,7 @@ import { CreatedTasks } from '../../src/app/admin-chat/created-tasks.ts';
 import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts';
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
+import { failInvalidArgument } from '../../src/app/admin-chat/tools/tool-result.ts';
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
@@ -18,6 +19,8 @@ type OrganizationsOutput = {
   organizations: { name: string; type: string; aliases: string[]; document_count: number }[];
   next_cursor: string | null;
 };
+
+type FailedOutput = { ok: false; error: string };
 
 describe('the organization list of an admin', () => {
   let database: TemporaryDatabase;
@@ -102,6 +105,17 @@ describe('the organization list of an admin', () => {
     expect(page.organizations).toEqual([]);
   });
 
+  it('refuses a cursor that is not a name and an id', async () => {
+    await insertCompanies(3);
+    const notAnId = Buffer.from(JSON.stringify(['Công ty 01', 'not-an-id'])).toString('base64url');
+
+    const garbage = await runListOrganizations({ text: null, cursor: 'x' });
+    const badId = await runListOrganizations({ text: null, cursor: notAnId });
+
+    expect(garbage).toEqual(JSON.parse(failInvalidArgument('cursor')));
+    expect(badId).toEqual(JSON.parse(failInvalidArgument('cursor')));
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
@@ -110,7 +124,7 @@ describe('the organization list of an admin', () => {
     return Array.from({ length: count }, (_, index) => `Công ty ${String(index + 1).padStart(2, '0')}`);
   }
 
-  async function runListOrganizations(args: object, scope: AccessScope = duy): Promise<OrganizationsOutput> {
+  async function runListOrganizations(args: object, scope: AccessScope = duy): Promise<OrganizationsOutput & FailedOutput> {
     const dependencies = {
       database: pool,
       clock: new FakeClock(new Date('2026-11-07T10:00:00+07:00')),
@@ -121,6 +135,6 @@ describe('the organization list of an admin', () => {
       guard: new AdminTextGuard(false),
     };
     const output = await runAdminTool(dependencies, scope, { id: 'call_1', name: 'list_organizations', argumentsJson: JSON.stringify(args) });
-    return JSON.parse(output) as OrganizationsOutput;
+    return JSON.parse(output) as OrganizationsOutput & FailedOutput;
   }
 });

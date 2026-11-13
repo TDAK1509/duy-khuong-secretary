@@ -1,3 +1,5 @@
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export type OrganizationCursor = { name: string; id: string };
 
 export function encodeOrganizationCursor(cursor: OrganizationCursor): string {
@@ -8,7 +10,7 @@ export function decodeOrganizationCursor(text: string): OrganizationCursor | nul
   const parsed = parseJson(Buffer.from(text, 'base64url').toString());
   if (!Array.isArray(parsed) || parsed.length !== 2) return null;
   const [name, id] = parsed as unknown[];
-  if (typeof name !== 'string' || typeof id !== 'string') return null;
+  if (typeof name !== 'string' || typeof id !== 'string' || !UUID.test(id)) return null;
   return { name, id };
 }
 
