@@ -141,4 +141,22 @@ describe('giving the reader the facts saved about the sender', () => {
     expect(request?.system).toContain('18. Thông tin quản lý đã lưu về người gửi: ["Duy tự ghi"]. Danh sách này');
     expect(request?.system).not.toContain('Lan ghi về Duy');
   });
+
+  it('fills the plate of the member from a fact that the member may read', async () => {
+    const { database, workspaceId, hungUserId } = harness;
+    await database.query('DELETE FROM member_facts');
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: null, readers: 'admins_and_member', fact: 'Lái xe biển số 29C-123.45' });
+    const reader = new FakeReader(({ system }: ReaderRequest): ReaderResult => ({
+      ok: true,
+      usage: null,
+      json: makeReading([makeItem({ category: 'đổ xăng dầu', vehicle_plate: system.includes('Lái xe biển số 29C-123.45') ? '29C-123.45' : null })]),
+    }));
+
+    await insertInboundEvent(database, { externalUserId: 'zu-hung', kind: 'images', imageUrls: [PHOTO_URL] });
+    await harness.runInbound({ reader });
+    await harness.sendQueuedTexts();
+
+    expect(await database.query('SELECT vehicle_plate FROM records')).toEqual([{ vehicle_plate: '29C12345' }]);
+    expect(harness.channel.texts.map((sent) => sent.text).join('\n')).toContain('29C12345');
+  });
 });
