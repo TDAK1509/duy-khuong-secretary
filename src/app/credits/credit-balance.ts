@@ -15,6 +15,7 @@ export type RecordedCall = {
 };
 
 export type CreditAddition = {
+  id?: string;
   workspaceId: string;
   credits: string;
   source: 'starting_grant' | 'internal_user';
@@ -71,9 +72,9 @@ function toThousandths(credits: string): bigint {
 export async function addCredits(transaction: Transaction, addition: CreditAddition): Promise<void> {
   const balanceAfter = await raiseBalance(transaction, addition.workspaceId, addition.credits);
   await transaction.query(
-    `INSERT INTO credit_additions (workspace_id, credits, source, added_by, note, balance_after, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp())`,
-    [addition.workspaceId, addition.credits, addition.source, addition.addedBy, addition.note, balanceAfter],
+    `INSERT INTO credit_additions (id, workspace_id, credits, source, added_by, note, balance_after, created_at)
+     VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, clock_timestamp())`,
+    [addition.id ?? null, addition.workspaceId, addition.credits, addition.source, addition.addedBy, addition.note, balanceAfter],
   );
 }
 

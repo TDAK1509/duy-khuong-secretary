@@ -4,7 +4,8 @@ import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
 import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
-import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { INVALID_SESSION_TEXT, NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WORKSPACE_NOT_FOUND_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
+import { addInternalCredits, readCreditsForm } from '../internal-admin/add-internal-credits.ts';
 import { findWorkspaceName } from '../internal-admin/find-workspace-name.ts';
 import { readCreditHistory } from '../internal-admin/read-credit-history.ts';
 import { readDashboard } from '../internal-admin/read-dashboard.ts';
@@ -80,3 +81,10 @@ function formatSessionCookie(token: string): string {
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_LIFETIME_MS / 1000}; Secure; HttpOnly; SameSite=Strict`;
 }
 
+
+export async function handleAddCredits(dependencies: InternalAdminDependencies, cookieHeader: string | undefined, body: unknown): Promise<HttpResponse> {
+  const userId = await findSessionUser(dependencies, cookieHeader);
+  if (userId === null) return respondWithAdminHtml(renderMessagePage(INVALID_SESSION_TEXT), 403);
+  await addInternalCredits(dependencies.database, userId, readCreditsForm(body));
+  return { status: 303, headers: { location: '/admin' }, body: '' };
+}

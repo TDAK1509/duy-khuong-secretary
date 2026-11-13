@@ -48,3 +48,4 @@ export const SOURCE_LABELS = {
   starting_grant: 'Nạp: tặng khi bắt đầu',
   internal_user: 'Nạp: người vận hành',
 };
+export const INVALID_SESSION_TEXT = 'Phiên đăng nhập không hợp lệ. Tải lại trang rồi thử lại.';
