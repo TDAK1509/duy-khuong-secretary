@@ -1,6 +1,7 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { listMemberFacts } from '../memory/list-member-facts.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
 import type { ReaderCatalog } from '../reading/document-rules.ts';
@@ -13,11 +14,12 @@ import { logReaderCall } from './log-reader-call.ts';
 type MessageContent = { text: string | null; photo: Photo | null };
 
 export async function readMessage(context: IntakeContext, message: MessageContent): Promise<ReadAttempt> {
-  const { labels, catalog } = await runInTransaction(context.dependencies.database, async (transaction) => ({
+  const { labels, catalog, facts } = await runInTransaction(context.dependencies.database, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, context.sender.workspaceId),
     catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
+    facts: await listMemberFacts(transaction, context.sender.workspaceId, context.sender.userId),
   }));
-  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog);
+  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts);
 }
 
 export async function readWithReader(
@@ -26,9 +28,10 @@ export async function readWithReader(
   message: MessageContent,
   labels: string[],
   catalog: ReaderCatalog,
+  facts: string[],
 ): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels, catalog),
+    system: buildReaderPrompt(now, labels, catalog, facts),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,

@@ -6,7 +6,7 @@ const TODAY = new Date('2026-10-30T18:00:00Z');
 
 describe('buildReaderPrompt document rules', () => {
   it('holds rules 12 to 17 word for word', () => {
-    const lines = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG).split('\n');
+    const lines = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, []).split('\n');
 
     expect(lines).toContain(
       '12. document_kind: tên loại giấy tờ, ngắn, chữ thường, theo mẫu giấy tờ, ví dụ "phiếu cân xe", "phiếu cân nhà máy", "giấy chứng nhận kiểm định", "hóa đơn". Cùng một mẫu giấy tờ luôn dùng cùng một tên.',
@@ -29,7 +29,7 @@ describe('buildReaderPrompt document rules', () => {
   });
 
   it('puts rules 12 to 17 between the document number rule and the general rules', () => {
-    const lines = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG).split('\n');
+    const lines = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, []).split('\n');
 
     const ruleStarts = lines.map((line) => line.split(' ')[0]);
     const first = ruleStarts.indexOf('11.');
@@ -39,7 +39,7 @@ describe('buildReaderPrompt document rules', () => {
   });
 
   it('lists the 15 standard meaning names first, then the meanings of the workspace', () => {
-    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings: ['Khấu trừ độ ẩm'] });
+    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings: ['Khấu trừ độ ẩm'] }, []);
 
     const line = prompt.split('\n').find((candidate) => candidate.startsWith('15b.'));
     expect(STANDARD_MEANING_NAMES).toHaveLength(15);
@@ -49,7 +49,7 @@ describe('buildReaderPrompt document rules', () => {
   });
 
   it('lists a standard name once when the workspace holds it too', () => {
-    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings: ['Thành tiền'] });
+    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings: ['Thành tiền'] }, []);
 
     expect(prompt).toContain(`${JSON.stringify(STANDARD_MEANING_NAMES)}. Danh sách này`);
   });
@@ -57,20 +57,20 @@ describe('buildReaderPrompt document rules', () => {
   it('stops the meaning list at 60 names', () => {
     const workspaceMeanings = Array.from({ length: 70 }, (_, index) => `Ý nghĩa ${index}`);
 
-    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings });
+    const prompt = buildReaderPrompt(TODAY, [], { kinds: [], organizations: [], workspaceMeanings }, []);
 
     expect(prompt).toContain('"Ý nghĩa 44"]');
   });
 
   it('has no 12b line and no 14b line when the kind and organization lists are empty', () => {
-    const prompt = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG);
+    const prompt = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, []);
 
     expect(prompt).not.toContain('12b.');
     expect(prompt).not.toContain('14b.');
   });
 
   it('adds the 12b line with the kinds and the 14b line with the organization names', () => {
-    const prompt = buildReaderPrompt(TODAY, [], { kinds: ['phiếu cân xe'], organizations: ['Cheng Loong'], workspaceMeanings: [] });
+    const prompt = buildReaderPrompt(TODAY, [], { kinds: ['phiếu cân xe'], organizations: ['Cheng Loong'], workspaceMeanings: [] }, []);
 
     const lines = prompt.split('\n');
     expect(lines).toContain(
@@ -82,7 +82,7 @@ describe('buildReaderPrompt document rules', () => {
   });
 
   it('keeps a placeholder written in an organization name as plain text', () => {
-    const prompt = buildReaderPrompt(TODAY, ['{documentRules}'], { kinds: [], organizations: ['{dd/MM/yyyy}'], workspaceMeanings: [] });
+    const prompt = buildReaderPrompt(TODAY, ['{documentRules}'], { kinds: [], organizations: ['{dd/MM/yyyy}'], workspaceMeanings: [] }, []);
 
     expect(prompt).toContain('["{dd/MM/yyyy}"]');
     expect(prompt).toContain('["{documentRules}"]');

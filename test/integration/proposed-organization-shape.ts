@@ -1,4 +1,6 @@
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DROP TABLE member_memories;
+  DELETE FROM pgmigrations WHERE name = '0046_create_member_memories';
   DELETE FROM pgmigrations WHERE name = '0045_drop_proposed_organization';
   ALTER TABLE document_parties ADD COLUMN proposed_organization_id uuid;
   ALTER TABLE document_parties ALTER COLUMN organization_id DROP NOT NULL;
