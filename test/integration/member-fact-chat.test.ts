@@ -3,7 +3,7 @@ import { replyWithText, replyWithToolCalls } from '../fakes/fake-chat-service.ts
 import type { ChatResult, ToolCall } from '../../src/services/chat/chat-service.ts';
 import { makeReading } from '../unit/reading/make-reading.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { readMemberMemory } from './member-memory-rows.ts';
+import { readMemberFacts } from './member-fact-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertMember } from './workspace-rows.ts';
 
@@ -50,14 +50,14 @@ describe('an admin saves a fact about a member in the chat', () => {
     const hungId = await findHungMembershipId();
     followRounds(
       replyWithToolCalls(callTool('search_records', SEARCH_EVERYTHING)),
-      replyWithToolCalls(callTool('add_member_fact', { member_id: hungId, fact: PLATE_FACT })),
+      replyWithToolCalls(callTool('add_member_fact', { member_id: hungId, fact: PLATE_FACT, readers: 'admins_and_member' })),
       replyWithText('Chưa lưu.'),
     );
 
     await harness.receiveText('zu-duy', 'Xe của Hùng biển số 93A-1234');
     await harness.sendQueuedTexts();
 
-    expect(await readMemberMemory(harness.database, harness.hungUserId)).toBeNull();
+    expect(await readMemberFacts(harness.database, harness.hungUserId)).toBeNull();
   });
 
   it('shows the fact to the reader on the next photo of the member', async () => {
@@ -65,7 +65,7 @@ describe('an admin saves a fact about a member in the chat', () => {
     const hungId = await findHungMembershipId();
     followRounds(
       replyWithToolCalls(callTool('list_members', {})),
-      replyWithToolCalls(callTool('add_member_fact', { member_id: hungId, fact: PLATE_FACT })),
+      replyWithToolCalls(callTool('add_member_fact', { member_id: hungId, fact: PLATE_FACT, readers: 'admins_and_member' })),
       replyWithText('Đã lưu cho Hùng.'),
     );
 

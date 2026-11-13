@@ -7,7 +7,8 @@ describe('the member fact tool specs', () => {
 
     expect(tool).toStrictEqual({
       name: 'list_member_facts',
-      description: 'Liệt kê các thông tin quản lý đã lưu về một người trong nhóm, đúng như đã lưu.',
+      description:
+        'Liệt kê các thông tin đã lưu về một người trong nhóm mà quản lý đang trò chuyện được xem, đúng như đã lưu, kèm người được xem (readers).',
       parameters: {
         type: 'object',
         properties: { member_id: { type: 'string', description: 'id của người cần xem, lấy từ list_members.' } },
@@ -23,14 +24,20 @@ describe('the member fact tool specs', () => {
     expect(tool).toStrictEqual({
       name: 'add_member_fact',
       description:
-        'Thêm một thông tin lâu dài về một người trong nhóm. Khi người đó gửi ảnh hoặc tin nhắn, hệ thống dùng thông tin này để đọc giá trị không rõ hoặc bị thiếu. Giá trị in rõ trên giấy tờ luôn được giữ. Không thay thế các thông tin đã lưu. Nếu thông tin này đã có, giữ nguyên.',
+        'Thêm một thông tin lâu dài về một người trong nhóm. Mặc định các quản lý và chính người đó xem được, và hệ thống dùng thông tin này để đọc giá trị không rõ hoặc bị thiếu khi người đó gửi ảnh hoặc tin nhắn. Giá trị in rõ trên giấy tờ luôn được giữ. Không thay thế các thông tin đã lưu. Nếu thông tin này đã có, giữ nguyên.',
       parameters: {
         type: 'object',
         properties: {
           member_id: { type: 'string', description: 'id của người được lưu thông tin, lấy từ list_members.' },
           fact: { type: 'string', description: 'Thông tin cần lưu, một câu ngắn trên một dòng, từ 1 đến 200 ký tự. Giữ đúng số, mã và tên quản lý viết.' },
+          readers: {
+            type: 'string',
+            enum: ['admins_and_member', 'admins', 'author'],
+            description:
+              'Ai xem được thông tin này. admins_and_member: các quản lý và chính người đó; hệ thống dùng thông tin khi đọc ảnh và tin nhắn người đó gửi. admins: chỉ các quản lý. author: chỉ quản lý đang trò chuyện. Dùng admins_and_member nếu quản lý không nói ai được xem.',
+          },
         },
-        required: ['member_id', 'fact'],
+        required: ['member_id', 'fact', 'readers'],
         additionalProperties: false,
       },
     });
@@ -41,7 +48,7 @@ describe('the member fact tool specs', () => {
 
     expect(tool).toStrictEqual({
       name: 'forget_member_fact',
-      description: 'Xóa đúng một thông tin đã lưu về một người trong nhóm. Không sửa hoặc xóa thông tin khác.',
+      description: 'Xóa đúng một thông tin đã lưu về một người trong nhóm mà quản lý đang trò chuyện được xem. Không sửa hoặc xóa thông tin khác.',
       parameters: {
         type: 'object',
         properties: {
@@ -59,7 +66,7 @@ describe('the member fact tool specs', () => {
 
     expect(tool).toStrictEqual({
       name: 'forget_all_member_facts',
-      description: 'Xóa mọi thông tin đã lưu về một người trong nhóm. Chỉ dùng khi quản lý yêu cầu xóa hết thông tin về người này.',
+      description: 'Xóa mọi thông tin đã lưu về một người trong nhóm mà quản lý đang trò chuyện được xem. Chỉ dùng khi quản lý yêu cầu xóa hết thông tin về người này.',
       parameters: {
         type: 'object',
         properties: { member_id: { type: 'string', description: 'id của người cần xóa hết thông tin, lấy từ list_members.' } },

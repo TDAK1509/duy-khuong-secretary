@@ -6,10 +6,11 @@ import { PhotoAttachments } from '../../src/app/admin-chat/photo-attachments.ts'
 import { SourceCards } from '../../src/app/admin-chat/source-cards.ts';
 import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.ts';
 import { runChatTool } from '../../src/app/admin-chat/tools/run-chat-tool.ts';
+import { removeMember } from '../../src/app/workspaces/remove-member.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { readUserMemory } from './user-memory-rows.ts';
-import { insertMemberMemory, readMemberMemory } from './member-memory-rows.ts';
+import { readPrivateMemory } from './private-memory-rows.ts';
+import { insertMemberFact, insertSharedMemberFacts, readMemberFacts } from './member-fact-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -20,6 +21,7 @@ const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải c
 const MEMBER_FACTS_FULL_RESULT =
   '{"ok":false,"error":"Thông tin về người này đã đủ 2000 ký tự. Tôi chưa thêm thông tin mới và vẫn giữ mọi thông tin cũ."}';
 const FACT_NOT_FOUND_RESULT = '{"ok":false,"error":"Không tìm thấy thông tin này trong các thông tin đã lưu về người này."}';
+const SHARED = 'admins_and_member';
 const NOT_FOUND_RESULT = '{"ok":false,"error":"Không tìm thấy người này."}';
 
 describe('the member fact tools of an admin in the chat', () => {
@@ -45,53 +47,80 @@ describe('the member fact tools of an admin in the chat', () => {
     await database.drop();
   });
 
-  it('saves the fact on the member and answers with the facts after the change', async () => {
-    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+  it('saves the fact with its author and says who can read it', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: SHARED });
 
-    expect(output).toBe(`{"ok":true,"member":"Hùng","facts":["${PLATE_FACT}"]}`);
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+    expect(JSON.parse(output)).toEqual({
+      ok: true,
+      member: 'Hùng',
+      facts: [{ fact: PLATE_FACT, readers: SHARED }],
+      note: 'Các quản lý và Hùng xem được thông tin này. Hệ thống dùng thông tin này khi đọc ảnh và tin nhắn Hùng gửi.',
+    });
+    expect(await database.query('SELECT member_user_id, author_user_id, readers, fact FROM member_facts')).toEqual([
+      { member_user_id: hungUserId, author_user_id: duy.userId, readers: SHARED, fact: PLATE_FACT },
+    ]);
+  });
+
+  it('says that the system does not use a fact that only the admins can read', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'admins' });
+
+    expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống không dùng thông tin này khi đọc ảnh và tin nhắn Hùng gửi.');
+  });
+
+  it('says that the system uses a fact that only the admins can read when the fact is about an admin', async () => {
+    const lan = await insertAdminLan();
+
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lan.userId), fact: PLATE_FACT, readers: 'admins' });
+
+    expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống dùng thông tin này khi đọc ảnh và tin nhắn Lan gửi.');
+  });
+
+  it('tells the author that only they can read a fact saved for the author only', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'author' });
+
+    expect(JSON.parse(output).note).toMatch(/^Chỉ bạn xem được thông tin này\./);
   });
 
   it('keeps one line when the same fact is added twice', async () => {
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 
-    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: SHARED });
 
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+    expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
   it('stores a fact trimmed', async () => {
-    await runTool('add_member_fact', { member_id: hungMembershipId, fact: `  ${PLATE_FACT}  ` });
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: `  ${PLATE_FACT}  `, readers: SHARED });
 
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+    expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
   it('refuses a fact of 201 characters and stores nothing', async () => {
-    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'a'.repeat(201) });
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'a'.repeat(201), readers: SHARED });
 
     expect(output).toBe(INVALID_FACT_RESULT);
-    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
   });
 
   it('refuses a fact with a line break and stores nothing', async () => {
-    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'Lái xe\nbiển số 93A-1234' });
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'Lái xe\nbiển số 93A-1234', readers: SHARED });
 
     expect(output).toBe(INVALID_FACT_RESULT);
-    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
   });
 
   it('refuses a fact that takes the facts past 2000 characters and keeps the old facts', async () => {
     const oldMarkdown = `- ${'x'.repeat(1988)}`;
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: oldMarkdown });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: oldMarkdown });
 
-    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'y'.repeat(50) });
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'y'.repeat(50), readers: SHARED });
 
     expect(output).toBe(MEMBER_FACTS_FULL_RESULT);
-    expect(await readMemberMemory(database, hungUserId)).toBe(oldMarkdown);
+    expect(await readMemberFacts(database, hungUserId)).toBe(oldMarkdown);
   });
 
   it('answers not found for a member id that is not a uuid', async () => {
-    const output = await runTool('add_member_fact', { member_id: 'abc', fact: PLATE_FACT });
+    const output = await runTool('add_member_fact', { member_id: 'abc', fact: PLATE_FACT, readers: SHARED });
 
     expect(output).toBe(NOT_FOUND_RESULT);
   });
@@ -100,18 +129,29 @@ describe('the member fact tools of an admin in the chat', () => {
     const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
     const lanUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
 
-    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT });
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT, readers: SHARED });
 
     expect(output).toBe(NOT_FOUND_RESULT);
-    expect(await readMemberMemory(database, lanUserId)).toBeNull();
+    expect(await readMemberFacts(database, lanUserId)).toBeNull();
   });
 
   it('lists the facts of a member in saved order', async () => {
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
 
     const output = await runTool('list_member_facts', { member_id: hungMembershipId });
 
-    expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [PLATE_FACT, CUSTOMER_FACT] });
+    expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [shared(PLATE_FACT), shared(CUSTOMER_FACT)] });
+  });
+
+  it('lists to another admin only the facts that admin may read', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: 'Các quản lý xem' });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: '- Thông tin cũ' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('list_member_facts', { member_id: hungMembershipId }, lan);
+
+    expect(JSON.parse(output).facts).toEqual([{ fact: 'Các quản lý xem', readers: 'admins' }, shared('Thông tin cũ')]);
   });
 
   it('lists an empty list for a member with no facts', async () => {
@@ -121,60 +161,120 @@ describe('the member fact tools of an admin in the chat', () => {
   });
 
   it('removes one fact and keeps the others', async () => {
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
 
     const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
 
-    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [CUSTOMER_FACT] });
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${CUSTOMER_FACT}`);
+    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [shared(CUSTOMER_FACT)] });
+    expect(await readMemberFacts(database, hungUserId)).toBe(`- ${CUSTOMER_FACT}`);
   });
 
   it('changes nothing when it removes a fact that is not saved', async () => {
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 
     const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: 'Lái xe biển số 51C-55555' });
 
     expect(output).toBe(FACT_NOT_FOUND_RESULT);
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+    expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
-  it('deletes the row when it removes the last fact', async () => {
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+  it('refuses another admin who forgets a fact hidden from that admin', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('forget_member_fact', { member_id: hungMembershipId, fact: 'Chỉ Duy xem' }, lan);
+
+    expect(output).toBe(FACT_NOT_FOUND_RESULT);
+    expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
+  });
+
+  it('forgets only one row when another admin saved the same text', async () => {
+    const lan = await insertAdminLan();
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: PLATE_FACT });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: lan.userId, readers: 'admins', fact: PLATE_FACT });
 
     await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
 
-    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+    expect(await database.query('SELECT author_user_id FROM member_facts')).toEqual([{ author_user_id: lan.userId }]);
+  });
+
+  it('deletes the row when it removes the last fact', async () => {
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+
+    await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
   });
 
   it('removes all facts of one member and keeps the facts of another', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
-    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
-    await insertMemberMemory(database, { workspaceId, userId: lanUserId, markdown: `- ${CUSTOMER_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
+    await insertSharedMemberFacts(database, { workspaceId, userId: lanUserId, markdown: `- ${CUSTOMER_FACT}` });
 
     const output = await runTool('forget_all_member_facts', { member_id: hungMembershipId });
 
     expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [] });
-    expect(await readMemberMemory(database, hungUserId)).toBeNull();
-    expect(await readMemberMemory(database, lanUserId)).toBe(`- ${CUSTOMER_FACT}`);
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
+    expect(await readMemberFacts(database, lanUserId)).toBe(`- ${CUSTOMER_FACT}`);
+  });
+
+  it('keeps the facts hidden from the admin when the admin forgets all facts of a member', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: 'Các quản lý xem' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('forget_all_member_facts', { member_id: hungMembershipId }, lan);
+
+    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [] });
+    expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
+  });
+
+  it('adds a second row when the same fact is hidden from the admin who adds it', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: PLATE_FACT });
+    const lan = await insertAdminLan();
+
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'admins' }, lan);
+
+    expect(await database.query('SELECT author_user_id, readers FROM member_facts ORDER BY created_at')).toEqual([
+      { author_user_id: duy.userId, readers: 'author' },
+      { author_user_id: lan.userId, readers: 'admins' },
+    ]);
+  });
+
+  it('deletes the facts about a member that an admin removes from the workspace', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: PLATE_FACT });
+
+    await removeMember(pool, { workspaceId, callerUserId: duy.userId, membershipId: hungMembershipId });
+
+    expect(await readMemberFacts(database, hungUserId)).toBeNull();
   });
 
   it('refuses a member who adds a fact about another member and stores nothing', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
     const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
 
-    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT }, hung);
+    const output = await runTool('add_member_fact', { member_id: await findMembershipId(lanUserId), fact: PLATE_FACT, readers: SHARED }, hung);
 
     expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
-    expect(await readMemberMemory(database, lanUserId)).toBeNull();
+    expect(await readMemberFacts(database, lanUserId)).toBeNull();
   });
 
   it('leaves the private memory of the admin empty when it adds a fact about a member', async () => {
-    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: SHARED });
 
     expect(JSON.parse(output).ok).toBe(true);
-    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
-    expect(await readUserMemory(database, duy.userId)).toBeNull();
+    expect(await readMemberFacts(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+    expect(await readPrivateMemory(database, duy.userId)).toBeNull();
   });
+
+  async function insertAdminLan(): Promise<AccessScope> {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan-admin', displayName: 'Lan', role: 'admin' });
+    return { workspaceId, userId, role: 'admin' };
+  }
+
+  function shared(fact: string): object {
+    return { fact, readers: SHARED };
+  }
 
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);

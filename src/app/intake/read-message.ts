@@ -17,7 +17,7 @@ export async function readMessage(context: IntakeContext, message: MessageConten
   const { labels, catalog, facts } = await runInTransaction(context.dependencies.database, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, context.sender.workspaceId),
     catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
-    facts: await listMemberFacts(transaction, context.sender.workspaceId, context.sender.userId),
+    facts: await listMemberFacts(transaction, context.sender.workspaceId, context.sender),
   }));
   return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts);
 }

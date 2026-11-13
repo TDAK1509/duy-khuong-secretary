@@ -12,7 +12,7 @@ import { createPostgresPool, type PostgresPool } from '../../src/providers/datab
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertUserMemory, readUserMemory } from './user-memory-rows.ts';
+import { insertPrivateMemory, readPrivateMemory } from './private-memory-rows.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Điều cần nhớ phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
@@ -44,90 +44,102 @@ describe('the memory tools of a user in the chat', () => {
     const output = await runTool('remember', { fact: 'Tôi lái xe 29C-123.45' });
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- Tôi lái xe 29C-123.45' });
-    expect(await readUserMemory(database, lan.userId)).toBe('- Tôi lái xe 29C-123.45');
+    expect(await database.query('SELECT author_user_id, readers, fact FROM private_memories')).toEqual([
+      { author_user_id: lan.userId, readers: 'author', fact: 'Tôi lái xe 29C-123.45' },
+    ]);
   });
 
   it('changes nothing when it remembers the same fact again', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- Tôi lái xe 29C-123.45' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- Tôi lái xe 29C-123.45' });
 
     const output = await runTool('remember', { fact: 'Tôi lái xe 29C-123.45' });
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- Tôi lái xe 29C-123.45' });
-    expect(await readUserMemory(database, lan.userId)).toBe('- Tôi lái xe 29C-123.45');
+    expect(await database.query('SELECT fact FROM private_memories')).toHaveLength(1);
   });
 
   it('refuses a fact of 201 characters and stores nothing', async () => {
     const output = await runTool('remember', { fact: 'a'.repeat(201) });
 
     expect(output).toBe(INVALID_FACT_RESULT);
-    expect(await readUserMemory(database, lan.userId)).toBeNull();
+    expect(await readPrivateMemory(database, lan.userId)).toBeNull();
   });
 
   it('refuses a fact with a line break and stores nothing', async () => {
     const output = await runTool('remember', { fact: 'a\nb' });
 
     expect(output).toBe(INVALID_FACT_RESULT);
-    expect(await readUserMemory(database, lan.userId)).toBeNull();
+    expect(await readPrivateMemory(database, lan.userId)).toBeNull();
   });
 
   it('accepts a memory of exactly 2000 characters', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: `- ${'x'.repeat(1988)}` });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: `- ${'x'.repeat(1988)}` });
 
     const output = await runTool('remember', { fact: 'y'.repeat(7) });
 
     expect(JSON.parse(output).ok).toBe(true);
-    expect((await readUserMemory(database, lan.userId))?.length).toBe(2000);
+    expect((await readPrivateMemory(database, lan.userId))?.length).toBe(2000);
   });
 
   it('refuses a fact that takes the memory past 2000 characters and keeps the old facts', async () => {
     const oldMemory = `- ${'x'.repeat(1988)}`;
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: oldMemory });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: oldMemory });
 
     const output = await runTool('remember', { fact: 'y'.repeat(8) });
 
     expect(output).toBe(MEMORY_FULL_RESULT);
-    expect(await readUserMemory(database, lan.userId)).toBe(oldMemory);
+    expect(await readPrivateMemory(database, lan.userId)).toBe(oldMemory);
   });
 
   it('forgets only the line that matches', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
 
     const output = await runTool('forget', { fact: 'A' });
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '- B' });
-    expect(await readUserMemory(database, lan.userId)).toBe('- B');
+    expect(await readPrivateMemory(database, lan.userId)).toBe('- B');
   });
 
   it('gives an error when it forgets a fact that is not remembered and keeps the memory', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
 
     const output = await runTool('forget', { fact: 'C' });
 
     expect(output).toBe('{"ok":false,"error":"Không tìm thấy điều này trong bản ghi nhớ."}');
-    expect(await readUserMemory(database, lan.userId)).toBe('- A');
+    expect(await readPrivateMemory(database, lan.userId)).toBe('- A');
   });
 
   it('deletes the row when it forgets the last line', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
 
     const output = await runTool('forget', { fact: 'A' });
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '' });
-    expect(await readUserMemory(database, lan.userId)).toBeNull();
+    expect(await readPrivateMemory(database, lan.userId)).toBeNull();
   });
 
   it('deletes the row when it forgets all', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
 
     const output = await runTool('forget_all', {});
 
     expect(JSON.parse(output)).toEqual({ ok: true, markdown: '' });
-    expect(await readUserMemory(database, lan.userId)).toBeNull();
+    expect(await readPrivateMemory(database, lan.userId)).toBeNull();
+  });
+
+  it('keeps the memory of another user when it forgets all', async () => {
+    const hungUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-hung', displayName: 'Hùng' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A\n- B' });
+    await insertPrivateMemory(database, { workspaceId, userId: hungUserId, markdown: '- C' });
+
+    await runTool('forget_all', {});
+
+    expect(await database.query('SELECT fact FROM private_memories')).toEqual([{ fact: 'C' }]);
   });
 
   it('keeps both facts when two remembers wait on the same lock', async () => {
     const lockHolder = await runtimePool.connect();
-    await lockHolder.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [`user_memories:${workspaceId}:${lan.userId}`]);
+    await lockHolder.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [`private_memories:${workspaceId}:${lan.userId}`]);
     const remembers = Promise.all([runTool('remember', { fact: 'A' }), runTool('remember', { fact: 'B' })]);
     try {
       await waitForWaitingAdvisoryLocks(2);
@@ -139,17 +151,17 @@ describe('the memory tools of a user in the chat', () => {
     const outputs = await remembers;
 
     expect(outputs.map((output) => JSON.parse(output).ok)).toEqual([true, true]);
-    expect((await readUserMemory(database, lan.userId))?.split('\n').sort()).toEqual(['- A', '- B']);
+    expect((await readPrivateMemory(database, lan.userId))?.split('\n').sort()).toEqual(['- A', '- B']);
   });
 
   it('deletes the memory of a member that an admin removes', async () => {
-    await insertUserMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
+    await insertPrivateMemory(database, { workspaceId, userId: lan.userId, markdown: '- A' });
     const duyUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
     const [lanMembership] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${lan.userId}'`);
 
     await removeMember(runtimePool, { workspaceId, callerUserId: duyUserId, membershipId: lanMembership?.id ?? '' });
 
-    expect(await readUserMemory(database, lan.userId)).toBeNull();
+    expect(await readPrivateMemory(database, lan.userId)).toBeNull();
   });
 
   it('stores the memory of an admin under the owner scope of the admin', async () => {
@@ -158,7 +170,7 @@ describe('the memory tools of a user in the chat', () => {
     const output = await runTool('remember', { fact: 'Tôi thích câu trả lời thật ngắn' }, { workspaceId, userId: duyUserId, role: 'admin' });
 
     expect(JSON.parse(output).ok).toBe(true);
-    expect(await readUserMemory(database, duyUserId)).toBe('- Tôi thích câu trả lời thật ngắn');
+    expect(await readPrivateMemory(database, duyUserId)).toBe('- Tôi thích câu trả lời thật ngắn');
   });
 
   async function waitForWaitingAdvisoryLocks(count: number): Promise<void> {
