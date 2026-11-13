@@ -50,6 +50,15 @@ describe('the admin dashboard', () => {
 
     expect(readUsageCells(response.body, 'Xe tải Duy Khương')).toEqual(['40 credit / $0.0264', '79 credit / $0.0528', '79 credit / $0.0528']);
   });
+
+  it('counts a call from 8 days ago in 30 days and not in 7', async () => {
+    const workspaceId = await insertWorkspaceWithCredits(database, 'Xe tải Duy Khương', 20000);
+    await insertCall(database, { workspaceId, createdAt: new Date('2026-10-25T10:00:00+07:00') });
+
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(readUsageCells(response.body, 'Xe tải Duy Khương')).toEqual(['0 credit / $0.0000', '0 credit / $0.0000', '40 credit / $0.0264']);
+  });
 });
 
 function readUsageCells(page: string, workspaceName: string): string[] {
