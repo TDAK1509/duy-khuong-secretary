@@ -93,7 +93,7 @@ describe('saving what the reader returns', () => {
     await harness.sendQueuedTexts();
 
     expect(sentTexts()).toEqual([
-      ['zu-hung', `Đã lưu: ${INSPECTION_TITLE}, xe 29C12345.`],
+      ['zu-hung', `Đã lưu: ${INSPECTION_TITLE}, xe 29C12345.\n\nDữ liệu đã đọc:\nMục 1: kiểm định xe\n- Tiêu đề: ${INSPECTION_TITLE}\n- Biển số: 29C12345`],
     ]);
   });
 
@@ -123,7 +123,7 @@ describe('saving what the reader returns', () => {
     expect(harness.channel.texts.map(({ to, text, quoteMessageId }) => ({ to: to.externalUserId, text, quoteMessageId }))).toEqual([
       {
         to: 'zu-hung',
-        text: 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã 8936012845678, 3.500.000đ.',
+        text: 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, mã 8936012845678, 3.500.000đ.\n\nDữ liệu đã đọc:\nMục 1: bảo dưỡng\n- Biển số: 29C12345\n- Số tiền: 3.500.000đ\n- Bảo dưỡng: lốp\n- Mã: 8936012845678',
         quoteMessageId: 'zmsg-1',
       },
     ]);
@@ -135,7 +135,12 @@ describe('saving what the reader returns', () => {
     await harness.receivePhoto('zu-hung');
     await harness.sendQueuedTexts();
 
-    expect(sentTexts()).toEqual([['zu-hung', 'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.']]);
+    expect(sentTexts()).toEqual([
+      [
+        'zu-hung',
+        'Đã lưu: Đổ xăng dầu, số 0001234, 1.250.000đ, ngày 30/10/2026.\n\nDữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số phiếu: 0001234\n- Ngày trên giấy tờ: 30/10/2026\n- Số tiền: 1.250.000đ',
+      ],
+    ]);
   });
 
   it('marks a saved message as accepted', async () => {
@@ -233,6 +238,16 @@ describe('saving what the reader returns', () => {
           'Đã lưu 2 mục:',
           '- Phí cầu đường, số 0012345 · 35.000đ · 30/10/2026',
           '- Phí cầu đường, số 0012346 · 40.000đ · 30/10/2026',
+          '',
+          'Dữ liệu đã đọc:',
+          'Mục 1: phí cầu đường',
+          '- Số phiếu: 0012345',
+          '- Ngày trên giấy tờ: 30/10/2026',
+          '- Số tiền: 35.000đ',
+          'Mục 2: phí cầu đường',
+          '- Số phiếu: 0012346',
+          '- Ngày trên giấy tờ: 30/10/2026',
+          '- Số tiền: 40.000đ',
         ].join('\n'),
       ],
     ]);

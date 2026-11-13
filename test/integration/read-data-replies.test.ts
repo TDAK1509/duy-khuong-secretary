@@ -38,15 +38,37 @@ describe('the data read from a photo in the reply', () => {
     ]);
   });
 
-  it("keeps the data read out of a member's own reply", async () => {
-    harness.reader.answerWith(makeReading([makeItem({ category: 'phiếu cân', amount_vnd: null, document_number: '20261105062' })]));
+  it("ends a member's own photo reply with the data read", async () => {
+    harness.reader.answerWith(
+      makeReading([makeItem({ category: 'phiếu cân', amount_vnd: null, occurred_on: null, document_number: '20261105062' })]),
+    );
 
     await harness.receivePhoto('zu-hung');
     await harness.sendAllQueuedTexts();
 
-    const memberTexts = readTextsTo('zu-hung');
-    expect(memberTexts).toHaveLength(1);
-    expect(memberTexts[0]).not.toContain('Dữ liệu đã đọc:');
+    expect(readTextsTo('zu-hung')).toEqual([
+      'Đã lưu: Phiếu cân, số 20261105062.\n\nDữ liệu đã đọc:\nMục 1: phiếu cân\n- Số phiếu: 20261105062',
+    ]);
+  });
+
+  it("ends a member's text save reply with the data read", async () => {
+    harness.reader.answerWith(makeReading([makeItem({ category: 'đổ xăng dầu', amount_vnd: 500000, occurred_on: null })]));
+
+    await harness.receiveText('zu-hung', 'Đổ dầu 500.000đ hôm nay');
+    await harness.sendAllQueuedTexts();
+
+    const [reply] = readTextsTo('zu-hung');
+    expect(reply?.endsWith('Dữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Số tiền: 500.000đ')).toBe(true);
+  });
+
+  it("keeps the data read out of a member's reply when nothing is saved", async () => {
+    harness.reader.answerWith(makeReading([], { has_work_data: false }));
+    harness.chat.replyWith('Chào bạn!');
+
+    await harness.receiveText('zu-hung', 'chào bạn');
+    await harness.sendAllQueuedTexts();
+
+    expect(readTextsTo('zu-hung')).toEqual(['Chào bạn!']);
   });
 
   it('loses no line of a block longer than one message', async () => {

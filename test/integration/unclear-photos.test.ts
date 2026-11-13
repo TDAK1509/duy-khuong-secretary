@@ -11,7 +11,8 @@ const PHOTO_A_URL = 'https://z.test/a.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const MINUTE_IN_MS = 60 * 1000;
 const PLATE_TEXT = 'xe 29C-123.45';
-const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const TIRE_SAVED_REPLY =
+  'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.\n\nDữ liệu đã đọc:\nMục 1: bảo dưỡng\n- Biển số: 29C12345\n- Số tiền: 3.500.000đ\n- Bảo dưỡng: lốp';
 const RECENT_MESSAGES_HEADER = 'Các tin nhắn gần đây của người gửi';
 const UNCLEAR = makeReading([], { has_work_data: false, needs_explanation: true });
 const FUEL_ITEM = makeReading([
