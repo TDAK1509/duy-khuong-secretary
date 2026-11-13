@@ -12,8 +12,3 @@ export function handleProtectedResourceMetadata(dependencies: McpDependencies | 
   if (dependencies === null) return respondWithText(503, ZALO_OFF_TEXT);
   return respondWithJson(200, describeProtectedResource(dependencies.publicBaseUrl));
 }
-
-export function refuseMcpMethod(): HttpResponse {
-  const response = respondWithText(405, 'Method not allowed.');
-  return { ...response, headers: { ...response.headers, allow: 'POST' } };
-}
