@@ -154,6 +154,19 @@ describe('a workspace that runs out of credits during an action', () => {
     expect(await listNoticesTo('zu-duy')).toHaveLength(1);
   });
 
+  it('sends a new notice for a new crossing after a top-up', async () => {
+    await insertMember(harness.database, { workspaceId: harness.workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([makeItem()]), PHOTO_READ_USAGE);
+    await setCreditBalance(harness.database, harness.workspaceId, 10);
+    await harness.receivePhoto('zu-hung');
+    await setCreditBalance(harness.database, harness.workspaceId, 10);
+
+    await harness.receivePhoto('zu-hung');
+
+    expect(await listNoticesTo('zu-duy')).toHaveLength(2);
+  });
+
   function listNoticesTo(externalUserId: string): Promise<{ body: string; requires_open_window: boolean }[]> {
     return harness.database.query(
       `SELECT body, requires_open_window FROM outbound_messages
