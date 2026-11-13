@@ -188,6 +188,16 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
   });
 
+  it('forgets only one row when another admin saved the same text', async () => {
+    const lan = await insertAdminLan();
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: PLATE_FACT });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: lan.userId, readers: 'admins', fact: PLATE_FACT });
+
+    await runTool('forget_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT });
+
+    expect(await database.query('SELECT author_user_id FROM member_facts')).toEqual([{ author_user_id: lan.userId }]);
+  });
+
   it('deletes the row when it removes the last fact', async () => {
     await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 

@@ -39,10 +39,10 @@ export async function addMemberFact(
 export async function removeMemberFact(database: Database, ref: MemberRef, caller: FactReader, fact: string, notFoundError: string): Promise<MemberFacts | null> {
   return changeMemberFacts(database, ref, async (transaction, member) => {
     const facts = await selectReadableFacts(transaction, ref, member, caller);
-    const removed = facts.filter((saved) => saved.fact === fact);
-    if (removed.length === 0) throw new ToolRefusal(notFoundError);
-    await deleteFacts(transaction, removed);
-    return { displayName: member.displayName, role: member.role, facts: facts.filter((saved) => saved.fact !== fact) };
+    const removed = facts.find((saved) => saved.fact === fact);
+    if (removed === undefined) throw new ToolRefusal(notFoundError);
+    await deleteFacts(transaction, [removed]);
+    return { displayName: member.displayName, role: member.role, facts: facts.filter((saved) => saved.id !== removed.id) };
   });
 }
 
