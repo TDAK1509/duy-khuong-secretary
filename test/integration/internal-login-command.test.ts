@@ -96,6 +96,16 @@ describe('asking for an admin page login code in Zalo', () => {
     expect(await database.query('SELECT id FROM llm_calls')).toEqual([]);
   });
 
+  it('sends a code to an internal user who has no workspace', async () => {
+    await insertInternalUserWithoutWorkspace(database, 'zu-duy');
+
+    await receiveText('zu-duy', 'đăng nhập quản trị');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts).toHaveLength(2);
+    expect(channel.texts[1]?.text).toMatch(/^\S{4}-\S{4}$/);
+  });
+
   async function receiveText(externalUserId: string, text: string): Promise<void> {
     await insertInboundEvent(database, { externalUserId, text });
     await runInboundStep({
