@@ -59,4 +59,18 @@ describe('the migration that folds the maintenance rules into the instruction', 
 
     expect(await readInstructions()).toEqual(['Lập báo cáo.']);
   });
+
+  it('leaves a cancelled task with rules unchanged', async () => {
+    await insertScheduledTask(database, {
+      workspaceId,
+      createdBy: duyUserId,
+      status: 'cancelled',
+      instruction: 'Nhắc bảo dưỡng',
+      maintenanceRules: OIL_AND_TYRES,
+    });
+
+    await runMigration();
+
+    expect(await readInstructions()).toEqual(['Nhắc bảo dưỡng']);
+  });
 });

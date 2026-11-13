@@ -9,6 +9,6 @@ export function up(pgm: MigrationBuilder): void {
         FROM jsonb_array_elements(scheduled_tasks.maintenance_rules) WITH ORDINALITY AS rule (value, position)
       )
       || '. Dùng maintenance_status để xem lần gửi gần nhất của từng xe. Chỉ nhắc xe có số ngày kể từ lần gửi gần nhất từ mốc trở lên.'
-    WHERE maintenance_rules <> '[]'
+    WHERE status = 'active' AND maintenance_rules <> '[]'
   `);
 }
