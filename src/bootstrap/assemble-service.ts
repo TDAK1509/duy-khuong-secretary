@@ -107,6 +107,7 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
     },
     chatgptMcp: zalo && { database: pool, clock, publicBaseUrl: zalo.publicBaseUrl, endpoint: new SdkMcpEndpoint(), photoStorage, reader },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
+    internalAdmin: { database: pool, clock },
     verifierFile: config.verifierFile,
   };
 }

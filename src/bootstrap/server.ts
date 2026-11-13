@@ -10,6 +10,7 @@ import {
 } from '../app/http/zalo-oauth-callback.ts';
 import { handleAuthorizationServerMetadata, handleTokenRequest } from '../app/http/chatgpt-token.ts';
 import { authorizeMcpRequest, createMcpRateLimit, handleProtectedResourceMetadata, refuseMcpMethod, type McpDependencies } from '../app/http/chatgpt-mcp.ts';
+import { handleAdminPage, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
 import { handleSignInPage, handleSignInSubmission, type SignInDependencies, type SignInQuery } from '../app/http/chatgpt-sign-in.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
@@ -24,6 +25,7 @@ export type ServerOptions = {
   verifierFile?: VerifierFile | null;
   chatgptOAuth?: SignInDependencies | null;
   chatgptMcp?: McpDependencies | null;
+  internalAdmin?: InternalAdminDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -44,6 +46,7 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   registerZaloWebhookRoute(server, options.webhook ?? null);
   registerChatGptOAuthRoutes(server, options.chatgptOAuth ?? null);
   registerMcpRoutes(server, options.chatgptMcp ?? null);
+  registerInternalAdminRoutes(server, options.internalAdmin ?? null);
   const { verifierFile } = options;
   if (verifierFile) {
     server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
@@ -60,6 +63,11 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
   server.get('/.well-known/oauth-authorization-server', async (_request, reply) =>
     sendResponse(reply, handleAuthorizationServerMetadata(chatgptOAuth)),
   );
+}
+
+function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
+  if (internalAdmin === null) return;
+  server.get('/admin', async (_request, reply) => sendResponse(reply, handleAdminPage()));
 }
 
 function registerMcpRoutes(server: FastifyInstance, chatgptMcp: McpDependencies | null): void {
