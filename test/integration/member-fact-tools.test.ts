@@ -15,6 +15,8 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const PLATE_FACT = 'Lái xe biển số 93A-1234';
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
+const MEMBER_FACTS_FULL_RESULT =
+  '{"ok":false,"error":"Thông tin về người này đã đủ 2000 ký tự. Tôi chưa thêm thông tin mới và vẫn giữ mọi thông tin cũ."}';
 
 describe('the member fact tools of an admin in the chat', () => {
   let database: TemporaryDatabase;
@@ -72,6 +74,16 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(output).toBe(INVALID_FACT_RESULT);
     expect(await readMemberMemory(database, hungUserId)).toBeNull();
+  });
+
+  it('refuses a fact that takes the facts past 2000 characters and keeps the old facts', async () => {
+    const oldMarkdown = `- ${'x'.repeat(1988)}`;
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: oldMarkdown });
+
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'y'.repeat(50) });
+
+    expect(output).toBe(MEMBER_FACTS_FULL_RESULT);
+    expect(await readMemberMemory(database, hungUserId)).toBe(oldMarkdown);
   });
 
   async function findMembershipId(userId: string): Promise<string> {
