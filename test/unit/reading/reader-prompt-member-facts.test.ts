@@ -24,4 +24,13 @@ describe('buildReaderPrompt member facts', () => {
     const ruleSeventeenIndex = lines.findIndex((line) => line.startsWith('17. date_time'));
     expect(lines[ruleSeventeenIndex + 1]).toBe(buildRule18('["Lái xe biển số 93A-1234"]'));
   });
+
+  it('follows rule 18 with an empty line and the general rules', () => {
+    const prompt = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, ['Lái xe biển số 93A-1234']);
+
+    const lines = prompt.split('\n');
+    const ruleEighteenIndex = lines.findIndex((line) => line.startsWith('18. '));
+    expect(lines[ruleEighteenIndex + 1]).toBe('');
+    expect(lines[ruleEighteenIndex + 2]).toBe('Quy tắc:');
+  });
 });
