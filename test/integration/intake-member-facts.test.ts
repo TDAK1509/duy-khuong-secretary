@@ -46,4 +46,17 @@ describe('giving the reader the facts saved about the sender', () => {
     const [request] = harness.reader.requests;
     expect(request?.system).not.toContain(RULE_18_START);
   });
+
+  it('shows the reader only the facts of the active workspace', async () => {
+    const { database, hungUserId } = harness;
+    const otherWorkspaceId = await insertWorkspace(database, 'Xe tải khác');
+    await insertMembership(database, { workspaceId: otherWorkspaceId, userId: hungUserId, displayName: 'Hùng' });
+    await insertMemberMemory(database, { workspaceId: otherWorkspaceId, userId: hungUserId, markdown: '- Lái xe biển số 51C-55555' });
+
+    await harness.receivePhoto('zu-hung');
+
+    const [request] = harness.reader.requests;
+    expect(request?.system).toContain(RULE_18_WITH_PLATE_FACT);
+    expect(request?.system).not.toContain('51C-55555');
+  });
 });
