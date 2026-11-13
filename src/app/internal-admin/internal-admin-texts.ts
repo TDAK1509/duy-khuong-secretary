@@ -35,6 +35,7 @@ export const KIND_LABELS: Record<LlmCallKind, string> = {
   operator_backfill: 'Bổ sung số (vận hành)',
 };
 export const DRIFT_WARNING = 'Số dư không khớp với lịch sử credit.';
+export const EMPTY_TABLE_TEXT = 'Chưa có dữ liệu.';
 export const HISTORY_HEADING_PREFIX = 'Lịch sử credit: ';
 export const TIME_COLUMN = 'Thời gian';
 export const ADDER_COLUMN = 'Người nạp';

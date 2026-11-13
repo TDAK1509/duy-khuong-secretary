@@ -13,14 +13,18 @@ import {
 export function renderLoginPage(message: string | null): string {
   return renderDocument(
     [
+      '<section class="narrow">',
       `<h1>${ADMIN_TITLE}</h1>`,
-      `<p>${LOGIN_INTRO}</p>`,
+      `<p class="lead">${LOGIN_INTRO}</p>`,
+      '<div class="steps">',
       `<p>${LOGIN_STEP_OPEN_CHAT}</p>`,
       `<p>${LOGIN_STEP_SEND_COMMAND}</p>`,
       `<p>${LOGIN_STEP_COPY_CODE}</p>`,
       `<p>${LOGIN_STEP_SUBMIT}</p>`,
+      '</div>',
       ...(message === null ? [] : [`<p role="alert">${message}</p>`]),
       renderCodeForm(),
+      '</section>',
     ].join('\n'),
   );
 }

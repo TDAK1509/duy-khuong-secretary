@@ -23,9 +23,9 @@ const COLUMNS = [TIME_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_CO
 export function renderHistoryPage(workspaceName: string, entries: HistoryEntry[]): string {
   return renderDocument(
     [
+      `<p class="back"><a href="/admin">← ${BACK_LINK_TEXT}</a></p>`,
       `<h1>${HISTORY_HEADING_PREFIX}${escapeHtml(workspaceName)}</h1>`,
-      renderTable(COLUMNS, entries.map(listEntryCells)),
-      `<p><a href="/admin">${BACK_LINK_TEXT}</a></p>`,
+      `<section>${renderTable('history', COLUMNS, entries.map(listEntryCells))}</section>`,
     ].join('\n'),
   );
 }
