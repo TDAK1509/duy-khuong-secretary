@@ -6,4 +6,11 @@ describe('the admin text guard and the member fact tools', () => {
     expect(ADMIN_TEXT_TOOLS).toContain('list_member_facts');
     expect(CHANGE_TOOLS).toEqual(expect.arrayContaining(['add_member_fact', 'forget_member_fact', 'forget_all_member_facts']));
   });
+
+  it('allows a remove in the same turn as a list', () => {
+    const guard = new AdminTextGuard(false);
+    guard.noteCall('list_member_facts');
+
+    expect(guard.refuses('forget_member_fact')).toBe(false);
+  });
 });
