@@ -1,6 +1,7 @@
 import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addCredits, chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
+import { readCreditHistory } from '../../src/app/internal-admin/read-credit-history.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
@@ -88,6 +89,55 @@ describe('the credit balance of a workspace', () => {
     }
     throw new Error('the second charge never waited for the lock of the first');
   }
+
+  it('times a charge when it is made, not when its transaction began', async () => {
+    await setCreditBalance(database, workspaceId, 100);
+    const firstBegan = makeSignal();
+    const secondCommitted = makeSignal();
+    const first = runInTransaction(pool, async (transaction) => {
+      await transaction.query('SELECT 1');
+      firstBegan.send();
+      await secondCommitted.promise;
+      await chargeCall(transaction, makeTenCreditCall());
+    });
+    await Promise.race([firstBegan.promise, first]);
+
+    await runInTransaction(pool, (transaction) => chargeCall(transaction, makeTenCreditCall()));
+    secondCommitted.send();
+    await first;
+
+    expect(await database.query('SELECT balance_after FROM llm_calls ORDER BY created_at DESC, id DESC')).toEqual([
+      { balance_after: '80.000' },
+      { balance_after: '90.000' },
+    ]);
+    const groups = await readCreditHistory(pool, workspaceId, new Date(Date.now() + 60 * 1000));
+    expect(groups.map((group) => (group.type === 'usage' ? group.calls : 0)).reduce((total, calls) => total + calls, 0)).toBe(2);
+    expect(groups[0]).toMatchObject({ type: 'usage', balanceAfter: '80.000' });
+  });
+
+  it('times an addition when it is made, not when its transaction began', async () => {
+    await setCreditBalance(database, workspaceId, 100);
+    const duyId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    const addition = { workspaceId, credits: '10.000', source: 'internal_user', addedBy: duyId, note: 'Nạp thử' } as const;
+    const firstBegan = makeSignal();
+    const secondCommitted = makeSignal();
+    const first = runInTransaction(pool, async (transaction) => {
+      await transaction.query('SELECT 1');
+      firstBegan.send();
+      await secondCommitted.promise;
+      await addCredits(transaction, addition);
+    });
+    await Promise.race([firstBegan.promise, first]);
+
+    await runInTransaction(pool, (transaction) => addCredits(transaction, addition));
+    secondCommitted.send();
+    await first;
+
+    expect(await database.query('SELECT balance_after FROM credit_additions ORDER BY created_at DESC, id DESC')).toEqual([
+      { balance_after: '120.000' },
+      { balance_after: '110.000' },
+    ]);
+  });
 
   it('stores the balance after when credits are added', async () => {
     await setCreditBalance(database, workspaceId, 80);

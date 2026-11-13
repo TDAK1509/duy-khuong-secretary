@@ -1,4 +1,10 @@
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0049_add_internal_users';
+  DROP TABLE internal_sessions;
+  DROP TABLE internal_login_codes;
+  REVOKE INSERT (id, created_at) ON users FROM app_runtime;
+  GRANT INSERT, UPDATE ON users TO app_runtime;
+  ALTER TABLE users DROP COLUMN is_internal;
   DELETE FROM pgmigrations WHERE name = '0048_grant_starting_credits';
   DROP TABLE credit_additions;
   DROP TABLE llm_calls;

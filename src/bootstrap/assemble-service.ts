@@ -115,6 +115,7 @@ function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
       maxTextLength: channel.maxTextLength,
     },
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
+    internalAdmin: { database: pool, clock },
     verifierFile: config.verifierFile,
   };
 }
