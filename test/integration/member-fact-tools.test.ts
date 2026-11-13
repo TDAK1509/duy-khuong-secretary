@@ -53,6 +53,12 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
   });
 
+  it('stores a fact trimmed', async () => {
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: `  ${PLATE_FACT}  ` });
+
+    expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);

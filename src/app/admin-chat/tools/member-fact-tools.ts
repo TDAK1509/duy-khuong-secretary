@@ -10,7 +10,8 @@ const MEMBER_FACTS_FULL_ERROR = 'Thông tin về người này đã đủ 2000 k
 const addArgumentsSchema = z.strictObject({ member_id: z.string(), fact: z.string() });
 
 export async function runAddMemberFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  const { member_id, fact } = addArgumentsSchema.parse(parsedArguments);
+  const { member_id, fact: untrimmedFact } = addArgumentsSchema.parse(parsedArguments);
+  const fact = untrimmedFact.trim();
   const memory = await updateMemberMemory(database, { workspaceId: scope.workspaceId, membershipId: member_id }, (current) => addFact(current, fact, MEMBER_FACTS_FULL_ERROR));
   return describeChange(memory);
 }
