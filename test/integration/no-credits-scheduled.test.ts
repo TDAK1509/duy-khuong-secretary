@@ -58,4 +58,14 @@ describe('a scheduled run of a workspace with no credits', () => {
       { next_run_at: new Date('2026-11-02T18:00:00+07:00') },
     ]);
   });
+
+  it('sends no message when a maintenance run has nothing due', async () => {
+    await insertDueMaintenanceTask();
+
+    await harness.runTick();
+    await harness.sendQueuedTexts();
+
+    expect(harness.chat.requests).toEqual([]);
+    expect(harness.channel.texts).toEqual([]);
+  });
 });
