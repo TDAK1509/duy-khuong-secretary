@@ -14,6 +14,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const PLATE_FACT = 'Lái xe biển số 93A-1234';
+const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
 
 describe('the member fact tools of an admin in the chat', () => {
   let database: TemporaryDatabase;
@@ -57,6 +58,13 @@ describe('the member fact tools of an admin in the chat', () => {
     await runTool('add_member_fact', { member_id: hungMembershipId, fact: `  ${PLATE_FACT}  ` });
 
     expect(await readMemberMemory(database, hungUserId)).toBe(`- ${PLATE_FACT}`);
+  });
+
+  it('refuses a fact of 201 characters and stores nothing', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'a'.repeat(201) });
+
+    expect(output).toBe(INVALID_FACT_RESULT);
+    expect(await readMemberMemory(database, hungUserId)).toBeNull();
   });
 
   async function findMembershipId(userId: string): Promise<string> {
