@@ -1,4 +1,3 @@
-import { isDisconnectCommand } from '../chatgpt/answer-disconnect-command.ts';
 import { isInternalLoginCommand } from '../internal-admin/answer-internal-login-command.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
@@ -44,7 +43,6 @@ function isIntakeText(text: string): boolean {
     !isInviteCodeMessage(text) &&
     !isBareNumber(text) &&
     !isSwitchCommand(text) &&
-    !isInternalLoginCommand(text) &&
-    !isDisconnectCommand(text)
+    !isInternalLoginCommand(text)
   );
 }

@@ -23,4 +23,11 @@ describe('the removed ChatGPT commands', () => {
     expect(harness.reader.requests.map(({ text }) => text)).toEqual(['đăng nhập']);
     expect(harness.channel.texts.map(({ text }) => text)).not.toContainEqual(expect.stringMatching(/^\S{4}-\S{4}$/));
   });
+
+  it('reads "ngắt ChatGPT" as an ordinary text', async () => {
+    await harness.receiveText('zu-duy', 'ngắt ChatGPT');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.reader.requests.map(({ text }) => text)).toEqual(['ngắt ChatGPT']);
+  });
 });
