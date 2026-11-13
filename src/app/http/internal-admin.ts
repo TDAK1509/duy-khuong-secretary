@@ -9,7 +9,10 @@ import { findWorkspaceName } from '../internal-admin/find-workspace-name.ts';
 import { readCreditHistory } from '../internal-admin/read-credit-history.ts';
 import { readDashboard } from '../internal-admin/read-dashboard.ts';
 import { startInternalSession, type SessionStartOutcome } from '../internal-admin/start-internal-session.ts';
-import { renderDashboardPage, renderHistoryPage, renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
+import { renderDashboardPage } from '../internal-admin/render-dashboard-page.ts';
+import { renderMessagePage } from '../internal-admin/render-document.ts';
+import { renderHistoryPage } from '../internal-admin/render-history-page.ts';
+import { renderLoginPage } from '../internal-admin/render-login-page.ts';
 import { respondWithHtml, type HttpResponse } from './http-response.ts';
 import { readCookie } from './read-cookie.ts';
 
