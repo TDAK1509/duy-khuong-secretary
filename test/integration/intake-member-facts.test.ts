@@ -69,4 +69,27 @@ describe('giving the reader the facts saved about the sender', () => {
     expect(harness.reader.requests).toHaveLength(2);
     expect(harness.reader.requests.at(-1)?.system).toContain(RULE_18_WITH_PLATE_FACT);
   });
+
+  it('shows the reader the facts when it reads again with the recent messages', async () => {
+    const reader = makeReaderAnsweringWithRecentMessages();
+    await sendTextSentMinutesAgo('Lốp mới thay', 1, reader);
+
+    await harness.receiveText('zu-hung', 'xe 29C-123.45, giá 3.500.000đ', { reader });
+
+    expect(reader.requests.at(-1)?.text).toContain(RECENT_MESSAGES_HEADER);
+    expect(reader.requests.at(-1)?.system).toContain(RULE_18_WITH_PLATE_FACT);
+  });
+
+  async function sendTextSentMinutesAgo(text: string, minutesAgo: number, reader: FakeReader): Promise<void> {
+    const sentAt = new Date(NOW.getTime() - minutesAgo * MINUTE_IN_MS).toISOString();
+    await insertInboundEvent(harness.database, { externalUserId: 'zu-hung', text, sentAt });
+    await harness.runInbound({ reader });
+  }
+
+  function makeReaderAnsweringWithRecentMessages(): FakeReader {
+    return new FakeReader(({ text }: ReaderRequest): ReaderResult => ({
+      ok: true,
+      json: text?.startsWith(RECENT_MESSAGES_HEADER) ? TIRE_ITEM : UNCLEAR,
+    }));
+  }
 });
