@@ -67,6 +67,13 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberMemory(database, hungUserId)).toBeNull();
   });
 
+  it('refuses a fact with a line break and stores nothing', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: 'Lái xe\nbiển số 93A-1234' });
+
+    expect(output).toBe(INVALID_FACT_RESULT);
+    expect(await readMemberMemory(database, hungUserId)).toBeNull();
+  });
+
   async function findMembershipId(userId: string): Promise<string> {
     const [row] = await database.query<{ id: string }>(`SELECT id FROM memberships WHERE user_id = '${userId}'`);
     if (!row) throw new Error(`no membership for ${userId}`);
