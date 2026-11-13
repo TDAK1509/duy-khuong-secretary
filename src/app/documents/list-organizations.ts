@@ -1,7 +1,7 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import { buildMatchKey } from './build-match-key.ts';
-import { encodeOrganizationCursor } from './organization-cursor.ts';
+import { encodeOrganizationCursor, type OrganizationCursor } from './organization-cursor.ts';
 
 const PAGE_SIZE = 50;
 
@@ -15,6 +15,7 @@ const SELECT_ORGANIZATION_PAGE = `WITH page AS (
     SELECT organization.id, organization.name, organization.type
     FROM organizations organization
     WHERE organization.workspace_id = $1
+      AND ($3::text IS NULL OR (organization.name, organization.id) > ($3, $4::uuid))
       AND (strpos(regexp_replace(lower(unaccent(organization.name)), '[^a-z0-9]', '', 'g'), $2) > 0
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = organization.id AND strpos(alias.match_key, $2) > 0))
     ORDER BY organization.name, organization.id
@@ -26,8 +27,9 @@ const SELECT_ORGANIZATION_PAGE = `WITH page AS (
   FROM page
   ORDER BY page.name, page.id`;
 
-export async function listOrganizations(database: Database, scope: AccessScope, text: string | null): Promise<OrganizationPage> {
-  const { rows } = await database.query<OrganizationRow>(SELECT_ORGANIZATION_PAGE, [scope.workspaceId, buildMatchKey(text ?? '')]);
+export async function listOrganizations(database: Database, scope: AccessScope, text: string | null, cursor: OrganizationCursor | null): Promise<OrganizationPage> {
+  const values = [scope.workspaceId, buildMatchKey(text ?? ''), cursor?.name ?? null, cursor?.id ?? null];
+  const { rows } = await database.query<OrganizationRow>(SELECT_ORGANIZATION_PAGE, values);
   return toPage(rows);
 }
 

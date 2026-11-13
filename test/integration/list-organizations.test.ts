@@ -47,6 +47,16 @@ describe('the organization list of an admin', () => {
     expect(page.next_cursor).not.toBeNull();
   });
 
+  it('holds the rest of the companies and no cursor on the next page', async () => {
+    await insertCompanies(51);
+    const firstPage = await runListOrganizations({ text: null, cursor: null });
+
+    const nextPage = await runListOrganizations({ text: null, cursor: firstPage.next_cursor });
+
+    expect(nextPage.organizations.map(({ name }) => name)).toEqual(['Công ty 51']);
+    expect(nextPage.next_cursor).toBeNull();
+  });
+
   async function insertCompanies(count: number): Promise<void> {
     for (const name of buildCompanyNames(count)) await insertOrganizationWithAlias(database, { workspaceId, name });
   }
