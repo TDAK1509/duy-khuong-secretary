@@ -14,6 +14,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 const PLATE_FACT = 'Lái xe biển số 93A-1234';
+const CUSTOMER_FACT = 'Chở hàng cho nhà máy Cheng Loong';
 const INVALID_FACT_RESULT = '{"ok":false,"error":"Thông tin cần lưu phải có từ 1 đến 200 ký tự và nằm trên một dòng."}';
 const MEMBER_FACTS_FULL_RESULT =
   '{"ok":false,"error":"Thông tin về người này đã đủ 2000 ký tự. Tôi chưa thêm thông tin mới và vẫn giữ mọi thông tin cũ."}';
@@ -101,6 +102,14 @@ describe('the member fact tools of an admin in the chat', () => {
 
     expect(output).toBe(NOT_FOUND_RESULT);
     expect(await readMemberMemory(database, lanUserId)).toBeNull();
+  });
+
+  it('lists the facts of a member in saved order', async () => {
+    await insertMemberMemory(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}\n- ${CUSTOMER_FACT}` });
+
+    const output = await runTool('list_member_facts', { member_id: hungMembershipId });
+
+    expect(JSON.parse(output)).toEqual({ member: 'Hùng', facts: [PLATE_FACT, CUSTOMER_FACT] });
   });
 
   async function findMembershipId(userId: string): Promise<string> {
