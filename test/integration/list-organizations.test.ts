@@ -10,6 +10,7 @@ import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
 import { insertOrganizationWithAlias } from './document-rows.ts';
+import { insertAlias, insertNumberedDocument, insertParty } from './document-number-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -114,6 +115,19 @@ describe('the organization list of an admin', () => {
 
     expect(garbage).toEqual(JSON.parse(failInvalidArgument('cursor')));
     expect(badId).toEqual(JSON.parse(failInvalidArgument('cursor')));
+  });
+
+  it('lists the aliases and the document count of a company on the page', async () => {
+    const organizationId = await insertOrganizationWithAlias(database, { workspaceId, name: 'Hòa Phát', aliasPrintedName: 'Hòa Phát' });
+    await insertAlias(database, { workspaceId, organizationId, printedName: 'HOA PHAT JSC' });
+    for (const documentNumber of ['0001', '0002', '0003']) {
+      const documentId = await insertNumberedDocument(database, { workspaceId, userId: duy.userId, documentNumber });
+      await insertParty(database, { workspaceId, documentId, role: 'customer', organizationId, printedName: 'Hòa Phát' });
+    }
+
+    const page = await runListOrganizations({ text: null, cursor: null });
+
+    expect(page.organizations).toEqual([{ name: 'Hòa Phát', type: 'company', aliases: ['Hòa Phát', 'HOA PHAT JSC'], document_count: 3 }]);
   });
 
   async function insertCompanies(count: number): Promise<void> {
