@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { addCredits } from '../credits/credit-balance.ts';
 import { runInTransaction, type Database } from '../db/transaction.ts';
-import { CREDITS_INVALID_TEXT, NOTE_INVALID_TEXT } from './internal-admin-texts.ts';
+import { findWorkspaceName } from './find-workspace-name.ts';
+import { CREDITS_INVALID_TEXT, NOTE_INVALID_TEXT, WORKSPACE_NOT_FOUND_TEXT } from './internal-admin-texts.ts';
 
 const MAX_CREDITS = 1_000_000;
 const MAX_NOTE_LENGTH = 500;
@@ -30,6 +31,7 @@ export async function addInternalCredits(database: Database, userId: string, for
   if (credits === null) return { kind: 'refused', text: CREDITS_INVALID_TEXT };
   const note = readNote(form.note);
   if (note === null) return { kind: 'refused', text: NOTE_INVALID_TEXT };
+  if ((await findWorkspaceName(database, form.workspaceId)) === null) return { kind: 'refused', text: WORKSPACE_NOT_FOUND_TEXT };
   await runInTransaction(database, (transaction) =>
     addCredits(transaction, { id: form.requestId, workspaceId: form.workspaceId, credits, source: 'internal_user', addedBy: userId, note }),
   );
