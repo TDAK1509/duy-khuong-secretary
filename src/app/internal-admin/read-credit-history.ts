@@ -1,4 +1,5 @@
 import type { Database } from '../db/transaction.ts';
+import { ADDER_SQL } from './addition-adder-sql.ts';
 import type { LlmCallKind } from '../credits/llm-call-kind.ts';
 
 export type AdditionEntry = {
@@ -49,8 +50,7 @@ async function readAdditions(database: Database, workspaceId: string, now: Date)
   const { rows } = await database.query<AdditionRow>(
     `SELECT created_at AS at, to_char(created_at AT TIME ZONE '${VIETNAM_TIME_ZONE}', 'DD/MM/YYYY HH24:MI') AS time,
        source, credits, note, balance_after,
-       CASE WHEN added_by IS NULL THEN NULL ELSE coalesce(
-         (SELECT display_name FROM memberships WHERE user_id = added_by ORDER BY created_at, id LIMIT 1), added_by::text) END AS adder
+       ${ADDER_SQL} AS adder
      FROM credit_additions WHERE workspace_id = $1 AND ${LAST_30_DAYS_UNTIL_NOW}`,
     [workspaceId, now],
   );
