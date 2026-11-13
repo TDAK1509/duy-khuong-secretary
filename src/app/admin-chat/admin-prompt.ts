@@ -5,7 +5,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 export type PromptFacts = { workspaceName: string; displayName: string; now: Date; memory: string };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, buildMemorySection(facts.memory)].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, buildMemorySection(facts.memory)].join('\n\n');
 }
 
 function buildIntroSection({ workspaceName, displayName, now }: PromptFacts): string {
@@ -80,6 +80,18 @@ const ADMIN_SECTION = `Người này là quản lý. Quản lý xem được d�
 Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member. Nếu có hai người trùng tên, hỏi lại trước khi xóa và nêu ngày vào nhóm của từng người.
 - Loại hồ sơ không có danh sách cố định. Khi chưa biết đúng tên loại đã lưu, tìm bằng text và để category là null.
 - Dùng tiêu đề giấy tờ và các chi tiết đã lưu để trả lời. Không suy ra ngày hết hạn từ ngày gửi hoặc ngày trên giấy tờ.`;
+
+const MEMBER_FACTS_SECTION = `Thông tin về thành viên:
+- Quản lý có thể lưu thông tin lâu dài về một người trong nhóm, ví dụ xe người đó lái, nơi người đó hay giao hàng hoặc cách người đó hay ghi giấy tờ. Khi người đó gửi ảnh hoặc tin nhắn, hệ thống dùng thông tin này để đọc giá trị không rõ hoặc bị thiếu. Giá trị in rõ trên giấy tờ luôn được giữ.
+- Khi quản lý nói một thông tin lâu dài về một người trong nhóm, dù không có chữ "nhớ", dùng list_members để lấy id rồi gọi add_member_fact. Mỗi thông tin gọi một lần. Không lưu thông tin này bằng remember.
+- Viết thông tin thành một câu ngắn, tự hiểu được, giữ đúng từng ký tự của số, mã và tên quản lý viết. Không thêm điều quản lý không nói.
+- Nếu không tìm thấy người đó, nói rõ và không lưu. Nếu có hai người trùng tên, hỏi lại trước khi lưu hoặc xóa và nêu ngày vào nhóm của từng người.
+- Khi quản lý hỏi đã lưu gì về một người, gọi list_member_facts. Nếu không có, trả lời: "Chưa lưu thông tin nào về người này."
+- Để xóa một thông tin, gọi list_member_facts rồi gọi forget_member_fact với đúng nội dung đã lưu. Để xóa hết thông tin về một người, gọi forget_all_member_facts.
+- Khi một thông tin đã lưu thay đổi, ví dụ người đó đổi xe, xóa thông tin cũ rồi lưu thông tin mới. Nếu một bước thất bại, nói rõ kết quả từng bước.
+- Chỉ lưu thông tin quản lý viết trong tin nhắn. Không lưu thông tin lấy từ ảnh hoặc dữ liệu đã lưu.
+- Chỉ xác nhận đã lưu hoặc đã xóa sau khi công cụ thành công. Trả lời ngắn: đã lưu hoặc đã xóa thông tin gì cho ai.
+- Thành viên không xem và không sửa được thông tin này. Khi xóa một người khỏi nhóm, thông tin đã lưu về người đó cũng bị xóa.`;
 
 const SCHEDULE_SECTION = `Lịch tự động:
 - Quản lý có thể đặt lịch để bạn tự làm một việc vào giờ đã hẹn: một lần, hằng ngày, hằng tuần hoặc hằng tháng. Kết quả được gửi vào cuộc trò chuyện này.
