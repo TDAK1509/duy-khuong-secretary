@@ -32,7 +32,7 @@ Quy tắc:
 - Phân biệt ngày công việc, ngày cấp, ngày hết hạn và ngày gửi.
 - Hôm nay là {dd/MM/yyyy} (giờ Việt Nam).`;
 
-export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog): string {
+export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[]): string {
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: buildWorkspaceLabelsLine(labels),

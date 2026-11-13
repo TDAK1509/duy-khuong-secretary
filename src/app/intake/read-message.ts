@@ -17,7 +17,7 @@ export async function readMessage(context: IntakeContext, message: MessageConten
     labels: await listWorkspaceLabels(transaction, context.sender.workspaceId),
     catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
   }));
-  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog);
+  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, []);
 }
 
 export async function readWithReader(
@@ -26,9 +26,10 @@ export async function readWithReader(
   message: MessageContent,
   labels: string[],
   catalog: ReaderCatalog,
+  facts: string[],
 ): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels, catalog),
+    system: buildReaderPrompt(now, labels, catalog, facts),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,
