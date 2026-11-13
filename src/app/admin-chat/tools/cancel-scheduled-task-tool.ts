@@ -12,6 +12,6 @@ const uuidSchema = z.uuid();
 export async function runCancelScheduledTask(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
   if (!uuidSchema.safeParse(args.task_id).success) return failTool(NOT_FOUND_ERROR);
-  const isCancelled = await cancelTask(database, scope, args.task_id);
-  return isCancelled ? JSON.stringify({ ok: true }) : failTool(NOT_FOUND_ERROR);
+  const title = await cancelTask(database, scope, args.task_id);
+  return title === null ? failTool(NOT_FOUND_ERROR) : JSON.stringify({ ok: true, title });
 }

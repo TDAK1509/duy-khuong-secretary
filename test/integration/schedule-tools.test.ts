@@ -214,7 +214,7 @@ describe('the scheduling tools', () => {
 
     const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'cancel_scheduled_task', { task_id: taskId });
 
-    expect(output).toBe('{"ok":true}');
+    expect(output).toBe('{"ok":true,"title":"Báo cáo hằng ngày"}');
     expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([
       { status: 'cancelled', next_run_at: null },
     ]);
@@ -230,14 +230,14 @@ describe('the scheduling tools', () => {
     expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'draft' }]);
   });
 
-  it('cannot cancel the task of another admin', async () => {
-    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
-    const khuongUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-khuong', displayName: 'Khương', role: 'admin' });
-    const taskId = await insertScheduledTask(harness.database, { workspaceId, createdBy: khuongUserId, status: 'active' });
+  it('cancels the task of another admin of the workspace', async () => {
+    const lan = await addAdmin();
+    const duyUserId = await insertMember(harness.database, { workspaceId, externalUserId: 'zu-duy2', displayName: 'Duy', role: 'admin' });
+    const taskId = await insertScheduledTask(harness.database, { workspaceId, createdBy: duyUserId, title: 'Báo cáo hằng ngày', status: 'active' });
 
-    const output = await runTool({ workspaceId, userId: duyUserId, role: 'admin' }, 'cancel_scheduled_task', { task_id: taskId });
+    const output = await runTool(lan, 'cancel_scheduled_task', { task_id: taskId });
 
-    expect(output).toBe('{"ok":false,"error":"Không tìm thấy lịch này."}');
-    expect(await harness.database.query('SELECT status FROM scheduled_tasks')).toEqual([{ status: 'active' }]);
+    expect(output).toBe('{"ok":true,"title":"Báo cáo hằng ngày"}');
+    expect(await harness.database.query('SELECT status, next_run_at FROM scheduled_tasks')).toEqual([{ status: 'cancelled', next_run_at: null }]);
   });
 });

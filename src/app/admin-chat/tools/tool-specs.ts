@@ -317,7 +317,7 @@ export const LIST_SCHEDULED_TASKS_SPEC: ToolSpec = {
 
 export const CANCEL_SCHEDULED_TASK_SPEC: ToolSpec = {
   "name": "cancel_scheduled_task",
-  "description": "Hủy một lịch tự động do quản lý đang trò chuyện đặt. Lấy id từ list_scheduled_tasks.",
+  "description": "Hủy một lịch tự động trong nhóm, kể cả lịch do quản lý khác đặt. Lấy id từ list_scheduled_tasks.",
   "parameters": {
     "type": "object",
     "properties": {
