@@ -33,6 +33,19 @@ export async function chargeCall(transaction: Transaction, call: RecordedCall): 
   await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, credits, balanceAfter]);
 }
 
+function lowerBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {
+  return changeBalance(transaction, workspaceId, `credit_balance - $2::numeric`, credits);
+}
+
+async function changeBalance(transaction: Transaction, workspaceId: string, newBalance: string, credits: string): Promise<string> {
+  const [row] = await transaction.query<{ credit_balance: string }>(
+    `UPDATE workspaces SET credit_balance = ${newBalance} WHERE id = $1 RETURNING credit_balance`,
+    [workspaceId, credits],
+  );
+  if (!row) throw new Error(`Workspace ${workspaceId} has no credit balance to change`);
+  return row.credit_balance;
+}
+
 function listTokenCounts(usage: TokenUsage | null): (number | null)[] {
   return [usage?.input ?? null, usage?.cachedInput ?? null, usage?.cacheWrite ?? null, usage?.output ?? null];
 }
@@ -46,19 +59,6 @@ export async function addCredits(transaction: Transaction, addition: CreditAddit
   );
 }
 
-function lowerBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {
-  return changeBalance(transaction, workspaceId, `credit_balance - $2::numeric`, credits);
-}
-
 function raiseBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {
   return changeBalance(transaction, workspaceId, `credit_balance + $2::numeric`, credits);
-}
-
-async function changeBalance(transaction: Transaction, workspaceId: string, newBalance: string, credits: string): Promise<string> {
-  const [row] = await transaction.query<{ credit_balance: string }>(
-    `UPDATE workspaces SET credit_balance = ${newBalance} WHERE id = $1 RETURNING credit_balance`,
-    [workspaceId, credits],
-  );
-  if (!row) throw new Error(`Workspace ${workspaceId} has no credit balance to change`);
-  return row.credit_balance;
 }
