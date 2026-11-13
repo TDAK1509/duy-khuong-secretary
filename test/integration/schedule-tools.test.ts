@@ -165,6 +165,18 @@ describe('the scheduling tools', () => {
     ]);
   });
 
+  it('leaves out the tasks of another workspace when the scope is all', async () => {
+    const duy = await addAdmin();
+    const otherWorkspaceId = await insertWorkspace(harness.database, 'Xe tải Thử');
+    const vyUserId = await insertMember(harness.database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-vy', displayName: 'Vy', role: 'admin' });
+    await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, title: 'Của Duy', status: 'active' });
+    await insertScheduledTask(harness.database, { workspaceId: otherWorkspaceId, createdBy: vyUserId, title: 'Của Vy', status: 'active' });
+
+    const output = await runTool(duy, 'list_scheduled_tasks', { scope: 'all' });
+
+    expect(JSON.parse(output).tasks.map((task: { title: string }) => task.title)).toEqual(['Của Duy']);
+  });
+
   it('lists an active task without a next run as null', async () => {
     const duy = await addAdmin();
     await insertScheduledTask(harness.database, { workspaceId, createdBy: duy.userId, status: 'active', nextRunAt: null });
