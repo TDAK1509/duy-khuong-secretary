@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { up as createMemoryRows } from '../../src/app/db/migrations/0053_create_private_memories_and_member_facts.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
+import { RESTORE_THE_OLD_MEMORY_TABLES } from './proposed-organization-shape.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
@@ -12,6 +13,7 @@ describe('the migration that gives each memory line its own row', () => {
 
   beforeEach(async () => {
     database = await createMigratedDatabase();
+    await database.query(RESTORE_THE_OLD_MEMORY_TABLES);
     await database.query('DROP TABLE private_memories, member_facts');
     workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
     lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
