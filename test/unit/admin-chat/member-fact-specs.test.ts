@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEMBER_FACT_TOOLS } from '../../../src/app/admin-chat/tools/member-fact-specs.ts';
+import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
 
 describe('the member fact tool specs', () => {
   it('offers list_member_facts with the exact text', () => {
@@ -69,7 +69,14 @@ describe('the member fact tool specs', () => {
     });
   });
 
+  it('puts the four tools right after remove_member in the admin tool list', () => {
+    const names = ADMIN_TOOLS.map((tool) => tool.name);
+
+    const afterRemoveMember = names.slice(names.indexOf('remove_member') + 1, names.indexOf('remove_member') + 5);
+    expect(afterRemoveMember).toEqual(['list_member_facts', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts']);
+  });
+
   function findTool(name: string) {
-    return MEMBER_FACT_TOOLS.find((candidate) => candidate.name === name);
+    return ADMIN_TOOLS.find((candidate) => candidate.name === name);
   }
 });

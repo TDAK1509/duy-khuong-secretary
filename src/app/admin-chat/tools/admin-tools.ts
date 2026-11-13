@@ -1,6 +1,7 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 import { LIST_DOCUMENT_NUMBERS_SPEC, LIST_DOCUMENTS_SPEC, LIST_ORGANIZATIONS_SPEC, TOTAL_DOCUMENT_NUMBERS_SPEC } from './document-number-specs.ts';
 import { LIST_MERGED_NAMES_SPEC, SPLIT_MERGED_NAME_SPEC } from './merged-name-specs.ts';
+import { MEMBER_FACT_TOOLS } from './member-fact-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-source-specs.ts';
 import {
@@ -20,6 +21,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   LIST_MEMBERS_SPEC,
   CREATE_INVITE_SPEC,
   REMOVE_MEMBER_SPEC,
+  ...MEMBER_FACT_TOOLS,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,
   ADMIN_LIST_SOURCES_SPEC,
