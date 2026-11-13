@@ -122,6 +122,14 @@ describe('OpenAiCompatibleChat', () => {
     expect(result).toMatchObject({ ok: true, usage: { input: 5700, cachedInput: 4000, cacheWrite: 0, output: 200, reasoning: 0 } });
   });
 
+  it('returns null usage for a text answer without usage', async () => {
+    const server = await startServer(makeCompletionReply('Chào anh'));
+
+    const result = await makeChat(server).respond(REQUEST);
+
+    expect(result).toMatchObject({ ok: true, usage: null });
+  });
+
   it('returns the usage of a tool-call answer', async () => {
     const usage = { prompt_tokens: 5700, completion_tokens: 80, completion_tokens_details: { reasoning_tokens: 30 } };
     const server = await startServer(makeToolCallReply([{ id: 'call_1', name: 'list_members', arguments: '{}' }], usage));
