@@ -66,6 +66,12 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(JSON.parse(output).note).toBe('Chỉ các quản lý xem được thông tin này. Hệ thống không dùng thông tin này khi đọc ảnh và tin nhắn Hùng gửi.');
   });
 
+  it('tells the author that only they can read a fact saved for the author only', async () => {
+    const output = await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'author' });
+
+    expect(JSON.parse(output).note).toMatch(/^Chỉ bạn xem được thông tin này\./);
+  });
+
   it('keeps one line when the same fact is added twice', async () => {
     await insertSharedMemberFacts(database, { workspaceId, userId: hungUserId, markdown: `- ${PLATE_FACT}` });
 

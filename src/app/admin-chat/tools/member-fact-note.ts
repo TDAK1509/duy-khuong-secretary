@@ -5,7 +5,14 @@ export function buildFactNote(memberName: string, fact: FactAccess): string {
 }
 
 function describeReaders({ readers }: FactAccess, memberName: string): string {
-  return readers === 'admins' ? 'Chỉ các quản lý xem được thông tin này.' : `Các quản lý và ${memberName} xem được thông tin này.`;
+  switch (readers) {
+    case 'admins_and_member':
+      return `Các quản lý và ${memberName} xem được thông tin này.`;
+    case 'admins':
+      return 'Chỉ các quản lý xem được thông tin này.';
+    case 'author':
+      return 'Chỉ bạn xem được thông tin này.';
+  }
 }
 
 function describeUse(fact: FactAccess, memberName: string): string {
