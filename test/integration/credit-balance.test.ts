@@ -1,12 +1,12 @@
 import { setTimeout } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
+import { addCredits, chargeCall, type RecordedCall } from '../../src/app/credits/credit-balance.ts';
 import { runInTransaction } from '../../src/app/db/transaction.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
-import { insertWorkspace } from './workspace-rows.ts';
+import { insertMember, insertWorkspace } from './workspace-rows.ts';
 
 describe('the credit balance of a workspace', () => {
   let database: TemporaryDatabase;
@@ -55,6 +55,20 @@ describe('the credit balance of a workspace', () => {
     expect(await database.query('SELECT balance_after FROM llm_calls ORDER BY balance_after DESC')).toEqual([
       { balance_after: '90.000' },
       { balance_after: '80.000' },
+    ]);
+  });
+
+  it('stores the balance after when credits are added', async () => {
+    await setCreditBalance(database, workspaceId, 80);
+    const duyId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await runInTransaction(pool, (transaction) =>
+      addCredits(transaction, { workspaceId, credits: '50.000', source: 'internal_user', addedBy: duyId, note: 'Nạp thử' }),
+    );
+
+    expect(await readCreditBalance(database, workspaceId)).toBe('130.000');
+    expect(await database.query('SELECT credits, source, added_by, note, balance_after FROM credit_additions')).toEqual([
+      { credits: '50.000', source: 'internal_user', added_by: duyId, note: 'Nạp thử', balance_after: '130.000' },
     ]);
   });
 });
