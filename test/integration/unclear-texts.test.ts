@@ -11,7 +11,8 @@ import { insertMember } from './workspace-rows.ts';
 const PHOTO_A_URL = 'https://z.test/a.jpg';
 const DUY_LAST_WROTE_AT = new Date('2026-11-01T10:00:00+07:00');
 const MINUTE_IN_MS = 60 * 1000;
-const TIRE_SAVED_REPLY = 'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.';
+const TIRE_SAVED_REPLY =
+  'Đã lưu: Bảo dưỡng: lốp, xe 29C12345, 3.500.000đ.\n\nDữ liệu đã đọc:\nMục 1: bảo dưỡng\n- Biển số: 29C12345\n- Số tiền: 3.500.000đ\n- Bảo dưỡng: lốp';
 const FIRST_LINE = 'Lốp mới thay';
 const SECOND_LINE = 'xe 29C-123.45, giá 3.500.000đ';
 const PLATE_AND_AMOUNT = '29C-123.45, 3.500.000đ';

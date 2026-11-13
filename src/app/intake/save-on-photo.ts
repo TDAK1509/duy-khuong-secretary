@@ -2,7 +2,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
-import { formatReplyForSender } from './format-reply-with-read-data.ts';
+import { formatReplyWithReadData } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
@@ -33,7 +33,7 @@ export async function saveReplyOnPhoto(
 ): Promise<SavedReply> {
   const { sender } = context;
   const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
-  const senderText = formatReplyForSender(reply, sender.role);
+  const senderText = formatReplyWithReadData(reply);
   await saveRecordsAndReply(transaction, context, target, { reply, senderText });
   await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null);
   if (reply.saved && reply.asksQuestion) await markQuestionPending(transaction, target.textId);

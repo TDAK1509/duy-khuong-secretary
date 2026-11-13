@@ -4,7 +4,7 @@ import { hasDuplicateRecord } from '../records/has-duplicate-record.ts';
 import { insertRecords } from '../records/insert-records.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
-import { formatReplyForSender } from './format-reply-with-read-data.ts';
+import { formatReplyWithReadData } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { placeUnclearPhoto } from './place-unclear-photo.ts';
@@ -40,7 +40,7 @@ async function saveReply(
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
   await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
-  const text = formatReplyForSender(plan, sender.role);
+  const text = formatReplyWithReadData(plan);
   await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, text);

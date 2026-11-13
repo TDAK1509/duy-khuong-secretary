@@ -7,7 +7,8 @@ import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
 
 const FUEL_TEXT_WITH_QUESTION = 'Đổ dầu 500.000đ xe 29C-123.45. Tháng này tôi đổ mấy lần?';
-const MEMBER_FUEL_SAVED_REPLY = 'Đã lưu: Đổ xăng dầu, xe 29C12345, 500.000đ, ngày 30/10/2026.';
+const MEMBER_FUEL_SAVED_REPLY =
+  'Đã lưu: Đổ xăng dầu, xe 29C12345, 500.000đ, ngày 30/10/2026.\n\nDữ liệu đã đọc:\nMục 1: đổ xăng dầu\n- Biển số: 29C12345\n- Ngày trên giấy tờ: 30/10/2026\n- Số tiền: 500.000đ';
 
 describe('a member chats with the bot', () => {
   let harness: IntakeHarness;
