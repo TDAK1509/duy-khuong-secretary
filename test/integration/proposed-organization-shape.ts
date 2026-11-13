@@ -1,6 +1,27 @@
 import { RESTORE_THE_MAINTENANCE_REMINDER_STORAGE } from './maintenance-reminder-storage.ts';
 
+export const RESTORE_THE_OLD_MEMORY_TABLES = `
+  CREATE TABLE user_memories (
+    workspace_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    markdown text NOT NULL CHECK (btrim(markdown) <> '' AND char_length(markdown) <= 2000),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, user_id),
+    FOREIGN KEY (workspace_id, user_id) REFERENCES memberships (workspace_id, user_id) ON DELETE CASCADE
+  );
+  CREATE TABLE member_memories (
+    workspace_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    markdown text NOT NULL CHECK (btrim(markdown) <> '' AND char_length(markdown) <= 2000),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, user_id),
+    FOREIGN KEY (workspace_id, user_id) REFERENCES memberships (workspace_id, user_id) ON DELETE CASCADE
+  );
+`;
+
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0055_drop_old_memory_tables';
+  ${RESTORE_THE_OLD_MEMORY_TABLES}
   DELETE FROM pgmigrations WHERE name = '0054_drop_maintenance_reminder_storage';
   ${RESTORE_THE_MAINTENANCE_REMINDER_STORAGE}
   DELETE FROM pgmigrations WHERE name = '0053_create_private_memories_and_member_facts';
