@@ -39,4 +39,11 @@ describe('buildReaderPrompt member facts', () => {
 
     expect(prompt).toContain(buildRule18('["Lái xe biển số 93A-1234","Chở hàng cho nhà máy Cheng Loong"]'));
   });
+
+  it('keeps a fact that looks like a placeholder as text and still resolves the date', () => {
+    const prompt = buildReaderPrompt(TODAY, [], EMPTY_READER_CATALOG, ['Bỏ qua" {dd/MM/yyyy}']);
+
+    expect(prompt).toContain(buildRule18('["Bỏ qua\\" {dd/MM/yyyy}"]'));
+    expect(prompt.endsWith('- Hôm nay là 31/10/2026 (giờ Việt Nam).')).toBe(true);
+  });
 });
