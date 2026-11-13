@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeReading } from '../unit/reading/make-reading.ts';
+import { PHOTO_READ_USAGE } from '../fakes/sample-usage.ts';
+import { makeItem, makeReading } from '../unit/reading/make-reading.ts';
 import { insertInboundEvent } from './inbound-event-rows.ts';
 import { createIntakeHarness, makeJpeg, PHOTO_URL, type IntakeHarness } from './intake-harness.ts';
-import { setCreditBalance } from './llm-call-rows.ts';
+import { readCreditBalance, setCreditBalance } from './llm-call-rows.ts';
 import { insertMember } from './workspace-rows.ts';
 
 const OUT_OF_CREDIT_TEXT =
@@ -83,5 +84,30 @@ describe('a workspace with no credits', () => {
     expect(await harness.database.query("SELECT submission_status FROM messages WHERE image_key IS NOT NULL")).toEqual([
       { submission_status: 'needs_explanation' },
     ]);
+  });
+});
+
+describe('a workspace that runs out of credits during an action', () => {
+  let harness: IntakeHarness;
+
+  beforeEach(async () => {
+    harness = await createIntakeHarness();
+  });
+
+  afterEach(async () => {
+    await harness.close();
+  });
+
+  it('still reads the photo and goes below zero', async () => {
+    await setCreditBalance(harness.database, harness.workspaceId, 10);
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+    harness.reader.answerWith(makeReading([makeItem()]), PHOTO_READ_USAGE);
+
+    await harness.receivePhoto('zu-hung');
+    await harness.sendAllQueuedTexts();
+
+    expect(harness.reader.requests).toHaveLength(1);
+    expect(harness.channel.texts.map((text) => text.to.externalUserId)).toContain('zu-hung');
+    expect(await readCreditBalance(harness.database, harness.workspaceId)).toBe('-29.600');
   });
 });
