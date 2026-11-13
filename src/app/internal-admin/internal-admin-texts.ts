@@ -11,3 +11,4 @@ export const CODE_FIELD_LABEL = 'Mã đăng nhập';
 export const LOGIN_BUTTON_LABEL = 'Đăng nhập';
 export const WRONG_CODE_TEXT = 'Mã không đúng hoặc đã hết hạn. Nhắn "đăng nhập quản trị" cho Trợ lý để lấy mã mới.';
 export const TOO_MANY_LOGINS_TEXT = 'Có quá nhiều lần nhập mã. Thử lại sau 10 phút.';
+export const BALANCE_AND_USAGE_HEADING = 'Số dư và mức dùng';

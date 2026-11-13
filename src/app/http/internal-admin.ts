@@ -3,10 +3,12 @@ import { RequestRateLimit } from '../chatgpt/request-rate-limit.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { Database } from '../db/transaction.ts';
 import { LOGIN_POST_WINDOW_MS, MAX_LOGIN_POSTS, SESSION_LIFETIME_MS } from '../internal-admin/internal-admin-limits.ts';
+import { findInternalSessionUser } from '../internal-admin/find-internal-session-user.ts';
 import { NOT_INTERNAL_TEXT, TOO_MANY_LOGINS_TEXT, WRONG_CODE_TEXT } from '../internal-admin/internal-admin-texts.ts';
 import { startInternalSession, type SessionStartOutcome } from '../internal-admin/start-internal-session.ts';
-import { renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
+import { renderDashboardPage, renderLoginPage, renderMessagePage } from '../internal-admin/render-admin-page.ts';
 import { respondWithHtml, type HttpResponse } from './http-response.ts';
+import { readCookie } from './read-cookie.ts';
 
 const SESSION_COOKIE = '__Host-internal-session';
 const LOGIN_RATE_LIMIT_KEY = 'internal-login';
@@ -18,8 +20,15 @@ const ADMIN_HEADERS = {
 
 export type InternalAdminDependencies = { database: Database; clock: Clock };
 
-export function handleAdminPage(): HttpResponse {
-  return addAdminHeaders(respondWithHtml(renderLoginPage(null)));
+export async function handleAdminPage(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<HttpResponse> {
+  const userId = await findSessionUser(dependencies, cookieHeader);
+  return addAdminHeaders(respondWithHtml(userId === null ? renderLoginPage(null) : renderDashboardPage()));
+}
+
+async function findSessionUser(dependencies: InternalAdminDependencies, cookieHeader: string | undefined): Promise<string | null> {
+  const token = readCookie(cookieHeader, SESSION_COOKIE);
+  if (token === null) return null;
+  return findInternalSessionUser(dependencies.database, token, dependencies.clock.now());
 }
 
 export function createLoginRateLimit(): RequestRateLimit {

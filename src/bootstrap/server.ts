@@ -67,7 +67,7 @@ function registerChatGptOAuthRoutes(server: FastifyInstance, chatgptOAuth: SignI
 
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
   if (internalAdmin === null) return;
-  server.get('/admin', async (_request, reply) => sendResponse(reply, handleAdminPage()));
+  server.get('/admin', async (request, reply) => sendResponse(reply, await handleAdminPage(internalAdmin, request.headers.cookie)));
   const loginRateLimit = createLoginRateLimit();
   void server.register(async (scope) => {
     parseFormBodies(scope);

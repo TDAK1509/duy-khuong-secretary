@@ -1,5 +1,6 @@
 import {
   ADMIN_TITLE,
+  BALANCE_AND_USAGE_HEADING,
   CODE_FIELD_LABEL,
   LOGIN_BUTTON_LABEL,
   LOGIN_INTRO,
@@ -38,6 +39,10 @@ function renderCodeForm(): string {
     `<button type="submit">${LOGIN_BUTTON_LABEL}</button>`,
     '</form>',
   ].join('\n');
+}
+
+export function renderDashboardPage(): string {
+  return renderDocument([`<h1>${ADMIN_TITLE}</h1>`, `<h2>${BALANCE_AND_USAGE_HEADING}</h2>`].join('\n'));
 }
 
 export function renderMessagePage(message: string): string {
