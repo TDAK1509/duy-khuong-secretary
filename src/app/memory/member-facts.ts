@@ -27,7 +27,7 @@ export async function addMemberFact(
   fullError: string,
 ): Promise<(MemberFacts & { saved: SavedFact }) | null> {
   return changeMemberFacts(database, ref, async (transaction, member) => {
-    const facts = await selectFacts(transaction, ref, member);
+    const facts = await selectReadableFacts(transaction, ref, member, author);
     const duplicate = facts.find((saved) => saved.fact === fact);
     if (duplicate) return { displayName: member.displayName, facts, saved: duplicate };
     if (exceedsMemoryLimit([...facts.map((saved) => saved.fact), fact])) throw new ToolRefusal(fullError);

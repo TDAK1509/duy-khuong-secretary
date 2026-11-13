@@ -210,6 +210,18 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
   });
 
+  it('adds a second row when the same fact is hidden from the admin who adds it', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: PLATE_FACT });
+    const lan = await insertAdminLan();
+
+    await runTool('add_member_fact', { member_id: hungMembershipId, fact: PLATE_FACT, readers: 'admins' }, lan);
+
+    expect(await database.query('SELECT author_user_id, readers FROM member_facts ORDER BY created_at')).toEqual([
+      { author_user_id: duy.userId, readers: 'author' },
+      { author_user_id: lan.userId, readers: 'admins' },
+    ]);
+  });
+
   it('refuses a member who adds a fact about another member and stores nothing', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
     const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };
