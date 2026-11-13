@@ -37,20 +37,6 @@ export async function chargeCall(transaction: Transaction, call: RecordedCall): 
   if (hasCrossedZero(balanceAfter, credits)) await notifyAdminsOfNoCredits(transaction, call.workspaceId, charged);
 }
 
-function hasCrossedZero(balanceAfter: string, credits: string): boolean {
-  const after = toThousandths(balanceAfter);
-  return after <= 0n && after + toThousandths(credits) > 0n;
-}
-
-function toThousandths(credits: string): bigint {
-  return BigInt(credits.replace('.', ''));
-}
-
-async function insertCall(transaction: Transaction, call: RecordedCall, charge: { credits: string; balanceAfter: string | null }): Promise<void> {
-  const tokenCounts = listTokenCounts(call.usage);
-  await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, charge.credits, charge.balanceAfter]);
-}
-
 function lowerBalance(transaction: Transaction, workspaceId: string, credits: string): Promise<string> {
   return changeBalance(transaction, workspaceId, `credit_balance - $2::numeric`, credits);
 }
@@ -64,8 +50,22 @@ async function changeBalance(transaction: Transaction, workspaceId: string, newB
   return row.credit_balance;
 }
 
+async function insertCall(transaction: Transaction, call: RecordedCall, charge: { credits: string; balanceAfter: string | null }): Promise<void> {
+  const tokenCounts = listTokenCounts(call.usage);
+  await transaction.query(INSERT_CALL, [call.workspaceId, call.kind, call.model, ...tokenCounts, call.price.costUsd, charge.credits, charge.balanceAfter]);
+}
+
 function listTokenCounts(usage: TokenUsage | null): (number | null)[] {
   return [usage?.input ?? null, usage?.cachedInput ?? null, usage?.cacheWrite ?? null, usage?.output ?? null];
+}
+
+function hasCrossedZero(balanceAfter: string, credits: string): boolean {
+  const after = toThousandths(balanceAfter);
+  return after <= 0n && after + toThousandths(credits) > 0n;
+}
+
+function toThousandths(credits: string): bigint {
+  return BigInt(credits.replace('.', ''));
 }
 
 export async function addCredits(transaction: Transaction, addition: CreditAddition): Promise<void> {
