@@ -76,4 +76,15 @@ describe('the workspace credit history page', () => {
     expect(response.statusCode).toBe(404);
     expect(response.body).toContain('Không tìm thấy nhóm này.');
   });
+
+  it('shows the login page and no workspace data without a session', async () => {
+    await insertAddition(database, { workspaceId, credits: 20000, balanceAfter: 20000, createdAt: new Date('2026-10-30T09:15:00+07:00') });
+
+    const response = await getAdminPage(pool, clock, `/admin/workspaces/${workspaceId}`, null);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('Mã đăng nhập');
+    expect(response.body).not.toContain('Xe tải Duy Khương');
+    expect(response.body).not.toContain('Credit ban đầu');
+  });
 });
