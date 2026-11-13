@@ -1,5 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
-import { mayRead, type FactReader, type FactReaders } from './fact-readers.ts';
+import { mayFeedReader, type FactReader, type FactReaders } from './fact-readers.ts';
 
 type FactRow = { member_user_id: string; author_user_id: string | null; readers: FactReaders; fact: string };
 
@@ -9,6 +9,6 @@ export async function listMemberFacts(transaction: Transaction, workspaceId: str
       'SELECT member_user_id, author_user_id, readers, fact FROM member_facts WHERE workspace_id = $1 AND member_user_id = $2 ORDER BY created_at, id',
       [workspaceId, sender.userId],
     );
-    return rows.filter((row) => mayRead({ readers: row.readers, authorUserId: row.author_user_id, memberUserId: row.member_user_id }, sender)).map((row) => row.fact);
+    return rows.filter((row) => mayFeedReader({ readers: row.readers, authorUserId: row.author_user_id, memberUserId: row.member_user_id }, sender)).map((row) => row.fact);
   });
 }
