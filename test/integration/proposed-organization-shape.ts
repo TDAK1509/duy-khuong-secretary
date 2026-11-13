@@ -1,4 +1,5 @@
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0051_fold_maintenance_rules_into_instructions';
   DELETE FROM pgmigrations WHERE name = '0050_index_outbound_messages_sending';
   DROP INDEX outbound_messages_sending_idx;
   DELETE FROM pgmigrations WHERE name = '0049_add_internal_users';
