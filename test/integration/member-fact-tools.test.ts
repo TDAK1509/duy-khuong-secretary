@@ -199,6 +199,17 @@ describe('the member fact tools of an admin in the chat', () => {
     expect(await readMemberFacts(database, lanUserId)).toBe(`- ${CUSTOMER_FACT}`);
   });
 
+  it('keeps the facts hidden from the admin when the admin forgets all facts of a member', async () => {
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'author', fact: 'Chỉ Duy xem' });
+    await insertMemberFact(database, { workspaceId, memberUserId: hungUserId, authorUserId: duy.userId, readers: 'admins', fact: 'Các quản lý xem' });
+    const lan = await insertAdminLan();
+
+    const output = await runTool('forget_all_member_facts', { member_id: hungMembershipId }, lan);
+
+    expect(JSON.parse(output)).toEqual({ ok: true, member: 'Hùng', facts: [] });
+    expect(await readMemberFacts(database, hungUserId)).toBe('- Chỉ Duy xem');
+  });
+
   it('refuses a member who adds a fact about another member and stores nothing', async () => {
     const lanUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
     const hung: AccessScope = { workspaceId, userId: hungUserId, role: 'member' };

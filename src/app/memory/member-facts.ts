@@ -46,9 +46,9 @@ export async function removeMemberFact(database: Database, ref: MemberRef, calle
   });
 }
 
-export async function clearMemberFacts(database: Database, ref: MemberRef): Promise<MemberFacts | null> {
+export async function clearMemberFacts(database: Database, ref: MemberRef, caller: FactReader): Promise<MemberFacts | null> {
   return changeMemberFacts(database, ref, async (transaction, member) => {
-    await deleteFacts(transaction, await selectFacts(transaction, ref, member));
+    await deleteFacts(transaction, await selectReadableFacts(transaction, ref, member, caller));
     return { displayName: member.displayName, facts: [] };
   });
 }

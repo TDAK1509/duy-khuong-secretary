@@ -39,7 +39,7 @@ export async function runForgetMemberFact(database: Database, scope: AccessScope
 
 export async function runForgetAllMemberFacts(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const { member_id: memberId } = memberArgumentsSchema.parse(parsedArguments);
-  const memory = await withMemberRef(scope, memberId, (ref) => clearMemberFacts(database, ref));
+  const memory = await withMemberRef(scope, memberId, (ref) => clearMemberFacts(database, ref, scope));
   return reportChange(memory);
 }
 
