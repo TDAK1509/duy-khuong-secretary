@@ -35,7 +35,7 @@ async function loadKeptPhoto(context: IntakeContext, message: StoredUserMessage)
 
 type Downloaded = { ok: true; image: DetectedImage } | { ok: false; replyText: string };
 
-async function downloadImage(context: IntakeContext, url: string): Promise<Downloaded> {
+export async function downloadImage(context: IntakeContext, url: string): Promise<Downloaded> {
   const download = await context.dependencies.channel.downloadAttachment(url, MAX_PHOTO_BYTES);
   if (!download.ok) {
     return { ok: false, replyText: download.reason === 'too_large' ? PHOTO_TOO_LARGE_TEXT : PHOTO_NOT_DOWNLOADED_TEXT };
@@ -44,7 +44,7 @@ async function downloadImage(context: IntakeContext, url: string): Promise<Downl
   return image === null ? { ok: false, replyText: PHOTO_NOT_JPEG_OR_PNG_TEXT } : { ok: true, image };
 }
 
-async function storeMessageAndPhoto(context: IntakeContext, part: PhotoPart, image: DetectedImage): Promise<string> {
+export async function storeMessageAndPhoto(context: IntakeContext, part: PhotoPart, image: DetectedImage): Promise<string> {
   const id = randomUUID();
   const imageKey = `${context.sender.workspaceId}/${id}.${image.extension}`;
   const stored = await runStoreStage(context, { id, text: part.text, imageKey, partIndex: part.index });

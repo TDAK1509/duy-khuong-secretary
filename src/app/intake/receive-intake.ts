@@ -4,6 +4,7 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
+import { hasCredits } from '../credits/has-credits.ts';
 import { meterChat } from '../credits/meter-chat.ts';
 import { meterReader } from '../credits/meter-reader.ts';
 import { hasOfferedChoice } from '../delivery/has-offered-choice.ts';
@@ -18,8 +19,10 @@ import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
 import { answerPhotoExplanation } from './answer-photo-explanation.ts';
+import { OUT_OF_CREDIT_TEXT } from './intake-texts.ts';
 import { receivePhoto } from './receive-photo.ts';
 import { replyToMessage, type MessageToRead } from './reply-to-message.ts';
+import { storeWithoutReading } from './store-without-reading.ts';
 import { findUserMessage, runStoreStage } from './store-user-message.ts';
 import { endExpiredWaits, findAskedPhoto } from './waiting-photos.ts';
 
@@ -38,9 +41,20 @@ export async function receiveIntake(
   if (reader === null) return { kind: 'not_configured', group: 'readers' };
   const context = { ...meterServices(dependencies, reader, chat, sender), stages, event, sender };
   const parts = readIntakeParts(event);
+  const outcomes = await receiveParts(context, parts);
+  return stages.finishEvent((transaction) => finishIntake(transaction, context, readAnsweredText(event, parts), outcomes));
+}
+
+async function receiveParts(context: IntakeContext, parts: IntakePart[]): Promise<IntakeOutcome[]> {
+  if (!(await hasCredits(context.dependencies.database, context.sender.workspaceId))) return refuseWithoutCredits(context, parts);
   const outcomes: IntakeOutcome[] = [];
   for (const part of parts) outcomes.push(await receivePart(context, part));
-  return stages.finishEvent((transaction) => finishIntake(transaction, context, readAnsweredText(event, parts), outcomes));
+  return outcomes;
+}
+
+async function refuseWithoutCredits(context: IntakeContext, parts: IntakePart[]): Promise<IntakeOutcome[]> {
+  for (const part of parts) await storeWithoutReading(context, part);
+  return [{ kind: 'refused', replyText: OUT_OF_CREDIT_TEXT }];
 }
 
 function meterServices(
