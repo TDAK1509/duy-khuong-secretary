@@ -8,7 +8,6 @@ import { AdminTextGuard } from '../../src/app/admin-chat/tools/admin-text-guard.
 import { runAdminTool } from '../../src/app/admin-chat/tools/run-admin-tool.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
-import { readMemberFacts } from './member-fact-rows.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
@@ -88,9 +87,8 @@ describe('rewrite_member_plate tool', () => {
 
   it('does not touch documents from other workspaces', async () => {
     const w2Id = await insertWorkspace(database, 'Xe tải khác');
-    const a2UserId = await insertMember(database, { workspaceId: w2Id, externalUserId: 'zu-a2', displayName: 'A2', role: 'admin' });
+    await insertMember(database, { workspaceId: w2Id, externalUserId: 'zu-a2', displayName: 'A2', role: 'admin' });
     const d2UserId = await insertMember(database, { workspaceId: w2Id, externalUserId: 'zu-d2', displayName: 'D2' });
-    const d2MembershipId = await findMembershipId(d2UserId);
 
     await insertDocumentWithSource(database, { workspaceId, userId: hungUserId, issuerKey: 'ik1', documentNumber: 'D1', documentDate: '2026-11-01', vehiclePlate: '93C12344' });
     await insertDocumentWithSource(database, { workspaceId: w2Id, userId: d2UserId, issuerKey: 'ik2', documentNumber: 'D2', documentDate: '2026-11-01', vehiclePlate: '93C12344' });
