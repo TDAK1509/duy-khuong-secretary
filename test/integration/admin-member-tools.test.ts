@@ -97,6 +97,13 @@ describe('the member tools of an admin', () => {
       expect(result.name_hint).toContain('Tên "Tài xế 93C12346" trông giống biển số xe');
       expect(result.name_hint).toContain('Lưu cho Tài xế 93C12346: Biển số xe: 93C12346');
     });
+
+    it('includes a person name hint with an example plate when the display name is a person', async () => {
+      const output = await runTool('create_invite', { display_name: 'Tài xế Toàn', role: 'member' });
+
+      const result = JSON.parse(output) as { name_hint: string };
+      expect(result.name_hint).toContain('Ví dụ: "Lưu cho Tài xế Toàn: Biển số xe: 93A-1234"');
+    });
   });
 
   describe('removing a member', () => {
