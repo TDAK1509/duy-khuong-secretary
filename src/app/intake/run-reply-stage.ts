@@ -39,7 +39,7 @@ async function saveReply(
   const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
-  await storeDocuments(transaction, message, plannedReply, plan.saved !== null);
+  await storeDocuments(transaction, message, plannedReply, plan.saved !== null, sender);
   const text = formatReplyWithReadData(plan);
   await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
   await setSubmissionStatus(transaction, messageId, plan.status);
