@@ -27,13 +27,22 @@ export async function addMemberFact(
   fullError: string,
 ): Promise<(MemberFacts & { saved: SavedFact }) | null> {
   return changeMemberFacts(database, ref, async (transaction, member) => {
-    const facts = await selectReadableFacts(transaction, ref, member, author);
-    const duplicate = facts.find((saved) => saved.fact === fact);
-    if (duplicate) return { displayName: member.displayName, role: member.role, facts, saved: duplicate };
-    if (exceedsMemoryLimit([...facts.map((saved) => saved.fact), fact])) throw new ToolRefusal(fullError);
-    const saved = await insertFact(transaction, ref, member, author, { fact, readers });
-    return { displayName: member.displayName, role: member.role, facts: [...facts, saved], saved };
+    return upsertFactInTransaction(transaction, ref, member, author, { fact, readers }, fullError);
   });
+}
+
+export async function addMemberFactInTransaction(
+  transaction: Transaction,
+  ref: MemberRef,
+  author: FactReader,
+  { fact, readers }: NewMemberFact,
+  fullError: string,
+): Promise<(MemberFacts & { saved: SavedFact }) | null> {
+  const member = await findMember(transaction, ref);
+  if (member === null) return null;
+  await lockMemberFacts(transaction, ref.workspaceId, member.userId);
+  if (!(await holdMembership(transaction, ref))) return null;
+  return upsertFactInTransaction(transaction, ref, member, author, { fact, readers }, fullError);
 }
 
 export async function removeMemberFact(database: Database, ref: MemberRef, caller: FactReader, fact: string, notFoundError: string): Promise<MemberFacts | null> {
@@ -65,6 +74,22 @@ async function changeMemberFacts<Result>(
     if (!(await holdMembership(transaction, ref))) return null;
     return change(transaction, member);
   });
+}
+
+async function upsertFactInTransaction(
+  transaction: Transaction,
+  ref: MemberRef,
+  member: Member,
+  author: FactReader,
+  { fact, readers }: NewMemberFact,
+  fullError: string,
+): Promise<MemberFacts & { saved: SavedFact }> {
+  const facts = await selectReadableFacts(transaction, ref, member, author);
+  const duplicate = facts.find((saved) => saved.fact === fact);
+  if (duplicate) return { displayName: member.displayName, role: member.role, facts, saved: duplicate };
+  if (exceedsMemoryLimit([...facts.map((saved) => saved.fact), fact])) throw new ToolRefusal(fullError);
+  const saved = await insertFact(transaction, ref, member, author, { fact, readers });
+  return { displayName: member.displayName, role: member.role, facts: [...facts, saved], saved };
 }
 
 async function findMember(transaction: Transaction, { workspaceId, membershipId }: MemberRef): Promise<Member | null> {

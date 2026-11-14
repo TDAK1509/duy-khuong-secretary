@@ -4,7 +4,7 @@ import { buildAdminPrompt } from '../../../src/app/admin-chat/admin-prompt.ts';
 import { CHANGE_REFUSED_NOTICE } from '../../../src/app/admin-chat/chat-texts.ts';
 import { ADMIN_TOOLS } from '../../../src/app/admin-chat/tools/admin-tools.ts';
 
-const CHANGE_LINE = '- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, add_member_fact, forget_member_fact, forget_all_member_facts, remember, forget, forget_all và split_merged_name.';
+const CHANGE_LINE = '- Việc thay đổi gồm create_scheduled_task, cancel_scheduled_task, create_invite, remove_member, add_member_fact, forget_member_fact, forget_all_member_facts, remember, forget, forget_all, split_merged_name và rewrite_member_plate.';
 const MEMBER_DATA_LINE =
   '- Dữ liệu thành viên gồm kết quả của search_records, count_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_merged_names, list_sources và list_documents.';
 const ASK_FIRST_LINE =

@@ -4,6 +4,7 @@ import { LIST_MERGED_NAMES_SPEC, SPLIT_MERGED_NAME_SPEC } from './merged-name-sp
 import { MEMBER_FACT_TOOLS } from './member-fact-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-source-specs.ts';
+import { REWRITE_MEMBER_PLATE_SPEC } from './rewrite-member-plate-spec.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
@@ -22,6 +23,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   CREATE_INVITE_SPEC,
   REMOVE_MEMBER_SPEC,
   ...MEMBER_FACT_TOOLS,
+  REWRITE_MEMBER_PLATE_SPEC,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,
   ADMIN_LIST_SOURCES_SPEC,

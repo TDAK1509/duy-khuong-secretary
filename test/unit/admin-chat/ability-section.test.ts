@@ -25,6 +25,7 @@ describe('the ability section of the prompt', () => {
         '- Lưu thông tin về một người trong nhóm để đọc giấy tờ người đó gửi tốt hơn.',
         '- Xóa một thông tin đã lưu về một người trong nhóm.',
         '- Xóa mọi thông tin đã lưu về một người trong nhóm.',
+        '- Đổi biển số xe cho toàn bộ dữ liệu đã lưu của một tài xế.',
         '- Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
         '- Gửi lại ảnh gốc của dữ liệu đã lưu.',
         '- Cho biết dữ liệu lấy từ tin nhắn nào: ai gửi, lúc nào, ảnh hay tin nhắn, kèm nguyên văn.',
