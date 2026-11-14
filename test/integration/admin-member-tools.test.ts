@@ -89,6 +89,14 @@ describe('the member tools of an admin', () => {
       expect(output).toBe('{"ok":false,"error":"Không có quyền."}');
       expect(await database.query('SELECT 1 FROM workspace_invites')).toEqual([]);
     });
+
+    it('includes a plate name hint when the display name looks like a plate', async () => {
+      const output = await runTool('create_invite', { display_name: 'Tài xế 93C12346', role: 'member' });
+
+      const result = JSON.parse(output) as { name_hint: string };
+      expect(result.name_hint).toContain('Tên "Tài xế 93C12346" trông giống biển số xe');
+      expect(result.name_hint).toContain('Lưu cho Tài xế 93C12346: Biển số xe: 93C12346');
+    });
   });
 
   describe('removing a member', () => {
