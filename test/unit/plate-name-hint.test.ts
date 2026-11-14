@@ -13,4 +13,10 @@ describe('classifyDisplayName', () => {
 
     expect(result).toEqual({ kind: 'person' });
   });
+
+  it('classifies a bare person name without any prefix as person', () => {
+    const result = classifyDisplayName('Toàn');
+
+    expect(result).toEqual({ kind: 'person' });
+  });
 });
