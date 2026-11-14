@@ -105,7 +105,7 @@ jobs:
 
   mutation-shard:
     name: mutation (${{ matrix.shard }})
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -154,7 +154,7 @@ jobs:
 
   mutation:
     needs: mutation-shard
-    if: always() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
+    if: always() && github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
