@@ -128,12 +128,8 @@ describe('render.yaml with every prompt left blank', () => {
 });
 
 describe('render.yaml database access', () => {
-  it("allows external connections only from the owner's machines", () => {
-    expect(blueprint.databases[0]?.['ipAllowList']).toEqual([
-      { source: '187.15.122.223/32', description: 'owner machine' },
-      { source: '15.235.203.116/32', description: 'owner dev machine' },
-      { source: '113.161.87.220/32', description: 'owner second machine' },
-    ]);
+  it('leaves the IP allow list to the dashboard, so a sync keeps it and no address is published', () => {
+    expect(blueprint.databases[0]).not.toHaveProperty('ipAllowList');
   });
 });
 
