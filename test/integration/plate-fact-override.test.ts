@@ -41,6 +41,20 @@ describe('plate fact override in storeDocuments', () => {
     const [row] = await database.query<{ vehicle_plate: string }>('SELECT vehicle_plate FROM documents');
     expect(row?.vehicle_plate).toBe('93C12346');
   });
+
+  it('keeps the reader plate when the driver has no plate fact', async () => {
+    const driverUserId = await insertMember(database, { workspaceId, externalUserId: 'zu-driver', displayName: 'Tài xế 93C12346' });
+    const messageId = await insertChatMessage(database, { workspaceId, userId: driverUserId, author: 'user', text: null, imageKey: 'test.jpg', createdAt: new Date() });
+    const plan = makePlan('93C12344');
+    const sender = { userId: driverUserId, role: 'member' as const };
+
+    await runInTransaction(pool, (transaction) =>
+      storeDocuments(transaction, { id: messageId, workspaceId }, plan, true, sender),
+    );
+
+    const [row] = await database.query<{ vehicle_plate: string }>('SELECT vehicle_plate FROM documents');
+    expect(row?.vehicle_plate).toBe('93C12344');
+  });
 });
 
 function makePlan(vehiclePlate: string): ReplyPlan {
