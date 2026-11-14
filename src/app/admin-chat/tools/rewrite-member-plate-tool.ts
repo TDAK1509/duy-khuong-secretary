@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { runInTransaction, type Database } from '../../db/transaction.ts';
-import { addMemberFact, type MemberRef } from '../../memory/member-facts.ts';
+import { addMemberFactInTransaction, type MemberRef } from '../../memory/member-facts.ts';
 import { failTool, MEMBER_NOT_FOUND_ERROR, refuseInvalidArgument } from './tool-result.ts';
 
 const PLATE_FACT_FULL_ERROR = 'Không thể lưu biển số vì thông tin đã đủ 2000 ký tự.';
@@ -31,31 +31,33 @@ const UPDATE_MEMBER_DOCUMENTS_SQL = `
 `;
 
 export async function runRewriteMemberPlate(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
+  const request = parsePlateRequest(parsedArguments, scope.workspaceId);
+  if (typeof request === 'string') return request;
+  return runInTransaction(database, async (transaction) => {
+    const updated = await updateMemberDocumentsInTransaction(transaction, request.ref, request.plate);
+    const result = await addMemberFactInTransaction(transaction, request.ref, scope, { fact: `Biển số xe: ${request.plate}`, readers: 'admins_and_member' }, PLATE_FACT_FULL_ERROR);
+    if (result === null) return failTool(MEMBER_NOT_FOUND_ERROR);
+    return JSON.stringify({ ok: true, updated, member: result.displayName, plate: request.plate });
+  });
+}
+
+type PlateRequest = { ref: MemberRef; plate: string };
+
+function parsePlateRequest(parsedArguments: unknown, workspaceId: string): PlateRequest | string {
   const { member_id: memberId, vehicle_plate: rawPlate } = argumentsSchema.parse(parsedArguments);
   const plate = normalizePlate(rawPlate);
   if (!PLATE_REGEX.test(plate)) refuseInvalidArgument('vehicle_plate');
   if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
-  const ref: MemberRef = { workspaceId: scope.workspaceId, membershipId: memberId };
-  const displayName = await resolveDisplayName(database, ref);
-  if (displayName === null) return failTool(MEMBER_NOT_FOUND_ERROR);
-  const updated = await updateMemberDocuments(database, ref, plate);
-  await addMemberFact(database, ref, scope, { fact: `Biển số xe: ${plate}`, readers: 'admins_and_member' }, PLATE_FACT_FULL_ERROR);
-  return JSON.stringify({ ok: true, updated, member: displayName, plate });
+  return { ref: { workspaceId, membershipId: memberId }, plate };
 }
 
-async function resolveDisplayName(database: Database, { workspaceId, membershipId }: MemberRef): Promise<string | null> {
-  const { rows } = await database.query<{ display_name: string }>(
-    'SELECT display_name FROM memberships WHERE id = $1 AND workspace_id = $2',
-    [membershipId, workspaceId],
-  );
-  return rows[0] ? rows[0].display_name : null;
-}
-
-async function updateMemberDocuments(database: Database, { workspaceId, membershipId }: MemberRef, plate: string): Promise<number> {
-  return runInTransaction(database, async (transaction) => {
-    const rows = await transaction.query(UPDATE_MEMBER_DOCUMENTS_SQL, [membershipId, workspaceId, plate]);
-    return rows.length;
-  });
+async function updateMemberDocumentsInTransaction(
+  transaction: { query<Row>(statement: string, values?: unknown[]): Promise<Row[]> },
+  { workspaceId, membershipId }: MemberRef,
+  plate: string,
+): Promise<number> {
+  const rows = await transaction.query(UPDATE_MEMBER_DOCUMENTS_SQL, [membershipId, workspaceId, plate]);
+  return rows.length;
 }
 
 function normalizePlate(raw: string): string {

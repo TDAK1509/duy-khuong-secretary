@@ -119,6 +119,12 @@ describe('rewrite_member_plate tool', () => {
     expect(await database.query('SELECT 1 FROM documents')).toHaveLength(0);
   });
 
+  it('refuses a non-UUID member id', async () => {
+    const output = await runTool({ member_id: 'not-a-uuid', vehicle_plate: '93C12346' });
+
+    expect(output).toBe(MEMBER_NOT_FOUND_RESULT);
+  });
+
   it('refuses an invalid plate and makes no changes', async () => {
     await insertDocumentWithSource(database, { workspaceId, userId: hungUserId, issuerKey: 'ik1', documentNumber: 'D1', documentDate: '2026-11-01', vehiclePlate: '93C12344' });
 
