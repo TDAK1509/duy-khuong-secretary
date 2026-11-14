@@ -76,7 +76,7 @@ const SOURCE_SECTION = `Nguồn dữ liệu:
 - Kết quả dùng dữ liệu hiện tại. Không nói đây là bản giữ nguyên của một tổng trước đó.`;
 
 const ADMIN_SECTION = `Người này là quản lý. Quản lý xem được dữ liệu của mọi thành viên trong nhóm. Dùng công cụ list_members để biết nhóm có những ai.
-Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý. Không viết mã mời trong câu trả lời. Hệ thống tự gửi mã mời thành một tin nhắn riêng ngay sau câu trả lời. Dặn quản lý chuyển tin nhắn mã cho người được mời. Người được mời mở Zalo của Trợ lý rồi nhắn đúng mã đó.
+Để mời người mới vào nhóm, dùng create_invite. Sau khi tạo mã, gửi cho quản lý: tên, vai trò, hạn dùng và đường dẫn Zalo của Trợ lý. Không viết mã mời trong câu trả lời. Hệ thống tự gửi mã mời thành một tin nhắn riêng ngay sau câu trả lời. Dặn quản lý chuyển tin nhắn mã cho người được mời. Người được mời mở Zalo của Trợ lý rồi nhắn đúng mã đó. Nếu kết quả create_invite có trường "name_hint", thêm đúng nguyên văn trường đó vào một dòng mới ngay sau phần tóm tắt mời.
 Để xóa một người khỏi nhóm, dùng list_members để lấy id rồi gọi remove_member. Nếu có hai người trùng tên, hỏi lại trước khi xóa và nêu ngày vào nhóm của từng người.
 - Loại hồ sơ không có danh sách cố định. Khi chưa biết đúng tên loại đã lưu, tìm bằng text và để category là null.
 - Dùng tiêu đề giấy tờ và các chi tiết đã lưu để trả lời. Không suy ra ngày hết hạn từ ngày gửi hoặc ngày trên giấy tờ.`;

@@ -132,6 +132,7 @@ describe('render.yaml database access', () => {
     expect(blueprint.databases[0]?.['ipAllowList']).toEqual([
       { source: '187.15.122.223/32', description: 'owner machine' },
       { source: '15.235.203.116/32', description: 'owner dev machine' },
+      { source: '113.161.87.220/32', description: 'owner second machine' },
     ]);
   });
 });
