@@ -7,4 +7,10 @@ describe('extractPlateFromFacts', () => {
 
     expect(plate).toBe('93C-123.46');
   });
+
+  it('returns null when no fact contains a plate-shaped substring', () => {
+    const plate = extractPlateFromFacts(['Hay giao hàng cho công ty A']);
+
+    expect(plate).toBeNull();
+  });
 });
