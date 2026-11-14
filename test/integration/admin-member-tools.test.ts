@@ -104,6 +104,13 @@ describe('the member tools of an admin', () => {
       const result = JSON.parse(output) as { name_hint: string };
       expect(result.name_hint).toContain('Ví dụ: "Lưu cho Tài xế Toàn: Biển số xe: 93A-1234"');
     });
+
+    it('stores the display name unchanged when the name looks like a plate', async () => {
+      await runTool('create_invite', { display_name: 'Tài xế 93C12346', role: 'member' });
+
+      const rows = await database.query<{ display_name: string }>('SELECT display_name FROM workspace_invites');
+      expect(rows).toEqual([{ display_name: 'Tài xế 93C12346' }]);
+    });
   });
 
   describe('removing a member', () => {
