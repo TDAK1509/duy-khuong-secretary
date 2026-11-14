@@ -13,4 +13,10 @@ describe('extractPlateFromFacts', () => {
 
     expect(plate).toBeNull();
   });
+
+  it('returns the newest matching fact plate when multiple facts hold plates', () => {
+    const plate = extractPlateFromFacts(['Biển số xe: 93C-123.40', 'Biển số xe: 93C-123.46']);
+
+    expect(plate).toBe('93C-123.46');
+  });
 });
