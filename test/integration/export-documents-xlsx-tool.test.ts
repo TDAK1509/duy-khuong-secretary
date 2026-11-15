@@ -75,6 +75,16 @@ describe('export_documents_xlsx tool', () => {
     expect(puts[0]!.key).toMatch(/\.xlsx$/);
   });
 
+  it('never writes under the old workspace_<id>/exports/ prefix', async () => {
+    await insertNumberedDocument(database, { workspaceId, userId: memberId, documentNumber: '0001c' });
+    const storage = new FakeFileStorage();
+
+    await runExport({}, storage);
+
+    const oldPrefixPattern = /^workspace_[^/]+\/exports\//;
+    expect(storage.listPuts().every((put) => !oldPrefixPattern.test(put.key))).toBe(true);
+  });
+
   it('returns a presigned URL and 24-hour expiry', async () => {
     await insertNumberedDocument(database, { workspaceId, userId: memberId, documentNumber: '0002' });
     const storage = new FakeFileStorage();
