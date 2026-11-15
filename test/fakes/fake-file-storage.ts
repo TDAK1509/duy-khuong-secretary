@@ -18,7 +18,7 @@ export class FakeFileStorage implements FileStorage {
     this.puts.push({ key, bytes, contentType });
   }
 
-  async presignedUrl(key: string, _expiresInSeconds: number): Promise<string> {
-    return this.defaultUrl ?? `https://r2.fake/${key}?X-Amz-Expires=86400`;
+  async presignedUrl(key: string, expiresInSeconds: number): Promise<string> {
+    return this.defaultUrl ?? `https://r2.fake/${key}?X-Amz-Expires=${expiresInSeconds}`;
   }
 }
