@@ -38,6 +38,7 @@ describe('the ability section of the prompt', () => {
         '- Cộng số tiền, trọng lượng hoặc số lượng trên giấy tờ theo công ty, loại giấy tờ, xe hoặc ngày.',
         '- Tìm đúng tên công ty và nơi chốn đã lưu.',
         '- Liệt kê các giấy tờ được tính trong một tổng số trên giấy tờ.',
+        '- Xuất danh sách giấy tờ ra file Excel và trả về đường dẫn tải xuống.',
         CHAT_LINE,
       ].join('\n'),
     );
