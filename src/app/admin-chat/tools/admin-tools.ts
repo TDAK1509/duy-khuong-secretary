@@ -5,6 +5,7 @@ import { MEMBER_FACT_TOOLS } from './member-fact-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-source-specs.ts';
 import { REWRITE_MEMBER_PLATE_SPEC } from './rewrite-member-plate-spec.ts';
+import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
@@ -36,4 +37,5 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   TOTAL_DOCUMENT_NUMBERS_SPEC,
   LIST_ORGANIZATIONS_SPEC,
   LIST_DOCUMENTS_SPEC,
+  EXPORT_DOCUMENTS_XLSX_SPEC,
 ];
