@@ -57,9 +57,32 @@ describe('export_documents_xlsx tool', () => {
     expect(result.ok).toBe(true);
     const puts = storage.listPuts();
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.key).toMatch(new RegExp(`^workspace_${workspaceId}/exports/`));
+    expect(puts[0]!.key).toMatch(new RegExp(`^exports/workspace_${workspaceId}/`));
     expect(puts[0]!.key).toMatch(/\.xlsx$/);
     expect(puts[0]!.contentType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  });
+
+  it('stores the xlsx file under the exports/ prefix', async () => {
+    await insertNumberedDocument(database, { workspaceId, userId: memberId, documentNumber: '0001b' });
+    const storage = new FakeFileStorage();
+
+    const result = await runExport({}, storage);
+
+    expect(result.ok).toBe(true);
+    const puts = storage.listPuts();
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.key).toMatch(new RegExp(`^exports/workspace_${workspaceId}/`));
+    expect(puts[0]!.key).toMatch(/\.xlsx$/);
+  });
+
+  it('never writes under the old workspace_<id>/exports/ prefix', async () => {
+    await insertNumberedDocument(database, { workspaceId, userId: memberId, documentNumber: '0001c' });
+    const storage = new FakeFileStorage();
+
+    await runExport({}, storage);
+
+    const oldPrefixPattern = /^workspace_[^/]+\/exports\//;
+    expect(storage.listPuts().every((put) => !oldPrefixPattern.test(put.key))).toBe(true);
   });
 
   it('returns a presigned URL and 24-hour expiry', async () => {

@@ -80,6 +80,18 @@ describe('storing what a member sends', () => {
     expect((await harness.photoStorage.get(key ?? ''))?.contentType).toBe('image/png');
   });
 
+  it('stores a photo under workspaceId/uuid.ext — not under exports/ or photos/', async () => {
+    harness.channel.attachments.set(PHOTO_URL, { ok: true, bytes: makeJpeg(1000) });
+
+    await receivePhoto('zu-hung');
+
+    const [key] = harness.photoStorage.listKeys();
+    expect(key).toBeDefined();
+    expect(key).toMatch(new RegExp(`^${workspaceId}/[^/]+\\.[a-z]+$`));
+    expect(key).not.toMatch(/^exports\//);
+    expect(key).not.toMatch(/^photos\//);
+  });
+
   it('turns two photos of one event into two messages', async () => {
     harness.channel.attachments.set('https://z.test/1.jpg', { ok: true, bytes: makeJpeg(1000) });
     harness.channel.attachments.set('https://z.test/2.jpg', { ok: true, bytes: makeJpeg(2000) });

@@ -80,7 +80,7 @@ function buildSenderSubquery(): string {
 }
 
 function buildStorageKey(workspaceId: string): string {
-  return `workspace_${workspaceId}/exports/${randomUUID()}.xlsx`;
+  return `exports/workspace_${workspaceId}/${randomUUID()}.xlsx`;
 }
 
 function buildFilename(key: string): string {
