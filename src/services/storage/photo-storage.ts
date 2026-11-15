@@ -6,4 +6,5 @@ export interface Photo {
 export interface PhotoStorage {
   put(key: string, photo: Photo): Promise<void>;
   get(key: string): Promise<Photo | null>;
+  delete(key: string): Promise<void>;
 }
