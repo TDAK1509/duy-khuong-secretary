@@ -5,7 +5,8 @@ import { createInboundHandler } from '../app/processing/handle-inbound-event.ts'
 import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
-import { runTick } from '../app/ticker/run-tick.ts';
+import type { CleanupDependencies } from '../app/intake/cleanup-old-photos.ts';
+import { runTick, type TickDependencies } from '../app/ticker/run-tick.ts';
 import type { ChatService } from '../services/chat/chat-service.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
@@ -25,6 +26,7 @@ import {
   buildReader,
 } from './from-env.ts';
 import { loadChatConfig, type ChatConfig } from './chat-config.ts';
+import { loadPhotoCleanupConfig } from './photo-cleanup-config.ts';
 import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
 import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
@@ -49,7 +51,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
     pool,
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
-    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chat, pool, clock)),
+    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chat, pool, clock, environment, photoStorage)),
     ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chat, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
   };
 }
@@ -127,12 +129,28 @@ function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock
   return { database: pool, channelAuth: buildChannelAuth(zalo, clock), encryptionKey: zalo.encryptionKey, clock };
 }
 
-function buildTickOptions(configs: ServiceConfigs, connection: ReturnType<typeof buildConnectionDependencies> | null, alerts: OperatorAlerts, channel: MessagingChannel | null, chat: ChatService | null, pool: PostgresPool, clock: Clock) {
+function buildTickOptions(
+  configs: ServiceConfigs,
+  connection: ReturnType<typeof buildConnectionDependencies> | null,
+  alerts: OperatorAlerts,
+  channel: MessagingChannel | null,
+  chat: ChatService | null,
+  pool: PostgresPool,
+  clock: Clock,
+  environment: NodeJS.ProcessEnv,
+  photoStorage: PhotoStorage | null,
+): TickDependencies {
   const { zalo } = configs;
   return {
     renewal: zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs },
     scheduledRuns: channel && chat && { database: pool, clock, chat, channel },
+    photoCleanup: buildPhotoCleanupDeps(pool, clock, photoStorage, loadPhotoCleanupConfig(environment)),
   };
+}
+
+function buildPhotoCleanupDeps(pool: PostgresPool, clock: Clock, photoStorage: PhotoStorage | null, config: { retentionDays: number; batchSize: number }): CleanupDependencies | null {
+  if (!photoStorage) return null;
+  return { database: pool, photoStorage, clock, retentionDays: config.retentionDays, batchSize: config.batchSize };
 }
 
 type HttpParts = {
