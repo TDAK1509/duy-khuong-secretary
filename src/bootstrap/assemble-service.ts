@@ -65,15 +65,26 @@ type ServiceConfigs = {
 };
 
 function loadAllConfigs(environment: NodeJS.ProcessEnv, log: (line: string) => void): ServiceConfigs {
-  const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
+  const { zalo, webhookConfig, photoStorageConfig, readerConfig, chatConfig, reportTemplate } = loadGroupConfigs(environment, log);
   return {
     base: loadConfig(environment),
+    zalo,
+    webhookConfig,
+    photoStorageConfig,
+    readerConfig,
+    chatConfig,
+    reportReadyTemplateId: reportTemplate?.templateId ?? null,
+  };
+}
+
+function loadGroupConfigs(environment: NodeJS.ProcessEnv, log: (line: string) => void) {
+  return {
     zalo: readGroupConfig('zalo', loadZaloConfig(environment), log),
     webhookConfig: readGroupConfig('zalo-webhook', loadZaloWebhookConfig(environment), log),
     photoStorageConfig: readGroupConfig('photos', loadPhotoStorageConfig(environment), log),
     readerConfig: readGroupConfig('readers', loadReaderConfig(environment), log),
     chatConfig: readGroupConfig('chat', loadChatConfig(environment), log),
-    reportReadyTemplateId: reportTemplate?.templateId ?? null,
+    reportTemplate: readGroupConfig('report-template', loadReportTemplateConfig(environment), log),
   };
 }
 
