@@ -1,3 +1,4 @@
+import type { Clock } from '../../services/clock/clock.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import type { Database, DatabaseClient } from '../db/transaction.ts';
 import { runWithClient } from '../db/transaction.ts';
@@ -5,6 +6,7 @@ import { runWithClient } from '../db/transaction.ts';
 export type CleanupDependencies = {
   database: Database;
   photoStorage: PhotoStorage;
+  clock: Clock;
   retentionDays: number;
   batchSize: number;
 };
@@ -13,7 +15,8 @@ export type CleanupResult = { deleted: number; failed: number };
 
 type EligibleMessage = { id: string; image_key: string };
 
-export async function cleanupOldPhotos(deps: CleanupDependencies, now: Date): Promise<CleanupResult> {
+export async function cleanupOldPhotos(deps: CleanupDependencies): Promise<CleanupResult> {
+  const now = deps.clock.now();
   return runWithClient(deps.database, (client) =>
     processCleanupBatch(client, deps.photoStorage, deps.retentionDays, deps.batchSize, now),
   );

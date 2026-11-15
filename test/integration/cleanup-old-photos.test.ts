@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanupOldPhotos, type CleanupDependencies } from '../../src/app/intake/cleanup-old-photos.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
+import { FakeClock } from '../fakes/fake-clock.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import { insertChatMessage } from './message-rows.ts';
@@ -138,15 +139,13 @@ describe('cleanupOldPhotos', () => {
     return row?.image_deleted_at ?? null;
   }
 
-  function runCleanup(overrides: Partial<CleanupDependencies> = {}): Promise<{ deleted: number; failed: number }> {
-    return cleanupOldPhotos(
-      {
-        database: pool,
-        photoStorage: overrides.photoStorage ?? new FakePhotoStorage(),
-        retentionDays: overrides.retentionDays ?? 180,
-        batchSize: overrides.batchSize ?? 50,
-      },
-      NOW,
-    );
+  function runCleanup(overrides: Partial<Omit<CleanupDependencies, 'database' | 'clock'>> = {}): Promise<{ deleted: number; failed: number }> {
+    return cleanupOldPhotos({
+      database: pool,
+      clock: new FakeClock(NOW),
+      photoStorage: overrides.photoStorage ?? new FakePhotoStorage(),
+      retentionDays: overrides.retentionDays ?? 180,
+      batchSize: overrides.batchSize ?? 50,
+    });
   }
 });
