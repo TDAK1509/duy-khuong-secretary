@@ -63,6 +63,7 @@ export function makeJpeg(size: number): Uint8Array {
   return bytes;
 }
 
+
 export async function createIntakeHarness(): Promise<IntakeHarness> {
   const database = await createMigratedDatabase();
   const pool = createPostgresPool(database.runtimeUrl);
@@ -129,7 +130,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     runInbound,
     runTick: (overrides = {}) => {
       const chatService = overrides.chat === undefined ? chat : overrides.chat;
-      return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService } });
+      return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService }, photoCleanup: null });
     },
     receivePhoto: async (externalUserId, caption = null) => {
       await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });

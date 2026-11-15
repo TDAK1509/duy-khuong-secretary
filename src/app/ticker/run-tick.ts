@@ -1,12 +1,18 @@
 import { renewDueConnections, type RenewalDependencies } from '../channel-auth/renew-connections.ts';
+import { cleanupOldPhotos, type CleanupDependencies } from '../intake/cleanup-old-photos.ts';
 import { runDueTasks, type ScheduledRunDependencies } from '../scheduled-runs/run-due-tasks.ts';
 
 export type TickDependencies = {
   renewal: RenewalDependencies | null;
   scheduledRuns: ScheduledRunDependencies | null;
+  photoCleanup: CleanupDependencies | null;
 };
 
 export async function runTick(dependencies: TickDependencies): Promise<void> {
   if (dependencies.renewal) await renewDueConnections(dependencies.renewal);
   if (dependencies.scheduledRuns) await runDueTasks(dependencies.scheduledRuns);
+  if (dependencies.photoCleanup) {
+    const result = await cleanupOldPhotos(dependencies.photoCleanup);
+    if (result.deleted + result.failed > 0) console.log(`[photo-cleanup] deleted ${result.deleted}, failed ${result.failed}`);
+  }
 }
