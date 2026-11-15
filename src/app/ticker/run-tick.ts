@@ -11,5 +11,8 @@ export type TickDependencies = {
 export async function runTick(dependencies: TickDependencies): Promise<void> {
   if (dependencies.renewal) await renewDueConnections(dependencies.renewal);
   if (dependencies.scheduledRuns) await runDueTasks(dependencies.scheduledRuns);
-  if (dependencies.photoCleanup) await cleanupOldPhotos(dependencies.photoCleanup);
+  if (dependencies.photoCleanup) {
+    const result = await cleanupOldPhotos(dependencies.photoCleanup);
+    if (result.deleted + result.failed > 0) console.log(`[photo-cleanup] deleted ${result.deleted}, failed ${result.failed}`);
+  }
 }
