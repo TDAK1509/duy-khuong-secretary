@@ -113,7 +113,7 @@ describe('asking for an admin page login code in Zalo', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, reader, chat }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, fileStorage: null, photoStorage: null, reader, chat }),
     });
   }
 
