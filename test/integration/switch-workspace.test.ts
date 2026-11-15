@@ -248,7 +248,7 @@ describe('switching between workspaces', () => {
       clock,
       alerts,
       notices: new OffGroupNotices(clock, () => {}),
-      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, photoStorage: null, reader: new FakeReader(), chat: new FakeChatService() }),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, fileStorage: null, photoStorage: null, reader: new FakeReader(), chat: new FakeChatService() }),
     });
   }
 

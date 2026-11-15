@@ -11,6 +11,7 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
+import type { FileStorage } from '../services/storage/file-storage.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
@@ -18,14 +19,15 @@ import {
   buildChatService,
   buildChannelAuth,
   buildClock,
+  buildFileStorage,
   buildMessagingChannel,
   buildPhotoStorage,
   buildReader,
 } from './from-env.ts';
-import { loadChatConfig } from './chat-config.ts';
-import { loadPhotoStorageConfig } from './photo-storage-config.ts';
+import { loadChatConfig, type ChatConfig } from './chat-config.ts';
+import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
-import { loadReaderConfig } from './reader-config.ts';
+import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
 
@@ -40,43 +42,96 @@ export type Service = {
 };
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
-  const config = loadConfig(environment);
-  const zalo = readGroupConfig('zalo', loadZaloConfig(environment), log);
-  const webhookConfig = readGroupConfig('zalo-webhook', loadZaloWebhookConfig(environment), log);
-  const pool = createPostgresPool(config.databaseUrl);
-  const clock = buildClock();
-  const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
-  const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
-  const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
-  const photoStorageConfig = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
-  const photoStorage = photoStorageConfig && buildPhotoStorage(photoStorageConfig);
-  const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
-  const reader = readerConfig && buildReader(readerConfig);
-  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig }));
-  const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
-  const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
-  const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
-  const chat = chatConfig && buildChatService(chatConfig);
-  const queueSteps = buildQueueSteps({
-    pool,
-    clock,
-    alerts,
-    channel,
-    zalo,
-    photoStorage,
-    reader,
-    chat,
-    reportReadyTemplateId: reportTemplate && reportTemplate.templateId,
-    log,
-  });
-  const scheduledRuns = channel && chat && { database: pool, clock, chat, channel };
+  const configs = loadAllConfigs(environment, log);
+  const { pool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat } = buildProviders(configs);
   return {
-    config,
-    server,
+    config: configs.base,
+    server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
     pool,
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
-    runTick: () => runTick({ renewal, scheduledRuns }),
-    ...queueSteps,
+    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chat, pool, clock)),
+    ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chat, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
+  };
+}
+
+type ServiceConfigs = {
+  base: Config;
+  zalo: ZaloConfig | null;
+  webhookConfig: ZaloWebhookConfig | null;
+  photoStorageConfig: PhotoStorageConfig | null;
+  readerConfig: ReaderConfig | null;
+  chatConfig: ChatConfig | null;
+  reportReadyTemplateId: string | null;
+};
+
+function loadAllConfigs(environment: NodeJS.ProcessEnv, log: (line: string) => void): ServiceConfigs {
+  const { zalo, webhookConfig, photoStorageConfig, readerConfig, chatConfig, reportTemplate } = loadGroupConfigs(environment, log);
+  return {
+    base: loadConfig(environment),
+    zalo,
+    webhookConfig,
+    photoStorageConfig,
+    readerConfig,
+    chatConfig,
+    reportReadyTemplateId: reportTemplate?.templateId ?? null,
+  };
+}
+
+function loadGroupConfigs(environment: NodeJS.ProcessEnv, log: (line: string) => void) {
+  return {
+    zalo: readGroupConfig('zalo', loadZaloConfig(environment), log),
+    webhookConfig: readGroupConfig('zalo-webhook', loadZaloWebhookConfig(environment), log),
+    photoStorageConfig: readGroupConfig('photos', loadPhotoStorageConfig(environment), log),
+    readerConfig: readGroupConfig('readers', loadReaderConfig(environment), log),
+    chatConfig: readGroupConfig('chat', loadChatConfig(environment), log),
+    reportTemplate: readGroupConfig('report-template', loadReportTemplateConfig(environment), log),
+  };
+}
+
+function readGroupConfig<Config>(
+  group: string,
+  result: { ok: true; config: Config } | { ok: false; missing: string[] },
+  log: (line: string) => void,
+): Config | null {
+  if (result.ok) return result.config;
+  log(`[config] ${group} is off; missing: ${result.missing.join(', ')}.`);
+  return null;
+}
+
+type ServiceProviders = {
+  pool: PostgresPool;
+  clock: Clock;
+  alerts: OperatorAlerts;
+  connection: ReturnType<typeof buildConnectionDependencies> | null;
+  channel: MessagingChannel | null;
+  photoStorage: PhotoStorage | null;
+  fileStorage: FileStorage | null;
+  reader: ReaderService | null;
+  chat: ChatService | null;
+};
+
+function buildProviders(configs: ServiceConfigs): ServiceProviders {
+  const pool = createPostgresPool(configs.base.databaseUrl);
+  const clock = buildClock();
+  const alerts = new OperatorAlerts(buildAlertSink(configs.base.alert), clock);
+  const connection = configs.zalo && buildConnectionDependencies(configs.zalo, pool, clock);
+  const channel = configs.zalo && buildMessagingChannel(configs.zalo, configs.webhookConfig?.oaSecret ?? '');
+  const photoStorage = configs.photoStorageConfig && buildPhotoStorage(configs.photoStorageConfig);
+  const fileStorage = configs.photoStorageConfig && buildFileStorage(configs.photoStorageConfig);
+  const reader = configs.readerConfig && buildReader(configs.readerConfig);
+  const chat = configs.chatConfig && buildChatService(configs.chatConfig);
+  return { pool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat };
+}
+
+function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
+  return { database: pool, channelAuth: buildChannelAuth(zalo, clock), encryptionKey: zalo.encryptionKey, clock };
+}
+
+function buildTickOptions(configs: ServiceConfigs, connection: ReturnType<typeof buildConnectionDependencies> | null, alerts: OperatorAlerts, channel: MessagingChannel | null, chat: ChatService | null, pool: PostgresPool, clock: Clock) {
+  const { zalo } = configs;
+  return {
+    renewal: zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs },
+    scheduledRuns: channel && chat && { database: pool, clock, chat, channel },
   };
 }
 
@@ -106,6 +161,7 @@ type QueueParts = {
   channel: MessagingChannel | null;
   zalo: ZaloConfig | null;
   photoStorage: PhotoStorage | null;
+  fileStorage: FileStorage | null;
   reader: ReaderService | null;
   chat: ChatService | null;
   reportReadyTemplateId: string | null;
@@ -114,45 +170,29 @@ type QueueParts = {
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, reader, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
-  const inbound = {
-    database: pool,
-    clock,
-    alerts,
-    notices,
-    handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, reader, chat },
-    ),
-  };
-  const outbound = channel &&
-    zalo && {
-      database: pool,
-      clock,
-      alerts,
-      notices,
-      channel,
-      photoStorage,
-      encryptionKey: zalo.encryptionKey,
-      maxPerMinute: zalo.outboundMaxPerMinute,
-      reportReadyTemplateId,
-    };
+  const inbound = buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chat);
+  const outbound = buildOutboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, reportReadyTemplateId);
   return {
     runInboundStep: () => runInboundStep(inbound),
     runOutboundStep: async () => (outbound ? runOutboundStep(outbound) : 'idle'),
   };
 }
 
-function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
-  return { database: pool, channelAuth: buildChannelAuth(zalo, clock), encryptionKey: zalo.encryptionKey, clock };
+function buildInboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, fileStorage: FileStorage | null, reader: ReaderService | null, chat: ChatService | null) {
+  return {
+    database: pool,
+    clock,
+    alerts,
+    notices,
+    handler: createInboundHandler(
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, fileStorage, reader, chat },
+    ),
+  };
 }
 
-function readGroupConfig<Config>(
-  group: string,
-  result: { ok: true; config: Config } | { ok: false; missing: string[] },
-  log: (line: string) => void,
-): Config | null {
-  if (result.ok) return result.config;
-  log(`[config] ${group} is off; missing: ${result.missing.join(', ')}.`);
-  return null;
+function buildOutboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, reportReadyTemplateId: string | null) {
+  if (!channel || !zalo) return null;
+  return { database: pool, clock, alerts, notices, channel, photoStorage, encryptionKey: zalo.encryptionKey, maxPerMinute: zalo.outboundMaxPerMinute, reportReadyTemplateId };
 }
