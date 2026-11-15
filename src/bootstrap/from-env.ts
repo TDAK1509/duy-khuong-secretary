@@ -12,7 +12,9 @@ import type { Clock } from '../services/clock/clock.ts';
 import type { AlertSink } from '../services/alerts/alert-sink.ts';
 import { LogAlertSink } from '../providers/alerts/log-alert-sink.ts';
 import { WebhookAlertSink } from '../providers/alerts/webhook-alert-sink.ts';
+import { S3FileStorage } from '../providers/storage/s3-file-storage.ts';
 import { S3PhotoStorage } from '../providers/storage/s3-photo-storage.ts';
+import type { FileStorage } from '../services/storage/file-storage.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import type { AlertConfig, Config } from './config.ts';
 import type { ChatConfig } from './chat-config.ts';
@@ -57,21 +59,32 @@ export function buildChannelAuth(config: ZaloConfig, clock: Clock): ChannelAuth 
 export function buildMessagingChannel(config: ZaloConfig, oaSecret: string): MessagingChannel {
   switch (config.provider) {
     case 'zalo-oa':
-      return new ZaloOaChannel({
-        appId: config.appId,
-        oaSecret,
-        apiBaseUrl: config.apiBaseUrl,
-        businessApiBaseUrl: config.businessApiBaseUrl,
-        timeoutMs: config.apiTimeoutMs,
-        mediaHosts: config.mediaHosts,
-      });
+      return new ZaloOaChannel(buildZaloOaChannelOptions(config, oaSecret));
   }
+}
+
+function buildZaloOaChannelOptions(config: ZaloConfig, oaSecret: string) {
+  return {
+    appId: config.appId,
+    oaSecret,
+    apiBaseUrl: config.apiBaseUrl,
+    businessApiBaseUrl: config.businessApiBaseUrl,
+    timeoutMs: config.apiTimeoutMs,
+    mediaHosts: config.mediaHosts,
+  };
 }
 
 export function buildPhotoStorage(config: PhotoStorageConfig): PhotoStorage {
   switch (config.provider) {
     case 's3':
       return new S3PhotoStorage(config);
+  }
+}
+
+export function buildFileStorage(config: PhotoStorageConfig): FileStorage {
+  switch (config.provider) {
+    case 's3':
+      return new S3FileStorage(config);
   }
 }
 

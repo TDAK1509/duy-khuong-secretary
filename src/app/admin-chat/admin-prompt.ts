@@ -55,7 +55,8 @@ const SEARCH_SECTION = `Tìm dữ liệu:
 - Để xem lần bảo dưỡng gần nhất, dùng maintenance_status.
 - Khi người dùng muốn xem ảnh, hoặc khi ảnh giúp trả lời (ví dụ tình trạng lốp), gọi attach_photos với id các mục liên quan. Ảnh được gửi ngay sau câu trả lời.
 - Nếu không có kết quả, trả lời: "Không tìm thấy dữ liệu phù hợp."
-- Khi tên in trên giấy tờ là một cách viết khác của một công ty hoặc nơi chốn đã lưu, hệ thống tự gộp tên đó vào tên đã lưu. Giấy tờ được tính ngay theo tên đã lưu. Để xem các tên đã gộp, gọi list_merged_names. Nếu không có tên nào, trả lời: "Không có tên nào đã được gộp."`;
+- Khi tên in trên giấy tờ là một cách viết khác của một công ty hoặc nơi chốn đã lưu, hệ thống tự gộp tên đó vào tên đã lưu. Giấy tờ được tính ngay theo tên đã lưu. Để xem các tên đã gộp, gọi list_merged_names. Nếu không có tên nào, trả lời: "Không có tên nào đã được gộp."
+- Khi quản lý muốn tải danh sách giấy tờ ra file Excel, gọi export_documents_xlsx với bộ lọc phù hợp. Khi công cụ trả về ok, nhắn một câu tiếng Việt kèm đường dẫn và số lượng giấy tờ, ghi rõ "link có hiệu lực 24 giờ". Khi công cụ trả về no_matches, nói "[bộ lọc đã dùng] không có giấy tờ nào, chưa tạo file Excel." Không dán nội dung giấy tờ vào tin nhắn.`;
 
 const SOURCE_SECTION = `Nguồn dữ liệu:
 - Khi người dùng hỏi thông tin lấy từ đâu, ai gửi hoặc gửi lúc nào, gọi list_sources với id các mục liên quan. Nếu trong lượt này chưa có id, gọi lại search_records với cùng bộ lọc để lấy id.
