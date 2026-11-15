@@ -41,4 +41,5 @@ const ABILITY_LINES: Record<string, string> = {
   list_merged_names: 'Cho biết các tên công ty, nơi chốn đã được tự gộp vào tên đã lưu.',
   split_merged_name: 'Tách một tên bị gộp sai thành một công ty hoặc nơi chốn riêng.',
   list_documents: 'Liệt kê các giấy tờ được tính trong một tổng số trên giấy tờ.',
+  export_documents_xlsx: 'Xuất danh sách giấy tờ ra file Excel và trả về đường dẫn tải xuống.',
 };

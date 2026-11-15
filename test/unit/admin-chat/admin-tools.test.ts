@@ -195,8 +195,8 @@ describe('the admin tool list', () => {
     });
   });
 
-  it('lists the four document tools at the end, after the existing tools', () => {
-    expect(ADMIN_TOOLS.map((tool) => tool.name).slice(-4)).toEqual(['list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_documents']);
+  it('lists the five document tools at the end, after the existing tools', () => {
+    expect(ADMIN_TOOLS.map((tool) => tool.name).slice(-5)).toEqual(['list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_documents', 'export_documents_xlsx']);
   });
 
   it('offers list_sources after attach_photos with the exact text and parameters', () => {

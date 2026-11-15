@@ -13,6 +13,7 @@ import { runCreateScheduledTask } from './create-scheduled-task-tool.ts';
 import { runCreateInvite } from './create-invite-tool.ts';
 import { runAddMemberFact, runForgetAllMemberFacts, runForgetMemberFact, runListMemberFacts } from './member-fact-tools.ts';
 import { runListDocumentNumbers } from './list-document-numbers-tool.ts';
+import { runExportDocumentsXlsx } from './export-documents-xlsx-tool.ts';
 import { runListDocuments } from './list-documents-tool.ts';
 import { runListMembers } from './list-members-tool.ts';
 import { runListMergedNames } from './list-merged-names-tool.ts';
@@ -92,6 +93,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_organizations: ({ database }, scope, args) => runListOrganizations(database, scope, args),
   split_merged_name: ({ database }, scope, args) => runSplitMergedName(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
+  export_documents_xlsx: (deps, scope, args) => runExportDocumentsXlsx(deps, scope, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {

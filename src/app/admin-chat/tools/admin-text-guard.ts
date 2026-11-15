@@ -2,7 +2,7 @@ export const CHANGE_TOOLS: readonly string[] = ['create_scheduled_task', 'cancel
 
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents'];
 
-export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos'];
+export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx'];
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;
