@@ -12,6 +12,7 @@ import type { MessagingChannel } from '../services/messaging/messaging-channel.t
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
+import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
   buildAlertSink,
@@ -22,6 +23,7 @@ import {
   buildPhotoStorage,
   buildReader,
 } from './from-env.ts';
+import { createOwnerReadPool } from './owner-read-pool.ts';
 import { loadChatConfig } from './chat-config.ts';
 import { loadPhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
@@ -43,45 +45,50 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
   const config = loadConfig(environment);
   const zalo = readGroupConfig('zalo', loadZaloConfig(environment), log);
   const webhookConfig = readGroupConfig('zalo-webhook', loadZaloWebhookConfig(environment), log);
+  const { pool, ownerPool, clock, alerts } = buildCoreInfra(config);
+  const { connection, channel, photoStorage, reader, chat, reportReadyTemplateId } = buildChannelAndProcessingParts(zalo, webhookConfig, pool, clock, environment, log);
+  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, ownerPool, clock, alerts, connection, channel, webhookConfig }));
+  const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
+  const queueSteps = buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, reader, chat, reportReadyTemplateId, log });
+  const scheduledRuns = channel && chat && { database: pool, clock, chat, channel };
+  return { config, server, pool, checkDatabaseRole: () => checkDatabaseRole(pool, log), runTick: () => runTick({ renewal, scheduledRuns }), ...queueSteps };
+}
+
+type CoreInfra = { pool: PostgresPool; ownerPool: PostgresPool | null; clock: Clock; alerts: OperatorAlerts };
+
+function buildCoreInfra(config: Config): CoreInfra {
   const pool = createPostgresPool(config.databaseUrl);
+  const ownerPool = config.migrationDatabaseUrl ? createOwnerReadPool(config.migrationDatabaseUrl) : null;
   const clock = buildClock();
   const alerts = new OperatorAlerts(buildAlertSink(config.alert), clock);
+  return { pool, ownerPool, clock, alerts };
+}
+
+type ChannelAndProcessingParts = {
+  connection: ReturnType<typeof buildConnectionDependencies> | null;
+  channel: MessagingChannel | null;
+  photoStorage: PhotoStorage | null;
+  reader: ReaderService | null;
+  chat: ChatService | null;
+  reportReadyTemplateId: string | null;
+};
+
+function buildChannelAndProcessingParts(zalo: ZaloConfig | null, webhookConfig: ZaloWebhookConfig | null, pool: PostgresPool, clock: Clock, environment: NodeJS.ProcessEnv, log: (line: string) => void): ChannelAndProcessingParts {
   const connection = zalo && buildConnectionDependencies(zalo, pool, clock);
   const channel = zalo && buildMessagingChannel(zalo, webhookConfig?.oaSecret ?? '');
   const photoStorageConfig = readGroupConfig('photos', loadPhotoStorageConfig(environment), log);
   const photoStorage = photoStorageConfig && buildPhotoStorage(photoStorageConfig);
   const readerConfig = readGroupConfig('readers', loadReaderConfig(environment), log);
   const reader = readerConfig && buildReader(readerConfig);
-  const server = buildServer(pool, config.commit, buildHttpOptions(config, { pool, clock, alerts, connection, channel, webhookConfig }));
-  const renewal = zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs };
   const chatConfig = readGroupConfig('chat', loadChatConfig(environment), log);
-  const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
   const chat = chatConfig && buildChatService(chatConfig);
-  const queueSteps = buildQueueSteps({
-    pool,
-    clock,
-    alerts,
-    channel,
-    zalo,
-    photoStorage,
-    reader,
-    chat,
-    reportReadyTemplateId: reportTemplate && reportTemplate.templateId,
-    log,
-  });
-  const scheduledRuns = channel && chat && { database: pool, clock, chat, channel };
-  return {
-    config,
-    server,
-    pool,
-    checkDatabaseRole: () => checkDatabaseRole(pool, log),
-    runTick: () => runTick({ renewal, scheduledRuns }),
-    ...queueSteps,
-  };
+  const reportTemplate = readGroupConfig('report-template', loadReportTemplateConfig(environment), log);
+  return { connection, channel, photoStorage, reader, chat, reportReadyTemplateId: reportTemplate?.templateId ?? null };
 }
 
 type HttpParts = {
   pool: PostgresPool;
+  ownerPool: PostgresPool | null;
   clock: Clock;
   alerts: OperatorAlerts;
   connection: ReturnType<typeof buildConnectionDependencies> | null;
@@ -90,11 +97,12 @@ type HttpParts = {
 };
 
 function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
-  const { pool, clock, alerts, connection, channel, webhookConfig } = parts;
+  const { pool, ownerPool, clock, alerts, connection, channel, webhookConfig } = parts;
   return {
     oauthCallback: connection,
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     internalAdmin: { database: pool, clock },
+    internalMcp: ownerPool ? { database: pool, ownerPool, clock, endpoint: new SdkMcpEndpoint() } : null,
     verifierFile: config.verifierFile,
   };
 }
