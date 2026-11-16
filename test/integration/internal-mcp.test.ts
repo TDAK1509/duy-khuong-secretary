@@ -6,7 +6,8 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
-import { BEARER_TOKEN, callListMembers, callListUsers, callListWorkspaces, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { BEARER_TOKEN, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { insertRecordRow } from './record-rows.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -275,6 +276,70 @@ describe('POST /mcp list_workspaces tool', () => {
 
     expect(secondData.items).toHaveLength(1);
     expect(secondData.next_cursor).toBeNull();
+  });
+});
+
+describe('POST /mcp search_records tool', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW);
+    workspaceId = await insertWorkspace(database, 'Nhóm Alpha');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: BEARER_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('returns records with workspace_id, id, member, category, summary, and has_photo', async () => {
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', summary: 'Đổ xăng', category: 'đổ xăng dầu' });
+
+    const response = await callSearchRecords(pool, ownerPool, clock);
+    const data = parseToolResult(response.body) as { items: { id: string; workspace_id: string; member: string; summary: string; has_photo: boolean }[] };
+
+    expect(response.statusCode).toBe(200);
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]?.workspace_id).toBe(workspaceId);
+    expect(data.items[0]?.member).toBe('Duy');
+    expect(data.items[0]?.has_photo).toBe(false);
+  });
+
+  it('filters records by workspace_id', async () => {
+    await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', summary: 'Alpha record' });
+    const otherWorkspaceId = await insertWorkspace(database, 'Nhóm Beta');
+    const otherUserId = await insertMember(database, { workspaceId: otherWorkspaceId, externalUserId: 'zu-lan', displayName: 'Lan' });
+    await insertRecordRow(database, { workspaceId: otherWorkspaceId, userId: otherUserId, senderName: 'Lan', summary: 'Beta record' });
+
+    const response = await callSearchRecords(pool, ownerPool, clock, { workspace_id: workspaceId });
+    const data = parseToolResult(response.body) as { items: { workspace_id: string }[] };
+
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]?.workspace_id).toBe(workspaceId);
+  });
+
+  it('paginates 51 records into a first page of 50 with a next_cursor', async () => {
+    for (let i = 1; i <= 51; i += 1) {
+      await insertRecordRow(database, { workspaceId, userId, senderName: 'Duy', summary: `Mục ${i}`, itemIndex: i - 1 });
+    }
+
+    const response = await callSearchRecords(pool, ownerPool, clock, { limit: 50 });
+    const data = parseToolResult(response.body) as { items: unknown[]; next_cursor: string | null };
+
+    expect(data.items).toHaveLength(50);
+    expect(data.next_cursor).not.toBeNull();
   });
 });
 
