@@ -20,6 +20,8 @@ export const RESTORE_THE_OLD_MEMORY_TABLES = `
 `;
 
 export const RESTORE_THE_PROPOSED_ORGANIZATION_SHAPE = `
+  DELETE FROM pgmigrations WHERE name = '0057_create_internal_mcp_tokens';
+  DROP TABLE internal_mcp_tokens;
   DELETE FROM pgmigrations WHERE name = '0055_drop_old_memory_tables';
   ${RESTORE_THE_OLD_MEMORY_TABLES}
   DELETE FROM pgmigrations WHERE name = '0054_drop_maintenance_reminder_storage';

@@ -1,12 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { createOwnerReadPool } from '../../src/bootstrap/owner-read-pool.ts';
+import { hashSecretToken } from '../../src/app/internal-admin/secret-token.ts';
+import { NOT_INTERNAL_TEXT } from '../../src/app/internal-admin/internal-admin-texts.ts';
+import { MCP_TOKEN_EXPLANATION, MCP_TOKEN_RATE_LIMITED_TEXT } from '../../src/app/internal-mcp/internal-mcp-texts.ts';
+import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
+import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
+import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
+import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
+import { runInboundStep } from '../../src/app/processing/inbound-step.ts';
+import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
+import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
+import { FakeChatService } from '../fakes/fake-chat-service.ts';
+import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
+import { FakeReader } from '../fakes/fake-reader.ts';
 import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
-import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
+import { insertInternalMcpToken, insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { BEARER_TOKEN, callGetUserDetails, callGetWorkspaceHistory, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { insertInboundEvent } from './inbound-event-rows.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertAddition } from './credit-history-rows.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
@@ -15,6 +30,11 @@ const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_MINUTE_MS = 60 * 1000;
 const TOOLS_LIST_BODY = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
+
+const NOW_MCP_COMMAND = new Date('2026-11-16T10:00:00+07:00');
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const THIRTY_SECONDS_MS = 30 * 1000;
+const ENCRYPTION_KEY = 'a'.repeat(64);
 
 describe('POST /mcp authentication', () => {
   let database: TemporaryDatabase;
@@ -552,4 +572,131 @@ describe('admin dashboard MCP bearer token', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain(SESSION_TOKEN);
   });
+});
+
+describe('the lấy token mcp Zalo command', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let channel: FakeMessagingChannel;
+  let alerts: OperatorAlerts;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW_MCP_COMMAND);
+    channel = new FakeMessagingChannel();
+    alerts = new OperatorAlerts(new FakeAlertSink(), clock);
+    const tokens = makeTokenPair({ accessToken: 'a1' });
+    await storeConnection(pool, { channel: 'zalo-oa', accountId: 'oa-1', tokens, storedAt: NOW_MCP_COMMAND }, ENCRYPTION_KEY);
+    workspaceId = await insertWorkspace(database, 'Xe tải Duy Khương');
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('sends the explanation, then the token alone', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.to.externalUserId)).toEqual(['zu-duy', 'zu-duy']);
+    expect(channel.texts[0]?.text).toBe(MCP_TOKEN_EXPLANATION);
+    expect(channel.texts[1]?.text).toMatch(/^\S+$/);
+  });
+
+  it('issues a token that authenticates POST /mcp', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+    const token = channel.texts[1]?.text ?? '';
+
+    const response = await postMcp(pool, ownerPool, clock, TOOLS_LIST_BODY, token);
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('stores the hash and expires 4 hours from now', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+    const token = channel.texts[1]?.text ?? '';
+
+    expect(await database.query('SELECT token_hash, expires_at FROM internal_mcp_tokens')).toEqual([
+      { token_hash: hashSecretToken(token), expires_at: new Date(NOW_MCP_COMMAND.getTime() + FOUR_HOURS_MS) },
+    ]);
+  });
+
+  it('refuses a user who is not internal', async () => {
+    await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([NOT_INTERNAL_TEXT]);
+    expect(await database.query('SELECT user_id FROM internal_mcp_tokens')).toEqual([]);
+  });
+
+  it('rate-limits a second request within 30 seconds', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalMcpToken(database, {
+      userId,
+      token: 'prior-token',
+      expiresAt: new Date(NOW_MCP_COMMAND.getTime() + FOUR_HOURS_MS),
+      createdAt: new Date(NOW_MCP_COMMAND.getTime() - (THIRTY_SECONDS_MS - 1000)),
+    });
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+
+    expect(channel.texts.map((sent) => sent.text)).toEqual([MCP_TOKEN_RATE_LIMITED_TEXT]);
+  });
+
+  it('invalidates the old token when a new one is issued', async () => {
+    const userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    const oldToken = 'old-token-to-invalidate';
+    await insertInternalMcpToken(database, {
+      userId,
+      token: oldToken,
+      expiresAt: new Date(NOW_MCP_COMMAND.getTime() + FOUR_HOURS_MS),
+      createdAt: new Date(NOW_MCP_COMMAND.getTime() - THIRTY_SECONDS_MS - 1000),
+    });
+
+    await receiveText('zu-duy', 'lấy token mcp');
+    await sendAllQueuedTexts();
+    const newToken = channel.texts[1]?.text ?? '';
+
+    expect((await postMcp(pool, ownerPool, clock, TOOLS_LIST_BODY, oldToken)).statusCode).toBe(401);
+    expect((await postMcp(pool, ownerPool, clock, TOOLS_LIST_BODY, newToken)).statusCode).toBe(200);
+  });
+
+  async function receiveText(externalUserId: string, text: string): Promise<void> {
+    await insertInboundEvent(database, { externalUserId, text });
+    await runInboundStep({
+      database: pool,
+      clock,
+      alerts,
+      notices: new OffGroupNotices(clock, () => {}),
+      handler: createInboundHandler({ channel, clock, database: pool, encryptionKey: ENCRYPTION_KEY, fileStorage: null, photoStorage: null, reader: new FakeReader(), chat: new FakeChatService() }),
+    });
+  }
+
+  async function sendAllQueuedTexts(): Promise<void> {
+    const outbound = { database: pool, clock, alerts, notices: new OffGroupNotices(clock, () => {}), channel, photoStorage: null, encryptionKey: ENCRYPTION_KEY, maxPerMinute: 90, reportReadyTemplateId: null };
+    while ((await runOutboundStep(outbound)) !== 'idle');
+  }
 });

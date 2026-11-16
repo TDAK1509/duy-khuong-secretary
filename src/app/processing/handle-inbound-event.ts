@@ -13,6 +13,7 @@ import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { answerInternalLoginCommand, isInternalLoginCommand } from '../internal-admin/answer-internal-login-command.ts';
+import { answerMcpTokenCommand, isMcpTokenCommand } from '../internal-mcp/answer-mcp-token-command.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
@@ -148,6 +149,7 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
 async function replyToOtherMessage(transaction: Transaction, { identity, text, now }: ReceivedMessage): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
   if (text !== null && isInternalLoginCommand(text)) return answerInternalLoginCommand(transaction, identity.userId, now);
+  if (text !== null && isMcpTokenCommand(text)) return answerMcpTokenCommand(transaction, identity.userId, now);
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
   return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });
