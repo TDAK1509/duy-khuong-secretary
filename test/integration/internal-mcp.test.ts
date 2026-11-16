@@ -6,8 +6,9 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
-import { BEARER_TOKEN, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { BEARER_TOKEN, callGetWorkspaceHistory, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
 import { insertRecordRow } from './record-rows.ts';
+import { insertAddition } from './credit-history-rows.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -340,6 +341,58 @@ describe('POST /mcp search_records tool', () => {
 
     expect(data.items).toHaveLength(50);
     expect(data.next_cursor).not.toBeNull();
+  });
+});
+
+describe('POST /mcp get_workspace_history tool', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW);
+    workspaceId = await insertWorkspace(database, 'Nhóm Alpha');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: BEARER_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('returns credit additions for the workspace', async () => {
+    await insertAddition(database, {
+      workspaceId,
+      credits: 300,
+      balanceAfter: 300,
+      source: 'starting_grant',
+      note: 'Nạp kiểm tra',
+      createdAt: new Date(NOW.getTime() - ONE_HOUR_MS),
+    });
+
+    const response = await callGetWorkspaceHistory(pool, ownerPool, clock, { workspace_id: workspaceId });
+    const data = parseToolResult(response.body) as { entries: { type: string; note: string }[] };
+
+    expect(response.statusCode).toBe(200);
+    const addition = data.entries.find((e) => e.type === 'addition' && e.note === 'Nạp kiểm tra');
+    expect(addition).toBeDefined();
+  });
+
+  it('returns an error when workspace_id is missing', async () => {
+    const response = await callGetWorkspaceHistory(pool, ownerPool, clock, {});
+    const result = JSON.parse(response.body) as { result: { isError: boolean } };
+
+    expect(response.statusCode).toBe(200);
+    expect(result.result.isError).toBe(true);
   });
 });
 
