@@ -6,7 +6,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
-import { BEARER_TOKEN, callListUsers, callListWorkspaces, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { BEARER_TOKEN, callListMembers, callListUsers, callListWorkspaces, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -275,6 +275,74 @@ describe('POST /mcp list_workspaces tool', () => {
 
     expect(secondData.items).toHaveLength(1);
     expect(secondData.next_cursor).toBeNull();
+  });
+});
+
+describe('POST /mcp list_members tool', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW);
+    workspaceId = await insertWorkspace(database, 'Nhóm Alpha');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: BEARER_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('returns members of a workspace with user_id, display_name, role, joined_at, and zalo_name', async () => {
+    const response = await callListMembers(pool, ownerPool, clock, { workspace_id: workspaceId });
+    const data = parseToolResult(response.body) as { items: { user_id: string; display_name: string; role: string; joined_at: string; zalo_name: string | null }[] };
+
+    expect(response.statusCode).toBe(200);
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]?.user_id).toBe(userId);
+    expect(data.items[0]?.display_name).toBe('Duy');
+    expect(data.items[0]?.role).toBe('admin');
+    expect(typeof data.items[0]?.joined_at).toBe('string');
+  });
+
+  it('filters members by role', async () => {
+    const memberId = await insertMember(database, { workspaceId, externalUserId: 'zu-lan', displayName: 'Lan', role: 'member' });
+
+    const response = await callListMembers(pool, ownerPool, clock, { workspace_id: workspaceId, role: 'member' });
+    const data = parseToolResult(response.body) as { items: { user_id: string }[] };
+
+    expect(data.items.map((m) => m.user_id)).toContain(memberId);
+    expect(data.items.map((m) => m.user_id)).not.toContain(userId);
+  });
+
+  it('paginates 51 members into a first page of 50 with a next_cursor', async () => {
+    for (let i = 1; i <= 50; i += 1) {
+      await insertMember(database, { workspaceId, externalUserId: `zu-extra-${i}`, displayName: `User ${i}`, role: 'member' });
+    }
+
+    const response = await callListMembers(pool, ownerPool, clock, { workspace_id: workspaceId, limit: 50 });
+    const data = parseToolResult(response.body) as { items: unknown[]; next_cursor: string | null };
+
+    expect(data.items).toHaveLength(50);
+    expect(data.next_cursor).not.toBeNull();
+  });
+
+  it('returns an error when workspace_id is missing', async () => {
+    const response = await callListMembers(pool, ownerPool, clock, {});
+    const result = JSON.parse(response.body) as { result: { isError: boolean } };
+
+    expect(response.statusCode).toBe(200);
+    expect(result.result.isError).toBe(true);
   });
 });
 
