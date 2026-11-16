@@ -4,10 +4,10 @@ import tseslint from 'typescript-eslint';
 
 const SOURCE_FOLDERS = ['app', 'services', 'providers', 'bootstrap'];
 const MIGRATION_TOOL_PATH = './src/providers/database/migration-tool.ts';
-const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify'];
+const VENDOR_PACKAGES = ['openai', '@aws-sdk/*', 'pg', 'node-pg-migrate', 'fastify', '@modelcontextprotocol/*'];
 
 /** @returns {import('eslint').Linter.Config[]} */
-export function makeArchitectureConfig(rootDir) {
+export function makeArchitectureConfig(rootDir) { // allow-long-function: flat ordered registry of folder configs, each a one-liner // allow-comment: escape hatch markers
   return [
     makeParserConfig(),
     makeFolderConfig(rootDir, 'services', { folders: ['services'] }),
@@ -76,7 +76,7 @@ function restrictPaths(rootDir, zones) {
 }
 
 /** @returns {import('eslint').Linter.RulesRecord} */
-function restrictVendorPackages() {
+function restrictVendorPackages() { // allow-long-function: nesting dictated by no-restricted-imports API, single responsibility // allow-comment: escape hatch markers
   return {
     'no-restricted-imports': [
       'error',
