@@ -29,6 +29,7 @@ export type AlertConfig = { provider: 'log' } | { provider: 'webhook'; webhookUr
 export type Config = {
   commit: string | null;
   databaseUrl: string;
+  migrationDatabaseUrl: string | null;
   port: number;
   alert: AlertConfig;
   verifierFile: VerifierFile | null;
@@ -37,21 +38,28 @@ export type Config = {
 export type VerifierFile = { fileName: string; content: string };
 
 export function loadConfig(environment: NodeJS.ProcessEnv): Config {
-  const databaseUrl = z.url().safeParse(readRuntimeDatabaseUrl(environment) ?? '');
-  if (!databaseUrl.success) {
-    throw new Error(`Invalid configuration: ${DATABASE_URL_PROBLEM}`);
-  }
-  const parsed = environmentSchema.safeParse(environment);
-  if (!parsed.success) {
-    throw new Error(`Invalid configuration: ${describeIssues(parsed.error)}`);
-  }
+  const databaseUrl = requireRuntimeDatabaseUrl(environment);
+  const env = parseEnvironment(environment);
   return {
-    commit: parsed.data.GIT_COMMIT || parsed.data.RENDER_GIT_COMMIT || null,
-    databaseUrl: databaseUrl.data,
-    port: parsed.data.PORT,
-    alert: readAlertConfig(parsed.data),
-    verifierFile: readVerifierFile(parsed.data),
+    commit: env.GIT_COMMIT || env.RENDER_GIT_COMMIT || null,
+    databaseUrl,
+    migrationDatabaseUrl: environment['MIGRATION_DATABASE_URL'] ?? null,
+    port: env.PORT,
+    alert: readAlertConfig(env),
+    verifierFile: readVerifierFile(env),
   };
+}
+
+function requireRuntimeDatabaseUrl(environment: NodeJS.ProcessEnv): string {
+  const result = z.url().safeParse(readRuntimeDatabaseUrl(environment) ?? '');
+  if (!result.success) throw new Error(`Invalid configuration: ${DATABASE_URL_PROBLEM}`);
+  return result.data;
+}
+
+function parseEnvironment(environment: NodeJS.ProcessEnv): z.infer<typeof environmentSchema> {
+  const result = environmentSchema.safeParse(environment);
+  if (!result.success) throw new Error(`Invalid configuration: ${describeIssues(result.error)}`);
+  return result.data;
 }
 
 export const RUNTIME_ROLE = 'app_runtime';

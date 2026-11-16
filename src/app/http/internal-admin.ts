@@ -39,7 +39,7 @@ export async function handleAdminPage(dependencies: InternalAdminDependencies, c
 
 async function respondWithDashboard(dependencies: InternalAdminDependencies, token: string, message: string | null, status = 200): Promise<HttpResponse> {
   const dashboard = await readDashboard(dependencies.database, dependencies.clock.now());
-  return respondWithAdminHtml(renderDashboardPage(dashboard, { csrfToken: makeCsrfToken(token), requestId: randomUUID(), message }), status);
+  return respondWithAdminHtml(renderDashboardPage(dashboard, { csrfToken: makeCsrfToken(token), requestId: randomUUID(), message }, token), status);
 }
 
 async function findSessionUser(dependencies: InternalAdminDependencies, token: string | null): Promise<string | null> {

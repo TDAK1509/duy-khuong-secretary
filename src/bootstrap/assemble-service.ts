@@ -14,6 +14,7 @@ import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import type { FileStorage } from '../services/storage/file-storage.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
+import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
   buildAlertSink,
@@ -25,6 +26,7 @@ import {
   buildPhotoStorage,
   buildReader,
 } from './from-env.ts';
+import { createOwnerReadPool } from './owner-read-pool.ts';
 import { loadChatConfig, type ChatConfig } from './chat-config.ts';
 import { loadPhotoCleanupConfig } from './photo-cleanup-config.ts';
 import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
@@ -45,10 +47,10 @@ export type Service = {
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
   const configs = loadAllConfigs(environment, log);
-  const { pool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat } = buildProviders(configs);
+  const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat } = buildProviders(configs);
   return {
     config: configs.base,
-    server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
+    server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, ownerPool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
     pool,
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
     runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chat, pool, clock, environment, photoStorage)),
@@ -102,6 +104,7 @@ function readGroupConfig<Config>(
 
 type ServiceProviders = {
   pool: PostgresPool;
+  ownerPool: PostgresPool | null;
   clock: Clock;
   alerts: OperatorAlerts;
   connection: ReturnType<typeof buildConnectionDependencies> | null;
@@ -113,16 +116,32 @@ type ServiceProviders = {
 };
 
 function buildProviders(configs: ServiceConfigs): ServiceProviders {
-  const pool = createPostgresPool(configs.base.databaseUrl);
+  const { pool, ownerPool, clock, alerts } = buildCoreProviders(configs.base);
+  const { connection, channel } = buildZaloProviders(configs, pool, clock);
+  const { photoStorage, fileStorage, reader, chat } = buildOptionalServices(configs);
+  return { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat };
+}
+
+function buildCoreProviders(base: Config) {
+  const pool = createPostgresPool(base.databaseUrl);
+  const ownerPool = base.migrationDatabaseUrl ? createOwnerReadPool(base.migrationDatabaseUrl) : null;
   const clock = buildClock();
-  const alerts = new OperatorAlerts(buildAlertSink(configs.base.alert), clock);
+  const alerts = new OperatorAlerts(buildAlertSink(base.alert), clock);
+  return { pool, ownerPool, clock, alerts };
+}
+
+function buildZaloProviders(configs: ServiceConfigs, pool: PostgresPool, clock: Clock) {
   const connection = configs.zalo && buildConnectionDependencies(configs.zalo, pool, clock);
   const channel = configs.zalo && buildMessagingChannel(configs.zalo, configs.webhookConfig?.oaSecret ?? '');
+  return { connection, channel };
+}
+
+function buildOptionalServices(configs: ServiceConfigs) {
   const photoStorage = configs.photoStorageConfig && buildPhotoStorage(configs.photoStorageConfig);
   const fileStorage = configs.photoStorageConfig && buildFileStorage(configs.photoStorageConfig);
   const reader = configs.readerConfig && buildReader(configs.readerConfig);
   const chat = configs.chatConfig && buildChatService(configs.chatConfig);
-  return { pool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat };
+  return { photoStorage, fileStorage, reader, chat };
 }
 
 function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
@@ -155,6 +174,7 @@ function buildPhotoCleanupDeps(pool: PostgresPool, clock: Clock, photoStorage: P
 
 type HttpParts = {
   pool: PostgresPool;
+  ownerPool: PostgresPool | null;
   clock: Clock;
   alerts: OperatorAlerts;
   connection: ReturnType<typeof buildConnectionDependencies> | null;
@@ -163,11 +183,12 @@ type HttpParts = {
 };
 
 function buildHttpOptions(config: Config, parts: HttpParts): ServerOptions {
-  const { pool, clock, alerts, connection, channel, webhookConfig } = parts;
+  const { pool, ownerPool, clock, alerts, connection, channel, webhookConfig } = parts;
   return {
     oauthCallback: connection,
     webhook: channel && webhookConfig && { channel, database: pool, alerts },
     internalAdmin: { database: pool, clock },
+    internalMcp: ownerPool ? { database: pool, ownerPool, clock, endpoint: new SdkMcpEndpoint() } : null,
     verifierFile: config.verifierFile,
   };
 }

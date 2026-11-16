@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders } from 'node:http';
-import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { pingDatabase } from '../app/db/ping-database.ts';
 import { handleHealth } from '../app/http/health.ts';
 import { respondWithHtml, type HttpResponse } from '../app/http/http-response.ts';
@@ -9,18 +9,21 @@ import {
   type OAuthCallbackQuery,
 } from '../app/http/zalo-oauth-callback.ts';
 import { createLoginRateLimit, handleAddCredits, handleAdminLogin, handleAdminPage, handleWorkspaceHistory, type InternalAdminDependencies } from '../app/http/internal-admin.ts';
+import { findMcpAccessError, serveMcpExchange, type InternalMcpDependencies } from '../app/http/internal-mcp.ts';
 import { handleZaloWebhook, type ZaloWebhookDependencies } from '../app/http/zalo-webhook.ts';
 import type { VerifierFile } from './config.ts';
 import type { PostgresPool } from '../providers/database/postgres.ts';
 
 const WEBHOOK_BODY_LIMIT_BYTES = 1024 * 1024;
 const FORM_LIMIT_BYTES = 8 * 1024;
+const MCP_BODY_LIMIT_BYTES = 1024 * 1024;
 
 export type ServerOptions = {
   oauthCallback?: OAuthCallbackDependencies | null;
   webhook?: ZaloWebhookDependencies | null;
   verifierFile?: VerifierFile | null;
   internalAdmin?: InternalAdminDependencies | null;
+  internalMcp?: InternalMcpDependencies | null;
 };
 
 export function buildServer(pool: PostgresPool, commit: string | null, options: ServerOptions = {}): FastifyInstance {
@@ -30,6 +33,7 @@ export function buildServer(pool: PostgresPool, commit: string | null, options: 
     return sendResponse(reply, response);
   });
   registerZaloRoutes(server, options);
+  registerInternalMcpRoute(server, options.internalMcp ?? null);
   return server;
 }
 
@@ -40,12 +44,14 @@ function registerZaloRoutes(server: FastifyInstance, options: ServerOptions): vo
   );
   registerZaloWebhookRoute(server, options.webhook ?? null);
   registerInternalAdminRoutes(server, options.internalAdmin ?? null);
-  const { verifierFile } = options;
-  if (verifierFile) {
-    server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
-      sendResponse(reply, respondWithHtml(verifierFile.content)),
-    );
-  }
+  registerVerifierFileRoute(server, options.verifierFile ?? null);
+}
+
+function registerVerifierFileRoute(server: FastifyInstance, verifierFile: VerifierFile | null): void {
+  if (verifierFile === null) return;
+  server.get(`/${verifierFile.fileName}`, async (_request, reply) =>
+    sendResponse(reply, respondWithHtml(verifierFile.content)),
+  );
 }
 
 function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies | null): void {
@@ -55,6 +61,10 @@ function registerInternalAdminRoutes(server: FastifyInstance, internalAdmin: Int
     const { workspaceId } = request.params as { workspaceId: string };
     return sendResponse(reply, await handleWorkspaceHistory(internalAdmin, request.headers.cookie, workspaceId));
   });
+  registerAdminFormRoutes(server, internalAdmin);
+}
+
+function registerAdminFormRoutes(server: FastifyInstance, internalAdmin: InternalAdminDependencies): void {
   const loginRateLimit = createLoginRateLimit();
   void server.register(async (scope) => {
     parseFormBodies(scope);
@@ -68,6 +78,23 @@ function parseFormBodies(scope: FastifyInstance): void {
   scope.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: FORM_LIMIT_BYTES }, (_request, body, done) =>
     done(null, Object.fromEntries(new URLSearchParams(String(body)))),
   );
+}
+
+function registerInternalMcpRoute(server: FastifyInstance, internalMcp: InternalMcpDependencies | null): void {
+  if (internalMcp === null) return;
+  void server.register(async (scope) => {
+    scope.addContentTypeParser('application/json', { parseAs: 'string', bodyLimit: MCP_BODY_LIMIT_BYTES }, (_request, body, done) => {
+      try { done(null, JSON.parse(String(body))); } catch { done(null, null); }
+    });
+    scope.post('/mcp', (request, reply) => handleMcpPost(internalMcp, request, reply));
+  });
+}
+
+async function handleMcpPost(internalMcp: InternalMcpDependencies, request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | void> {
+  const authError = await findMcpAccessError(internalMcp, request.headers.authorization);
+  if (authError !== null) return sendResponse(reply, authError);
+  reply.hijack();
+  await serveMcpExchange(internalMcp, { request: request.raw, response: reply.raw, body: request.body });
 }
 
 function registerZaloWebhookRoute(server: FastifyInstance, webhook: ZaloWebhookDependencies | null): void {

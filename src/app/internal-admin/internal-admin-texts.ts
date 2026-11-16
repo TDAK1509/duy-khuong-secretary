@@ -58,3 +58,6 @@ export const WORKSPACE_FIELD_LABEL = 'Nhóm';
 export const CREDITS_FIELD_LABEL = 'Số credit';
 export const NOTE_FIELD_LABEL = 'Ghi chú';
 export const ADD_CREDITS_BUTTON_LABEL = 'Nạp credit';
+
+export const MCP_TOKEN_HEADING = 'Token MCP';
+export const MCP_TOKEN_LABEL = 'Bearer token (dùng cho MCP client)';
