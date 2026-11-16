@@ -23,6 +23,6 @@ export async function findMcpAccessError(
 }
 
 export async function serveMcpExchange(deps: InternalMcpDependencies, exchange: McpExchange): Promise<void> {
-  const definition = describeInternalMcpServer(deps.ownerPool);
+  const definition = describeInternalMcpServer(deps.ownerPool, deps.clock);
   await deps.endpoint.serve(definition, exchange);
 }
