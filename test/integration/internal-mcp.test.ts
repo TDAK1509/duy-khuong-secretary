@@ -7,6 +7,7 @@ import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
 import { BEARER_TOKEN, callListUsers, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -186,5 +187,34 @@ describe('POST /mcp tools', () => {
     await expect(ownerPool.query('INSERT INTO workspaces (name) VALUES ($1)', ['test'])).rejects.toMatchObject({
       code: '25006',
     });
+  });
+});
+
+describe('admin dashboard MCP bearer token', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    clock = new FakeClock(NOW);
+    const workspaceId = await insertWorkspace(database, 'Nhóm thử nghiệm');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-test', displayName: 'Tester', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: SESSION_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await database.drop();
+  });
+
+  it('shows the session token as the MCP bearer token on the dashboard', async () => {
+    const response = await getAdminPage(pool, clock, '/admin');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain(SESSION_TOKEN);
   });
 });

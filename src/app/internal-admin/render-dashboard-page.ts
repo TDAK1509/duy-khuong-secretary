@@ -19,6 +19,8 @@ import {
   KIND_LABELS,
   LAST_MONTH_COLUMN,
   LAST_WEEK_COLUMN,
+  MCP_TOKEN_HEADING,
+  MCP_TOKEN_LABEL,
   NOTE_COLUMN,
   RECENT_ADDITIONS_HEADING,
   STARTING_GRANT_ADDER,
@@ -28,7 +30,7 @@ import {
   WORKSPACE_COLUMN,
 } from './internal-admin-texts.ts';
 
-export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }: Dashboard, form: AddCreditsFormView): string {
+export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }: Dashboard, form: AddCreditsFormView, bearerToken: string): string {
   return renderDocument(
     [
       `<h1>${ADMIN_TITLE}</h1>`,
@@ -44,8 +46,18 @@ export function renderDashboardPage({ workspaces, usageByKind, recentAdditions }
       `<section><h2>${USAGE_BY_KIND_HEADING}</h2>`,
       renderTable('kinds', [WORKSPACE_COLUMN, KIND_COLUMN, CALLS_COLUMN, CREDITS_COLUMN, COST_COLUMN], usageByKind.map(listKindCells)),
       '</section>',
+      renderMcpTokenSection(bearerToken),
     ].join('\n'),
   );
+}
+
+function renderMcpTokenSection(bearerToken: string): string {
+  return [
+    `<section><h2>${MCP_TOKEN_HEADING}</h2>`,
+    `<label for="mcp-token">${MCP_TOKEN_LABEL}</label>`,
+    `<input id="mcp-token" type="text" readonly value="${escapeHtml(bearerToken)}">`,
+    '</section>',
+  ].join('\n');
 }
 
 function listOverviewCells(workspace: WorkspaceOverview): string[] {
