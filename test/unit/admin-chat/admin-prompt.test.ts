@@ -189,3 +189,19 @@ describe('the source section of the admin prompt', () => {
     expect(prompt).toContain(`${endOfSearchSection}\n\n${sourceSection}\n\nNgười này là quản lý.`);
   });
 });
+
+describe('the unsupported-format rule of the admin prompt', () => {
+  const prompt = buildAdminPrompt({ workspaceName: 'Xe tải Duy Khương', displayName: 'Duy', now: new Date('2026-10-31T10:00:00+07:00'), memory: '' });
+
+  it('contains the refusal phrase and the no-work-before-refusal instruction', () => {
+    expect(prompt).toContain('Hiện tôi chưa tạo được');
+    expect(prompt).toContain('Không tạo tóm tắt hay nội dung trước rồi mới báo không xuất được file.');
+  });
+
+  it('places the rule inside the reply-style section', () => {
+    const ruleIndex = prompt.indexOf('Hiện tôi chưa tạo được');
+    const sectionOpenerIndex = prompt.indexOf('Cách trả lời:');
+
+    expect(ruleIndex).toBeGreaterThan(sectionOpenerIndex);
+  });
+});

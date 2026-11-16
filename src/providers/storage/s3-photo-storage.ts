@@ -1,4 +1,4 @@
-import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 
 export type S3PhotoStorageSettings = {
@@ -15,7 +15,7 @@ export type S3Answer = {
   Body?: { transformToByteArray(): Promise<Uint8Array> } | undefined;
 };
 
-export type S3Sender = { send(command: PutObjectCommand | GetObjectCommand): Promise<S3Answer> };
+export type S3Sender = { send(command: PutObjectCommand | GetObjectCommand | DeleteObjectCommand): Promise<S3Answer> };
 
 export class S3PhotoStorage implements PhotoStorage {
   private readonly bucket: string;
@@ -35,6 +35,15 @@ export class S3PhotoStorage implements PhotoStorage {
   async get(key: string): Promise<Photo | null> {
     const answer = await this.fetchObject(key);
     return answer && { bytes: await readBody(answer), contentType: readContentType(answer) };
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (error) {
+      if (error instanceof NoSuchKey) return;
+      throw error;
+    }
   }
 
   private async fetchObject(key: string): Promise<S3Answer | null> {

@@ -51,22 +51,6 @@ export type IntakeHarness = {
   close(): Promise<void>;
 };
 
-function pauseBeforeFinish(beforeFinish: (() => Promise<void>) | undefined, handler: InboundHandler): InboundHandler {
-  if (beforeFinish === undefined) return handler;
-  return (event, stages) => handler(event, pauseStages(stages, beforeFinish));
-}
-
-function pauseStages(stages: Stages, beforeFinish: () => Promise<void>): Stages {
-  return {
-    ...stages,
-    finishEvent: async (write) => {
-      await beforeFinish();
-      return stages.finishEvent(write);
-    },
-    forScope: (scope) => pauseStages(stages.forScope(scope), beforeFinish),
-  };
-}
-
 export function makePng(size: number): Uint8Array {
   const bytes = new Uint8Array(size).fill(1);
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -78,6 +62,7 @@ export function makeJpeg(size: number): Uint8Array {
   bytes.set([0xff, 0xd8, 0xff]);
   return bytes;
 }
+
 
 export async function createIntakeHarness(): Promise<IntakeHarness> {
   const database = await createMigratedDatabase();
@@ -107,6 +92,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
         clock,
         database: pool,
         encryptionKey: ENCRYPTION_KEY,
+        fileStorage: null,
         photoStorage: storage,
         reader: readerService,
         chat: chatService,
@@ -144,7 +130,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     runInbound,
     runTick: (overrides = {}) => {
       const chatService = overrides.chat === undefined ? chat : overrides.chat;
-      return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService } });
+      return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService }, photoCleanup: null });
     },
     receivePhoto: async (externalUserId, caption = null) => {
       await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
@@ -167,5 +153,21 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
       await pool.end();
       await database.drop();
     },
+  };
+}
+
+function pauseBeforeFinish(beforeFinish: (() => Promise<void>) | undefined, handler: InboundHandler): InboundHandler {
+  if (beforeFinish === undefined) return handler;
+  return (event, stages) => handler(event, pauseStages(stages, beforeFinish));
+}
+
+function pauseStages(stages: Stages, beforeFinish: () => Promise<void>): Stages {
+  return {
+    ...stages,
+    finishEvent: async (write) => {
+      await beforeFinish();
+      return stages.finishEvent(write);
+    },
+    forScope: (scope) => pauseStages(stages.forScope(scope), beforeFinish),
   };
 }

@@ -115,6 +115,8 @@ The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except
 | `S3_BUCKET` | none | Bucket name |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | Access key of the bucket |
 | `S3_FORCE_PATH_STYLE` | `false` | `true` for MinIO |
+| `PHOTO_RETENTION_DAYS` | `180` | Delete photos older than this many days on each tick. Set to `0` to delete everything immediately (useful in tests). Negative values are rejected at startup. |
+| `PHOTO_CLEANUP_BATCH_SIZE` | `50` | Maximum number of photos deleted per tick. Must be between 1 and 500. |
 
 To run with MinIO by hand (never in CI): `docker compose --profile minio up -d --wait minio`. It creates the bucket `photos`. Then set `PHOTO_STORAGE=s3`, `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=photos`, `S3_ACCESS_KEY_ID=minioadmin`, `S3_SECRET_ACCESS_KEY=minioadmin` and `S3_FORCE_PATH_STYLE=true`. Set `MINIO_PORT` if port 9000 is taken. The MinIO console is at `http://localhost:9001`. The image is `bitnamilegacy/minio`, because MinIO no longer publishes images on Docker Hub.
 
