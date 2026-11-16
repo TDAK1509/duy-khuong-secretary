@@ -6,7 +6,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
-import { BEARER_TOKEN, callGetWorkspaceHistory, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { BEARER_TOKEN, callGetUserDetails, callGetWorkspaceHistory, callListMembers, callListUsers, callListWorkspaces, callSearchRecords, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
 import { insertRecordRow } from './record-rows.ts';
 import { insertAddition } from './credit-history-rows.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
@@ -457,6 +457,67 @@ describe('POST /mcp list_members tool', () => {
 
   it('returns an error when workspace_id is missing', async () => {
     const response = await callListMembers(pool, ownerPool, clock, {});
+    const result = JSON.parse(response.body) as { result: { isError: boolean } };
+
+    expect(response.statusCode).toBe(200);
+    expect(result.result.isError).toBe(true);
+  });
+});
+
+describe('POST /mcp get_user_details tool', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW);
+    workspaceId = await insertWorkspace(database, 'Nhóm Alpha');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: BEARER_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('returns user details with memberships and channel identity', async () => {
+    const response = await callGetUserDetails(pool, ownerPool, clock, { user_id: userId });
+    const data = parseToolResult(response.body) as {
+      id: string;
+      is_internal: boolean;
+      memberships: { workspace_id: string; workspace_name: string; role: string; display_name: string }[];
+      channel_identities: { channel: string; zalo_name: string | null }[];
+    };
+
+    expect(response.statusCode).toBe(200);
+    expect(data.id).toBe(userId);
+    expect(data.is_internal).toBe(true);
+    expect(data.memberships).toHaveLength(1);
+    expect(data.memberships[0]?.workspace_id).toBe(workspaceId);
+    expect(data.memberships[0]?.display_name).toBe('Duy');
+    expect(data.channel_identities).toHaveLength(1);
+    expect(data.channel_identities[0]?.channel).toBe('zalo-oa');
+  });
+
+  it('returns an error when user is not found', async () => {
+    const response = await callGetUserDetails(pool, ownerPool, clock, { user_id: '00000000-0000-0000-0000-000000000000' });
+    const result = JSON.parse(response.body) as { result: { isError: boolean } };
+
+    expect(response.statusCode).toBe(200);
+    expect(result.result.isError).toBe(true);
+  });
+
+  it('returns an error when user_id is missing', async () => {
+    const response = await callGetUserDetails(pool, ownerPool, clock, {});
     const result = JSON.parse(response.body) as { result: { isError: boolean } };
 
     expect(response.statusCode).toBe(200);

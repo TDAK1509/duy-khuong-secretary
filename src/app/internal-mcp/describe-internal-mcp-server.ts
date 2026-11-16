@@ -6,6 +6,7 @@ import { buildListWorkspacesTool } from './list-workspaces-tool.ts';
 import { buildListMembersTool } from './list-members-tool.ts';
 import { buildSearchRecordsTool } from './search-records-tool.ts';
 import { buildGetWorkspaceHistoryTool } from './get-workspace-history-tool.ts';
+import { buildGetUserDetailsTool } from './get-user-details-tool.ts';
 
 export function describeInternalMcpServer(ownerPool: Database, clock: Clock): McpServerDefinition {
   return {
@@ -23,5 +24,6 @@ function buildInternalMcpTools(ownerPool: Database, clock: Clock): McpTool[] {
     buildListMembersTool(ownerPool),
     buildSearchRecordsTool(ownerPool),
     buildGetWorkspaceHistoryTool(ownerPool, clock),
+    buildGetUserDetailsTool(ownerPool),
   ];
 }

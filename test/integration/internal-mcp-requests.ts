@@ -67,6 +67,15 @@ export function callGetWorkspaceHistory(pool: PostgresPool, ownerPool: PostgresP
   });
 }
 
+export function callGetUserDetails(pool: PostgresPool, ownerPool: PostgresPool, clock: FakeClock, args: Record<string, unknown> = {}) {
+  return postMcp(pool, ownerPool, clock, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: { name: 'get_user_details', arguments: args },
+  });
+}
+
 export function parseToolResult(responseBody: string): unknown {
   const jsonRpc = JSON.parse(responseBody) as { result: { content: { text: string }[] } };
   return JSON.parse(jsonRpc.result.content[0]?.text ?? 'null');
