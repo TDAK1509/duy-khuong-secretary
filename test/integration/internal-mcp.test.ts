@@ -6,7 +6,7 @@ import { createMigratedDatabase } from './migrated-database.ts';
 import type { TemporaryDatabase } from './temporary-database.ts';
 import { insertMember, insertWorkspace } from './workspace-rows.ts';
 import { insertInternalSession, makeUserInternal } from './internal-user-rows.ts';
-import { BEARER_TOKEN, callListUsers, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
+import { BEARER_TOKEN, callListUsers, callListWorkspaces, listTools, parseToolResult, postMcp } from './internal-mcp-requests.ts';
 import { getAdminPage, SESSION_TOKEN } from './internal-admin-requests.ts';
 
 const NOW = new Date('2026-11-02T10:00:00+07:00');
@@ -91,13 +91,14 @@ describe('POST /mcp tools', () => {
     await database.drop();
   });
 
-  it('lists one tool named list_users with the correct input schema', async () => {
+  it('lists two tools: list_users and list_workspaces', async () => {
     const response = await listTools(pool, ownerPool, clock);
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body) as { result: { tools: { name: string }[] } };
-    expect(body.result.tools).toHaveLength(1);
-    expect(body.result.tools[0]?.name).toBe('list_users');
+    const names = body.result.tools.map((t) => t.name);
+    expect(names).toContain('list_users');
+    expect(names).toContain('list_workspaces');
   });
 
   it('returns users from all workspaces with their memberships', async () => {
@@ -187,6 +188,93 @@ describe('POST /mcp tools', () => {
     await expect(ownerPool.query('INSERT INTO workspaces (name) VALUES ($1)', ['test'])).rejects.toMatchObject({
       code: '25006',
     });
+  });
+});
+
+describe('POST /mcp list_workspaces tool', () => {
+  let database: TemporaryDatabase;
+  let pool: PostgresPool;
+  let ownerPool: PostgresPool;
+  let clock: FakeClock;
+  let userId: string;
+  let workspaceId: string;
+
+  beforeEach(async () => {
+    database = await createMigratedDatabase();
+    pool = createPostgresPool(database.url);
+    ownerPool = createOwnerReadPool(database.url);
+    clock = new FakeClock(NOW);
+    workspaceId = await insertWorkspace(database, 'Nhóm Alpha');
+    userId = await insertMember(database, { workspaceId, externalUserId: 'zu-duy', displayName: 'Duy', role: 'admin' });
+    await makeUserInternal(database, userId);
+    await insertInternalSession(database, { userId, token: BEARER_TOKEN, expiresAt: new Date(NOW.getTime() + ONE_HOUR_MS) });
+  });
+
+  afterEach(async () => {
+    await pool.end();
+    await ownerPool.end();
+    await database.drop();
+  });
+
+  it('returns workspaces with id, name, credit_balance, created_at, and member_count', async () => {
+    const response = await callListWorkspaces(pool, ownerPool, clock);
+    const data = parseToolResult(response.body) as { items: { id: string; name: string; credit_balance: string; created_at: string; member_count: number }[] };
+
+    expect(response.statusCode).toBe(200);
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]?.id).toBe(workspaceId);
+    expect(data.items[0]?.name).toBe('Nhóm Alpha');
+    expect(typeof data.items[0]?.credit_balance).toBe('string');
+    expect(data.items[0]?.member_count).toBe(1);
+  });
+
+  it('filters workspaces by name (case-insensitive substring)', async () => {
+    await insertWorkspace(database, 'Nhóm Beta');
+
+    const response = await callListWorkspaces(pool, ownerPool, clock, { name: 'alpha' });
+    const data = parseToolResult(response.body) as { items: { name: string }[] };
+
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0]?.name).toBe('Nhóm Alpha');
+  });
+
+  it('filters workspaces by Vietnam-timezone created_from and created_to dates', async () => {
+    await database.query(`UPDATE workspaces SET created_at = '2026-10-31T17:00:00Z' WHERE id = '${workspaceId}'`);
+    const laterId = await insertWorkspace(database, 'Nhóm Gamma');
+    await database.query(`UPDATE workspaces SET created_at = '2026-11-01T17:01:00Z' WHERE id = '${laterId}'`);
+
+    const onNov1 = await callListWorkspaces(pool, ownerPool, clock, { created_from: '2026-11-01', created_to: '2026-11-01' });
+    const data = parseToolResult(onNov1.body) as { items: { id: string }[] };
+
+    expect(data.items.map((w) => w.id)).toContain(workspaceId);
+    expect(data.items.map((w) => w.id)).not.toContain(laterId);
+  });
+
+  it('paginates 51 workspaces into a first page of 50 with a next_cursor', async () => {
+    for (let i = 1; i <= 50; i += 1) {
+      await insertWorkspace(database, `Extra ${i}`);
+    }
+
+    const response = await callListWorkspaces(pool, ownerPool, clock, { limit: 50 });
+    const data = parseToolResult(response.body) as { items: unknown[]; next_cursor: string | null };
+
+    expect(data.items).toHaveLength(50);
+    expect(data.next_cursor).not.toBeNull();
+  });
+
+  it('returns the remaining item on the second page when 51 workspaces exist', async () => {
+    for (let i = 1; i <= 50; i += 1) {
+      await insertWorkspace(database, `Extra ${i}`);
+    }
+
+    const firstPage = await callListWorkspaces(pool, ownerPool, clock, { limit: 50 });
+    const firstData = parseToolResult(firstPage.body) as { items: unknown[]; next_cursor: string };
+
+    const secondPage = await callListWorkspaces(pool, ownerPool, clock, { limit: 50, cursor: firstData.next_cursor });
+    const secondData = parseToolResult(secondPage.body) as { items: unknown[]; next_cursor: string | null };
+
+    expect(secondData.items).toHaveLength(1);
+    expect(secondData.next_cursor).toBeNull();
   });
 });
 
