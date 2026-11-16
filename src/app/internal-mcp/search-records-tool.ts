@@ -39,7 +39,7 @@ const SELECT_RECORDS = `
     record.summary, record.identifiers, record.details,
     to_char(record.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') AS added_at,
     message.image_key IS NOT NULL AS has_photo,
-    to_char(record.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc
+    to_char(record.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
   FROM records record
   JOIN messages message ON message.id = record.message_id`;
 
@@ -94,7 +94,7 @@ type RecordRow = {
   details: { label: string; value: string }[];
   added_at: string;
   has_photo: boolean;
-  created_at_utc: string;
+  created_at: string;
 };
 
 function parseSearchRecordsArgs(args: unknown): SearchRecordsArgs {
@@ -154,17 +154,10 @@ function addCursorCondition(where: WhereClause, cursorText: string): void {
   where.require(`(record.created_at, record.id) < (${where.bind(cursor.createdAt)}::timestamptz, ${where.bind(cursor.id)}::uuid)`);
 }
 
-function toRecordsPage(rows: RecordRow[], limit: number): { items: RecordItem[]; next_cursor: string | null } {
+function toRecordsPage(rows: RecordRow[], limit: number): { items: RecordRow[]; next_cursor: string | null } {
   const pageRows = rows.slice(0, limit);
   const hasMore = rows.length > limit;
   const last = pageRows[pageRows.length - 1];
-  const next_cursor = hasMore && last !== undefined ? encodeSearchCursor({ createdAt: last.created_at_utc, id: last.id }) : null;
-  return { items: pageRows.map(toRecordItem), next_cursor };
-}
-
-type RecordItem = Omit<RecordRow, 'created_at_utc'>;
-
-function toRecordItem(row: RecordRow): RecordItem {
-  const { created_at_utc: _, ...item } = row;
-  return item;
+  const next_cursor = hasMore && last !== undefined ? encodeSearchCursor({ createdAt: last.created_at, id: last.id }) : null;
+  return { items: pageRows, next_cursor };
 }
