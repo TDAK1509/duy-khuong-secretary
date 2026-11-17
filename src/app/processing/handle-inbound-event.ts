@@ -3,6 +3,7 @@ import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
+import type { FileStorage } from '../../services/storage/file-storage.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import { releaseHeldMessages } from '../delivery/release-held-messages.ts';
@@ -27,9 +28,11 @@ import {
 } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
-import type { Stage } from './stages.ts';
+import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
+import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
+import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 
 export type InboundHandlerDependencies = {
   channel: MessagingChannel;
@@ -37,6 +40,7 @@ export type InboundHandlerDependencies = {
   database: Database;
   encryptionKey: string;
   photoStorage: PhotoStorage | null;
+  fileStorage?: FileStorage | null;
   reader: ReaderService | null;
   chat: ChatService | null;
 };
@@ -44,18 +48,59 @@ export type InboundHandlerDependencies = {
 const textPayloadSchema = z.object({ text: z.string() });
 
 export function createInboundHandler(dependencies: InboundHandlerDependencies | null): InboundHandler {
-  return async (event, stages) => {
-    if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
-    await stages.runStage(releaseHeldStage(dependencies, event));
-    const text = readText(event);
-    const sender = await findIntakeSender(dependencies.database, event, text);
-    if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
-    const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
-    const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
-    return stages.finishEvent((transaction) =>
-      answerSender(transaction, dependencies, { event, text, inviteCode, zaloName }),
-    );
-  };
+  if (dependencies === null) return async () => ({ kind: 'not_configured', group: 'zalo' });
+  return (event, stages) => dispatchInboundEvent(dependencies, event, stages);
+}
+
+async function dispatchInboundEvent(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  await stages.runStage(releaseHeldStage(dependencies, event));
+  if (event.kind === 'file') return handleFileEvent(dependencies, event, stages);
+  return answerByText(dependencies, event, stages);
+}
+
+async function handleFileEvent(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  const sender = await findIntakeSender(dependencies.database, event, null);
+  if (sender === null || sender.role !== 'admin') return refuseNonAdminFile(dependencies, event, stages);
+  return receiveFile(dependencies, stages, event, sender, readFileFromPayload(event));
+}
+
+async function refuseNonAdminFile(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished> {
+  return stages.finishEvent(async (transaction) => {
+    await recordSenderIdentity(transaction, event);
+    await enqueueText(transaction, {
+      to: describeSender(event),
+      text: SHEET_NON_ADMIN_TEXT,
+      maxTextLength: dependencies.channel.maxTextLength,
+      availableAt: dependencies.clock.now(),
+    });
+  });
+}
+
+async function answerByText(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  const text = readText(event);
+  const sender = await findIntakeSender(dependencies.database, event, text);
+  if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
+  const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
+  const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
+  return stages.finishEvent((transaction) =>
+    answerSender(transaction, dependencies, { event, text, inviteCode, zaloName }),
+  );
 }
 
 function releaseHeldStage({ channel, clock }: InboundHandlerDependencies, event: ClaimedEvent): Stage {
@@ -104,20 +149,19 @@ async function answerSender(
 }
 
 async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply): Promise<void> {
-  const common = {
+  const common = buildReplyCommon(message, reply);
+  const offered = reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } };
+  await enqueueText(transaction, { ...common, text: reply.text, ...offered });
+  if (reply.followUpText !== undefined) await enqueueText(transaction, { ...common, text: reply.followUpText });
+}
+
+function buildReplyCommon(message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply) {
+  return {
     to: describeSender(message.event),
     maxTextLength: message.maxTextLength,
     availableAt: message.now,
     ...(reply.adminMembershipId !== undefined && { adminMembershipId: reply.adminMembershipId }),
   };
-  await enqueueText(transaction, {
-    ...common,
-    text: reply.text,
-    ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }),
-  });
-  if (reply.followUpText !== undefined) {
-    await enqueueText(transaction, { ...common, text: reply.followUpText });
-  }
 }
 
 type ReceivedMessage = Message & { identity: ChannelIdentity; now: Date; maxTextLength: number };

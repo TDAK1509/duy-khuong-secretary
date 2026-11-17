@@ -179,6 +179,7 @@ export class ZaloOaChannel implements MessagingChannel {
     return readUploadResult(response);
   }
 
+  // allow-long-function: one request-and-parse flow; the catch keeps the method total-failure-silent.
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
     try {
       const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
@@ -438,8 +439,14 @@ function collectFiles(event: ZaloEvent): ZaloFileAttachment[] {
   return event.message.attachments.flatMap((attachment) => {
     if (attachment.type !== 'file') return [];
     const { url, name, size } = attachment.payload ?? {};
-    return url !== undefined && name !== undefined && size !== undefined ? [{ url, name, size }] : [];
+    if (url === undefined || name === undefined || size === undefined) return [];
+    return hasSheetExtension(name) ? [{ url, name, size }] : [];
   });
+}
+
+function hasSheetExtension(fileName: string): boolean {
+  const trimmed = fileName.trim().toLowerCase();
+  return trimmed.endsWith('.csv') || trimmed.endsWith('.xlsx');
 }
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {
