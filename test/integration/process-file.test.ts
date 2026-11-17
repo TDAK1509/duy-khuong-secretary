@@ -41,6 +41,34 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('replies with the all-saved text when every row is valid', async () => {
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...ORDERS_FIVE_ROWS].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+
+    await harness.runProcessFiles();
+
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Đã lưu 5 dòng vào chứng từ "Hóa đơn".' }]);
+  });
+
+  it('saves nothing and names every row when all rows are bad', async () => {
+    const badRows = [',51A,Giao hàng,100000', ',51B,Nhận hàng,200000', ',51C,Giao hàng,300000'];
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...badRows].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Không lưu được dòng nào. Bỏ qua các dòng: 1, 2, 3.' }]);
+  });
+
   it('skips a row with an empty title cell and names the skipped row in the reply', async () => {
     const rows = [...ORDERS_FIVE_ROWS];
     rows[1] = '2026-01-02,51B,,200000';
