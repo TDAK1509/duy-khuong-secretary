@@ -2,6 +2,7 @@ import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
 import { runParseFilesStep } from '../../src/app/intake/run-parse-files-step.ts';
+import { runProcessFilesStep } from '../../src/app/intake/run-process-files-step.ts';
 import { runTick } from '../../src/app/ticker/run-tick.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
@@ -53,6 +54,7 @@ export type IntakeHarness = {
   receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
   runParseFiles(): Promise<'processed' | 'idle'>;
+  runProcessFiles(overrides?: { reader?: FakeReader }): Promise<'processed' | 'idle'>;
   runTick(overrides?: { chat?: FakeChatService | null }): Promise<void>;
   setReportReadyTemplate(templateId: string | null): void;
   sendQueuedTexts(): Promise<void>;
@@ -141,6 +143,15 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     runInbound,
     runParseFiles: () =>
       runParseFilesStep({ database: pool, clock, channel, fileStorage, sheetParser: new ExcelJsSheetParser() }),
+    runProcessFiles: (overrides = {}) =>
+      runProcessFilesStep({
+        database: pool,
+        clock,
+        channel,
+        reader: overrides.reader ?? reader,
+        fileStorage,
+        sheetParser: new ExcelJsSheetParser(),
+      }),
     runTick: (overrides = {}) => {
       const chatService = overrides.chat === undefined ? chat : overrides.chat;
       return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService }, photoCleanup: null });
