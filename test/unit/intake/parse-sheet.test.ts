@@ -63,6 +63,12 @@ describe('parseSheet', () => {
     });
   });
 
+  it('returns zero headers and zero rows for an empty .csv', async () => {
+    const result = await parseSheet('csv', new Uint8Array(), sheetParser);
+
+    expect(result).toEqual({ ok: true, headers: [], rows: [] });
+  });
+
   it('drops an empty trailing row from a .xlsx first sheet', async () => {
     const bytes = await buildXlsx([
       ['name', 'plate', 'date'],
