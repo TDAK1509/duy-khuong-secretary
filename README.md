@@ -145,6 +145,8 @@ Chat calls use OpenAI's Responses API (`/v1/responses`) with `store: false`, so 
 
 Before answering an admin, one short call on the admin chat model, with no tools, labels the message `report` or `other`. It sees the message and the last 6 turns of the conversation. A `report` (reports, analyses, comparisons, rankings, totals or summaries over a period or over several trucks, drivers or companies, and follow-ups to them) is answered by the admin report model. Anything else, or a failed label call, is answered by the admin chat model. Tools, prompt, guard and round limit are the same for both. Each admin message logs `[admin-route] message=<id> label=report|other|failed`, and the label call is metered as `chat_answer`.
 
+When an admin's answer holds a table of more than 5 rows, the bot calls `export_report_xlsx` with the table it filled in from this turn's tool results: a title, columns typed number or text (units in the column names) and the rows. The tool refuses rows that do not match the columns, text in a number column, and tables over 50 columns or 5,000 rows. It stores an `.xlsx` (`bao-cao-<id>.xlsx`: title row, bold frozen header, numbers stored as numbers) under the workspace's `exports/` prefix and returns a 24-hour link. The reply is plain text with the main result, the link and "link có hiệu lực 24 giờ". Smaller tables stay in the message, one item per line. Admin answers never use markdown, because Zalo shows it as raw symbols.
+
 The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the reader runs.
 
 | Env var | Default | Meaning |

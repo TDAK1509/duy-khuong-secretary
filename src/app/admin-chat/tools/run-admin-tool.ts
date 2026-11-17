@@ -31,6 +31,7 @@ import { runListFacts } from './list-facts-tool.ts';
 import { runUpdateFact } from './update-fact-tool.ts';
 import { runDeleteFact } from './delete-fact-tool.ts';
 import { runTotalFactValues } from './total-fact-values-tool.ts';
+import { runExportReportXlsx } from './export-report-xlsx-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
@@ -104,6 +105,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   split_merged_name: ({ database }, scope, args) => runSplitMergedName(database, scope, args),
   total_document_numbers: ({ database }, scope, args) => runTotalDocumentNumbers(database, scope, args),
   export_documents_xlsx: (deps, scope, args) => runExportDocumentsXlsx(deps, scope, args),
+  export_report_xlsx: (deps, scope, args) => runExportReportXlsx(deps, scope, args),
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
@@ -11,17 +10,14 @@ import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { buildDocumentFilters, DOCUMENT_FILTER_ARGUMENTS, hasUnrealDate, type DocumentFilterArguments } from './document-filter-arguments.ts';
 import { failTool, INVALID_DATE_ERROR, REFUSAL_ERROR } from './tool-result.ts';
-
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-const PRESIGN_EXPIRES_SECONDS = 86400;
-const EXPIRES_HOURS = 24;
+import { EXPORT_EXPIRES_HOURS, EXPORT_NOT_CONFIGURED_ERROR, storeExcelExport } from './store-excel-export.ts';
 
 const argumentsSchema = z.object(DOCUMENT_FILTER_ARGUMENTS);
 
 export async function runExportDocumentsXlsx(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   if (scope.role !== 'admin') return failTool(REFUSAL_ERROR);
   const storage = dependencies.fileStorage ?? null;
-  if (storage === null) return failTool('Tính năng xuất Excel chưa được cấu hình.');
+  if (storage === null) return failTool(EXPORT_NOT_CONFIGURED_ERROR);
   const args = argumentsSchema.parse(parsedArguments);
   if (hasUnrealDate(args)) return failTool(INVALID_DATE_ERROR);
   return executeExport(storage, dependencies.database, scope, buildDocumentFilters(args), describeFilter(args));
@@ -31,10 +27,8 @@ async function executeExport(storage: FileStorage, database: Database, scope: Ac
   const rows = await queryExportRows(database, scope, filters);
   if (rows.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches', described_filter: describedFilter });
   const bytes = await buildDocumentsWorkbook(rows);
-  const key = buildStorageKey(scope.workspaceId);
-  await storage.put(key, bytes, XLSX_CONTENT_TYPE);
-  const url = await storage.presignedUrl(key, PRESIGN_EXPIRES_SECONDS);
-  return JSON.stringify({ ok: true, url, filename: buildFilename(key), count: rows.length, described_filter: describedFilter, expires_hours: EXPIRES_HOURS });
+  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, bytes, 'giay-to');
+  return JSON.stringify({ ok: true, url, filename, count: rows.length, described_filter: describedFilter, expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
 type DocumentExportRow = {
@@ -80,15 +74,6 @@ function buildSenderSubquery(): string {
      JOIN memberships mem ON mem.user_id = msg.user_id AND mem.workspace_id = document.workspace_id
      WHERE ds.document_id = document.id AND ds.workspace_id = document.workspace_id
      ORDER BY ds.created_at LIMIT 1)`;
-}
-
-function buildStorageKey(workspaceId: string): string {
-  return `workspace_${workspaceId}/exports/${randomUUID()}.xlsx`;
-}
-
-function buildFilename(key: string): string {
-  const uuid = key.split('/').pop()?.replace('.xlsx', '') ?? randomUUID();
-  return `giay-to-${uuid.slice(0, 8)}.xlsx`;
 }
 
 function describeFilter(args: DocumentFilterArguments): string {
