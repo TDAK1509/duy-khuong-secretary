@@ -13,8 +13,8 @@ export type IntakeDependencies = {
   channel: MessagingChannel;
   clock: Clock;
   database: Database;
+  fileStorage: FileStorage | null;
   photoStorage: PhotoStorage | null;
-  fileStorage?: FileStorage | null;
   reader: ReaderService | null;
   chat: ChatService | null;
 };

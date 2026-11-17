@@ -34,7 +34,7 @@ describe('an admin uploads a sheet file', () => {
       `SELECT id, text, image_key FROM messages WHERE author = 'user'`,
     );
     expect(messages).toEqual([{ id: messages[0]?.id, text: 'orders.csv', image_key: null }]);
-    expect(harness.fileStorage.listKeys()).toEqual([`${workspaceId}/${messages[0]?.id}.csv`]);
+    expect(harness.fileStorage.listPuts().map((p) => p.key)).toEqual([`${workspaceId}/${messages[0]?.id}.csv`]);
     expect(
       await database.query(`SELECT message_id, file_name, file_size_bytes, extension FROM message_files`),
     ).toEqual([
@@ -45,7 +45,7 @@ describe('an admin uploads a sheet file', () => {
   it('refuses a multi-file event with the one-at-a-time text', async () => {
     await harness.receiveFile(ADMIN_USER, { fileName: 'ignored', fileSize: 1024, attachmentCount: 2 });
 
-    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(harness.fileStorage.listPuts().map((p) => p.key)).toEqual([]);
     expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
     expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
       { body: 'Vui lòng gửi từng file một.' },
@@ -92,7 +92,7 @@ describe('an admin uploads a sheet file', () => {
       fileSize: 50,
     });
 
-    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(harness.fileStorage.listPuts().map((p) => p.key)).toEqual([]);
     expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
     expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([]);
     expect(await database.query(`SELECT status FROM inbound_events`)).toEqual([{ status: 'done' }]);
@@ -105,7 +105,7 @@ describe('an admin uploads a sheet file', () => {
       fileSize: 6 * 1024 * 1024,
     });
 
-    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(harness.fileStorage.listPuts().map((p) => p.key)).toEqual([]);
     expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
     expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
       { body: 'File quá lớn, tối đa 5 MB.' },

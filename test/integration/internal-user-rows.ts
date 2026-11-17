@@ -40,3 +40,12 @@ export async function insertInternalSession(database: TemporaryDatabase, session
      VALUES (${literal(hashSecretToken(session.token))}, ${literal(session.userId)}, ${timestamp(session.expiresAt)})`,
   );
 }
+
+export type NewInternalMcpToken = { userId: string; token: string; expiresAt: Date; createdAt: Date };
+
+export async function insertInternalMcpToken(database: TemporaryDatabase, row: NewInternalMcpToken): Promise<void> {
+  await database.query(
+    `INSERT INTO internal_mcp_tokens (user_id, token_hash, expires_at, created_at)
+     VALUES (${literal(row.userId)}, ${literal(hashSecretToken(row.token))}, ${timestamp(row.expiresAt)}, ${timestamp(row.createdAt)})`,
+  );
+}

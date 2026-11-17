@@ -1,19 +1,24 @@
-import type { FileStorage, StoredFile } from '../../src/services/storage/file-storage.ts';
+import type { FileStorage } from '../../src/services/storage/file-storage.ts';
+
+type PutCall = { key: string; bytes: Uint8Array; contentType: string };
 
 export class FakeFileStorage implements FileStorage {
-  private readonly files = new Map<string, StoredFile>();
-  isFailing = false;
+  private readonly puts: PutCall[] = [];
+  private defaultUrl: string | null = null;
 
-  async put(key: string, file: StoredFile): Promise<void> {
-    if (this.isFailing) throw new Error('the fake file storage is set to fail');
-    this.files.set(key, file);
+  stubDefaultUrl(url: string): void {
+    this.defaultUrl = url;
   }
 
-  async get(key: string): Promise<StoredFile | null> {
-    return this.files.get(key) ?? null;
+  listPuts(): PutCall[] {
+    return [...this.puts];
   }
 
-  listKeys(): string[] {
-    return [...this.files.keys()];
+  async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+    this.puts.push({ key, bytes, contentType });
+  }
+
+  async presignedUrl(key: string, expiresInSeconds: number): Promise<string> {
+    return this.defaultUrl ?? `https://r2.fake/${key}?X-Amz-Expires=${expiresInSeconds}`;
   }
 }

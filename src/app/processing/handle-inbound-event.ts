@@ -13,8 +13,11 @@ import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts
 import type { ChannelIdentity } from '../identities/channel-identity.ts';
 import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { answerInternalLoginCommand, isInternalLoginCommand } from '../internal-admin/answer-internal-login-command.ts';
+import { answerMcpTokenCommand, isMcpTokenCommand } from '../internal-mcp/answer-mcp-token-command.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
+import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
+import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -31,16 +34,14 @@ import type { InboundHandler } from './inbound-step.ts';
 import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
-import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
-import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 
 export type InboundHandlerDependencies = {
   channel: MessagingChannel;
   clock: Clock;
   database: Database;
   encryptionKey: string;
+  fileStorage: FileStorage | null;
   photoStorage: PhotoStorage | null;
-  fileStorage?: FileStorage | null;
   reader: ReaderService | null;
   chat: ChatService | null;
 };
@@ -96,6 +97,10 @@ async function answerByText(
   const text = readText(event);
   const sender = await findIntakeSender(dependencies.database, event, text);
   if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
+  return handleNonIntakeSender(dependencies, stages, event, text);
+}
+
+async function handleNonIntakeSender(dependencies: InboundHandlerDependencies, stages: Stages, event: ClaimedEvent, text: string | null) {
   const inviteCode = text !== null && isInviteCodeMessage(text) ? text : null;
   const zaloName = await lookUpNameOfNewMember(dependencies, event, inviteCode);
   return stages.finishEvent((transaction) =>
@@ -149,13 +154,13 @@ async function answerSender(
 }
 
 async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply): Promise<void> {
-  const common = buildReplyCommon(message, reply);
+  const envelope = buildReplyEnvelope(message, reply);
   const offered = reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } };
-  await enqueueText(transaction, { ...common, text: reply.text, ...offered });
-  if (reply.followUpText !== undefined) await enqueueText(transaction, { ...common, text: reply.followUpText });
+  await enqueueText(transaction, { ...envelope, text: reply.text, ...offered });
+  if (reply.followUpText !== undefined) await enqueueText(transaction, { ...envelope, text: reply.followUpText });
 }
 
-function buildReplyCommon(message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply) {
+function buildReplyEnvelope(message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply) {
   return {
     to: describeSender(message.event),
     maxTextLength: message.maxTextLength,
@@ -188,6 +193,7 @@ async function tellInviter(transaction: Transaction, joined: JoinedPerson, messa
 async function replyToOtherMessage(transaction: Transaction, { identity, text, now }: ReceivedMessage): Promise<Reply | null> {
   if (identity.userId === null) return { text: WELCOME_TEXT };
   if (text !== null && isInternalLoginCommand(text)) return answerInternalLoginCommand(transaction, identity.userId, now);
+  if (text !== null && isMcpTokenCommand(text)) return answerMcpTokenCommand(transaction, identity.userId, now);
   const workspaceId = await findPersonWorkspace(transaction, identity);
   if (workspaceId === null) return { text: NO_LONGER_IN_A_WORKSPACE_TEXT };
   return replyToMember(transaction, { identity, userId: identity.userId, workspaceId, text });

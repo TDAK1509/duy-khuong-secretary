@@ -1,4 +1,4 @@
-import { GetObjectCommand, NoSuchKey, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, NoSuchKey, PutObjectCommand } from '@aws-sdk/client-s3';
 import { describe, expect, it } from 'vitest';
 import { S3PhotoStorage, type S3Sender } from '../../src/providers/storage/s3-photo-storage.ts';
 
@@ -62,5 +62,43 @@ describe('S3PhotoStorage', () => {
     };
 
     expect(await new S3PhotoStorage(SETTINGS, client).get('w1/missing.jpg')).toBeNull();
+  });
+
+  it('deletes the object with the right bucket and key', async () => {
+    const commands: unknown[] = [];
+    const client: S3Sender = {
+      send: async (command) => {
+        commands.push(command);
+        return {};
+      },
+    };
+    const storage = new S3PhotoStorage(SETTINGS, client);
+
+    await storage.delete('ws/abc.jpg');
+
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toBeInstanceOf(DeleteObjectCommand);
+    expect((commands[0] as DeleteObjectCommand).input).toEqual({ Bucket: 'photos', Key: 'ws/abc.jpg' });
+  });
+
+  it('treats a missing key as success on delete', async () => {
+    const client: S3Sender = {
+      send: async () => {
+        throw new NoSuchKey({ message: 'no such key', $metadata: {} });
+      },
+    };
+
+    await expect(new S3PhotoStorage(SETTINGS, client).delete('missing.jpg')).resolves.toBeUndefined();
+  });
+
+  it('propagates other S3 errors on delete', async () => {
+    const storageError = new Error('internal server error');
+    const client: S3Sender = {
+      send: async () => {
+        throw storageError;
+      },
+    };
+
+    await expect(new S3PhotoStorage(SETTINGS, client).delete('any.jpg')).rejects.toBe(storageError);
   });
 });

@@ -103,8 +103,14 @@ async function storeAcceptedFile(
   const scope = toDatabaseScope(sender);
   const scopedStages = stages.forScope(scope);
   const stored = await runStoreFileStage(scopedStages, event, sender, file, extension);
-  await requireFileStorage(dependencies).put(stored.fileKey, { bytes, extension });
+  await requireFileStorage(dependencies).put(stored.fileKey, bytes, contentTypeFor(extension));
   return scopedStages.finishEvent((transaction) => finishFileIntake(transaction, dependencies, event, sender, file));
+}
+
+const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function contentTypeFor(extension: SheetExtension): string {
+  return extension === 'csv' ? 'text/csv' : XLSX_CONTENT_TYPE;
 }
 
 function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
