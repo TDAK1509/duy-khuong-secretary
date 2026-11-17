@@ -3,7 +3,8 @@ import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
 import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
 
-const MAX_TOOL_ROUNDS = 5;
+export const DEFAULT_TOOL_ROUNDS = 5;
+export const ADMIN_TOOL_ROUNDS = 15;
 const MAX_CALLS_PER_ROUND = 5;
 
 export type RunTool = (call: ToolCall) => Promise<string>;
@@ -21,13 +22,14 @@ export async function runToolLoop(
   request: ChatRequest,
   runTool: RunTool,
   rounds: LoggedRound[] = [],
+  maxRounds = DEFAULT_TOOL_ROUNDS,
 ): Promise<ToolLoopResult> {
   let turns = request.turns;
   for (let round = 0; ; round += 1) {
     const result = await chat.respond({ ...request, turns });
     if (!result.ok) return { outcome: 'chat_failed', text: CHAT_FAILURE_TEXT };
     if (result.reply.kind === 'text') return { outcome: 'answered', text: result.reply.text };
-    if (round === MAX_TOOL_ROUNDS) {
+    if (round === maxRounds) {
       rounds.push({ ran: false, calls: result.reply.calls.map(describeNotRunCall) });
       return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
     }

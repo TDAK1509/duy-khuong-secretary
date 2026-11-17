@@ -6,7 +6,7 @@ import { enqueueReply, enqueueReplyPhotos, enqueueSourceCard } from '../intake/e
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { listChatTools } from './tools/chat-tools.ts';
-import { runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
+import { ADMIN_TOOL_ROUNDS, DEFAULT_TOOL_ROUNDS, runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
@@ -66,8 +66,8 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
-  const chat = requireChat(context, profile.role);
-  const result = await runLoggedToolLoop(chat, message, request, (call) => runChatTool(dependencies, caller, call));
+  const loop = chooseToolLoop(context, profile.role);
+  const result = await runLoggedToolLoop(loop, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
 
@@ -97,10 +97,10 @@ function hasPhotoDelivery(card: SourceCard): boolean {
   return card.quote !== undefined || card.albumPhotoKey !== undefined;
 }
 
-async function runLoggedToolLoop(chat: ChatService, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
+async function runLoggedToolLoop({ chat, maxRounds }: ToolLoopChoice, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
   const rounds: LoggedRound[] = [];
   try {
-    const result = await runToolLoop(chat, request, runTool, rounds);
+    const result = await runToolLoop(chat, request, runTool, rounds, maxRounds);
     console.log(formatAdminChatLine(message.id, result.outcome, rounds));
     return result;
   } catch (error) {
@@ -131,10 +131,13 @@ function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: Too
   return [build({ ...profile, now, memory }), buildAbilitySection(tools)].join('\n\n');
 }
 
-function requireChat(context: IntakeContext, role: ChatProfile['role']): ChatService {
+type ToolLoopChoice = { chat: ChatService; maxRounds: number };
+
+function chooseToolLoop(context: IntakeContext, role: ChatProfile['role']): ToolLoopChoice {
   const { chats } = context.dependencies;
   if (chats === null) throw new Error('the chat service is not configured');
-  return role === 'admin' ? chats.adminChat : chats.memberChat;
+  if (role === 'admin') return { chat: chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS };
+  return { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
 }
 
 async function hasAnswer(transaction: Transaction, messageId: string): Promise<boolean> {
