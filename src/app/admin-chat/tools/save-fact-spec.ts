@@ -1,7 +1,7 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 
 const NULLABLE_STRING = { type: ['string', 'null'] };
-const COMPANY_NAME_RULE = 'Bỏ chữ "công ty" hoặc "cty" đứng trước tên, ví dụ "công ty TAICERA" ghi là "TAICERA".';
+const COMPANY_NAME_RULE = 'Bỏ chữ "công ty" hoặc "cty" đứng trước tên, ví dụ "công ty TAICERA" ghi là "TAICERA". Khi gọi lại sau khi quản lý chọn một tên công cụ đã liệt kê, chép đúng tên đó.';
 
 export const SAVE_FACT_SPEC: ToolSpec = {
   name: 'save_fact',
