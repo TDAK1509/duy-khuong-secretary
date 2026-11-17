@@ -1,7 +1,7 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import type { FactValue, NewFact } from './fact.ts';
-import { linkFactToMatchingDocuments } from './link-fact-to-matching-documents.ts';
+import { linkFactToMatchingDocuments } from './link-facts.ts';
 
 export type SavedFact = { factId: string; linkedDocuments: number };
 

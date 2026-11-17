@@ -5,6 +5,7 @@ import type { FactReader } from '../memory/fact-readers.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { groupItems, hasCompatiblePlate, pairItemsWithRecords, type DocumentDraft } from './document-draft.ts';
 import { findAcceptedDocuments } from './find-accepted-documents.ts';
+import { linkDocumentToMatchingFacts } from '../facts/link-facts.ts';
 import { insertDocument, insertSources } from './insert-document.ts';
 import { extractPlateFromFacts } from './plate-from-facts.ts';
 
@@ -37,6 +38,11 @@ async function loadKnownPlate(transaction: Transaction, workspaceId: string, sen
 async function storeDraft(transaction: Transaction, message: DocumentMessage, draft: DocumentDraft, mayInsertDocuments: boolean): Promise<void> {
   const accepted = await findAcceptedDocuments(transaction, message.workspaceId, draft);
   const same = accepted.find((document) => hasCompatiblePlate(document.vehicle_plate, draft.vehiclePlate));
-  if (same) await insertSources(transaction, message, same.id, draft);
+  if (same) await addSources(transaction, message, same.id, draft);
   else if (mayInsertDocuments) await insertDocument(transaction, message, draft);
+}
+
+async function addSources(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
+  await insertSources(transaction, message, documentId, draft);
+  await linkDocumentToMatchingFacts(transaction, message.workspaceId, documentId);
 }

@@ -20,6 +20,7 @@ import {
   SHEET_READER_FAILURE_TEXT,
 } from './sheet-texts.ts';
 import type { SheetMappingPlan } from './map-sheet-rows.ts';
+import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 
 const MAX_PREVIEW_ROWS = 10;
 
@@ -120,6 +121,7 @@ async function saveDrafts(dependencies: ProcessFilesDependencies, file: ReadyFil
   if (drafts.length === 0) return;
   await runInTransaction(dependencies.database, (transaction) =>
     transaction.withScope({ workspaceId: file.workspaceId }, async () => {
+      await lockWorkspaceRecords(transaction, file.workspaceId);
       for (const draft of drafts) {
         await insertDocument(transaction, { id: file.messageId, workspaceId: file.workspaceId }, draft);
       }

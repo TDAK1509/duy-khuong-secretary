@@ -1,4 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
+import { linkDocumentToMatchingFacts } from '../facts/link-facts.ts';
 import type { DocumentDraft } from './document-draft.ts';
 import { insertLines } from './insert-lines.ts';
 import { insertParties } from './insert-parties.ts';
@@ -16,6 +17,7 @@ export async function insertDocument(
   await insertLines(transaction, message, documentId, draft);
   await insertParties(transaction, message, documentId, draft);
   await insertSources(transaction, message, documentId, draft);
+  await linkDocumentToMatchingFacts(transaction, message.workspaceId, documentId);
 }
 
 function buildDocumentRow({ workspaceId }: DocumentMessage, draft: DocumentDraft): Record<string, unknown> {
