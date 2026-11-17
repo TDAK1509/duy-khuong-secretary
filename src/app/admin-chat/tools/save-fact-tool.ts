@@ -45,7 +45,7 @@ export async function runSaveFact(database: Database, scope: AccessScope, parsed
   const statement = readStatement(request.statement);
   const driver = await findDriver(database, scope.workspaceId, request.driver_member_id);
   const factScope = readFactScope(request, driver);
-  const { saved, refused } = sortValues(request.values);
+  const { saved, refused } = splitSavedFromRefused(request.values);
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
   const fact = await saveFact(database, { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, scope: factScope, values: saved });
   return JSON.stringify({ ok: true, fact_id: fact.factId, scope: describeScope(factScope, driver), values: saved.map(describeValue), refused_values: refused, linked_documents: fact.linkedDocuments });
@@ -96,7 +96,7 @@ function readCompany(raw: string | null, field: string): FactCompany | null {
   return { name, matchKey };
 }
 
-function sortValues(values: ValueArgument[]): { saved: FactValue[]; refused: RefusedValue[] } {
+function splitSavedFromRefused(values: ValueArgument[]): { saved: FactValue[]; refused: RefusedValue[] } {
   const saved: FactValue[] = [];
   const refused: RefusedValue[] = [];
   for (const value of values) {
