@@ -179,19 +179,22 @@ export class ZaloOaChannel implements MessagingChannel {
     return readUploadResult(response);
   }
 
-  // allow-long-function: one request-and-parse flow; the catch keeps the method total-failure-silent.
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
     try {
-      const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
-        headers: { access_token: credential },
-        signal: AbortSignal.timeout(this.settings.timeoutMs),
-      });
-      if (!response.ok) return await discardBody(response);
-      const answer = userDetailSchema.safeParse(await response.json());
-      return answer.success ? answer.data.data.display_name : null;
+      return await this.readDisplayName(user, credential);
     } catch {
       return null;
     }
+  }
+
+  private async readDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
+    const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
+      headers: { access_token: credential },
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+    if (!response.ok) return discardBody(response);
+    const answer = userDetailSchema.safeParse(await response.json());
+    return answer.success ? answer.data.data.display_name : null;
   }
 
   async downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult> {
@@ -224,17 +227,20 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   private openResponse(url: URL): Promise<IncomingMessage> {
-    const options = {
+    return new Promise((resolve, reject) => {
+      const request = requestOverHttps(url, this.safeRequestOptions(), resolve);
+      request.on('error', reject);
+      request.end();
+    });
+  }
+
+  private safeRequestOptions() {
+    return {
       agent: false,
       ca: this.settings.trustedCertificates,
       lookup: this.lookUpCheckedAddress,
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     };
-    return new Promise((resolve, reject) => {
-      const request = requestOverHttps(url, options, resolve);
-      request.on('error', reject);
-      request.end();
-    });
   }
 
   private readonly lookUpCheckedAddress: LookupFunction = (hostname, options, callback) => {
@@ -265,17 +271,23 @@ async function readLimited(response: IncomingMessage, maxBytes: number): Promise
     response.destroy();
     return UNAVAILABLE;
   }
+  return collectBoundedChunks(response, maxBytes);
+}
+
+async function collectBoundedChunks(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
   const chunks: Buffer[] = [];
   let received = 0;
   for await (const chunk of response as AsyncIterable<Buffer>) {
     received += chunk.length;
-    if (received > maxBytes) {
-      response.destroy();
-      return { ok: false, reason: 'too_large' };
-    }
+    if (received > maxBytes) return abortAsTooLarge(response);
     chunks.push(chunk);
   }
   return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+function abortAsTooLarge(response: IncomingMessage): DownloadResult {
+  response.destroy();
+  return { ok: false, reason: 'too_large' };
 }
 
 function readRedirectLocation(response: IncomingMessage): string | null {

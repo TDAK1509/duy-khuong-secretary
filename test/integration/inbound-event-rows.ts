@@ -12,10 +12,14 @@ export type EventRow = {
 };
 
 export type NewInboundEvent = {
-  kind?: 'text' | 'images';
+  kind?: 'text' | 'images' | 'file';
   text?: string;
   imageUrls?: string[];
   caption?: string | null;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  tooMany?: boolean;
   externalUserId?: string;
   accountId?: string;
   externalEventId?: string;
@@ -35,9 +39,7 @@ export async function insertInboundEvent(database: TemporaryDatabase, event: New
   eventCounter += 1;
   const kind = event.kind ?? 'text';
   const sentAt = event.sentAt ?? '2026-11-02T10:00:00+07:00';
-  const payload = JSON.stringify(
-    kind === 'text' ? { text: event.text ?? 'chào', sent_at: sentAt } : { image_urls: event.imageUrls ?? ['https://z.test/1.jpg'], caption: event.caption ?? null, sent_at: sentAt },
-  );
+  const payload = JSON.stringify(buildPayload(kind, event, sentAt));
   const [row] = await database.query<{ id: string }>(
     `INSERT INTO inbound_events
        (channel, account_id, external_event_id, external_user_id, kind, payload, status, attempts, available_at, locked_until, received_at)
@@ -49,4 +51,20 @@ export async function insertInboundEvent(database: TemporaryDatabase, event: New
   );
   if (!row) throw new Error('event not inserted');
   return row.id;
+}
+
+function buildPayload(kind: 'text' | 'images' | 'file', event: NewInboundEvent, sentAt: string): Record<string, unknown> {
+  if (kind === 'text') return { text: event.text ?? 'chào', sent_at: sentAt };
+  if (kind === 'images') return { image_urls: event.imageUrls ?? ['https://z.test/1.jpg'], caption: event.caption ?? null, sent_at: sentAt };
+  return buildFilePayload(event, sentAt);
+}
+
+function buildFilePayload(event: NewInboundEvent, sentAt: string): Record<string, unknown> {
+  if (event.tooMany) return { too_many: true, sent_at: sentAt };
+  return {
+    file_url: event.fileUrl ?? 'https://zdn.vn/sheet.csv',
+    file_name: event.fileName ?? 'sheet.csv',
+    file_size: event.fileSize ?? 1024,
+    sent_at: sentAt,
+  };
 }

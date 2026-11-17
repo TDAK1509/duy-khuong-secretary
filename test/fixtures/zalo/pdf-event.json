@@ -1,0 +1,1 @@
+{"app_id":"app-test","user_id_by_app":"uba-hung","event_name":"user_send_file","timestamp":"1793588400000","sender":{"id":"zu-hung"},"recipient":{"id":"oa-1"},"message":{"msg_id":"m5","attachments":[{"type":"file","payload":{"name":"report.pdf","size":"200000","url":"https://zdn.vn/report.pdf"}}]}}
