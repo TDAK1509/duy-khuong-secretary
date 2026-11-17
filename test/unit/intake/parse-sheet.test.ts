@@ -63,6 +63,22 @@ describe('parseSheet', () => {
     });
   });
 
+  it('drops an empty trailing row from a .xlsx first sheet', async () => {
+    const bytes = await buildXlsx([
+      ['name', 'plate', 'date'],
+      ['A', '51A', '2026-01-01'],
+      ['', '', ''],
+    ]);
+
+    const result = await parseSheet('xlsx', bytes, sheetParser);
+
+    expect(result).toEqual({
+      ok: true,
+      headers: ['name', 'plate', 'date'],
+      rows: [['A', '51A', '2026-01-01']],
+    });
+  });
+
   it('parses a .xlsx first sheet with one header and two rows', async () => {
     const bytes = await buildXlsx([
       ['name', 'plate', 'date'],
