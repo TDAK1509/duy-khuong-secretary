@@ -13,6 +13,18 @@ const UPDATE_PLATE_VALUES_SQL = `
   RETURNING fact.id
 `;
 
+const PLATE_PATTERN = `'\\d{2}[A-Z]-?\\d{3,4}\\.?\\d{2}'`;
+
+const RESTATE_PLATE_SQL = `
+  UPDATE facts
+  SET statement = CASE
+        WHEN statement ~ ${PLATE_PATTERN} THEN regexp_replace(statement, ${PLATE_PATTERN}, $2, 'g')
+        ELSE statement || E'\\n' || $3
+      END,
+      updated_at = now()
+  WHERE id = ANY($1::uuid[])
+`;
+
 const INSERT_PLATE_FACT_SQL = `
   INSERT INTO facts (workspace_id, author_user_id, statement, driver_user_id) VALUES ($1, $2, $3, $4) RETURNING id
 `;
@@ -30,7 +42,7 @@ export async function setDriverPlateFact(transaction: Transaction, driverPlate: 
 }
 
 async function restateFacts(transaction: Transaction, factIds: string[], plate: string): Promise<void> {
-  await transaction.query('UPDATE facts SET statement = $2, updated_at = now() WHERE id = ANY($1::uuid[])', [factIds, describePlate(plate)]);
+  await transaction.query(RESTATE_PLATE_SQL, [factIds, plate, describePlate(plate)]);
 }
 
 function describePlate(plate: string): string {
