@@ -32,6 +32,7 @@ export class OpenAiCompatibleChat implements ChatService {
       return { ok: true, reply: readReply(completion), usage: readTokenUsage(completion.usage) };
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
+      logChatFailure(this.model, error);
       return { ok: false, reason: 'unavailable' };
     }
   }
@@ -44,6 +45,14 @@ export class OpenAiCompatibleChat implements ChatService {
       tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
     };
   }
+}
+
+const MAX_LOGGED_MESSAGE_LENGTH = 300;
+
+function logChatFailure(model: string, error: unknown): void {
+  const status = error instanceof OpenAI.APIError ? String(error.status ?? 'none') : 'none';
+  const message = error instanceof Error ? error.message.slice(0, MAX_LOGGED_MESSAGE_LENGTH) : 'unknown error';
+  console.error(`[chat] model=${model} failed status=${status} message=${message}`);
 }
 
 function readReply(completion: OpenAI.Chat.ChatCompletion): Extract<ChatResult, { ok: true }>['reply'] {
