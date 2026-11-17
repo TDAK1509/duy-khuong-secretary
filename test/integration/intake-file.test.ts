@@ -42,6 +42,22 @@ describe('an admin uploads a sheet file', () => {
     ]);
   });
 
+  it('refuses a .pdf attachment with the wrong-extension text', async () => {
+    harness.channel.attachments.set('https://zdn.vn/report.pdf', { ok: true, bytes: new Uint8Array(200).fill(0x25) });
+
+    await harness.receiveFile(ADMIN_USER, {
+      fileUrl: 'https://zdn.vn/report.pdf',
+      fileName: 'report.pdf',
+      fileSize: 200,
+    });
+
+    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
+      { body: 'Chỉ nhận file .csv hoặc .xlsx.' },
+    ]);
+  });
+
   it('refuses a file over 5 MB without storing it', async () => {
     await harness.receiveFile(ADMIN_USER, {
       fileUrl: 'https://zdn.vn/big.csv',
