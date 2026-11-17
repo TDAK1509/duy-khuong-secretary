@@ -38,14 +38,14 @@ export class OpenAiCompatibleChat implements ChatService {
   }
 
   private buildParameters(request: ChatRequest): OpenAI.Responses.ResponseCreateParamsNonStreaming {
-    const isReasoning = this.reasoningEffort !== undefined && this.reasoningEffort !== 'none';
+    const mayReason = this.reasoningEffort !== 'none';
     return {
       model: this.model,
       instructions: request.system,
-      input: request.turns.flatMap(toInputItems),
+      input: request.turns.flatMap(buildInputItems),
       store: false,
       ...(this.reasoningEffort === undefined ? {} : { reasoning: { effort: this.reasoningEffort } }),
-      ...(isReasoning ? { include: ['reasoning.encrypted_content'] } : {}),
+      ...(mayReason ? { include: ['reasoning.encrypted_content'] } : {}),
       tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
     };
   }
@@ -61,8 +61,12 @@ function logChatFailure(model: string, error: unknown): void {
 
 function readReply(response: OpenAI.Responses.Response): Extract<ChatResult, { ok: true }>['reply'] {
   const calls = response.output.filter((item) => item.type === 'function_call');
-  if (calls.length > 0) return { kind: 'tool_calls', calls: calls.map(toChatToolCall), replayItems: response.output };
+  if (calls.length > 0) return { kind: 'tool_calls', calls: calls.map(toChatToolCall), replayItems: response.output.filter(isReplayable) };
   return { kind: 'text', text: response.output_text };
+}
+
+function isReplayable(item: OpenAI.Responses.ResponseOutputItem): boolean {
+  return item.type !== 'reasoning' || Boolean(item.encrypted_content);
 }
 
 function toChatToolCall(call: OpenAI.Responses.ResponseFunctionToolCall): ToolCall {
@@ -73,19 +77,15 @@ function toFunctionTool(tool: ToolSpec): OpenAI.Responses.FunctionTool {
   return { type: 'function', name: tool.name, description: tool.description, parameters: tool.parameters, strict: true };
 }
 
-function toInputItems(turn: ChatTurn): OpenAI.Responses.ResponseInputItem[] {
+function buildInputItems(turn: ChatTurn): OpenAI.Responses.ResponseInputItem[] {
   switch (turn.role) {
     case 'user':
-      return [{ role: 'user', content: turn.text ?? '' }];
+      return turn.text === null ? [] : [{ role: 'user', content: turn.text }];
     case 'assistant':
       return [{ role: 'assistant', content: turn.text }];
     case 'assistant_tool_calls':
-      return turn.replayItems.length > 0 ? (turn.replayItems as OpenAI.Responses.ResponseInputItem[]) : turn.calls.map(toFunctionCallItem);
+      return turn.replayItems as OpenAI.Responses.ResponseInputItem[];
     case 'tool_result':
       return [{ type: 'function_call_output', call_id: turn.callId, output: turn.output }];
   }
-}
-
-function toFunctionCallItem(call: ToolCall): OpenAI.Responses.ResponseFunctionToolCall {
-  return { type: 'function_call', call_id: call.id, name: call.name, arguments: call.argumentsJson };
 }
