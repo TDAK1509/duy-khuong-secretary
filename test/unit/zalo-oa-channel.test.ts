@@ -114,6 +114,12 @@ describe('ZaloOaChannel.parseEvent', () => {
     });
   });
 
+  it('ignores a user_send_file event whose attachment is not .csv or .xlsx', () => {
+    const { body } = loadSignedFixture('pdf-event');
+
+    expect(channel.parseEvent(body)).toEqual({ kind: 'ignored' });
+  });
+
   it('parses a user_send_file event with one attachment', () => {
     const { body } = loadSignedFixture('file-event');
 

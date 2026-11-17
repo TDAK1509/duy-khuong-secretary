@@ -10,12 +10,7 @@ import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import { detectSheetType } from './detect-sheet-type.ts';
 import type { IntakeDependencies } from './intake-context.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
-import {
-  formatSheetReceipt,
-  SHEET_OVERSIZED_TEXT,
-  SHEET_TOO_MANY_FILES_TEXT,
-  SHEET_WRONG_EXTENSION_TEXT,
-} from './sheet-texts.ts';
+import { formatSheetReceipt, SHEET_OVERSIZED_TEXT, SHEET_TOO_MANY_FILES_TEXT } from './sheet-texts.ts';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const FILE_NAME_LIMIT = 200;
@@ -54,14 +49,27 @@ async function downloadAndStore(
   file: ReceivedFile,
 ): Promise<Finished> {
   const download = await dependencies.channel.downloadAttachment(file.fileUrl, MAX_FILE_BYTES);
-  if (!download.ok) return refuseFileEvent(dependencies, stages, event, reasonToText(download.reason));
+  if (!download.ok) return handleDownloadFailure(dependencies, stages, event, download.reason);
   const extension = detectSheetType(file.fileName, download.bytes);
-  if (extension === null) return refuseFileEvent(dependencies, stages, event, SHEET_WRONG_EXTENSION_TEXT);
+  if (extension === null) return dropSignatureMismatch(stages, event);
   return storeAcceptedFile(dependencies, stages, event, sender, file, download.bytes, extension);
 }
 
-function reasonToText(reason: 'too_large' | 'unavailable'): string {
-  return reason === 'too_large' ? SHEET_OVERSIZED_TEXT : SHEET_WRONG_EXTENSION_TEXT;
+function handleDownloadFailure(
+  dependencies: IntakeDependencies,
+  stages: Stages,
+  event: ClaimedEvent,
+  reason: 'too_large' | 'unavailable',
+): Promise<Finished> {
+  if (reason === 'too_large') return refuseFileEvent(dependencies, stages, event, SHEET_OVERSIZED_TEXT);
+  return dropSignatureMismatch(stages, event);
+}
+
+function dropSignatureMismatch(stages: Stages, event: ClaimedEvent): Promise<Finished> {
+  console.error(`[intake] file signature does not match extension: ${event.id}`);
+  return stages.finishEvent(async (transaction) => {
+    await recordSenderIdentity(transaction, event);
+  });
 }
 
 async function storeAcceptedFile(

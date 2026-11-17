@@ -81,7 +81,7 @@ describe('an admin uploads a sheet file', () => {
     ]);
   });
 
-  it('refuses a .csv whose bytes start with the ZIP signature', async () => {
+  it('silently drops a .csv whose bytes start with the ZIP signature', async () => {
     const bytes = new Uint8Array(50).fill(0x30);
     bytes.set([0x50, 0x4b, 0x03, 0x04]);
     harness.channel.attachments.set('https://zdn.vn/fake.csv', { ok: true, bytes });
@@ -92,26 +92,10 @@ describe('an admin uploads a sheet file', () => {
       fileSize: 50,
     });
 
-    expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
-    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
-      { body: 'Chỉ nhận file .csv hoặc .xlsx.' },
-    ]);
-  });
-
-  it('refuses a .pdf attachment with the wrong-extension text', async () => {
-    harness.channel.attachments.set('https://zdn.vn/report.pdf', { ok: true, bytes: new Uint8Array(200).fill(0x25) });
-
-    await harness.receiveFile(ADMIN_USER, {
-      fileUrl: 'https://zdn.vn/report.pdf',
-      fileName: 'report.pdf',
-      fileSize: 200,
-    });
-
     expect(harness.fileStorage.listKeys()).toEqual([]);
     expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
-    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
-      { body: 'Chỉ nhận file .csv hoặc .xlsx.' },
-    ]);
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([]);
+    expect(await database.query(`SELECT status FROM inbound_events`)).toEqual([{ status: 'done' }]);
   });
 
   it('refuses a file over 5 MB without storing it', async () => {
