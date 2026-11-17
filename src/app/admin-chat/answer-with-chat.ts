@@ -66,7 +66,8 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
-  const result = await runLoggedToolLoop(context, message, request, (call) => runChatTool(dependencies, caller, call));
+  const chat = requireChat(context, profile.role);
+  const result = await runLoggedToolLoop(chat, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }
 
@@ -96,10 +97,10 @@ function hasPhotoDelivery(card: SourceCard): boolean {
   return card.quote !== undefined || card.albumPhotoKey !== undefined;
 }
 
-async function runLoggedToolLoop(context: IntakeContext, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
+async function runLoggedToolLoop(chat: ChatService, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
   const rounds: LoggedRound[] = [];
   try {
-    const result = await runToolLoop(requireChat(context), request, runTool, rounds);
+    const result = await runToolLoop(chat, request, runTool, rounds);
     console.log(formatAdminChatLine(message.id, result.outcome, rounds));
     return result;
   } catch (error) {
@@ -130,10 +131,10 @@ function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: Too
   return [build({ ...profile, now, memory }), buildAbilitySection(tools)].join('\n\n');
 }
 
-function requireChat(context: IntakeContext): ChatService {
-  const { chat } = context.dependencies;
-  if (chat === null) throw new Error('the chat service is not configured');
-  return chat;
+function requireChat(context: IntakeContext, role: ChatProfile['role']): ChatService {
+  const { chats } = context.dependencies;
+  if (chats === null) throw new Error('the chat service is not configured');
+  return role === 'admin' ? chats.adminChat : chats.memberChat;
 }
 
 async function hasAnswer(transaction: Transaction, messageId: string): Promise<boolean> {

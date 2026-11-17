@@ -1,4 +1,4 @@
-import type { ChatService } from '../../services/chat/chat-service.ts';
+import type { ChatServices } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
@@ -9,6 +9,8 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { Stages } from '../processing/stages.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
+export type IntakeChats = Pick<ChatServices, 'adminChat' | 'memberChat'>;
+
 export type IntakeDependencies = {
   channel: MessagingChannel;
   clock: Clock;
@@ -16,7 +18,7 @@ export type IntakeDependencies = {
   fileStorage: FileStorage | null;
   photoStorage: PhotoStorage | null;
   reader: ReaderService | null;
-  chat: ChatService | null;
+  chats: IntakeChats | null;
 };
 
 export type IntakeContext = {

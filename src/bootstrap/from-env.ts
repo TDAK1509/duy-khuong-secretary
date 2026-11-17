@@ -5,7 +5,7 @@ import { ZaloOaAuth } from '../providers/channel-auth/zalo-oa-auth.ts';
 import { ZaloOaChannel } from '../providers/messaging/zalo-oa-channel.ts';
 import { SystemClock } from '../providers/clock/system-clock.ts';
 import { OpenAiCompatibleChat } from '../providers/chat/openai-compatible-chat.ts';
-import type { ChatService } from '../services/chat/chat-service.ts';
+import type { ChatService, ChatServices } from '../services/chat/chat-service.ts';
 import { OpenAiCompatibleReader } from '../providers/reading/openai-compatible-reader.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { Clock } from '../services/clock/clock.ts';
@@ -17,7 +17,7 @@ import { S3FileStorage } from '../providers/storage/s3-file-storage.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
 import type { FileStorage } from '../services/storage/file-storage.ts';
 import type { AlertConfig, Config } from './config.ts';
-import type { ChatConfig } from './chat-config.ts';
+import type { ChatConfig, ChatTask } from './chat-config.ts';
 import type { PhotoStorageConfig } from './photo-storage-config.ts';
 import type { ReaderConfig } from './reader-config.ts';
 import type { ZaloConfig } from './zalo-config.ts';
@@ -95,9 +95,18 @@ export function buildReader(config: ReaderConfig): ReaderService {
   }
 }
 
-export function buildChatService(config: ChatConfig): ChatService {
+export function buildChatServices(config: ChatConfig): ChatServices {
+  return {
+    adminChat: buildChatService(config, 'adminChat'),
+    memberChat: buildChatService(config, 'memberChat'),
+    scheduledRun: buildChatService(config, 'scheduledRun'),
+  };
+}
+
+function buildChatService(config: ChatConfig, task: ChatTask): ChatService {
+  const { model, reasoningEffort } = config.tasks[task];
   switch (config.provider) {
     case 'openai-compatible':
-      return new OpenAiCompatibleChat(config);
+      return new OpenAiCompatibleChat({ baseUrl: config.baseUrl, apiKey: config.apiKey, timeoutMs: config.timeoutMs, model, reasoningEffort });
   }
 }
