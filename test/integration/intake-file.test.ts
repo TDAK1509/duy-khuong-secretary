@@ -42,6 +42,16 @@ describe('an admin uploads a sheet file', () => {
     ]);
   });
 
+  it('refuses a multi-file event with the one-at-a-time text', async () => {
+    await harness.receiveFile(ADMIN_USER, { fileName: 'ignored', fileSize: 1024, attachmentCount: 2 });
+
+    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
+      { body: 'Vui lòng gửi từng file một.' },
+    ]);
+  });
+
   it('queues the receipt text for the admin after storing the file', async () => {
     harness.channel.attachments.set('https://zdn.vn/orders.csv', { ok: true, bytes: makeCsv(20480) });
 
