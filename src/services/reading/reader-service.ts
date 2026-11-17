@@ -17,6 +17,6 @@ export type ReaderResult =
   | { ok: false; reason: 'timeout' | 'unavailable' };
 
 export interface ReaderService {
-  readonly model: string;
+  chooseModel(request: ReaderRequest): string;
   read(request: ReaderRequest): Promise<ReaderResult>;
 }

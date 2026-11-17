@@ -69,7 +69,7 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 
 ## Receive Zalo messages
 
-`POST /webhooks/zalo` takes every event Zalo sends to the OA. In the Zalo app's webhook settings, set the URL to `<PUBLIC_BASE_URL>/webhooks/zalo` and turn on `user_send_text` and `user_send_image`. Set `ZALO_OA_SECRET` to the OA secret key shown there.
+`POST /webhooks/zalo` takes every event Zalo sends to the OA. In the Zalo app's webhook settings, set the URL to `<PUBLIC_BASE_URL>/webhooks/zalo` and turn on `user_send_text`, `user_send_image` and `user_send_file`. Set `ZALO_OA_SECRET` to the OA secret key shown there.
 
 The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of app id, exact raw body, `timestamp` and OA secret key) and that the body's `app_id` is `ZALO_APP_ID`. Answers:
 
@@ -134,6 +134,8 @@ The `readers` group is on only when `READER_PROVIDER` and `READER_API_KEY` are s
 | `READER_MODEL` | `gpt-6.1-sol` | Model of the reader. It needs a price in `src/app/credits/price-call.ts`, else the start fails |
 | `READER_TIMEOUT_MS` | `60000` | Wait for one reader reply |
 | `READER_REASONING_EFFORT` | not sent | Sent as `reasoning_effort` when set |
+| `READER_PHOTO_MODEL`, `READER_PHOTO_REASONING_EFFORT` | `READER_MODEL`, `READER_REASONING_EFFORT` | Model and reasoning effort of reads that carry a photo, including rereads of photo messages (`gpt-6.1-sol` with `medium` in production). The model needs a price, else the start fails |
+| `READER_TEXT_MODEL`, `READER_TEXT_REASONING_EFFORT` | `READER_MODEL`, `READER_REASONING_EFFORT` | Model and reasoning effort of every other read: text messages, admin sheets, rereads of text messages and the detail-number backfill (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
 
 ## Admins ask the bot
 
@@ -248,7 +250,7 @@ A sync cannot create these. Do them by hand:
 
 - The OpenAI API key.
 - The R2 bucket `secretary-photos`, its S3 endpoint and its access keys.
-- The Zalo app and its link to the OA: the callback URL `<URL>/oauth/zalo/callback`, the webhook URL `<URL>/webhooks/zalo` with `user_send_text` and `user_send_image` on, the OA secret, and the domain verification file if Zalo asks (`ZALO_VERIFIER_FILE_NAME` and `ZALO_VERIFIER_FILE_CONTENT` in the dashboard).
+- The Zalo app and its link to the OA: the callback URL `<URL>/oauth/zalo/callback`, the webhook URL `<URL>/webhooks/zalo` with `user_send_text`, `user_send_image` and `user_send_file` on, the OA secret, and the domain verification file if Zalo asks (`ZALO_VERIFIER_FILE_NAME` and `ZALO_VERIFIER_FILE_CONTENT` in the dashboard).
 - The `connect-zalo` run in the service shell, approved in a browser.
 - The `create-workspace` run in the service shell, once per customer.
 - The template approval, then `ZALO_REPORT_READY_TEMPLATE_ID` in the dashboard.

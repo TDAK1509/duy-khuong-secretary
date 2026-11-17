@@ -63,6 +63,14 @@ services:
         value: openai-compatible
       - key: READER_REASONING_EFFORT
         value: medium
+      - key: READER_PHOTO_MODEL
+        value: gpt-6.1-sol
+      - key: READER_PHOTO_REASONING_EFFORT
+        value: medium
+      - key: READER_TEXT_MODEL
+        value: gpt-6-luna
+      - key: READER_TEXT_REASONING_EFFORT
+        value: none
 
 databases:
   - name: secretary-db

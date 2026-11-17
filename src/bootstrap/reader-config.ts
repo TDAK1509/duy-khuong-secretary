@@ -12,13 +12,15 @@ const environmentSchema = z.object({
   READER_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
 });
 
+export type ReaderModelSetting = { model: string; reasoningEffort: string | undefined };
+
 export type ReaderConfig = {
   provider: 'openai-compatible';
   baseUrl: string;
   apiKey: string;
-  model: string;
   timeoutMs: number;
-  reasoningEffort: string | undefined;
+  photo: ReaderModelSetting;
+  text: ReaderModelSetting;
 };
 
 export type ReaderConfigResult = { ok: true; config: ReaderConfig } | { ok: false; missing: string[] };
@@ -34,16 +36,22 @@ export function loadReaderConfig(suppliedEnvironment: NodeJS.ProcessEnv): Reader
       provider: settings.READER_PROVIDER,
       baseUrl: settings.READER_BASE_URL,
       apiKey: environment['READER_API_KEY'] ?? '',
-      model: readPricedModel(environment),
       timeoutMs: settings.READER_TIMEOUT_MS,
-      reasoningEffort: environment['READER_REASONING_EFFORT'] || undefined,
+      photo: readModelSetting(environment, 'READER_PHOTO'),
+      text: readModelSetting(environment, 'READER_TEXT'),
     },
   };
 }
 
-function readPricedModel(environment: NodeJS.ProcessEnv): string {
-  const model = environment['READER_MODEL'] ?? '';
-  if (!hasPrice(model)) throw new Error(`Invalid configuration: READER_MODEL "${model}" has no price`);
+function readModelSetting(environment: NodeJS.ProcessEnv, prefix: 'READER_PHOTO' | 'READER_TEXT'): ReaderModelSetting {
+  const modelName = environment[`${prefix}_MODEL`] ? `${prefix}_MODEL` : 'READER_MODEL';
+  const reasoningEffort = environment[`${prefix}_REASONING_EFFORT`] ?? environment['READER_REASONING_EFFORT'];
+  return { model: readPricedModel(environment, modelName), reasoningEffort: reasoningEffort || undefined };
+}
+
+function readPricedModel(environment: NodeJS.ProcessEnv, variableName: string): string {
+  const model = environment[variableName] ?? '';
+  if (!hasPrice(model)) throw new Error(`Invalid configuration: ${variableName} "${model}" has no price`);
   return model;
 }
 

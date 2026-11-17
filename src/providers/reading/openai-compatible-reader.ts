@@ -13,7 +13,7 @@ export type OpenAiCompatibleReaderSettings = {
 
 export class OpenAiCompatibleReader implements ReaderService {
   private readonly client: OpenAI;
-  readonly model: string;
+  private readonly model: string;
   private readonly reasoningEffort: OpenAI.ReasoningEffort | undefined;
 
   constructor(settings: OpenAiCompatibleReaderSettings) {
@@ -25,6 +25,10 @@ export class OpenAiCompatibleReader implements ReaderService {
       timeout: settings.timeoutMs,
       maxRetries: 0,
     });
+  }
+
+  chooseModel(): string {
+    return this.model;
   }
 
   async read(request: ReaderRequest): Promise<ReaderResult> {
