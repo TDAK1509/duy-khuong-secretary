@@ -61,7 +61,13 @@ const REQUEST_NEVER_SENT_CODES = [
 
 const attachmentSchema = z.object({
   type: z.string(),
-  payload: z.object({ url: z.string().optional() }).optional(),
+  payload: z
+    .object({
+      url: z.string().optional(),
+      name: z.string().optional(),
+      size: z.coerce.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 const eventSchema = z.object({
@@ -398,20 +404,42 @@ function readJson<Shape>(rawBody: string, schema: z.ZodType<Shape>): Shape | nul
 
 type EventBase = { eventId: string; from: ChannelRecipient; sentAt: Date };
 
+const EVENT_BUILDERS: Record<string, (base: EventBase, event: ZaloEvent) => InboundEvent> = {
+  user_send_text: toTextEvent,
+  user_send_image: toImagesEvent,
+  user_send_file: toFileEvent,
+};
+
 function toInboundEvent(event: ZaloEvent): InboundEvent {
-  const base: EventBase = {
+  const build = EVENT_BUILDERS[event.event_name];
+  return build ? build(toEventBase(event), event) : IGNORED_EVENT;
+}
+
+function toEventBase(event: ZaloEvent): EventBase {
+  return {
     eventId: event.message.msg_id,
     from: { channel: ZALO_CHANNEL, accountId: event.recipient.id, externalUserId: event.sender.id },
     sentAt: new Date(event.timestamp),
   };
-  switch (event.event_name) {
-    case 'user_send_text':
-      return toTextEvent(base, event);
-    case 'user_send_image':
-      return toImagesEvent(base, event);
-    default:
-      return IGNORED_EVENT;
-  }
+}
+
+function toFileEvent(base: EventBase, event: ZaloEvent): InboundEvent {
+  const files = collectFiles(event);
+  if (files.length === 0) return IGNORED_EVENT;
+  if (files.length > 1) return { kind: 'file', ...base, tooMany: true };
+  const [file] = files;
+  if (!file) return IGNORED_EVENT;
+  return { kind: 'file', ...base, tooMany: false, fileUrl: file.url, fileName: file.name, fileSize: file.size };
+}
+
+type ZaloFileAttachment = { url: string; name: string; size: number };
+
+function collectFiles(event: ZaloEvent): ZaloFileAttachment[] {
+  return event.message.attachments.flatMap((attachment) => {
+    if (attachment.type !== 'file') return [];
+    const { url, name, size } = attachment.payload ?? {};
+    return url !== undefined && name !== undefined && size !== undefined ? [{ url, name, size }] : [];
+  });
 }
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {

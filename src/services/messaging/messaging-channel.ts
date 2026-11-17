@@ -6,9 +6,17 @@ export interface ChannelRecipient {
   externalUserId: string;
 }
 
+export type InboundFileEvent = {
+  kind: 'file';
+  eventId: string;
+  from: ChannelRecipient;
+  sentAt: Date;
+} & ({ tooMany: true } | { tooMany: false; fileUrl: string; fileName: string; fileSize: number });
+
 export type InboundEvent =
   | { kind: 'text'; eventId: string; from: ChannelRecipient; text: string; sentAt: Date }
   | { kind: 'images'; eventId: string; from: ChannelRecipient; imageUrls: string[]; caption: string | null; sentAt: Date }
+  | InboundFileEvent
   | { kind: 'ignored' };
 
 export type SendResult =

@@ -5,7 +5,14 @@ export const TEST_APP_ID = 'app-test';
 export const TEST_OA_SECRET = 'oa-secret-test';
 export const SIGNATURE_HEADER = 'x-zevent-signature';
 
-export type FixtureName = 'text-event' | 'image-event' | 'two-images-event' | 'follow-event';
+export type FixtureName =
+  | 'text-event'
+  | 'image-event'
+  | 'two-images-event'
+  | 'follow-event'
+  | 'file-event'
+  | 'multi-file-event'
+  | 'pdf-event';
 
 export type SignedFixture = { body: string; headers: Record<string, string> };
 
