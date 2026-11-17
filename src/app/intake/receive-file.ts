@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FileStorage, SheetExtension } from '../../services/storage/file-storage.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
-import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
