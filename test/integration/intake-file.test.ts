@@ -42,6 +42,20 @@ describe('an admin uploads a sheet file', () => {
     ]);
   });
 
+  it('queues the receipt text for the admin after storing the file', async () => {
+    harness.channel.attachments.set('https://zdn.vn/orders.csv', { ok: true, bytes: makeCsv(20480) });
+
+    await harness.receiveFile(ADMIN_USER, {
+      fileUrl: 'https://zdn.vn/orders.csv',
+      fileName: 'orders.csv',
+      fileSize: 20480,
+    });
+
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
+      { body: 'Đã nhận file "orders.csv" (20 KB).' },
+    ]);
+  });
+
   it('refuses a file from a workspace member with the non-admin text', async () => {
     harness.channel.attachments.set('https://zdn.vn/data.csv', { ok: true, bytes: makeCsv(20480) });
 
