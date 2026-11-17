@@ -36,6 +36,23 @@ describe('parsing a stored admin sheet', () => {
       { parsed: true },
     ]);
   });
+
+  it('queues a no-data reply after an empty .csv is parsed', async () => {
+    await uploadCsv(harness, 'empty.csv', '\n');
+
+    await harness.runParseFiles();
+
+    const replies = await database.query<{ body: string }>(
+      `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at`,
+    );
+    expect(replies.map((row) => row.body)).toEqual([
+      'Đã nhận file "empty.csv" (1 KB).',
+      'File "empty.csv" không có dòng dữ liệu.',
+    ]);
+    expect(await database.query('SELECT (parsed_at IS NOT NULL) AS parsed FROM message_files')).toEqual([
+      { parsed: true },
+    ]);
+  });
 });
 
 async function uploadCsv(harness: IntakeHarness, fileName: string, text: string): Promise<void> {
