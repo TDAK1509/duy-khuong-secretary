@@ -41,6 +41,20 @@ describe('an admin uploads a sheet file', () => {
       { message_id: messages[0]?.id, file_name: 'orders.csv', file_size_bytes: 20480, extension: 'csv' },
     ]);
   });
+
+  it('refuses a file over 5 MB without storing it', async () => {
+    await harness.receiveFile(ADMIN_USER, {
+      fileUrl: 'https://zdn.vn/big.csv',
+      fileName: 'big.csv',
+      fileSize: 6 * 1024 * 1024,
+    });
+
+    expect(harness.fileStorage.listKeys()).toEqual([]);
+    expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`)).toEqual([
+      { body: 'File quá lớn, tối đa 5 MB.' },
+    ]);
+  });
 });
 
 function makeCsv(size: number, header: string = CSV_HEADER): Uint8Array {
