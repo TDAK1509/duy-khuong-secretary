@@ -56,9 +56,9 @@ services:
       - key: MEMBER_CHAT_REASONING_EFFORT
         value: none
       - key: SCHEDULED_RUN_MODEL
-        value: gpt-6-luna
+        value: gpt-6.1-sol
       - key: SCHEDULED_RUN_REASONING_EFFORT
-        value: none
+        value: medium
       - key: READER_PROVIDER
         value: openai-compatible
       - key: READER_REASONING_EFFORT
