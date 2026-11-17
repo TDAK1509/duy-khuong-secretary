@@ -33,3 +33,9 @@ export interface ChatService {
   readonly model: string;
   respond(request: ChatRequest): Promise<ChatResult>;
 }
+
+export type ChatServices = {
+  adminChat: ChatService;
+  memberChat: ChatService;
+  scheduledRun: ChatService;
+};

@@ -7,7 +7,7 @@ import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import type { CleanupDependencies } from '../app/intake/cleanup-old-photos.ts';
 import { runTick, type TickDependencies } from '../app/ticker/run-tick.ts';
-import type { ChatService } from '../services/chat/chat-service.ts';
+import type { ChatServices } from '../services/chat/chat-service.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
@@ -18,7 +18,7 @@ import { SdkMcpEndpoint } from '../providers/mcp/sdk-mcp-endpoint.ts';
 import { loadConfig, type Config } from './config.ts';
 import {
   buildAlertSink,
-  buildChatService,
+  buildChatServices,
   buildChannelAuth,
   buildClock,
   buildFileStorage,
@@ -47,14 +47,14 @@ export type Service = {
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
   const configs = loadAllConfigs(environment, log);
-  const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat } = buildProviders(configs);
+  const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chats } = buildProviders(configs);
   return {
     config: configs.base,
     server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, ownerPool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
     pool,
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
-    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chat, pool, clock, environment, photoStorage)),
-    ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chat, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
+    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chats, pool, clock, environment, photoStorage)),
+    ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
   };
 }
 
@@ -112,14 +112,14 @@ type ServiceProviders = {
   photoStorage: PhotoStorage | null;
   fileStorage: FileStorage | null;
   reader: ReaderService | null;
-  chat: ChatService | null;
+  chats: ChatServices | null;
 };
 
 function buildProviders(configs: ServiceConfigs): ServiceProviders {
   const { pool, ownerPool, clock, alerts } = buildCoreProviders(configs.base);
   const { connection, channel } = buildZaloProviders(configs, pool, clock);
-  const { photoStorage, fileStorage, reader, chat } = buildOptionalServices(configs);
-  return { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chat };
+  const { photoStorage, fileStorage, reader, chats } = buildOptionalServices(configs);
+  return { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chats };
 }
 
 function buildCoreProviders(base: Config) {
@@ -140,8 +140,8 @@ function buildOptionalServices(configs: ServiceConfigs) {
   const photoStorage = configs.photoStorageConfig && buildPhotoStorage(configs.photoStorageConfig);
   const fileStorage = configs.photoStorageConfig && buildFileStorage(configs.photoStorageConfig);
   const reader = configs.readerConfig && buildReader(configs.readerConfig);
-  const chat = configs.chatConfig && buildChatService(configs.chatConfig);
-  return { photoStorage, fileStorage, reader, chat };
+  const chats = configs.chatConfig && buildChatServices(configs.chatConfig);
+  return { photoStorage, fileStorage, reader, chats };
 }
 
 function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
@@ -153,7 +153,7 @@ function buildTickOptions(
   connection: ReturnType<typeof buildConnectionDependencies> | null,
   alerts: OperatorAlerts,
   channel: MessagingChannel | null,
-  chat: ChatService | null,
+  chats: ChatServices | null,
   pool: PostgresPool,
   clock: Clock,
   environment: NodeJS.ProcessEnv,
@@ -162,7 +162,7 @@ function buildTickOptions(
   const { zalo } = configs;
   return {
     renewal: zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs },
-    scheduledRuns: channel && chat && { database: pool, clock, chat, channel },
+    scheduledRuns: channel && chats && { database: pool, clock, chat: chats.scheduledRun, channel },
     photoCleanup: buildPhotoCleanupDeps(pool, clock, photoStorage, loadPhotoCleanupConfig(environment)),
   };
 }
@@ -202,16 +202,16 @@ type QueueParts = {
   photoStorage: PhotoStorage | null;
   fileStorage: FileStorage | null;
   reader: ReaderService | null;
-  chat: ChatService | null;
+  chats: ChatServices | null;
   reportReadyTemplateId: string | null;
   log: (line: string) => void;
 };
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, chat, reportReadyTemplateId, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
-  const inbound = buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chat);
+  const inbound = buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chats);
   const outbound = buildOutboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, reportReadyTemplateId);
   return {
     runInboundStep: () => runInboundStep(inbound),
@@ -219,14 +219,14 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fil
   };
 }
 
-function buildInboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, fileStorage: FileStorage | null, reader: ReaderService | null, chat: ChatService | null) {
+function buildInboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, fileStorage: FileStorage | null, reader: ReaderService | null, chats: ChatServices | null) {
   return {
     database: pool,
     clock,
     alerts,
     notices,
     handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, fileStorage, reader, chat },
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, fileStorage, reader, chats },
     ),
   };
 }

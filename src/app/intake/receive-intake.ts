@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
@@ -14,7 +13,7 @@ import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import type { Finished, NotConfigured, Stages } from '../processing/stages.ts';
 import { enqueueRefusal } from './enqueue-reply.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
-import type { IntakeContext, IntakeDependencies } from './intake-context.ts';
+import type { IntakeChats, IntakeContext, IntakeDependencies } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
@@ -35,11 +34,11 @@ export async function receiveIntake(
   const scope = toDatabaseScope(sender);
   const dependencies = { ...unscopedDependencies, database: scopeDatabase(unscopedDependencies.database, scope) };
   const stages = unscopedStages.forScope(scope);
-  const { photoStorage, reader, chat } = dependencies;
-  if (chat === null) return { kind: 'not_configured', group: 'chat' };
+  const { photoStorage, reader, chats } = dependencies;
+  if (chats === null) return { kind: 'not_configured', group: 'chat' };
   if (event.kind === 'images' && photoStorage === null) return { kind: 'not_configured', group: 'photos' };
   if (reader === null) return { kind: 'not_configured', group: 'readers' };
-  const context = { ...meterServices(dependencies, reader, chat, sender), stages, event, sender };
+  const context = { ...meterServices(dependencies, reader, chats, sender), stages, event, sender };
   const parts = readIntakeParts(event);
   const outcomes = await receiveParts(context, parts);
   return stages.finishEvent((transaction) => finishIntake(transaction, context, readAnsweredText(event, parts), outcomes));
@@ -60,12 +59,12 @@ async function refuseWithoutCredits(context: IntakeContext, parts: IntakePart[])
 function meterServices(
   dependencies: IntakeDependencies,
   reader: ReaderService,
-  chat: ChatService,
+  chats: IntakeChats,
   sender: IntakeSender,
 ): Pick<IntakeContext, 'dependencies' | 'reader'> {
   const meter = { database: dependencies.database, workspaceId: sender.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.channel.maxTextLength } };
   return {
-    dependencies: { ...dependencies, chat: meterChat(chat, meter, 'chat_answer') },
+    dependencies: { ...dependencies, chats: { adminChat: meterChat(chats.adminChat, meter, 'chat_answer'), memberChat: meterChat(chats.memberChat, meter, 'chat_answer') } },
     reader: meterReader(reader, meter, (request) => (request.image === null ? 'text_read' : 'photo_read')),
   };
 }

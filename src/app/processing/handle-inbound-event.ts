@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { ChatService } from '../../services/chat/chat-service.ts';
 import type { Clock } from '../../services/clock/clock.ts';
 import type { MessagingChannel } from '../../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
@@ -34,6 +33,7 @@ import type { InboundHandler } from './inbound-step.ts';
 import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
+import type { IntakeChats } from '../intake/intake-context.ts';
 
 export type InboundHandlerDependencies = {
   channel: MessagingChannel;
@@ -43,7 +43,7 @@ export type InboundHandlerDependencies = {
   fileStorage: FileStorage | null;
   photoStorage: PhotoStorage | null;
   reader: ReaderService | null;
-  chat: ChatService | null;
+  chats: IntakeChats | null;
 };
 
 const textPayloadSchema = z.object({ text: z.string() });

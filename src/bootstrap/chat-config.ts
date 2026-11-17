@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { hasPrice } from '../app/credits/price-call.ts';
+import type { ChatServices } from '../services/chat/chat-service.ts';
 
 const REQUIRED_NAMES = ['CHAT_PROVIDER', 'LLM_BASE_URL', 'LLM_API_KEY', 'LLM_MODEL'];
 
@@ -9,13 +10,25 @@ const environmentSchema = z.object({
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
 });
 
+export type ChatTask = keyof ChatServices;
+
+const TASK_VARIABLE_PREFIXES: Record<ChatTask, string> = {
+  adminChat: 'ADMIN_CHAT',
+  memberChat: 'MEMBER_CHAT',
+  scheduledRun: 'SCHEDULED_RUN',
+};
+
+export type ChatModelSetting = {
+  model: string;
+  reasoningEffort: string | undefined;
+};
+
 export type ChatConfig = {
   provider: 'openai-compatible';
   baseUrl: string;
   apiKey: string;
-  model: string;
   timeoutMs: number;
-  reasoningEffort: string | undefined;
+  tasks: Record<ChatTask, ChatModelSetting>;
 };
 
 export type ChatConfigResult = { ok: true; config: ChatConfig } | { ok: false; missing: string[] };
@@ -30,21 +43,31 @@ export function loadChatConfig(environment: NodeJS.ProcessEnv): ChatConfigResult
       provider: settings.CHAT_PROVIDER,
       baseUrl: settings.LLM_BASE_URL,
       apiKey: environment['LLM_API_KEY'] ?? '',
-      model: readPricedModel(environment),
       timeoutMs: settings.LLM_TIMEOUT_MS,
-      reasoningEffort: readReasoningEffort(environment),
+      tasks: {
+        adminChat: readModelSetting(environment, 'adminChat'),
+        memberChat: readModelSetting(environment, 'memberChat'),
+        scheduledRun: readModelSetting(environment, 'scheduledRun'),
+      },
     },
   };
 }
 
-function readPricedModel(environment: NodeJS.ProcessEnv): string {
-  const model = environment['LLM_MODEL'] ?? '';
-  if (!hasPrice(model)) throw new Error(`Invalid configuration: LLM_MODEL "${model}" has no price`);
+function readModelSetting(environment: NodeJS.ProcessEnv, task: ChatTask): ChatModelSetting {
+  const prefix = TASK_VARIABLE_PREFIXES[task];
+  return {
+    model: readPricedModel(environment, environment[`${prefix}_MODEL`] ? `${prefix}_MODEL` : 'LLM_MODEL'),
+    reasoningEffort: readReasoningEffort(environment[`${prefix}_REASONING_EFFORT`] ?? environment['LLM_REASONING_EFFORT']),
+  };
+}
+
+function readPricedModel(environment: NodeJS.ProcessEnv, variableName: string): string {
+  const model = environment[variableName] ?? '';
+  if (!hasPrice(model)) throw new Error(`Invalid configuration: ${variableName} "${model}" has no price`);
   return model;
 }
 
-function readReasoningEffort(environment: NodeJS.ProcessEnv): string | undefined {
-  const value = environment['LLM_REASONING_EFFORT'];
+function readReasoningEffort(value: string | undefined): string | undefined {
   return value === undefined ? 'none' : value || undefined;
 }
 

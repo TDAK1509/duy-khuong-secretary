@@ -47,6 +47,18 @@ services:
         value: gpt-6-luna
       - key: LLM_REASONING_EFFORT
         value: none
+      - key: ADMIN_CHAT_MODEL
+        value: gpt-6.1-sol
+      - key: ADMIN_CHAT_REASONING_EFFORT
+        value: medium
+      - key: MEMBER_CHAT_MODEL
+        value: gpt-6-luna
+      - key: MEMBER_CHAT_REASONING_EFFORT
+        value: none
+      - key: SCHEDULED_RUN_MODEL
+        value: gpt-6.1-sol
+      - key: SCHEDULED_RUN_REASONING_EFFORT
+        value: medium
       - key: READER_PROVIDER
         value: openai-compatible
       - key: READER_REASONING_EFFORT
