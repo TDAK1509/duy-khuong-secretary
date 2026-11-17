@@ -2,6 +2,7 @@ import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 import { encodeSearchCursor, type SearchCursor } from '../records/search-cursor.ts';
+import { buildDocumentFactValuesSql, type DocumentFactValue } from '../facts/document-fact-values.ts';
 import { ACCEPTED_CONFIRMED } from './build-document-where.ts';
 import { buildDocumentDateSql } from './build-document-date.ts';
 import { buildGroupSql } from './document-groups.ts';
@@ -22,11 +23,12 @@ export type ListedDocument = {
   organization_group: string | null;
   filter_date: string | null;
   numbers: ListedNumber[];
+  fact_values?: DocumentFactValue[];
 };
 
 export type DocumentPage = { documents: ListedDocument[]; nextCursor: string | null };
 
-type DocumentRow = ListedDocument & { created_at_utc: string };
+type DocumentRow = ListedDocument & { created_at_utc: string; fact_values: DocumentFactValue[] };
 
 export async function listDocuments(database: Database, scope: AccessScope, request: NumberRequest, cursor: SearchCursor | null): Promise<DocumentPage> {
   const where = buildNumberWhere(scope, request, ACCEPTED_CONFIRMED);
@@ -42,6 +44,7 @@ function buildSelect(where: WhereClause, { filters }: NumberRequest): string {
        to_char(${buildDocumentDateSql(where, filters.dateMeaning)}, 'YYYY-MM-DD') AS filter_date,
        jsonb_agg(jsonb_build_object('line_no', line.line_no, 'item', line.item, 'label', line.label, 'value', line.value,
          'number', line.number::text, 'unit', line.unit) ORDER BY line.line_no) AS numbers,
+       ${buildDocumentFactValuesSql()} AS fact_values,
        to_char(document.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_utc
      ${FROM_NUMBER_LINES} WHERE ${where.toSql()}
      GROUP BY document.id
@@ -71,5 +74,6 @@ function toListedDocument(row: DocumentRow): ListedDocument {
     organization_group: row.organization_group,
     filter_date: row.filter_date,
     numbers: row.numbers,
+    ...(row.fact_values.length > 0 ? { fact_values: row.fact_values } : {}),
   };
 }
