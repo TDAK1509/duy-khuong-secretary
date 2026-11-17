@@ -41,6 +41,18 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('makes the saved rows available for list_documents filtered by the inferred kind', async () => {
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...ORDERS_FIVE_ROWS].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+    await harness.runProcessFiles();
+
+    const listed = await database.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM documents WHERE workspace_id = '${workspaceId}' AND kind = '${INVOICE_KIND}' AND status = 'accepted'`,
+    );
+
+    expect(listed).toEqual([{ count: 5 }]);
+  });
+
   it('sends the reader exactly ten data rows when the file has more than ten', async () => {
     const fifteenRows = Array.from({ length: 15 }, (_, index) => {
       const day = String(index + 1).padStart(2, '0');
