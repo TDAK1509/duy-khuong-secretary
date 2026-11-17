@@ -37,6 +37,27 @@ describe('parsing a stored admin sheet', () => {
     ]);
   });
 
+  it('queues a parse-failure reply after a broken .xlsx cannot be read', async () => {
+    const bytes = new Uint8Array(50).fill(0x30);
+    bytes.set([0x50, 0x4b, 0x03, 0x04]);
+    const fileUrl = 'https://zdn.vn/broken.xlsx';
+    harness.channel.attachments.set(fileUrl, { ok: true, bytes });
+    await harness.receiveFile(ADMIN_USER, { fileUrl, fileName: 'broken.xlsx', fileSize: bytes.length });
+
+    await harness.runParseFiles();
+
+    const replies = await database.query<{ body: string }>(
+      `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at`,
+    );
+    expect(replies.map((row) => row.body)).toEqual([
+      'Đã nhận file "broken.xlsx" (1 KB).',
+      'File "broken.xlsx" không đọc được. Kiểm tra định dạng và gửi lại.',
+    ]);
+    expect(await database.query('SELECT (parsed_at IS NOT NULL) AS parsed FROM message_files')).toEqual([
+      { parsed: true },
+    ]);
+  });
+
   it('queues a no-data reply after an empty .csv is parsed', async () => {
     await uploadCsv(harness, 'empty.csv', '\n');
 
