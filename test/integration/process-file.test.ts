@@ -41,6 +41,22 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('replies with the reader-failure text when the reader times out', async () => {
+    const rows = ORDERS_FIVE_ROWS.slice(0, 3);
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    harness.reader.failWith('timeout');
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Trợ lý không đọc được file. Gửi lại hoặc kiểm tra định dạng.' }]);
+    expect(await database.query('SELECT count(*)::int AS count FROM llm_calls')).toEqual([{ count: 1 }]);
+  });
+
   it('refuses the file when the reader does not map any header to the date', async () => {
     const rows = ORDERS_FIVE_ROWS.slice(0, 3);
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
