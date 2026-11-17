@@ -63,6 +63,14 @@ describe('parseSheet', () => {
     });
   });
 
+  it('returns a parse failure when .xlsx bytes are not a ZIP', async () => {
+    const bytes = new Uint8Array([0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a]);
+
+    const result = await parseSheet('xlsx', bytes, sheetParser);
+
+    expect(result).toEqual({ ok: false });
+  });
+
   it('returns zero headers and zero rows for an empty .csv', async () => {
     const result = await parseSheet('csv', new Uint8Array(), sheetParser);
 
