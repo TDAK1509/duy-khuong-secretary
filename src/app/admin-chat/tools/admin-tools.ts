@@ -7,6 +7,7 @@ import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-sourc
 import { REWRITE_MEMBER_PLATE_SPEC } from './rewrite-member-plate-spec.ts';
 import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { SAVE_FACT_SPEC } from './save-fact-spec.ts';
+import { LIST_FACTS_SPEC } from './list-facts-spec.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
@@ -27,6 +28,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   ...MEMBER_FACT_TOOLS,
   REWRITE_MEMBER_PLATE_SPEC,
   SAVE_FACT_SPEC,
+  LIST_FACTS_SPEC,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,
   ADMIN_LIST_SOURCES_SPEC,

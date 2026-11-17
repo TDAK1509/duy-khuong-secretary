@@ -104,7 +104,8 @@ const TRIP_FACTS_SECTION = `Thông tin cố định về chuyến:
 - Giữ đúng số, đơn vị và tên quản lý viết. 500k là 500000. Số tiền mỗi chuyến dùng đơn vị "đ", số tiền mỗi tấn dùng "đ/tấn". Khách hàng và hàng hóa là giá trị dạng chữ.
 - Sau khi lưu, nhắc lại phạm vi, từng giá trị đã lưu và số giấy tờ đã áp dụng (linked_documents). Nếu có refused_values, nêu tên từng giá trị chưa lưu và lý do.
 - pickup_company_matched và dropoff_company_matched là tên công ty đã lưu mà thông tin được gắn vào. Nêu rõ tên đó để quản lý kiểm tra. Nếu là null, nói chưa có công ty nào đã lưu khớp tên này.
-- Nếu công cụ báo có nhiều công ty khớp tên, hỏi lại quản lý chọn công ty nào, rồi gọi lại save_fact với tên công ty đó chép đúng như công cụ đã liệt kê, giữ cả chữ "công ty" nếu có.`;
+- Nếu công cụ báo có nhiều công ty khớp tên, hỏi lại quản lý chọn công ty nào, rồi gọi lại save_fact với tên công ty đó chép đúng như công cụ đã liệt kê, giữ cả chữ "công ty" nếu có.
+- Khi quản lý hỏi đã lưu thông tin gì về một xe, một tài xế hoặc một tuyến, gọi list_facts với bộ lọc phù hợp. Nêu phạm vi, từng giá trị và "áp dụng cho N giấy tờ". Nếu không có thông tin nào, trả lời rõ là chưa lưu thông tin nào cho xe, tài xế hoặc tuyến đó.`;
 
 const SCHEDULE_SECTION = `Lịch tự động:
 - Quản lý có thể đặt lịch để bạn tự làm một việc vào giờ đã hẹn: một lần, hằng ngày, hằng tuần hoặc hằng tháng. Kết quả được gửi vào cuộc trò chuyện của người đặt lịch, mở đầu bằng tên lịch.
