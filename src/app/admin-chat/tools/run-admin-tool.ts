@@ -26,6 +26,7 @@ import { runForget } from './forget-tool.ts';
 import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runRewriteMemberPlate } from './rewrite-member-plate-tool.ts';
+import { runSaveFact } from './save-fact-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
@@ -78,6 +79,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   forget_all_member_facts: ({ database }, scope, args) => runForgetAllMemberFacts(database, scope, args),
   add_member_fact: ({ database }, scope, args) => runAddMemberFact(database, scope, args),
   rewrite_member_plate: ({ database }, scope, args) => runRewriteMemberPlate(database, scope, args),
+  save_fact: ({ database }, scope, args) => runSaveFact(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,
   list_sources: runListSources,
