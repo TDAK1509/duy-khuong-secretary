@@ -147,9 +147,9 @@ The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` 
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | Chat Completions endpoint, key and model (`gpt-6-luna` in production). The model needs a price in `src/app/credits/price-call.ts`, else the start fails |
 | `LLM_TIMEOUT_MS` | `60000` | Wait for one chat reply |
 | `LLM_REASONING_EFFORT` | `none` | Sent as `reasoning_effort`; an empty value means it is not sent |
-| `ADMIN_CHAT_MODEL`, `ADMIN_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the admin chat (`gpt-6.1-sol` with `medium` in production). The model needs a price, else the start fails |
+| `ADMIN_CHAT_MODEL`, `ADMIN_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the admin chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails. `gpt-6.1-sol` with `medium` failed admin chat calls with tools in production, so it is not used here |
 | `MEMBER_CHAT_MODEL`, `MEMBER_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the member chat (`gpt-6-luna` with `none` in production). `gpt-6-luna` supports function calling on Chat Completions only with `none` |
-| `SCHEDULED_RUN_MODEL`, `SCHEDULED_RUN_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the scheduled runs (`gpt-6.1-sol` with `medium` in production). The model needs a price, else the start fails |
+| `SCHEDULED_RUN_MODEL`, `SCHEDULED_RUN_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the scheduled runs (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
 
 ## Credits
 
