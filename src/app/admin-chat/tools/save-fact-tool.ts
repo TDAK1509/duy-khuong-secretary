@@ -70,7 +70,9 @@ async function findDriver(database: Database, workspaceId: string, memberId: str
   return { userId: row.user_id, name: row.display_name };
 }
 
-async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: Driver | null): Promise<FactScope> {
+type ResolvedScope = FactScope & { pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null };
+
+async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: Driver | null): Promise<ResolvedScope> {
   const factScope = {
     vehiclePlate: readPlate(request.vehicle_plate),
     driverUserId: driver?.userId ?? null,
@@ -89,14 +91,17 @@ function readPlate(raw: string | null): string | null {
   return plate;
 }
 
-async function readCompany(database: Database, workspaceId: string, raw: string | null, field: string): Promise<FactCompany | null> {
+type ResolvedCompany = FactCompany & { matchedOrganization: string | null };
+
+async function readCompany(database: Database, workspaceId: string, raw: string | null, field: string): Promise<ResolvedCompany | null> {
   if (raw === null) return null;
   const name = raw.trim();
   const matchKey = buildMatchKey(name);
   if (matchKey === '') refuseInvalidArgument(field);
   const resolution = await resolveFactCompany(database, workspaceId, matchKey);
   if (resolution.kind === 'ambiguous') throw new ToolRefusal(describeAmbiguousCompany(name, resolution.organizationNames));
-  return { name, matchKey: resolution.kind === 'known' ? resolution.matchKey : matchKey };
+  if (resolution.kind === 'unknown') return { name, matchKey, matchedOrganization: null };
+  return { name, matchKey: resolution.matchKey, matchedOrganization: resolution.organizationName };
 }
 
 function describeAmbiguousCompany(name: string, organizationNames: string[]): string {
@@ -141,12 +146,14 @@ function readContent({ number, unit, text }: ValueArgument): FactValueContent {
   return { kind: 'text', text: (text ?? '').trim() };
 }
 
-function describeScope(factScope: FactScope, driver: Driver | null): Record<string, string | null> {
+function describeScope(factScope: ResolvedScope, driver: Driver | null): Record<string, string | null> {
   return {
     vehicle_plate: factScope.vehiclePlate,
     driver: driver?.name ?? null,
     pickup_company: factScope.pickup?.name ?? null,
+    pickup_company_matched: factScope.pickup?.matchedOrganization ?? null,
     dropoff_company: factScope.dropoff?.name ?? null,
+    dropoff_company_matched: factScope.dropoff?.matchedOrganization ?? null,
   };
 }
 

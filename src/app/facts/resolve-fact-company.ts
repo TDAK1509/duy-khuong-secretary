@@ -1,7 +1,8 @@
 import type { Database } from '../db/transaction.ts';
+import { buildMatchKey } from '../documents/build-match-key.ts';
 
 export type CompanyResolution =
-  | { kind: 'known'; matchKey: string }
+  | { kind: 'known'; matchKey: string; organizationName: string }
   | { kind: 'unknown' }
   | { kind: 'ambiguous'; organizationNames: string[] };
 
@@ -17,10 +18,26 @@ type Spelling = { organization_id: string; name: string; match_key: string };
 
 export async function resolveFactCompany(database: Database, workspaceId: string, matchKey: string): Promise<CompanyResolution> {
   const { rows } = await database.query<Spelling>(FIND_SPELLINGS_SQL, [workspaceId, matchKey]);
-  if (rows.some((spelling) => spelling.match_key === matchKey)) return { kind: 'known', matchKey };
-  const organizations = new Map(rows.map((spelling) => [spelling.organization_id, spelling.name]));
-  const [first] = rows;
+  const exact = rows.find((spelling) => spelling.match_key === matchKey);
+  if (exact !== undefined) return toKnown(exact);
+  const organizations = keepShortestSpellingPerOrganization(rows);
+  const [first] = organizations;
   if (first === undefined) return { kind: 'unknown' };
-  if (organizations.size === 1) return { kind: 'known', matchKey: first.match_key };
-  return { kind: 'ambiguous', organizationNames: [...organizations.values()] };
+  if (organizations.length === 1) return toKnown(first);
+  const named = organizations.filter((spelling) => buildMatchKey(spelling.name) === matchKey);
+  const [onlyNamed] = named;
+  if (onlyNamed !== undefined && named.length === 1) return toKnown(onlyNamed);
+  return { kind: 'ambiguous', organizationNames: organizations.map((spelling) => spelling.name) };
+}
+
+function toKnown(spelling: Spelling): CompanyResolution {
+  return { kind: 'known', matchKey: spelling.match_key, organizationName: spelling.name };
+}
+
+function keepShortestSpellingPerOrganization(spellingsShortestFirst: Spelling[]): Spelling[] {
+  const shortest = new Map<string, Spelling>();
+  for (const spelling of spellingsShortestFirst) {
+    if (!shortest.has(spelling.organization_id)) shortest.set(spelling.organization_id, spelling);
+  }
+  return [...shortest.values()];
 }
