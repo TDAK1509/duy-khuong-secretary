@@ -143,6 +143,8 @@ A message from an admin goes to the chat model when it has no work data. When it
 
 Chat calls use OpenAI's Responses API (`/v1/responses`) with `store: false`, so no conversation is kept on OpenAI's side. During one tool loop, a reasoning model's output items, including its encrypted reasoning, are sent back unchanged with the next round. The supported production settings are `gpt-6-luna` with `none` and `gpt-6.1-sol` with `medium`.
 
+Before answering an admin, one short call on the admin chat model, with no tools, labels the message `report` or `other`. It sees the message and the last 6 turns of the conversation. A `report` (reports, analyses, comparisons, rankings, totals or summaries over a period or over several trucks, drivers or companies, and follow-ups to them) is answered by the admin report model. Anything else, or a failed label call, is answered by the admin chat model. Tools, prompt, guard and round limit are the same for both. Each admin message logs `[admin-route] message=<id> label=report|other|failed`, and the label call is metered as `chat_answer`.
+
 The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the reader runs.
 
 | Env var | Default | Meaning |
@@ -152,6 +154,7 @@ The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` 
 | `LLM_TIMEOUT_MS` | `60000` | Wait for one chat reply |
 | `LLM_REASONING_EFFORT` | `none` | Sent as the reasoning effort; an empty value means it is not sent |
 | `ADMIN_CHAT_MODEL`, `ADMIN_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the admin chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
+| `ADMIN_REPORT_MODEL`, `ADMIN_REPORT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of admin messages labelled `report` (`gpt-6.1-sol` with `medium` in production). The model needs a price, else the start fails |
 | `MEMBER_CHAT_MODEL`, `MEMBER_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the member chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
 | `SCHEDULED_RUN_MODEL`, `SCHEDULED_RUN_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the scheduled runs (`gpt-6.1-sol` with `medium` in production). The model needs a price, else the start fails |
 
