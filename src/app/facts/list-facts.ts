@@ -36,7 +36,7 @@ const LIST_FACTS_SQL = `
   WHERE fact.workspace_id = $1
     AND ($2::text IS NULL OR fact.vehicle_plate = $2)
     AND ($3::uuid IS NULL OR fact.driver_user_id = $3)
-    AND ($4::text IS NULL OR strpos(fact.pickup_match_key, $4) > 0 OR strpos(fact.dropoff_match_key, $4) > 0)
+    AND ($4::text IS NULL OR ${buildCompanyMatch('pickup_match_key')} OR ${buildCompanyMatch('dropoff_match_key')})
   ORDER BY fact.updated_at DESC, fact.id
 `;
 
@@ -55,6 +55,19 @@ type FactRow = {
 export async function listFacts(database: Database, workspaceId: string, filter: FactFilter): Promise<ListedFact[]> {
   const { rows } = await database.query<FactRow>(LIST_FACTS_SQL, [workspaceId, filter.vehiclePlate, filter.driverUserId, filter.companyMatchKey]);
   return rows.map(toListedFact);
+}
+
+function buildCompanyMatch(matchKeyColumn: 'pickup_match_key' | 'dropoff_match_key'): string {
+  return `(
+    strpos(fact.${matchKeyColumn}, $4) > 0
+    OR strpos($4, fact.${matchKeyColumn}) > 0
+    OR fact.${matchKeyColumn} IN (
+      SELECT sibling.match_key
+      FROM organization_aliases spelling
+      JOIN organization_aliases sibling ON sibling.organization_id = spelling.organization_id
+      WHERE spelling.workspace_id = $1 AND strpos(spelling.match_key, $4) > 0
+    )
+  )`;
 }
 
 function toListedFact(row: FactRow): ListedFact {

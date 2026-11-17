@@ -7,7 +7,7 @@ import { formatVietnamDate } from '../../time/format-vietnam-date.ts';
 import { formatVietnamTime } from '../../time/format-vietnam-time.ts';
 import { findFactDriver } from './find-fact-driver.ts';
 import { refuseInvalidArgument } from './tool-result.ts';
-import { isVehiclePlate, normalizePlate } from './vehicle-plate.ts';
+import { readPlateArgument } from './vehicle-plate.ts';
 
 const argumentsSchema = z.strictObject({
   vehicle_plate: z.string().nullable(),
@@ -18,16 +18,9 @@ const argumentsSchema = z.strictObject({
 export async function runListFacts(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
   const driver = await findFactDriver(database, scope.workspaceId, request.driver_member_id);
-  const filter = { vehiclePlate: readPlateFilter(request.vehicle_plate), driverUserId: driver?.userId ?? null, companyMatchKey: readCompanyFilter(request.company) };
+  const filter = { vehiclePlate: readPlateArgument(request.vehicle_plate), driverUserId: driver?.userId ?? null, companyMatchKey: readCompanyFilter(request.company) };
   const facts = await listFacts(database, scope.workspaceId, filter);
   return JSON.stringify({ facts: facts.map(describeFact) });
-}
-
-function readPlateFilter(raw: string | null): string | null {
-  if (raw === null) return null;
-  const plate = normalizePlate(raw);
-  if (!isVehiclePlate(plate)) refuseInvalidArgument('vehicle_plate');
-  return plate;
 }
 
 function readCompanyFilter(raw: string | null): string | null {
