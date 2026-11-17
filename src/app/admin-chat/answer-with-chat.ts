@@ -24,9 +24,9 @@ import { PhotoAttachments } from './photo-attachments.ts';
 import { SourceCards, type Conversation, type SourceCard } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
 import { CreatedTasks } from './created-tasks.ts';
-import { AdminTextGuard } from './tools/admin-text-guard.ts';
+import { AdminTextGuard, type ChangeTool } from './tools/admin-text-guard.ts';
 import type { AdminToolDependencies } from './tools/tool-dependencies.ts';
-import { CHANGE_REFUSED_NOTICE } from './chat-texts.ts';
+import { buildChangeRefusedNotice } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 
 export async function answerWithChat(context: IntakeContext, message: ChatMessage): Promise<void> {
@@ -46,14 +46,14 @@ type Answer = {
   createdTaskIds: string[];
   inviteCodes: string[];
   sourceCards: SourceCard[];
-  changeRefused: boolean;
+  refusedTools: ChangeTool[];
   holdsOtherText: boolean;
 };
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
   const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote });
-  const isRefusedOnlyByHistory = first.answer.changeRefused && first.hasFlaggedAnswer && !hasNote;
+  const isRefusedOnlyByHistory = first.answer.refusedTools.length > 0 && first.hasFlaggedAnswer && !hasNote;
   if (!isRefusedOnlyByHistory) return first.answer;
   return (await runChatTurn(context, message, profile, { hideFlaggedAnswers: true, hasNote })).answer;
 }
@@ -82,7 +82,7 @@ function collectAnswer(text: string, role: ChatProfile['role'], { attachments, s
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     sourceCards: sources.list(),
-    changeRefused: guard.hasRefused(),
+    refusedTools: guard.listRefusedTools(),
     holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
   };
 }
@@ -162,6 +162,6 @@ async function enqueueAnswerMessages(transaction: Transaction, context: IntakeCo
 }
 
 function joinAnswerParts(answer: Answer, summaries: string[]): string {
-  const notice = answer.changeRefused ? [CHANGE_REFUSED_NOTICE] : [];
+  const notice = answer.refusedTools.length > 0 ? [buildChangeRefusedNotice(answer.refusedTools)] : [];
   return [answer.text, ...summaries, ...notice].join('\n\n');
 }
