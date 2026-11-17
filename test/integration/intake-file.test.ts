@@ -42,6 +42,21 @@ describe('an admin uploads a sheet file', () => {
     ]);
   });
 
+  it('refuses a file from a workspace member with the non-admin text', async () => {
+    harness.channel.attachments.set('https://zdn.vn/data.csv', { ok: true, bytes: makeCsv(20480) });
+
+    await harness.receiveFile('zu-hung', {
+      fileUrl: 'https://zdn.vn/data.csv',
+      fileName: 'data.csv',
+      fileSize: 20480,
+    });
+
+    expect(await database.query('SELECT count(*)::int AS c FROM message_files')).toEqual([{ c: 0 }]);
+    expect(await database.query(`SELECT body FROM outbound_messages WHERE external_user_id = 'zu-hung'`)).toEqual([
+      { body: 'Chỉ quản trị viên mới gửi được file dữ liệu.' },
+    ]);
+  });
+
   it('refuses a .csv whose bytes start with the ZIP signature', async () => {
     const bytes = new Uint8Array(50).fill(0x30);
     bytes.set([0x50, 0x4b, 0x03, 0x04]);
