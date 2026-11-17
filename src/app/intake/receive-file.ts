@@ -15,17 +15,19 @@ import { formatSheetReceipt, SHEET_OVERSIZED_TEXT, SHEET_TOO_MANY_FILES_TEXT } f
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const FILE_NAME_LIMIT = 200;
 
-export type ReceivedFile = { fileUrl: string; fileName: string; fileSize: number };
+export type SingleFile = { kind: 'one'; fileUrl: string; fileName: string; fileSize: number };
+
+export type ReceivedFile = SingleFile | { kind: 'too_many' };
 
 const filePayloadSchema = z.union([
   z.object({ too_many: z.literal(true) }),
   z.object({ file_url: z.string(), file_name: z.string(), file_size: z.number().int().nonnegative() }),
 ]);
 
-export function readFileFromPayload(event: ClaimedEvent): ReceivedFile | 'too_many' {
+export function readFileFromPayload(event: ClaimedEvent): ReceivedFile {
   const payload = filePayloadSchema.parse(event.payload);
-  if ('too_many' in payload) return 'too_many';
-  return { fileUrl: payload.file_url, fileName: payload.file_name, fileSize: payload.file_size };
+  if ('too_many' in payload) return { kind: 'too_many' };
+  return { kind: 'one', fileUrl: payload.file_url, fileName: payload.file_name, fileSize: payload.file_size };
 }
 
 export async function receiveFile(
@@ -33,12 +35,29 @@ export async function receiveFile(
   stages: Stages,
   event: ClaimedEvent,
   sender: IntakeSender,
-  file: ReceivedFile | 'too_many',
+  file: ReceivedFile,
 ): Promise<Finished | NotConfigured> {
-  if (file === 'too_many') return refuseFileEvent(dependencies, stages, event, SHEET_TOO_MANY_FILES_TEXT);
+  if (file.kind === 'too_many') return refuseFileEvent(dependencies, stages, event, SHEET_TOO_MANY_FILES_TEXT);
   if (file.fileSize > MAX_FILE_BYTES) return refuseFileEvent(dependencies, stages, event, SHEET_OVERSIZED_TEXT);
   if (!dependencies.fileStorage) return { kind: 'not_configured', group: 'files' };
   return downloadAndStore(dependencies, stages, event, sender, file);
+}
+
+async function refuseFileEvent(
+  dependencies: IntakeDependencies,
+  stages: Stages,
+  event: ClaimedEvent,
+  text: string,
+): Promise<Finished> {
+  return stages.finishEvent(async (transaction) => {
+    await recordSenderIdentity(transaction, event);
+    await enqueueText(transaction, {
+      to: { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId },
+      text,
+      maxTextLength: dependencies.channel.maxTextLength,
+      availableAt: dependencies.clock.now(),
+    });
+  });
 }
 
 async function downloadAndStore(
@@ -46,7 +65,7 @@ async function downloadAndStore(
   stages: Stages,
   event: ClaimedEvent,
   sender: IntakeSender,
-  file: ReceivedFile,
+  file: SingleFile,
 ): Promise<Finished> {
   const download = await dependencies.channel.downloadAttachment(file.fileUrl, MAX_FILE_BYTES);
   if (!download.ok) return handleDownloadFailure(dependencies, stages, event, download.reason);
@@ -77,7 +96,7 @@ async function storeAcceptedFile(
   stages: Stages,
   event: ClaimedEvent,
   sender: IntakeSender,
-  file: ReceivedFile,
+  file: SingleFile,
   bytes: Uint8Array,
   extension: SheetExtension,
 ): Promise<Finished> {
@@ -88,13 +107,19 @@ async function storeAcceptedFile(
   return scopedStages.finishEvent((transaction) => finishFileIntake(transaction, dependencies, event, sender, file));
 }
 
+function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
+  const { fileStorage } = dependencies;
+  if (!fileStorage) throw new Error('file storage is not configured');
+  return fileStorage;
+}
+
 type StoredFileRow = { id: string; fileKey: string };
 
 async function runStoreFileStage(
   stages: Stages,
   event: ClaimedEvent,
   sender: IntakeSender,
-  file: ReceivedFile,
+  file: SingleFile,
   extension: SheetExtension,
 ): Promise<StoredFileRow> {
   const messageId = randomUUID();
@@ -114,7 +139,7 @@ async function hasStoredFileFor(transaction: Transaction, event: ClaimedEvent): 
   return rows.length > 0;
 }
 
-type FileInsert = { messageId: string; fileKey: string; file: ReceivedFile; extension: SheetExtension };
+type FileInsert = { messageId: string; fileKey: string; file: SingleFile; extension: SheetExtension };
 
 async function storeFileMessage(
   transaction: Transaction,
@@ -146,7 +171,7 @@ async function finishFileIntake(
   dependencies: IntakeDependencies,
   event: ClaimedEvent,
   sender: IntakeSender,
-  file: ReceivedFile,
+  file: SingleFile,
 ): Promise<void> {
   await recordSenderIdentity(transaction, event);
   await enqueueText(transaction, {
@@ -156,27 +181,4 @@ async function finishFileIntake(
     availableAt: dependencies.clock.now(),
     adminMembershipId: sender.membershipId,
   });
-}
-
-async function refuseFileEvent(
-  dependencies: IntakeDependencies,
-  stages: Stages,
-  event: ClaimedEvent,
-  text: string,
-): Promise<Finished> {
-  return stages.finishEvent(async (transaction) => {
-    await recordSenderIdentity(transaction, event);
-    await enqueueText(transaction, {
-      to: { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId },
-      text,
-      maxTextLength: dependencies.channel.maxTextLength,
-      availableAt: dependencies.clock.now(),
-    });
-  });
-}
-
-function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
-  const { fileStorage } = dependencies;
-  if (!fileStorage) throw new Error('file storage is not configured');
-  return fileStorage;
 }
