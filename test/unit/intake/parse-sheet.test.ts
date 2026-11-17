@@ -1,11 +1,16 @@
+import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { parseSheet } from '../../../src/app/intake/parse-sheet.ts';
+import { ExcelJsSheetParser } from '../../../src/providers/sheets/exceljs-sheet-parser.ts';
+import type { SheetParser } from '../../../src/services/sheets/sheet-parser.ts';
+
+const sheetParser: SheetParser = new ExcelJsSheetParser();
 
 describe('parseSheet', () => {
   it('parses a UTF-8 .csv with a comma separator', async () => {
     const bytes = encode('name,plate,date\nA,51A,2026-01-01\nB,51B,2026-01-02\nC,51C,2026-01-03\n');
 
-    const result = await parseSheet('csv', bytes);
+    const result = await parseSheet('csv', bytes, sheetParser);
 
     expect(result).toEqual({
       ok: true,
@@ -25,7 +30,7 @@ describe('parseSheet', () => {
     bytes.set(bom, 0);
     bytes.set(body, bom.length);
 
-    const result = await parseSheet('csv', bytes);
+    const result = await parseSheet('csv', bytes, sheetParser);
 
     expect(result).toEqual({
       ok: true,
@@ -37,7 +42,7 @@ describe('parseSheet', () => {
   it('keeps a quoted comma inside a .csv cell as one value', async () => {
     const bytes = encode('name,note\n"Smith, Jane","two parts"\n');
 
-    const result = await parseSheet('csv', bytes);
+    const result = await parseSheet('csv', bytes, sheetParser);
 
     expect(result).toEqual({
       ok: true,
@@ -49,7 +54,7 @@ describe('parseSheet', () => {
   it('parses a .csv whose first line uses semicolons', async () => {
     const bytes = encode('name;plate;date\nA;51A;2026-01-01\n');
 
-    const result = await parseSheet('csv', bytes);
+    const result = await parseSheet('csv', bytes, sheetParser);
 
     expect(result).toEqual({
       ok: true,
@@ -57,8 +62,35 @@ describe('parseSheet', () => {
       rows: [['A', '51A', '2026-01-01']],
     });
   });
+
+  it('parses a .xlsx first sheet with one header and two rows', async () => {
+    const bytes = await buildXlsx([
+      ['name', 'plate', 'date'],
+      ['A', '51A', '2026-01-01'],
+      ['B', '51B', '2026-01-02'],
+    ]);
+
+    const result = await parseSheet('xlsx', bytes, sheetParser);
+
+    expect(result).toEqual({
+      ok: true,
+      headers: ['name', 'plate', 'date'],
+      rows: [
+        ['A', '51A', '2026-01-01'],
+        ['B', '51B', '2026-01-02'],
+      ],
+    });
+  });
 });
 
 function encode(text: string): Uint8Array {
   return new TextEncoder().encode(text);
+}
+
+async function buildXlsx(cells: string[][]): Promise<Uint8Array> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('sheet1');
+  for (const row of cells) sheet.addRow(row);
+  const buffer = await workbook.xlsx.writeBuffer();
+  return new Uint8Array(buffer as ArrayBuffer);
 }
