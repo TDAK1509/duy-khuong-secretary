@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall, ToolSpec } from '../../services/chat/chat-service.ts';
-import { readTokenUsage } from '../../services/usage/read-token-usage.ts';
+import { readResponseUsage } from '../../services/usage/read-response-usage.ts';
 
 export type OpenAiCompatibleChatSettings = {
   baseUrl: string;
@@ -28,8 +28,8 @@ export class OpenAiCompatibleChat implements ChatService {
 
   async respond(request: ChatRequest): Promise<ChatResult> {
     try {
-      const completion = await this.client.chat.completions.create(this.buildParameters(request));
-      return { ok: true, reply: readReply(completion), usage: readTokenUsage(completion.usage) };
+      const response = await this.client.responses.create(this.buildParameters(request));
+      return { ok: true, reply: readReply(response), usage: readResponseUsage(response.usage) };
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
       logChatFailure(this.model, error);
@@ -37,11 +37,15 @@ export class OpenAiCompatibleChat implements ChatService {
     }
   }
 
-  private buildParameters(request: ChatRequest): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming {
+  private buildParameters(request: ChatRequest): OpenAI.Responses.ResponseCreateParamsNonStreaming {
+    const mayReason = this.reasoningEffort !== 'none';
     return {
       model: this.model,
-      messages: [{ role: 'system', content: request.system }, ...request.turns.map(toMessage)],
-      reasoning_effort: this.reasoningEffort,
+      instructions: request.system,
+      input: request.turns.flatMap(buildInputItems),
+      store: false,
+      ...(this.reasoningEffort === undefined ? {} : { reasoning: { effort: this.reasoningEffort } }),
+      ...(mayReason ? { include: ['reasoning.encrypted_content'] } : {}),
       tools: request.tools.length > 0 ? request.tools.map(toFunctionTool) : undefined,
     };
   }
@@ -55,38 +59,33 @@ function logChatFailure(model: string, error: unknown): void {
   console.error(`[chat] model=${model} failed status=${status} message=${message}`);
 }
 
-function readReply(completion: OpenAI.Chat.ChatCompletion): Extract<ChatResult, { ok: true }>['reply'] {
-  const message = completion.choices[0]?.message;
-  const calls = (message?.tool_calls ?? []).filter((call) => call.type === 'function');
-  if (calls.length > 0) return { kind: 'tool_calls', calls: calls.map(toChatToolCall) };
-  return { kind: 'text', text: message?.content ?? '' };
+function readReply(response: OpenAI.Responses.Response): Extract<ChatResult, { ok: true }>['reply'] {
+  const calls = response.output.filter((item) => item.type === 'function_call');
+  if (calls.length > 0) return { kind: 'tool_calls', calls: calls.map(toChatToolCall), replayItems: response.output.filter(isReplayable) };
+  return { kind: 'text', text: response.output_text };
 }
 
-function toChatToolCall(call: OpenAI.Chat.ChatCompletionMessageFunctionToolCall): ToolCall {
-  return { id: call.id, name: call.function.name, argumentsJson: call.function.arguments };
+function isReplayable(item: OpenAI.Responses.ResponseOutputItem): boolean {
+  return item.type !== 'reasoning' || Boolean(item.encrypted_content);
 }
 
-function toFunctionTool(tool: ToolSpec): OpenAI.Chat.ChatCompletionTool {
-  return { type: 'function', function: { ...tool, strict: true } };
+function toChatToolCall(call: OpenAI.Responses.ResponseFunctionToolCall): ToolCall {
+  return { id: call.call_id, name: call.name, argumentsJson: call.arguments };
 }
 
-function toMessage(turn: ChatTurn): OpenAI.Chat.ChatCompletionMessageParam {
+function toFunctionTool(tool: ToolSpec): OpenAI.Responses.FunctionTool {
+  return { type: 'function', name: tool.name, description: tool.description, parameters: tool.parameters, strict: true };
+}
+
+function buildInputItems(turn: ChatTurn): OpenAI.Responses.ResponseInputItem[] {
   switch (turn.role) {
     case 'user':
-      return { role: 'user', content: buildUserContent(turn) };
+      return turn.text === null ? [] : [{ role: 'user', content: turn.text }];
     case 'assistant':
-      return { role: 'assistant', content: turn.text };
+      return [{ role: 'assistant', content: turn.text }];
     case 'assistant_tool_calls':
-      return { role: 'assistant', content: null, tool_calls: turn.calls.map(toToolCall) };
+      return turn.replayItems as OpenAI.Responses.ResponseInputItem[];
     case 'tool_result':
-      return { role: 'tool', tool_call_id: turn.callId, content: turn.output };
+      return [{ type: 'function_call_output', call_id: turn.callId, output: turn.output }];
   }
-}
-
-function toToolCall(call: ToolCall): OpenAI.Chat.ChatCompletionMessageToolCall {
-  return { id: call.id, type: 'function', function: { name: call.name, arguments: call.argumentsJson } };
-}
-
-function buildUserContent(turn: Extract<ChatTurn, { role: 'user' }>): OpenAI.Chat.ChatCompletionContentPart[] {
-  return turn.text === null ? [] : [{ type: 'text', text: turn.text }];
 }

@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
+import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
 import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
 import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
@@ -8,6 +8,8 @@ export const ADMIN_TOOL_ROUNDS = 15;
 const MAX_CALLS_PER_ROUND = 5;
 
 export type RunTool = (call: ToolCall) => Promise<string>;
+
+type ToolCallsReply = Extract<Extract<ChatResult, { ok: true }>['reply'], { kind: 'tool_calls' }>;
 
 export type ToolLoopOutcome = 'answered' | 'tool_round_limit' | 'chat_failed';
 
@@ -33,7 +35,7 @@ export async function runToolLoop(
       rounds.push({ ran: false, calls: result.reply.calls.map(describeNotRunCall) });
       return { outcome: 'tool_round_limit', text: TOOL_LOOP_TEXT };
     }
-    turns = [...turns, ...(await runToolRound(result.reply.calls, runTool, rounds))];
+    turns = [...turns, ...(await runToolRound(result.reply, runTool, rounds))];
   }
 }
 
@@ -41,7 +43,7 @@ function describeNotRunCall(call: ToolCall): LoggedCall {
   return { ...describeToolCall(call), result: NOT_RUN };
 }
 
-async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedRound[]): Promise<ChatTurn[]> {
+async function runToolRound({ calls, replayItems }: ToolCallsReply, runTool: RunTool, rounds: LoggedRound[]): Promise<ChatTurn[]> {
   const results: ChatTurn[] = [];
   const logged: LoggedCall[] = [];
   rounds.push({ calls: logged, ran: true });
@@ -49,7 +51,7 @@ async function runToolRound(calls: ToolCall[], runTool: RunTool, rounds: LoggedR
     const output = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool, logged) : skipCall(call, logged);
     results.push({ role: 'tool_result', callId: call.id, output });
   }
-  return [{ role: 'assistant_tool_calls', calls }, ...results];
+  return [{ role: 'assistant_tool_calls', calls, replayItems }, ...results];
 }
 
 async function runCall(call: ToolCall, runTool: RunTool, logged: LoggedCall[]): Promise<string> {
