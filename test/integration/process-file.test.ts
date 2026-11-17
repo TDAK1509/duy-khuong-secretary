@@ -41,6 +41,44 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('refuses the file when the reader does not map any header to the date', async () => {
+    const rows = ORDERS_FIVE_ROWS.slice(0, 3);
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    harness.reader.answerWith({
+      document_kind: INVOICE_KIND,
+      column_mapping: { plate: 'vehicle_plate', title: 'title', amount: 'detail' },
+      date_format: null,
+    });
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Không nhận diện được cột ngày. Kiểm tra lại file.' }]);
+  });
+
+  it('refuses the file when the reader does not map any header to the title', async () => {
+    const rows = ORDERS_FIVE_ROWS.slice(0, 3);
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    harness.reader.answerWith({
+      document_kind: INVOICE_KIND,
+      column_mapping: { date: 'document_date', plate: 'vehicle_plate', amount: 'detail' },
+      date_format: 'YYYY-MM-DD',
+    });
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Không nhận diện được cột tiêu đề. Kiểm tra lại file.' }]);
+  });
+
   it('replies with the all-saved text when every row is valid', async () => {
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...ORDERS_FIVE_ROWS].join('\n') + '\n');
     harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
