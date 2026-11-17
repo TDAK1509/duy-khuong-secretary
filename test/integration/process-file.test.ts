@@ -41,6 +41,23 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('skips the reader call and replies with the out-of-credit text when the balance is zero', async () => {
+    const rows = ORDERS_FIVE_ROWS.slice(0, 3);
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    await database.query(`UPDATE workspaces SET credit_balance = 0 WHERE id = '${workspaceId}'`);
+    const requestsBefore = harness.reader.requests.length;
+
+    await harness.runProcessFiles();
+
+    expect(harness.reader.requests.length).toBe(requestsBefore);
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Nhóm của bạn đã hết credit nên Trợ lý chưa đọc tin nhắn này. Quản lý nhóm cần liên hệ bên cung cấp Trợ lý để nạp thêm credit. Sau khi nạp, bạn gửi lại tin nhắn này nhé.' }]);
+  });
+
   it('replies with the reader-failure text when the reader times out', async () => {
     const rows = ORDERS_FIVE_ROWS.slice(0, 3);
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
