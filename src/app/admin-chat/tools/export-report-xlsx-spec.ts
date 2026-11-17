@@ -23,8 +23,8 @@ export const EXPORT_REPORT_XLSX_SPEC: ToolSpec = {
       },
       rows: {
         type: 'array',
-        description: 'Các dòng, tối đa 5000 dòng. Mỗi dòng là danh sách ô theo đúng thứ tự cột. Ô số ghi số không có dấu phân cách, ví dụ 654260. Ô trống ghi null.',
-        items: { type: 'array', items: { type: ['number', 'string', 'null'] } },
+        description: 'Các dòng, tối đa 5000 dòng. Mỗi dòng là danh sách ô theo đúng thứ tự cột, mỗi ô là chữ. Ô của cột số ghi số không có dấu phân cách hàng nghìn, dùng dấu chấm cho phần thập phân, ví dụ "654260" hoặc "56.38". Ô trống ghi null.',
+        items: { type: 'array', items: { type: ['string', 'null'] } },
       },
     },
     required: ['title', 'columns', 'rows'],
