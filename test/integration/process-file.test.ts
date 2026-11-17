@@ -41,6 +41,25 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('treats a reader output that does not match the schema as a reader failure', async () => {
+    const rows = ORDERS_FIVE_ROWS.slice(0, 3);
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    harness.reader.answerWith({
+      document_kind: 'x'.repeat(500),
+      column_mapping: { anything: 'not_a_field' },
+      date_format: null,
+    });
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 0 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Trợ lý không đọc được file. Gửi lại hoặc kiểm tra định dạng.' }]);
+  });
+
   it('does not process a file whose processed_at is already set', async () => {
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ORDERS_FIVE_ROWS[0]].join('\n') + '\n');
     harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
