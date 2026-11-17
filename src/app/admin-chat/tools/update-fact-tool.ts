@@ -15,6 +15,7 @@ const SCOPE_FIELDS = ['vehicle_plate', 'driver', 'pickup_company', 'dropoff_comp
 const FACT_NOT_FOUND_ERROR = 'Không tìm thấy thông tin này. Gọi list_facts để lấy đúng id.';
 const NOTHING_TO_CHANGE_ERROR = 'Không có thay đổi nào để lưu.';
 const SET_AND_CLEAR_ERROR = 'Một phần phạm vi không thể vừa đổi vừa bỏ.';
+const SET_AND_REMOVE_ERROR = 'Một giá trị không thể vừa đặt vừa xóa trong cùng một lần sửa.';
 const UPDATE_REFUSALS: Record<Exclude<FactUpdateResult['kind'], 'updated'>, string> = {
   not_found: FACT_NOT_FOUND_ERROR,
   no_values_left: 'Không thể xóa hết giá trị. Muốn bỏ cả thông tin này thì xóa thông tin.',
@@ -54,6 +55,7 @@ async function readFactUpdate(database: Database, workspaceId: string, request: 
   const { saved, refused } = splitSavedFromRefused(request.set_values);
   const removeNames = new Map(request.remove_values.map((name) => [readValueKey(name), name.trim()]));
   const removeValueKeys = [...removeNames.keys()];
+  if (saved.some((value) => removeNames.has(value.matchKey))) throw new ToolRefusal(SET_AND_REMOVE_ERROR);
   const changeStatement = readChangeStatement(request.change_statement);
   const update = { workspaceId, factId: request.fact_id, changeStatement, setValues: saved, removeValueKeys, scopeChange: resolved.scopeChange };
   const isEmpty = saved.length === 0 && removeValueKeys.length === 0 && Object.keys(resolved.scopeChange).length === 0;
