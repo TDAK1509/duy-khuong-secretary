@@ -3,6 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { FactCompany, FactScope, FactValue, FactValueContent } from '../../facts/fact.ts';
+import { resolveFactCompany } from '../../facts/resolve-fact-company.ts';
 import { saveFact } from '../../facts/save-fact.ts';
 import { MEMBER_NOT_FOUND_ERROR, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 import { isVehiclePlate, normalizePlate } from './vehicle-plate.ts';
@@ -44,7 +45,7 @@ export async function runSaveFact(database: Database, scope: AccessScope, parsed
   const request = argumentsSchema.parse(parsedArguments);
   const statement = readStatement(request.statement);
   const driver = await findDriver(database, scope.workspaceId, request.driver_member_id);
-  const factScope = readFactScope(request, driver);
+  const factScope = await readFactScope(database, scope.workspaceId, request, driver);
   const { saved, refused } = splitSavedFromRefused(request.values);
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
   const fact = await saveFact(database, { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, scope: factScope, values: saved });
@@ -69,12 +70,12 @@ async function findDriver(database: Database, workspaceId: string, memberId: str
   return { userId: row.user_id, name: row.display_name };
 }
 
-function readFactScope(request: SaveFactArguments, driver: Driver | null): FactScope {
+async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: Driver | null): Promise<FactScope> {
   const factScope = {
     vehiclePlate: readPlate(request.vehicle_plate),
     driverUserId: driver?.userId ?? null,
-    pickup: readCompany(request.pickup_company, 'pickup_company'),
-    dropoff: readCompany(request.dropoff_company, 'dropoff_company'),
+    pickup: await readCompany(database, workspaceId, request.pickup_company, 'pickup_company'),
+    dropoff: await readCompany(database, workspaceId, request.dropoff_company, 'dropoff_company'),
   };
   const isEmpty = Object.values(factScope).every((part) => part === null);
   if (isEmpty) throw new ToolRefusal(SCOPE_MISSING_ERROR);
@@ -88,12 +89,18 @@ function readPlate(raw: string | null): string | null {
   return plate;
 }
 
-function readCompany(raw: string | null, field: string): FactCompany | null {
+async function readCompany(database: Database, workspaceId: string, raw: string | null, field: string): Promise<FactCompany | null> {
   if (raw === null) return null;
   const name = raw.trim();
   const matchKey = buildMatchKey(name);
   if (matchKey === '') refuseInvalidArgument(field);
-  return { name, matchKey };
+  const resolution = await resolveFactCompany(database, workspaceId, matchKey);
+  if (resolution.kind === 'ambiguous') throw new ToolRefusal(describeAmbiguousCompany(name, resolution.organizationNames));
+  return { name, matchKey: resolution.kind === 'known' ? resolution.matchKey : matchKey };
+}
+
+function describeAmbiguousCompany(name: string, organizationNames: string[]): string {
+  return `Có nhiều công ty đã lưu khớp với "${name}": ${organizationNames.join('; ')}. Hỏi lại quản lý muốn chọn công ty nào.`;
 }
 
 function splitSavedFromRefused(values: ValueArgument[]): { saved: FactValue[]; refused: RefusedValue[] } {
