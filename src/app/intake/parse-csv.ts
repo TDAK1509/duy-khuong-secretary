@@ -4,9 +4,9 @@ export function parseCsv(bytes: Uint8Array): ParsedSheet {
   const text = decodeUtf8(bytes);
   if (text.length === 0) return { ok: true, headers: [], rows: [] };
   const separator = pickSeparator(text);
-  const rows = tokenize(text, separator).filter(hasAnyNonEmptyCell);
-  if (rows.length === 0) return { ok: true, headers: [], rows: [] };
-  return { ok: true, headers: rows[0], rows: rows.slice(1) };
+  const [headers, ...dataRows] = tokenize(text, separator).filter(hasAnyNonEmptyCell);
+  if (!headers) return { ok: true, headers: [], rows: [] };
+  return { ok: true, headers, rows: dataRows };
 }
 
 function decodeUtf8(bytes: Uint8Array): string {

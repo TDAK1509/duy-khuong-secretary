@@ -15,7 +15,7 @@ export async function parseSheet(
 
 function splitHeaderAndRows(result: Awaited<ReturnType<SheetParser['parseXlsx']>>): ParsedSheet {
   if (!result.ok) return { ok: false };
-  const nonEmpty = result.rows.filter((row) => row.some((cell) => cell !== ''));
-  if (nonEmpty.length === 0) return { ok: true, headers: [], rows: [] };
-  return { ok: true, headers: nonEmpty[0], rows: nonEmpty.slice(1) };
+  const [headers, ...dataRows] = result.rows.filter((row) => row.some((cell) => cell !== ''));
+  if (!headers) return { ok: true, headers: [], rows: [] };
+  return { ok: true, headers, rows: dataRows };
 }

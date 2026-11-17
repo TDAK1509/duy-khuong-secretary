@@ -37,6 +37,22 @@ describe('parsing a stored admin sheet', () => {
     ]);
   });
 
+  it('does not queue a second reply for a file whose parsed_at is already set', async () => {
+    await uploadCsv(harness, 'orders.csv', 'name\nA\n');
+    await harness.runParseFiles();
+    const [beforeCount] = await database.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`,
+    );
+
+    const outcome = await harness.runParseFiles();
+
+    expect(outcome).toBe('idle');
+    const [afterCount] = await database.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}'`,
+    );
+    expect(afterCount?.count).toBe(beforeCount?.count);
+  });
+
   it('queues a parse-failure reply after a broken .xlsx cannot be read', async () => {
     const bytes = new Uint8Array(50).fill(0x30);
     bytes.set([0x50, 0x4b, 0x03, 0x04]);
