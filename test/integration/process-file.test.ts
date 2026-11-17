@@ -41,6 +41,22 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('sends the reader exactly ten data rows when the file has more than ten', async () => {
+    const fifteenRows = Array.from({ length: 15 }, (_, index) => {
+      const day = String(index + 1).padStart(2, '0');
+      return `2026-02-${day},51A,Giao hàng,100000`;
+    });
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...fifteenRows].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+
+    await harness.runProcessFiles();
+
+    const request = harness.reader.requests.at(-1);
+    expect(request?.system).toContain('"date","plate","title","amount"');
+    expect(request?.system).toContain('Nội dung 10 dòng đầu');
+    expect((request?.system.match(/2026-02-/g) ?? []).length).toBe(10);
+  });
+
   it('skips the reader call and replies with the out-of-credit text when the balance is zero', async () => {
     const rows = ORDERS_FIVE_ROWS.slice(0, 3);
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
