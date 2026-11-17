@@ -22,7 +22,7 @@ export async function storeDocuments(
 ): Promise<void> {
   if (!plan.saved) return;
   const drafts = groupItems(pairItemsWithRecords(plan.readItems, plan.saved));
-  const knownPlate = await loadKnownPlate(transaction, message.workspaceId, driver ? { userId: driver.userId, role: 'member' } : sender);
+  const knownPlate = await loadKnownPlate(transaction, message.workspaceId, pickPlateOwner(driver, sender));
   const taggedMessage = { ...message, driverUserId: driver?.userId ?? null };
   await transaction.withScope({ workspaceId: message.workspaceId }, async () => {
     await lockWorkspaceRecords(transaction, message.workspaceId);
@@ -31,6 +31,11 @@ export async function storeDocuments(
       await storeDraft(transaction, taggedMessage, draft, mayInsertDocuments);
     }
   });
+}
+
+function pickPlateOwner(driver: TaggedDriver | null, sender: FactReader | null | undefined): FactReader | null {
+  if (driver !== null) return { userId: driver.userId, role: 'member' };
+  return sender ?? null;
 }
 
 async function loadKnownPlate(transaction: Transaction, workspaceId: string, plateOwner: FactReader | null | undefined): Promise<string | null> {
