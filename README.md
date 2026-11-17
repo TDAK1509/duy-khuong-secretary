@@ -1,6 +1,6 @@
 # Trợ lý
 
-A Vietnamese Zalo chat assistant for truck companies. One TypeScript package (Node 24, npm).
+A Vietnamese Zalo secretary for transportation companies. Drivers upload receipts, weigh tickets, invoices, photos and texts, and the app stores them in an organized way. Admins upload too, state standing facts about trips, vehicles and drivers, and ask for reports and analyses of the saved data. One TypeScript package (Node 24, npm).
 
 ## Run it locally
 
