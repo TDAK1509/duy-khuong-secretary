@@ -1,7 +1,7 @@
 import type { Transaction } from '../db/transaction.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 
-export const PLATE_VALUE_NAME = 'Biển số xe';
+const PLATE_VALUE_NAME = 'Biển số xe';
 const PLATE_VALUE_KEY = 'biensoxe';
 
 const UPDATE_PLATE_VALUES_SQL = `
@@ -9,6 +9,7 @@ const UPDATE_PLATE_VALUES_SQL = `
   FROM facts fact
   WHERE value.fact_id = fact.id AND value.match_key = '${PLATE_VALUE_KEY}'
     AND fact.workspace_id = $1 AND fact.driver_user_id = $2
+    AND fact.vehicle_plate IS NULL AND fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL
   RETURNING fact.id
 `;
 
@@ -24,16 +25,20 @@ export type DriverPlate = { workspaceId: string; driverUserId: string; plate: st
 
 export async function setDriverPlateFact(transaction: Transaction, driverPlate: DriverPlate): Promise<void> {
   const updated = await transaction.query<{ id: string }>(UPDATE_PLATE_VALUES_SQL, [driverPlate.workspaceId, driverPlate.driverUserId, driverPlate.plate]);
-  if (updated.length > 0) await touchFacts(transaction, updated.map((row) => row.id));
+  if (updated.length > 0) await restateFacts(transaction, updated.map((row) => row.id), driverPlate.plate);
   else await createPlateFact(transaction, driverPlate);
 }
 
-async function touchFacts(transaction: Transaction, factIds: string[]): Promise<void> {
-  await transaction.query('UPDATE facts SET updated_at = now() WHERE id = ANY($1::uuid[])', [factIds]);
+async function restateFacts(transaction: Transaction, factIds: string[], plate: string): Promise<void> {
+  await transaction.query('UPDATE facts SET statement = $2, updated_at = now() WHERE id = ANY($1::uuid[])', [factIds, describePlate(plate)]);
+}
+
+function describePlate(plate: string): string {
+  return `${PLATE_VALUE_NAME}: ${plate}`;
 }
 
 async function createPlateFact(transaction: Transaction, { workspaceId, driverUserId, plate, authorUserId }: DriverPlate): Promise<void> {
-  const [fact] = await transaction.query<{ id: string }>(INSERT_PLATE_FACT_SQL, [workspaceId, authorUserId, `${PLATE_VALUE_NAME}: ${plate}`, driverUserId]);
+  const [fact] = await transaction.query<{ id: string }>(INSERT_PLATE_FACT_SQL, [workspaceId, authorUserId, describePlate(plate), driverUserId]);
   if (fact === undefined) throw new Error('inserting a plate fact returned no row');
   await transaction.query(INSERT_PLATE_VALUE_SQL, [workspaceId, fact.id, plate]);
   await linkFactToMatchingDocuments(transaction, workspaceId, fact.id);

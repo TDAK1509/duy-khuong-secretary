@@ -8,13 +8,16 @@ const LATEST_PLATE_SENTENCE_OF_EACH_DRIVER = `
     workspace_id, member_user_id, author_user_id, fact,
     regexp_replace(substring(fact FROM ${PLATE_PATTERN}), '[-.]', '', 'g') AS plate
   FROM member_facts
-  WHERE fact ~ ${PLATE_PATTERN}
+  WHERE fact ~ ${PLATE_PATTERN} AND readers = 'admins_and_member'
   ORDER BY workspace_id, member_user_id, created_at DESC, id DESC
 `;
+
+const ONLY_DRIVER_SCOPE = 'fact.vehicle_plate IS NULL AND fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL';
 
 const HAS_PLATE_FACT = `EXISTS (
   SELECT 1 FROM facts fact JOIN fact_values value ON value.fact_id = fact.id
   WHERE fact.workspace_id = sentence.workspace_id AND fact.driver_user_id = sentence.member_user_id AND value.match_key = '${PLATE_VALUE_KEY}'
+    AND ${ONLY_DRIVER_SCOPE}
 )`;
 
 export function up(pgm: MigrationBuilder): void {
@@ -46,7 +49,7 @@ function linkPlateFactsToDriverDocuments(pgm: MigrationBuilder): void {
     JOIN fact_values value ON value.fact_id = fact.id AND value.match_key = '${PLATE_VALUE_KEY}'
     JOIN documents document ON document.workspace_id = fact.workspace_id
     WHERE fact.driver_user_id IS NOT NULL
-      AND fact.vehicle_plate IS NULL AND fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL
+      AND ${ONLY_DRIVER_SCOPE}
       AND (
         document.driver_user_id = fact.driver_user_id
         OR EXISTS (
