@@ -34,6 +34,18 @@ describe('parseSheet', () => {
     });
   });
 
+  it('keeps a quoted comma inside a .csv cell as one value', async () => {
+    const bytes = encode('name,note\n"Smith, Jane","two parts"\n');
+
+    const result = await parseSheet('csv', bytes);
+
+    expect(result).toEqual({
+      ok: true,
+      headers: ['name', 'note'],
+      rows: [['Smith, Jane', 'two parts']],
+    });
+  });
+
   it('parses a .csv whose first line uses semicolons', async () => {
     const bytes = encode('name;plate;date\nA;51A;2026-01-01\n');
 
