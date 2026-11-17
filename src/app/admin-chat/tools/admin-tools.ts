@@ -9,6 +9,7 @@ import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { SAVE_FACT_SPEC } from './save-fact-spec.ts';
 import { LIST_FACTS_SPEC } from './list-facts-spec.ts';
 import { UPDATE_FACT_SPEC } from './update-fact-spec.ts';
+import { DELETE_FACT_SPEC } from './delete-fact-spec.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
   COUNT_RECORDS_SPEC,
@@ -31,6 +32,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   SAVE_FACT_SPEC,
   LIST_FACTS_SPEC,
   UPDATE_FACT_SPEC,
+  DELETE_FACT_SPEC,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,
   ADMIN_LIST_SOURCES_SPEC,

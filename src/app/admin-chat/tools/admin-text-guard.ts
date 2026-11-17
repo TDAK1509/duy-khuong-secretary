@@ -1,4 +1,4 @@
-export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate', 'save_fact', 'update_fact'] as const;
+export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate', 'save_fact', 'update_fact', 'delete_fact'] as const;
 
 export type ChangeTool = (typeof CHANGE_TOOLS)[number];
 
