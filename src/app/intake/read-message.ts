@@ -6,7 +6,7 @@ import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
 import type { ReaderCatalog } from '../reading/document-rules.ts';
 import { buildReaderPrompt } from '../reading/reader-prompt.ts';
-import { READER_SCHEMA, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
+import { buildReaderSchema, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import { validateReading, type ReadAttempt } from '../reading/reading.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { logReaderCall } from './log-reader-call.ts';
@@ -19,7 +19,7 @@ export async function readMessage(context: IntakeContext, message: MessageConten
     catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
     facts: await listMemberFacts(transaction, context.sender.workspaceId, context.sender),
   }));
-  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts);
+  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts, context.sender.role === 'admin');
 }
 
 export async function readWithReader(
@@ -29,13 +29,14 @@ export async function readWithReader(
   labels: string[],
   catalog: ReaderCatalog,
   facts: string[],
+  namesDriver = false,
 ): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels, catalog, facts),
+    system: buildReaderPrompt(now, labels, catalog, facts, namesDriver),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,
-    schema: READER_SCHEMA,
+    schema: buildReaderSchema(namesDriver),
   });
   const attempt = result.ok ? validateReading(result.json) : result;
   logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);

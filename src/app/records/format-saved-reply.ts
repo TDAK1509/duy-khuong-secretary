@@ -1,10 +1,11 @@
 import { formatIsoDate } from '../time/format-iso-date.ts';
 import type { NewRecord } from './new-record.ts';
 
-export function formatSavedReply(records: NewRecord[]): string {
+export function formatSavedReply(records: NewRecord[], driverName: string | null = null): string {
   const [only] = records;
-  if (records.length === 1 && only) return `Đã lưu: ${only.summary}${formatTail(only, ', ', ', ngày ')}.`;
-  return [`Đã lưu ${records.length} mục:`, ...records.map(formatSavedLine)].join('\n');
+  const forDriver = driverName === null ? '' : ` cho tài xế ${driverName}`;
+  if (records.length === 1 && only) return `Đã lưu${forDriver}: ${only.summary}${formatTail(only, ', ', ', ngày ')}.`;
+  return [`Đã lưu${forDriver} ${records.length} mục:`, ...records.map(formatSavedLine)].join('\n');
 }
 
 function formatSavedLine(record: Pick<NewRecord, 'summary' | 'amountVnd' | 'occurredOn'>): string {

@@ -10,6 +10,7 @@ import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { placeUnclearPhoto } from './place-unclear-photo.ts';
 import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
 import type { MessageToRead } from './reply-to-message.ts';
+import { findDriverTag, nameDriverInReply, readTaggedDriver } from './tag-named-driver.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
 
 export async function runReplyStage(context: IntakeContext, message: MessageToRead, plan: ReplyPlan): Promise<void> {
@@ -36,10 +37,12 @@ async function saveReply(
 ): Promise<void> {
   if (isPhotoQuestion(plannedReply)) return placeUnclearPhoto(transaction, context, messageId, plannedReply);
   const { sender } = context;
-  const plan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
+  const unnamedPlan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
+  const driverTag = await findDriverTag(transaction, sender, unnamedPlan);
+  const plan = nameDriverInReply(unnamedPlan, driverTag);
   const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
-  await storeDocuments(transaction, message, plannedReply, plan.saved !== null, sender);
+  await storeDocuments(transaction, message, plannedReply, plan.saved !== null, sender, readTaggedDriver(driverTag));
   const text = formatReplyWithReadData(plan);
   await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
   await setSubmissionStatus(transaction, messageId, plan.status);
