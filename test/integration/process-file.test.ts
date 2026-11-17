@@ -41,6 +41,20 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('does not process a file whose processed_at is already set', async () => {
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ORDERS_FIVE_ROWS[0]].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+    await harness.runProcessFiles();
+    const documentsBefore = await database.query('SELECT id FROM documents');
+    const requestsBefore = harness.reader.requests.length;
+
+    const outcome = await harness.runProcessFiles();
+
+    expect(outcome).toBe('idle');
+    expect(harness.reader.requests.length).toBe(requestsBefore);
+    expect(await database.query('SELECT id FROM documents')).toEqual(documentsBefore);
+  });
+
   it('makes the saved rows available for list_documents filtered by the inferred kind', async () => {
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...ORDERS_FIVE_ROWS].join('\n') + '\n');
     harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
