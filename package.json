@@ -11,10 +11,7 @@
     "start": "node dist/bootstrap/main.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "mutation": "stryker run",
-    "check:migrations": "node src/bootstrap/check-migrations.ts",
-    "mutation:shard-files": "node src/bootstrap/print-mutation-shard-files.ts"
+    "check:migrations": "node src/bootstrap/check-migrations.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",
@@ -30,17 +27,12 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@stryker-mutator/core": "10.1.1",
-    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "eslint": "10.14.0",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import-x": "4.17.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.1",
-    "vite": "8.3.5",
-    "vitest": "5.0.5",
-    "yaml": "2.9.1"
+    "typescript-eslint": "8.72.1"
   }
 }

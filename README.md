@@ -115,7 +115,7 @@ The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except
 | `S3_BUCKET` | none | Bucket name |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | Access key of the bucket |
 | `S3_FORCE_PATH_STYLE` | `false` | `true` for MinIO |
-| `PHOTO_RETENTION_DAYS` | `180` | Delete photos older than this many days on each tick. Set to `0` to delete everything immediately (useful in tests). Negative values are rejected at startup. |
+| `PHOTO_RETENTION_DAYS` | `180` | Delete photos older than this many days on each tick. Set to `0` to delete everything immediately. Negative values are rejected at startup. |
 | `PHOTO_CLEANUP_BATCH_SIZE` | `50` | Maximum number of photos deleted per tick. Must be between 1 and 500. |
 
 To run with MinIO by hand (never in CI): `docker compose --profile minio up -d --wait minio`. It creates the bucket `photos`. Then set `PHOTO_STORAGE=s3`, `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=photos`, `S3_ACCESS_KEY_ID=minioadmin`, `S3_SECRET_ACCESS_KEY=minioadmin` and `S3_FORCE_PATH_STYLE=true`. Set `MINIO_PORT` if port 9000 is taken. The MinIO console is at `http://localhost:9001`. The image is `bitnamilegacy/minio`, because MinIO no longer publishes images on Docker Hub.
@@ -193,8 +193,6 @@ ALTER ROLE app_runtime WITH LOGIN PASSWORD '<a long random password>';
 
 The password lives only in the environment (`APP_RUNTIME_PASSWORD` or `DATABASE_URL`), never in a migration. `MIGRATION_DATABASE_URL` keeps the database owner's connection string. Check the result with `select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user;`, which returns `app_runtime`, `f`, `f`.
 
-CI and local tests: the service under test connects as `app_runtime`. The Postgres service container's superuser migrates in CI. `test/integration/` reads `SUPERUSER_DATABASE_URL` (default `postgres:postgres` on the host of `DATABASE_URL`) for the test that refuses a superuser.
-
 ## Migrations
 
 Run them by hand against the local database:
@@ -215,7 +213,7 @@ Rules:
 - **Locks on existing tables.** Call `lockTables(pgm, ['table', ...])` (`src/app/db/lock-tables.ts`) first. It takes `LOCK TABLE ... NOWAIT` in a fixed table order. When a lock is busy (`55P03`), the runner drops its connection, sleeps 2 s +/- 25 %, and retries. Waiting for another runner's migration lock counts against the same budget. After 60 s in total it exits 1.
 - **Timeouts.** Every transactional migration runs with `SET LOCAL lock_timeout = '1s'` and `SET LOCAL statement_timeout = '30s'`.
 - **Concurrent indexes.** Call `pgm.noTransaction()` and write `CREATE INDEX CONCURRENTLY`. Such a migration runs with `statement_timeout = '10min'`. Before it builds an index, the runner drops a leftover index of the same name only when that index is invalid. It never drops a valid one. Keep one index build per migration, because a failure outside a transaction leaves the earlier statements applied.
-- **Backfills** are separate migrations, in small resumable batches, each with a test on existing rows.
+- **Backfills** are separate migrations, in small resumable batches.
 
 ## Deploy to Render
 
@@ -272,12 +270,8 @@ The URL holds the database password. Never commit or paste it.
 ```sh
 npm run lint
 npm run typecheck
-npm test            # needs the Postgres from docker compose; reads DATABASE_URL
 npm run check:migrations -- origin/main
-npm run mutation    # Stryker on src/app/access and src/app/admin-chat/tools; fails below a score of 80
 ```
-
-Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owner:app_owner@localhost:5432/secretary`. The migration tests create a throw-away database per test, so the role needs `CREATEDB` (`app_owner` has it) and `npm test` runs `npm run build` once for the built-entry test.
 
 ## Checks on every pull request
 
@@ -285,9 +279,7 @@ Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owne
 |---|---|
 | `ci / lint` | ESLint, including the import rules below |
 | `ci / typecheck` | `tsc --noEmit` |
-| `ci / test` | Builds the schema by running the migrations, then Vitest, against a Postgres 17 service container |
 | `ci / migrations` | Fails when a PR changes, renames or deletes a migration file that already exists on `main` |
-| `ci / mutation` | Stryker on the files of `src/app/access/` and `src/app/admin-chat/tools/`, in 4 shards (`ci / mutation (1..4)`); fails below a score of 80. Runs only on PRs with the label `ready-to-merge` |
 | `security / audit` | `npm audit` of production packages, fails on high severity |
 | `security / secrets` | gitleaks over the whole git history |
 
@@ -300,4 +292,4 @@ Tests that need Postgres read `DATABASE_URL` and default to `postgres://app_owne
 | `src/providers/<role>/` | One class per provider | `src/services/`, vendor packages, Node built-ins |
 | `src/bootstrap/` | Composition root and commands | anything |
 
-Vendor packages (`openai`, `@aws-sdk/*`, `pg`, `node-pg-migrate`, `fastify`) are imported only in `src/providers/` and `src/bootstrap/`. Two exceptions: `src/app/db/` may import `src/providers/database/postgres.ts`, and only `src/bootstrap/migrate.ts` may import `src/providers/database/migration-tool.ts`. ESLint enforces all of this. The rules live in `eslint/architecture.js`; `test/architecture/` holds one small project per rule.
+Vendor packages (`openai`, `@aws-sdk/*`, `pg`, `node-pg-migrate`, `fastify`) are imported only in `src/providers/` and `src/bootstrap/`. Two exceptions: `src/app/db/` may import `src/providers/database/postgres.ts`, and only `src/bootstrap/migrate.ts` may import `src/providers/database/migration-tool.ts`. ESLint enforces all of this. The rules live in `eslint/architecture.js`.

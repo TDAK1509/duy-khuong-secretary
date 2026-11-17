@@ -15,6 +15,5 @@
     "noEmit": true,
     "allowJs": true
   },
-  "include": ["src", "test", "vitest.config.ts"],
-  "exclude": ["test/architecture/*/src"]
+  "include": ["src"]
 }

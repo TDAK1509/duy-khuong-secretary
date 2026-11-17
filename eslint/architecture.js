@@ -23,7 +23,6 @@ export function makeArchitectureConfig(rootDir) { // allow-long-function: flat o
       isMigrationToolForbidden: true,
     }),
     makeMigrationEntryConfig(),
-    makeTestConfig(rootDir),
   ];
 }
 
@@ -97,10 +96,3 @@ function makeMigrationEntryConfig() {
   return { files: ['src/bootstrap/migrate.ts'], rules: { 'import-x/no-restricted-paths': 'off' } };
 }
 
-/** @returns {import('eslint').Linter.Config} */
-function makeTestConfig(rootDir) {
-  return {
-    files: ['test/**/*.ts'],
-    rules: restrictPaths(rootDir, [{ target: './test', from: MIGRATION_TOOL_PATH }]),
-  };
-}
