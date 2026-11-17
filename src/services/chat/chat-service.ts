@@ -16,7 +16,7 @@ export interface ToolCall {
 export type ChatTurn =
   | { role: 'user'; text: string | null }
   | { role: 'assistant'; text: string }
-  | { role: 'assistant_tool_calls'; calls: ToolCall[] }
+  | { role: 'assistant_tool_calls'; calls: ToolCall[]; replayItems: unknown[] }
   | { role: 'tool_result'; callId: string; output: string };
 
 export interface ChatRequest {
@@ -26,7 +26,7 @@ export interface ChatRequest {
 }
 
 export type ChatResult =
-  | { ok: true; reply: { kind: 'text'; text: string } | { kind: 'tool_calls'; calls: ToolCall[] }; usage: TokenUsage | null }
+  | { ok: true; reply: { kind: 'text'; text: string } | { kind: 'tool_calls'; calls: ToolCall[]; replayItems: unknown[] }; usage: TokenUsage | null }
   | { ok: false; reason: 'timeout' | 'unavailable' };
 
 export interface ChatService {

@@ -139,16 +139,18 @@ The `readers` group is on only when `READER_PROVIDER` and `READER_API_KEY` are s
 
 A message from an admin goes to the chat model when it has no work data. When it has work data and a question, the server saves the data and sends the saved reply first, then the chat model answers. Unresolved, no-plate and duplicate messages get their fixed replies and never reach the model. Members never reach the model. The model calls three tools, up to 5 rounds: `search_records`, `count_records` and `list_members`. Each tool reloads the caller's membership and refuses anyone who is not a current admin of the workspace. The answer is stored only when the admin's membership row is still the same row and still `admin`. If the chat model fails, the admin gets the failure text; the saved records stay.
 
+Chat calls use OpenAI's Responses API (`/v1/responses`) with `store: false`, so no conversation is kept on OpenAI's side. During one tool loop, a reasoning model's output items, including its encrypted reasoning, are sent back unchanged with the next round. The supported production settings are `gpt-6-luna` with `none` and `gpt-6.1-sol` with `medium`.
+
 The `chat` group is on only when `CHAT_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` are set. While it is off the service logs `[config] chat is off; missing: <NAMES>.` and an admin's messages wait before the reader runs.
 
 | Env var | Default | Meaning |
 |---|---|---|
 | `CHAT_PROVIDER` | none, required | `openai-compatible` |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | Chat Completions endpoint, key and model (`gpt-6-luna` in production). The model needs a price in `src/app/credits/price-call.ts`, else the start fails |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | none, required | OpenAI API base URL, key and model (`gpt-6-luna` in production). The model needs a price in `src/app/credits/price-call.ts`, else the start fails |
 | `LLM_TIMEOUT_MS` | `60000` | Wait for one chat reply |
-| `LLM_REASONING_EFFORT` | `none` | Sent as `reasoning_effort`; an empty value means it is not sent |
-| `ADMIN_CHAT_MODEL`, `ADMIN_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the admin chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails. `gpt-6.1-sol` with `medium` failed admin chat calls with tools in production, so it is not used here |
-| `MEMBER_CHAT_MODEL`, `MEMBER_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the member chat (`gpt-6-luna` with `none` in production). `gpt-6-luna` supports function calling on Chat Completions only with `none` |
+| `LLM_REASONING_EFFORT` | `none` | Sent as the reasoning effort; an empty value means it is not sent |
+| `ADMIN_CHAT_MODEL`, `ADMIN_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the admin chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
+| `MEMBER_CHAT_MODEL`, `MEMBER_CHAT_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the member chat (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
 | `SCHEDULED_RUN_MODEL`, `SCHEDULED_RUN_REASONING_EFFORT` | `LLM_MODEL`, `LLM_REASONING_EFFORT` | Model and reasoning effort of the scheduled runs (`gpt-6-luna` with `none` in production). The model needs a price, else the start fails |
 
 ## Credits
