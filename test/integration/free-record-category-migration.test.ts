@@ -13,8 +13,6 @@ const RESTORE_THE_SHAPE_BEFORE_THE_MIGRATION = `
   ALTER TABLE inbound_events DROP CONSTRAINT inbound_events_kind_check;
   ALTER TABLE inbound_events ADD CONSTRAINT inbound_events_kind_check CHECK (kind IN ('text', 'images'));
   DELETE FROM pgmigrations WHERE name = '0058_support_admin_file_uploads';
-  DROP TABLE internal_mcp_tokens;
-  DELETE FROM pgmigrations WHERE name = '0057_create_internal_mcp_tokens';
   DROP INDEX messages_cleanup_idx;
   ALTER TABLE messages DROP COLUMN image_deleted_at;
   DELETE FROM pgmigrations WHERE name = '0056_add_image_deleted_at_to_messages';
