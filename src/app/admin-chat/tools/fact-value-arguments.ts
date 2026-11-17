@@ -1,0 +1,65 @@
+import { z } from 'zod';
+import { buildMatchKey } from '../../documents/build-match-key.ts';
+import type { FactValue, FactValueContent } from '../../facts/fact.ts';
+
+const MAX_VALUE_NAME_LENGTH = 80;
+const VALUE_UNITS = ['đ', 'đ/tấn'];
+
+const INVALID_VALUE_NAME_REASON = 'Tên giá trị phải có từ 1 đến 80 ký tự và có chữ hoặc số.';
+const DUPLICATE_VALUE_NAME_REASON = 'Trùng tên với một giá trị khác trong cùng thông tin.';
+const INVALID_VALUE_KIND_REASON = 'Giá trị phải là một số kèm đơn vị, hoặc là chữ, không phải cả hai.';
+const INVALID_UNIT_REASON = 'Đơn vị phải là "đ" (mỗi chuyến) hoặc "đ/tấn" (mỗi tấn).';
+const NEGATIVE_NUMBER_REASON = 'Số tiền phải lớn hơn hoặc bằng 0.';
+
+export const valueArgumentSchema = z.strictObject({
+  name: z.string(),
+  number: z.number().nullable(),
+  unit: z.string().nullable(),
+  text: z.string().nullable(),
+});
+
+type ValueArgument = z.infer<typeof valueArgumentSchema>;
+export type RefusedValue = { name: string; reason: string };
+
+export function splitSavedFromRefused(values: ValueArgument[]): { saved: FactValue[]; refused: RefusedValue[] } {
+  const saved: FactValue[] = [];
+  const refused: RefusedValue[] = [];
+  for (const value of values) {
+    const reason = findRefusalReason(value, saved);
+    if (reason === null) saved.push(toFactValue(value));
+    else refused.push({ name: value.name, reason });
+  }
+  return { saved, refused };
+}
+
+function findRefusalReason(value: ValueArgument, saved: FactValue[]): string | null {
+  const name = value.name.trim();
+  const matchKey = buildMatchKey(name);
+  if (matchKey === '' || name.length > MAX_VALUE_NAME_LENGTH) return INVALID_VALUE_NAME_REASON;
+  if (saved.some((other) => other.matchKey === matchKey)) return DUPLICATE_VALUE_NAME_REASON;
+  return findContentRefusalReason(value);
+}
+
+function findContentRefusalReason({ number, unit, text }: ValueArgument): string | null {
+  const hasText = text !== null && text.trim() !== '';
+  const hasNumber = number !== null;
+  if (hasText === hasNumber || hasNumber !== (unit !== null)) return INVALID_VALUE_KIND_REASON;
+  if (number === null) return null;
+  if (!VALUE_UNITS.includes(unit?.trim() ?? '')) return INVALID_UNIT_REASON;
+  return number >= 0 && Number.isFinite(number) ? null : NEGATIVE_NUMBER_REASON;
+}
+
+function toFactValue(value: ValueArgument): FactValue {
+  const name = value.name.trim();
+  return { name, matchKey: buildMatchKey(name), content: readContent(value) };
+}
+
+function readContent({ number, unit, text }: ValueArgument): FactValueContent {
+  if (number !== null && unit !== null) return { kind: 'number', number, unit: unit.trim() };
+  return { kind: 'text', text: (text ?? '').trim() };
+}
+
+export function describeFactValue({ name, content }: FactValue): Record<string, string | number> {
+  if (content.kind === 'number') return { name, number: content.number, unit: content.unit };
+  return { name, text: content.text };
+}
