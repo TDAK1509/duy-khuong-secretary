@@ -6,6 +6,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { hasCredits } from '../credits/has-credits.ts';
 import { meterChat } from '../credits/meter-chat.ts';
 import { meterReader } from '../credits/meter-reader.ts';
+import type { CallMeter } from '../credits/record-call.ts';
 import { hasOfferedChoice } from '../delivery/has-offered-choice.ts';
 import { clearChoiceUnlessAnswered } from '../identities/clear-pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -64,8 +65,16 @@ function meterServices(
 ): Pick<IntakeContext, 'dependencies' | 'reader'> {
   const meter = { database: dependencies.database, workspaceId: sender.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.channel.maxTextLength } };
   return {
-    dependencies: { ...dependencies, chats: { adminChat: meterChat(chats.adminChat, meter, 'chat_answer'), memberChat: meterChat(chats.memberChat, meter, 'chat_answer') } },
+    dependencies: { ...dependencies, chats: meterChats(chats, meter) },
     reader: meterReader(reader, meter, (request) => (request.image === null ? 'text_read' : 'photo_read')),
+  };
+}
+
+function meterChats(chats: IntakeChats, meter: CallMeter): IntakeChats {
+  return {
+    adminChat: meterChat(chats.adminChat, meter, 'chat_answer'),
+    adminReport: meterChat(chats.adminReport, meter, 'chat_answer'),
+    memberChat: meterChat(chats.memberChat, meter, 'chat_answer'),
   };
 }
 
