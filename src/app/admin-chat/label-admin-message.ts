@@ -34,8 +34,9 @@ export async function labelAdminMessage(chat: ChatService, turns: ChatTurn[]): P
   }
 }
 
+const LEADING_LABEL = /^\W*(report|other)\b/i;
+
 function readLabel(text: string): AdminLabel {
-  const word = text.trim().toLowerCase();
-  if (word === 'report' || word === 'other') return word;
-  return 'failed';
+  const label = LEADING_LABEL.exec(text)?.[1]?.toLowerCase();
+  return label === 'report' || label === 'other' ? label : 'failed';
 }
