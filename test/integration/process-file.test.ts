@@ -41,6 +41,22 @@ describe('processing a parsed admin sheet', () => {
     await harness.close();
   });
 
+  it('skips a row with an empty date cell and names the skipped row in the reply', async () => {
+    const rows = [...ORDERS_FIVE_ROWS];
+    rows[2] = ',51C,Giao hàng,300000';
+    await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...rows].join('\n') + '\n');
+    harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
+
+    await harness.runProcessFiles();
+
+    expect(await database.query('SELECT count(*)::int AS count FROM documents')).toEqual([{ count: 4 }]);
+    expect(
+      await database.query<{ body: string }>(
+        `SELECT body FROM outbound_messages WHERE external_user_id = '${ADMIN_USER}' ORDER BY created_at DESC LIMIT 1`,
+      ),
+    ).toEqual([{ body: 'Đã lưu 4/5 dòng vào chứng từ "Hóa đơn". Bỏ qua các dòng: 3.' }]);
+  });
+
   it('saves every row of a five-row sheet as a document of the inferred kind', async () => {
     await uploadAndParseCsv(harness, 'orders.csv', [ORDERS_HEADER, ...ORDERS_FIVE_ROWS].join('\n') + '\n');
     harness.reader.answerWith(INVOICE_MAPPING_READER_OUTPUT);
