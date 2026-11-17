@@ -17,6 +17,18 @@ describe('parseSheet', () => {
       ],
     });
   });
+
+  it('parses a .csv whose first line uses semicolons', async () => {
+    const bytes = encode('name;plate;date\nA;51A;2026-01-01\n');
+
+    const result = await parseSheet('csv', bytes);
+
+    expect(result).toEqual({
+      ok: true,
+      headers: ['name', 'plate', 'date'],
+      rows: [['A', '51A', '2026-01-01']],
+    });
+  });
 });
 
 function encode(text: string): Uint8Array {
