@@ -34,6 +34,7 @@ const ABILITY_LINES: Record<string, string> = {
   list_facts: 'Cho biết các thông tin cố định về chuyến đã lưu, theo xe, tài xế hoặc công ty.',
   update_fact: 'Sửa giá trị hoặc phạm vi của một thông tin cố định về chuyến đã lưu.',
   delete_fact: 'Xóa một thông tin cố định về chuyến đã lưu; giấy tờ vẫn giữ nguyên.',
+  total_fact_values: 'Cộng các giá trị đã lưu như lương tài xế, cước vận chuyển hoặc chi phí theo xe, công ty, ngày hoặc tháng.',
   save_fact: 'Lưu thông tin cố định về một xe, tài xế hoặc tuyến, ví dụ lương, cước, chi phí hoặc khách hàng, và áp dụng cho mọi giấy tờ đã lưu khớp phạm vi.',
   maintenance_status: 'Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
   create_scheduled_task: 'Đặt lịch tự động, ví dụ báo cáo hằng ngày hoặc nhắc bảo dưỡng.',

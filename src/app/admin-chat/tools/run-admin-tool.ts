@@ -30,6 +30,7 @@ import { runSaveFact } from './save-fact-tool.ts';
 import { runListFacts } from './list-facts-tool.ts';
 import { runUpdateFact } from './update-fact-tool.ts';
 import { runDeleteFact } from './delete-fact-tool.ts';
+import { runTotalFactValues } from './total-fact-values-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
@@ -86,6 +87,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
   update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),
   delete_fact: ({ database }, scope, args) => runDeleteFact(database, scope, args),
+  total_fact_values: ({ database }, scope, args) => runTotalFactValues(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,
   list_sources: runListSources,

@@ -3,7 +3,7 @@ import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 
 const PLATE = (ADMIN_SEARCH_RECORDS_SPEC.parameters['properties'] as Record<string, unknown>)['plate'];
 
-const FILTER_PROPERTIES = {
+export const FILTER_PROPERTIES = {
   organization: {
     type: ['string', 'null'],
     description: 'Tên công ty hoặc nơi chốn, chép đúng từ list_organizations. null nếu không lọc theo tên.',
@@ -38,7 +38,7 @@ const FILTER_PROPERTIES = {
   },
 };
 
-const FILTER_NAMES = Object.keys(FILTER_PROPERTIES);
+export const FILTER_NAMES = Object.keys(FILTER_PROPERTIES);
 
 const MEANING = {
   type: 'string',
@@ -51,7 +51,7 @@ const LINES = {
   description: 'document: chỉ tính số của cả giấy tờ. item: chỉ tính số của từng dòng hàng hoặc từng việc.',
 };
 
-const GROUP_BY = {
+export const GROUP_BY = {
   type: 'string',
   enum: ['none', 'organization', 'kind', 'plate', 'stage', 'day', 'month'],
   description:
