@@ -61,7 +61,13 @@ const REQUEST_NEVER_SENT_CODES = [
 
 const attachmentSchema = z.object({
   type: z.string(),
-  payload: z.object({ url: z.string().optional() }).optional(),
+  payload: z
+    .object({
+      url: z.string().optional(),
+      name: z.string().optional(),
+      size: z.coerce.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 const eventSchema = z.object({
@@ -175,16 +181,20 @@ export class ZaloOaChannel implements MessagingChannel {
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
     try {
-      const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
-        headers: { access_token: credential },
-        signal: AbortSignal.timeout(this.settings.timeoutMs),
-      });
-      if (!response.ok) return await discardBody(response);
-      const answer = userDetailSchema.safeParse(await response.json());
-      return answer.success ? answer.data.data.display_name : null;
+      return await this.readDisplayName(user, credential);
     } catch {
       return null;
     }
+  }
+
+  private async readDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {
+    const response = await fetch(buildUserDetailUrl(this.settings.apiBaseUrl, user), {
+      headers: { access_token: credential },
+      signal: AbortSignal.timeout(this.settings.timeoutMs),
+    });
+    if (!response.ok) return discardBody(response);
+    const answer = userDetailSchema.safeParse(await response.json());
+    return answer.success ? answer.data.data.display_name : null;
   }
 
   async downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult> {
@@ -217,17 +227,20 @@ export class ZaloOaChannel implements MessagingChannel {
   }
 
   private openResponse(url: URL): Promise<IncomingMessage> {
-    const options = {
+    return new Promise((resolve, reject) => {
+      const request = requestOverHttps(url, this.safeRequestOptions(), resolve);
+      request.on('error', reject);
+      request.end();
+    });
+  }
+
+  private safeRequestOptions() {
+    return {
       agent: false,
       ca: this.settings.trustedCertificates,
       lookup: this.lookUpCheckedAddress,
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     };
-    return new Promise((resolve, reject) => {
-      const request = requestOverHttps(url, options, resolve);
-      request.on('error', reject);
-      request.end();
-    });
   }
 
   private readonly lookUpCheckedAddress: LookupFunction = (hostname, options, callback) => {
@@ -258,17 +271,23 @@ async function readLimited(response: IncomingMessage, maxBytes: number): Promise
     response.destroy();
     return UNAVAILABLE;
   }
+  return collectBoundedChunks(response, maxBytes);
+}
+
+async function collectBoundedChunks(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
   const chunks: Buffer[] = [];
   let received = 0;
   for await (const chunk of response as AsyncIterable<Buffer>) {
     received += chunk.length;
-    if (received > maxBytes) {
-      response.destroy();
-      return { ok: false, reason: 'too_large' };
-    }
+    if (received > maxBytes) return abortAsTooLarge(response);
     chunks.push(chunk);
   }
   return { ok: true, bytes: new Uint8Array(Buffer.concat(chunks)) };
+}
+
+function abortAsTooLarge(response: IncomingMessage): DownloadResult {
+  response.destroy();
+  return { ok: false, reason: 'too_large' };
 }
 
 function readRedirectLocation(response: IncomingMessage): string | null {
@@ -398,20 +417,48 @@ function readJson<Shape>(rawBody: string, schema: z.ZodType<Shape>): Shape | nul
 
 type EventBase = { eventId: string; from: ChannelRecipient; sentAt: Date };
 
+const EVENT_BUILDERS: Record<string, (base: EventBase, event: ZaloEvent) => InboundEvent> = {
+  user_send_text: toTextEvent,
+  user_send_image: toImagesEvent,
+  user_send_file: toFileEvent,
+};
+
 function toInboundEvent(event: ZaloEvent): InboundEvent {
-  const base: EventBase = {
+  const build = EVENT_BUILDERS[event.event_name];
+  return build ? build(toEventBase(event), event) : IGNORED_EVENT;
+}
+
+function toEventBase(event: ZaloEvent): EventBase {
+  return {
     eventId: event.message.msg_id,
     from: { channel: ZALO_CHANNEL, accountId: event.recipient.id, externalUserId: event.sender.id },
     sentAt: new Date(event.timestamp),
   };
-  switch (event.event_name) {
-    case 'user_send_text':
-      return toTextEvent(base, event);
-    case 'user_send_image':
-      return toImagesEvent(base, event);
-    default:
-      return IGNORED_EVENT;
-  }
+}
+
+function toFileEvent(base: EventBase, event: ZaloEvent): InboundEvent {
+  const files = collectFiles(event);
+  if (files.length === 0) return IGNORED_EVENT;
+  if (files.length > 1) return { kind: 'file', ...base, tooMany: true };
+  const [file] = files;
+  if (!file) return IGNORED_EVENT;
+  return { kind: 'file', ...base, tooMany: false, fileUrl: file.url, fileName: file.name, fileSize: file.size };
+}
+
+type ZaloFileAttachment = { url: string; name: string; size: number };
+
+function collectFiles(event: ZaloEvent): ZaloFileAttachment[] {
+  return event.message.attachments.flatMap((attachment) => {
+    if (attachment.type !== 'file') return [];
+    const { url, name, size } = attachment.payload ?? {};
+    if (url === undefined || name === undefined || size === undefined) return [];
+    return hasSheetExtension(name) ? [{ url, name, size }] : [];
+  });
+}
+
+function hasSheetExtension(fileName: string): boolean {
+  const trimmed = fileName.trim().toLowerCase();
+  return trimmed.endsWith('.csv') || trimmed.endsWith('.xlsx');
 }
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {

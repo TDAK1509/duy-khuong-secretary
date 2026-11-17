@@ -101,4 +101,37 @@ describe('ZaloOaChannel.parseEvent', () => {
   it('ignores a body that is not a Zalo event', () => {
     expect(channel.parseEvent('not json')).toEqual({ kind: 'ignored' });
   });
+
+  it('marks a user_send_file event with two attachments as too many', () => {
+    const { body } = loadSignedFixture('multi-file-event');
+
+    expect(channel.parseEvent(body)).toEqual({
+      kind: 'file',
+      eventId: 'm4',
+      from: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-hung' },
+      sentAt: new Date('2026-11-02T10:00:00+07:00'),
+      tooMany: true,
+    });
+  });
+
+  it('ignores a user_send_file event whose attachment is not .csv or .xlsx', () => {
+    const { body } = loadSignedFixture('pdf-event');
+
+    expect(channel.parseEvent(body)).toEqual({ kind: 'ignored' });
+  });
+
+  it('parses a user_send_file event with one attachment', () => {
+    const { body } = loadSignedFixture('file-event');
+
+    expect(channel.parseEvent(body)).toEqual({
+      kind: 'file',
+      eventId: 'm3',
+      from: { channel: 'zalo-oa', accountId: 'oa-1', externalUserId: 'zu-hung' },
+      sentAt: new Date('2026-11-02T10:00:00+07:00'),
+      tooMany: false,
+      fileUrl: 'https://zdn.vn/orders.csv',
+      fileName: 'orders.csv',
+      fileSize: 20480,
+    });
+  });
 });

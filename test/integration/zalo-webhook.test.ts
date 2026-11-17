@@ -99,6 +99,15 @@ describe('POST /webhooks/zalo', () => {
     expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
   });
 
+  it('answers 200 to a user_send_file event with a .pdf attachment and stores nothing', async () => {
+    await connectOa('oa-1');
+
+    const response = await postWebhook(loadSignedFixture('pdf-event'));
+
+    expect(response.statusCode).toBe(200);
+    expect(await database.query('SELECT id FROM inbound_events')).toEqual([]);
+  });
+
   it('answers 500 and alerts the operator when it cannot store an event', async () => {
     const refusingPool = createPostgresPool('postgres://nobody:nothing@127.0.0.1:1/none');
 

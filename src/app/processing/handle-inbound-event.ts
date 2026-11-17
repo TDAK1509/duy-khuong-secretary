@@ -15,7 +15,9 @@ import { lookUpZaloName } from '../identities/look-up-zalo-name.ts';
 import { answerInternalLoginCommand, isInternalLoginCommand } from '../internal-admin/answer-internal-login-command.ts';
 import { answerMcpTokenCommand, isMcpTokenCommand } from '../internal-mcp/answer-mcp-token-command.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
+import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
+import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
 import { isInviteCodeMessage } from '../workspaces/invite-code.ts';
 import { joinWithInviteCode } from '../workspaces/join-workspace.ts';
@@ -29,7 +31,7 @@ import {
 } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
-import type { Stage, Stages } from './stages.ts';
+import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
 
@@ -47,14 +49,55 @@ export type InboundHandlerDependencies = {
 const textPayloadSchema = z.object({ text: z.string() });
 
 export function createInboundHandler(dependencies: InboundHandlerDependencies | null): InboundHandler {
-  return async (event, stages) => {
-    if (dependencies === null) return { kind: 'not_configured', group: 'zalo' };
-    await stages.runStage(releaseHeldStage(dependencies, event));
-    const text = readText(event);
-    const sender = await findIntakeSender(dependencies.database, event, text);
-    if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
-    return handleNonIntakeSender(dependencies, stages, event, text);
-  };
+  if (dependencies === null) return async () => ({ kind: 'not_configured', group: 'zalo' });
+  return (event, stages) => dispatchInboundEvent(dependencies, event, stages);
+}
+
+async function dispatchInboundEvent(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  await stages.runStage(releaseHeldStage(dependencies, event));
+  if (event.kind === 'file') return handleFileEvent(dependencies, event, stages);
+  return answerByText(dependencies, event, stages);
+}
+
+async function handleFileEvent(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  const sender = await findIntakeSender(dependencies.database, event, null);
+  if (sender === null || sender.role !== 'admin') return refuseNonAdminFile(dependencies, event, stages);
+  return receiveFile(dependencies, stages, event, sender, readFileFromPayload(event));
+}
+
+async function refuseNonAdminFile(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished> {
+  return stages.finishEvent(async (transaction) => {
+    await recordSenderIdentity(transaction, event);
+    await enqueueText(transaction, {
+      to: describeSender(event),
+      text: SHEET_NON_ADMIN_TEXT,
+      maxTextLength: dependencies.channel.maxTextLength,
+      availableAt: dependencies.clock.now(),
+    });
+  });
+}
+
+async function answerByText(
+  dependencies: InboundHandlerDependencies,
+  event: ClaimedEvent,
+  stages: Stages,
+): Promise<Finished | NotConfigured> {
+  const text = readText(event);
+  const sender = await findIntakeSender(dependencies.database, event, text);
+  if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
+  return handleNonIntakeSender(dependencies, stages, event, text);
 }
 
 async function handleNonIntakeSender(dependencies: InboundHandlerDependencies, stages: Stages, event: ClaimedEvent, text: string | null) {
@@ -112,7 +155,8 @@ async function answerSender(
 
 async function enqueueReply(transaction: Transaction, message: Pick<ReceivedMessage, 'event' | 'now' | 'maxTextLength'>, reply: Reply): Promise<void> {
   const envelope = buildReplyEnvelope(message, reply);
-  await enqueueText(transaction, { ...envelope, text: reply.text, ...(reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } }) });
+  const offered = reply.offeredChoice && { offeredChoice: { choice: reply.offeredChoice, sourceEventId: message.event.id } };
+  await enqueueText(transaction, { ...envelope, text: reply.text, ...offered });
   if (reply.followUpText !== undefined) await enqueueText(transaction, { ...envelope, text: reply.followUpText });
 }
 

@@ -11,6 +11,7 @@ import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
 import { FakeChatService } from '../fakes/fake-chat-service.ts';
 import { FakeClock } from '../fakes/fake-clock.ts';
+import { FakeFileStorage } from '../fakes/fake-file-storage.ts';
 import { FakeMessagingChannel } from '../fakes/fake-messaging-channel.ts';
 import { FakePhotoStorage } from '../fakes/fake-photo-storage.ts';
 import { FakeReader } from '../fakes/fake-reader.ts';
@@ -22,6 +23,7 @@ import { insertMember, insertWorkspace } from './workspace-rows.ts';
 export const NOW = new Date('2026-11-02T10:00:00+07:00');
 export const ENCRYPTION_KEY = 'a'.repeat(64);
 export const PHOTO_URL = 'https://z.test/1.jpg';
+export const FILE_URL = 'https://zdn.vn/sheet.csv';
 
 export type InboundOverrides = {
   photoStorage?: FakePhotoStorage | null;
@@ -30,18 +32,22 @@ export type InboundOverrides = {
   beforeFinish?: () => Promise<void>;
 };
 
+export type ReceivedFileEvent = { fileUrl?: string; fileName: string; fileSize: number; attachmentCount?: number };
+
 export type IntakeHarness = {
   database: TemporaryDatabase;
   pool: PostgresPool;
   clock: FakeClock;
   channel: FakeMessagingChannel;
   photoStorage: FakePhotoStorage;
+  fileStorage: FakeFileStorage;
   alerts: OperatorAlerts;
   reader: FakeReader;
   chat: FakeChatService;
   workspaceId: string;
   hungUserId: string;
   receivePhoto(externalUserId: string, caption?: string | null): Promise<void>;
+  receiveFile(externalUserId: string, file: ReceivedFileEvent): Promise<void>;
   receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
   runTick(overrides?: { chat?: FakeChatService | null }): Promise<void>;
@@ -70,6 +76,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
   const clock = new FakeClock(NOW);
   const channel = new FakeMessagingChannel();
   const photoStorage = new FakePhotoStorage();
+  const fileStorage = new FakeFileStorage();
   const alerts = new OperatorAlerts(new FakeAlertSink(), clock);
   const reader = new FakeReader();
   const chat = new FakeChatService();
@@ -92,8 +99,8 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
         clock,
         database: pool,
         encryptionKey: ENCRYPTION_KEY,
-        fileStorage: null,
         photoStorage: storage,
+        fileStorage,
         reader: readerService,
         chat: chatService,
       })),
@@ -122,6 +129,7 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     clock,
     channel,
     photoStorage,
+    fileStorage,
     alerts,
     reader,
     chat,
@@ -134,6 +142,10 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     },
     receivePhoto: async (externalUserId, caption = null) => {
       await insertInboundEvent(database, { externalUserId, kind: 'images', imageUrls: [PHOTO_URL], caption });
+      await runInbound();
+    },
+    receiveFile: async (externalUserId, file) => {
+      await insertInboundEvent(database, buildFileEventInsert(externalUserId, file));
       await runInbound();
     },
     receiveText: async (externalUserId, text, overrides) => {
@@ -153,6 +165,19 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
       await pool.end();
       await database.drop();
     },
+  };
+}
+
+function buildFileEventInsert(externalUserId: string, file: ReceivedFileEvent) {
+  if (file.attachmentCount !== undefined && file.attachmentCount > 1) {
+    return { externalUserId, kind: 'file' as const, tooMany: true };
+  }
+  return {
+    externalUserId,
+    kind: 'file' as const,
+    fileUrl: file.fileUrl ?? FILE_URL,
+    fileName: file.fileName,
+    fileSize: file.fileSize,
   };
 }
 
