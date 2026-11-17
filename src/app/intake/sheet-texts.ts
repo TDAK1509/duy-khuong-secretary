@@ -8,6 +8,18 @@ export function formatSheetReceipt(fileName: string, fileSizeBytes: number): str
   return `Đã nhận file "${fileName}" (${toKilobytes(fileSizeBytes)} KB).`;
 }
 
+export function formatHeadersFound(fileName: string, rowCount: number, headers: string[]): string {
+  return `File "${fileName}" có ${rowCount} dòng dữ liệu với các cột: ${headers.join(', ')}.`;
+}
+
+export function formatNoDataRows(fileName: string): string {
+  return `File "${fileName}" không có dòng dữ liệu.`;
+}
+
+export function formatParseFailure(fileName: string): string {
+  return `File "${fileName}" không đọc được. Kiểm tra định dạng và gửi lại.`;
+}
+
 function toKilobytes(bytes: number): number {
   return Math.max(1, Math.round(bytes / 1024));
 }

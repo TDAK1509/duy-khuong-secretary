@@ -1,11 +1,13 @@
 import { OperatorAlerts } from '../../src/app/alerts/operator-alerts.ts';
 import { storeConnection } from '../../src/app/channel-auth/store-connection.ts';
 import { runOutboundStep } from '../../src/app/delivery/outbound-step.ts';
+import { runParseFilesStep } from '../../src/app/intake/run-parse-files-step.ts';
 import { runTick } from '../../src/app/ticker/run-tick.ts';
 import { createInboundHandler } from '../../src/app/processing/handle-inbound-event.ts';
 import { runInboundStep, type InboundHandler } from '../../src/app/processing/inbound-step.ts';
 import type { Stages } from '../../src/app/processing/stages.ts';
 import { OffGroupNotices } from '../../src/app/processing/off-group-notices.ts';
+import { ExcelJsSheetParser } from '../../src/providers/sheets/exceljs-sheet-parser.ts';
 import { createPostgresPool, type PostgresPool } from '../../src/providers/database/postgres.ts';
 import { FakeAlertSink } from '../fakes/fake-alert-sink.ts';
 import { makeTokenPair } from '../fakes/fake-channel-auth.ts';
@@ -50,6 +52,7 @@ export type IntakeHarness = {
   receiveFile(externalUserId: string, file: ReceivedFileEvent): Promise<void>;
   receiveText(externalUserId: string, text: string, overrides?: InboundOverrides): Promise<void>;
   runInbound(overrides?: InboundOverrides): Promise<unknown>;
+  runParseFiles(): Promise<'processed' | 'idle'>;
   runTick(overrides?: { chat?: FakeChatService | null }): Promise<void>;
   setReportReadyTemplate(templateId: string | null): void;
   sendQueuedTexts(): Promise<void>;
@@ -136,6 +139,8 @@ export async function createIntakeHarness(): Promise<IntakeHarness> {
     workspaceId,
     hungUserId,
     runInbound,
+    runParseFiles: () =>
+      runParseFilesStep({ database: pool, clock, channel, fileStorage, sheetParser: new ExcelJsSheetParser() }),
     runTick: (overrides = {}) => {
       const chatService = overrides.chat === undefined ? chat : overrides.chat;
       return runTick({ renewal: null, scheduledRuns: chatService && { database: pool, clock, channel, chat: chatService }, photoCleanup: null });
