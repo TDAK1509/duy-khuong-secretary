@@ -3,9 +3,9 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import { runInTransaction, type Database } from '../../db/transaction.ts';
 import { addMemberFactInTransaction, type MemberRef } from '../../memory/member-facts.ts';
 import { failTool, MEMBER_NOT_FOUND_ERROR, refuseInvalidArgument } from './tool-result.ts';
+import { isVehiclePlate, normalizePlate } from './vehicle-plate.ts';
 
 const PLATE_FACT_FULL_ERROR = 'Không thể lưu biển số vì thông tin đã đủ 2000 ký tự.';
-const PLATE_REGEX = /^\d{2}[A-Z]\d{3,5}$/;
 
 const argumentsSchema = z.strictObject({
   member_id: z.string(),
@@ -46,7 +46,7 @@ type PlateRequest = { ref: MemberRef; plate: string };
 function parsePlateRequest(parsedArguments: unknown, workspaceId: string): PlateRequest | string {
   const { member_id: memberId, vehicle_plate: rawPlate } = argumentsSchema.parse(parsedArguments);
   const plate = normalizePlate(rawPlate);
-  if (!PLATE_REGEX.test(plate)) refuseInvalidArgument('vehicle_plate');
+  if (!isVehiclePlate(plate)) refuseInvalidArgument('vehicle_plate');
   if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
   return { ref: { workspaceId, membershipId: memberId }, plate };
 }
@@ -58,8 +58,4 @@ async function updateMemberDocumentsInTransaction(
 ): Promise<number> {
   const rows = await transaction.query(UPDATE_MEMBER_DOCUMENTS_SQL, [membershipId, workspaceId, plate]);
   return rows.length;
-}
-
-function normalizePlate(raw: string): string {
-  return raw.toUpperCase().replace(/[\s.-]/g, '');
 }

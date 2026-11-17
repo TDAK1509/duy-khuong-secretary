@@ -17,6 +17,7 @@ const CHANGE_TOOL_LABELS: Record<ChangeTool, string> = {
   forget_all: 'quên mọi điều đã ghi nhớ',
   split_merged_name: 'tách tên đã gộp',
   rewrite_member_plate: 'đổi biển số của tài xế',
+  save_fact: 'lưu thông tin cố định về chuyến',
 };
 
 export function buildChangeRefusedNotice(refusedTools: ChangeTool[]): string {
