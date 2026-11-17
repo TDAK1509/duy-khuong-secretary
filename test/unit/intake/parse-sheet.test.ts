@@ -18,6 +18,22 @@ describe('parseSheet', () => {
     });
   });
 
+  it('strips a UTF-8 BOM from the first header of a .csv', async () => {
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+    const body = encode('name,plate,date\nA,51A,2026-01-01\n');
+    const bytes = new Uint8Array(bom.length + body.length);
+    bytes.set(bom, 0);
+    bytes.set(body, bom.length);
+
+    const result = await parseSheet('csv', bytes);
+
+    expect(result).toEqual({
+      ok: true,
+      headers: ['name', 'plate', 'date'],
+      rows: [['A', '51A', '2026-01-01']],
+    });
+  });
+
   it('parses a .csv whose first line uses semicolons', async () => {
     const bytes = encode('name;plate;date\nA;51A;2026-01-01\n');
 
