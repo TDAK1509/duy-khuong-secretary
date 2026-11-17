@@ -5,10 +5,10 @@ import { recordCall, type CallMeter } from './record-call.ts';
 
 export function meterReader(reader: ReaderService, meter: CallMeter, chooseKind: (request: ReaderRequest) => LlmCallKind): ReaderService {
   return {
-    model: reader.model,
+    chooseModel: (request) => reader.chooseModel(request),
     read: async (request) => {
       const result = await reader.read(request);
-      await recordCall(meter, { kind: chooseKind(request), model: reader.model, usage: findUsage(result) });
+      await recordCall(meter, { kind: chooseKind(request), model: reader.chooseModel(request), usage: findUsage(result) });
       return result;
     },
   };

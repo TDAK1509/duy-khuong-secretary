@@ -1,5 +1,6 @@
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
+import { routeReadsByImage } from '../services/reading/route-reads-by-image.ts';
 import type { ChannelAuth } from '../services/channel-auth/channel-auth.ts';
 import { ZaloOaAuth } from '../providers/channel-auth/zalo-oa-auth.ts';
 import { ZaloOaChannel } from '../providers/messaging/zalo-oa-channel.ts';
@@ -19,7 +20,7 @@ import type { FileStorage } from '../services/storage/file-storage.ts';
 import type { AlertConfig, Config } from './config.ts';
 import type { ChatConfig, ChatTask } from './chat-config.ts';
 import type { PhotoStorageConfig } from './photo-storage-config.ts';
-import type { ReaderConfig } from './reader-config.ts';
+import type { ReaderConfig, ReaderModelSetting } from './reader-config.ts';
 import type { ZaloConfig } from './zalo-config.ts';
 
 export type Providers = {
@@ -89,9 +90,13 @@ export function buildFileStorage(config: PhotoStorageConfig): FileStorage {
 }
 
 export function buildReader(config: ReaderConfig): ReaderService {
+  return routeReadsByImage(buildModelReader(config, config.photo), buildModelReader(config, config.text));
+}
+
+function buildModelReader(config: ReaderConfig, { model, reasoningEffort }: ReaderModelSetting): ReaderService {
   switch (config.provider) {
     case 'openai-compatible':
-      return new OpenAiCompatibleReader(config);
+      return new OpenAiCompatibleReader({ baseUrl: config.baseUrl, apiKey: config.apiKey, timeoutMs: config.timeoutMs, model, reasoningEffort });
   }
 }
 
