@@ -1,4 +1,6 @@
-export const CHANGE_TOOLS: readonly string[] = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate'];
+export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate'] as const;
+
+export type ChangeTool = (typeof CHANGE_TOOLS)[number];
 
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents'];
 
@@ -6,7 +8,7 @@ export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;
-  private changeRefused = false;
+  private readonly refusedTools: ChangeTool[] = [];
 
   constructor(otherTextAtStart: boolean) {
     this.otherTextSeen = otherTextAtStart;
@@ -17,16 +19,20 @@ export class AdminTextGuard {
   }
 
   refuses(toolName: string): boolean {
-    const isRefused = CHANGE_TOOLS.includes(toolName) && this.otherTextSeen;
-    if (isRefused) this.changeRefused = true;
-    return isRefused;
+    if (!isChangeTool(toolName) || !this.otherTextSeen) return false;
+    if (!this.refusedTools.includes(toolName)) this.refusedTools.push(toolName);
+    return true;
   }
 
   hasSeenOtherText(): boolean {
     return this.otherTextSeen;
   }
 
-  hasRefused(): boolean {
-    return this.changeRefused;
+  listRefusedTools(): ChangeTool[] {
+    return [...this.refusedTools];
   }
+}
+
+function isChangeTool(toolName: string): toolName is ChangeTool {
+  return (CHANGE_TOOLS as readonly string[]).includes(toolName);
 }
