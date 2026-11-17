@@ -33,11 +33,14 @@ Quy tắc:
 - Phân biệt ngày công việc, ngày cấp, ngày hết hạn và ngày gửi.
 - Hôm nay là {dd/MM/yyyy} (giờ Việt Nam).`;
 
-export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[]): string {
+const NAMED_DRIVER_RULE =
+  '- named_driver: người gửi là quản lý. Nếu quản lý ghi rõ trong tin nhắn hoặc chú thích ảnh rằng giấy tờ này là của một tài xế, ví dụ "hóa đơn của tài xế Tuấn", ghi đúng tên tài xế đó như quản lý viết, không kèm chữ "tài xế". Tên in trên giấy tờ không phải là named_driver. Nếu quản lý không nêu tài xế, named_driver là null.';
+
+export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], namesDriver = false): string {
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: buildWorkspaceLabelsLine(labels),
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts)].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts), ...(namesDriver ? [NAMED_DRIVER_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules)\}/g, (_, name: string) => fills[name] ?? '');
 }

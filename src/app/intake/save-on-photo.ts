@@ -8,6 +8,7 @@ import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 import { rejectDuplicates } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
+import { findDriverTag, nameDriverInReply, readTaggedDriver } from './tag-named-driver.ts';
 
 export type SavedReply = ReplyPlan & { senderText: string };
 
@@ -32,10 +33,12 @@ export async function saveReplyOnPhoto(
   plan: ReplyPlan,
 ): Promise<SavedReply> {
   const { sender } = context;
-  const reply = await rejectDuplicates(transaction, sender.workspaceId, plan);
+  const unnamedReply = await rejectDuplicates(transaction, sender.workspaceId, plan);
+  const driverTag = await findDriverTag(transaction, sender, unnamedReply);
+  const reply = nameDriverInReply(unnamedReply, driverTag);
   const senderText = formatReplyWithReadData(reply);
   await saveRecordsAndReply(transaction, context, target, { reply, senderText });
-  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null, sender);
+  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null, sender, readTaggedDriver(driverTag));
   if (reply.saved && reply.asksQuestion) await markQuestionPending(transaction, target.textId);
   return { ...reply, senderText };
 }

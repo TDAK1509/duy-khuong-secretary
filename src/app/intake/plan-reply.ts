@@ -27,6 +27,7 @@ export type ReplyPlan = {
   situation: 'saved' | 'no_work_data' | 'needs_explanation' | 'refused';
   asksQuestion: boolean;
   isUnclear: boolean;
+  namedDriver?: string | null;
 };
 
 export type ReplyAnswer = {
@@ -57,14 +58,14 @@ export function planReply(attempt: ReadAttempt, hasPhoto: boolean): ReplyPlan {
 function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
   if (reading.needs_explanation && hasPhoto) return planExplanationRequest();
   if (!reading.has_work_data || reading.items.length === 0) return planNoWorkDataReply(reading, hasPhoto);
-  return planRecordsReply(reading.items, reading.has_question);
+  return planRecordsReply(reading.items, reading.has_question, reading.named_driver);
 }
 
 export function planUnreadAnswer(): AnswerPlan {
   return { kind: 'reply', reply: planReadFailedReply(true), photoAfter: 'unchanged' };
 }
 
-function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean): ReplyPlan {
+function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean, namedDriver: string | null): ReplyPlan {
   const records = buildNewRecords(readItems);
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
   return {
@@ -76,6 +77,7 @@ function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean): Repl
     situation: 'saved',
     asksQuestion,
     isUnclear: false,
+    namedDriver,
   };
 }
 

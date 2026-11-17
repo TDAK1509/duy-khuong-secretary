@@ -15,7 +15,7 @@ const LINK_MATCHES_SQL = `
     AND ($2::uuid IS NULL OR fact.id = $2)
     AND ($3::uuid IS NULL OR document.id = $3)
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
-    AND (fact.driver_user_id IS NULL OR ${DRIVER_SENT_A_SOURCE})
+    AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
     AND (fact.pickup_match_key IS NULL OR ${buildPartyMatch('pickup_match_key')})
     AND (fact.dropoff_match_key IS NULL OR ${buildPartyMatch('dropoff_match_key')})
   ON CONFLICT DO NOTHING
