@@ -19,6 +19,7 @@ const CHANGE_TOOL_LABELS: Record<ChangeTool, string> = {
   rewrite_member_plate: 'đổi biển số của tài xế',
   save_fact: 'lưu thông tin cố định về chuyến',
   update_fact: 'sửa thông tin cố định về chuyến',
+  delete_fact: 'xóa thông tin cố định về chuyến',
 };
 
 export function buildChangeRefusedNotice(refusedTools: ChangeTool[]): string {
