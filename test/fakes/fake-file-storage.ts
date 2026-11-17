@@ -18,6 +18,11 @@ export class FakeFileStorage implements FileStorage {
     this.puts.push({ key, bytes, contentType });
   }
 
+  async get(key: string): Promise<Uint8Array | null> {
+    const stored = [...this.puts].reverse().find((entry) => entry.key === key);
+    return stored ? stored.bytes : null;
+  }
+
   async presignedUrl(key: string, expiresInSeconds: number): Promise<string> {
     return this.defaultUrl ?? `https://r2.fake/${key}?X-Amz-Expires=${expiresInSeconds}`;
   }
