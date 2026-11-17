@@ -5,8 +5,9 @@ import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { FactCompany, FactScope, FactValue, FactValueContent } from '../../facts/fact.ts';
 import { resolveFactCompany } from '../../facts/resolve-fact-company.ts';
 import { saveFact } from '../../facts/save-fact.ts';
-import { MEMBER_NOT_FOUND_ERROR, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
-import { isVehiclePlate, normalizePlate } from './vehicle-plate.ts';
+import { findFactDriver, type FactDriver } from './find-fact-driver.ts';
+import { refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
+import { readPlateArgument } from './vehicle-plate.ts';
 
 const MAX_STATEMENT_LENGTH = 2000;
 const MAX_VALUE_NAME_LENGTH = 80;
@@ -39,12 +40,11 @@ const argumentsSchema = z.strictObject({
 type SaveFactArguments = z.infer<typeof argumentsSchema>;
 type ValueArgument = z.infer<typeof valueSchema>;
 type RefusedValue = { name: string; reason: string };
-type Driver = { userId: string; name: string };
 
 export async function runSaveFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
   const statement = readStatement(request.statement);
-  const driver = await findDriver(database, scope.workspaceId, request.driver_member_id);
+  const driver = await findFactDriver(database, scope.workspaceId, request.driver_member_id);
   const factScope = await readFactScope(database, scope.workspaceId, request, driver);
   const { saved, refused } = splitSavedFromRefused(request.values);
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
@@ -58,23 +58,11 @@ function readStatement(raw: string): string {
   return statement;
 }
 
-async function findDriver(database: Database, workspaceId: string, memberId: string | null): Promise<Driver | null> {
-  if (memberId === null) return null;
-  if (!z.uuid().safeParse(memberId).success) throw new ToolRefusal(MEMBER_NOT_FOUND_ERROR);
-  const { rows } = await database.query<{ user_id: string; display_name: string }>(
-    'SELECT user_id, display_name FROM memberships WHERE id = $1 AND workspace_id = $2',
-    [memberId, workspaceId],
-  );
-  const [row] = rows;
-  if (row === undefined) throw new ToolRefusal(MEMBER_NOT_FOUND_ERROR);
-  return { userId: row.user_id, name: row.display_name };
-}
-
 type ResolvedScope = FactScope & { pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null };
 
-async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: Driver | null): Promise<ResolvedScope> {
+async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: FactDriver | null): Promise<ResolvedScope> {
   const factScope = {
-    vehiclePlate: readPlate(request.vehicle_plate),
+    vehiclePlate: readPlateArgument(request.vehicle_plate),
     driverUserId: driver?.userId ?? null,
     pickup: await readCompany(database, workspaceId, request.pickup_company, 'pickup_company'),
     dropoff: await readCompany(database, workspaceId, request.dropoff_company, 'dropoff_company'),
@@ -82,13 +70,6 @@ async function readFactScope(database: Database, workspaceId: string, request: S
   const isEmpty = Object.values(factScope).every((part) => part === null);
   if (isEmpty) throw new ToolRefusal(SCOPE_MISSING_ERROR);
   return factScope;
-}
-
-function readPlate(raw: string | null): string | null {
-  if (raw === null) return null;
-  const plate = normalizePlate(raw);
-  if (!isVehiclePlate(plate)) refuseInvalidArgument('vehicle_plate');
-  return plate;
 }
 
 type ResolvedCompany = FactCompany & { matchedOrganization: string | null };
@@ -146,7 +127,7 @@ function readContent({ number, unit, text }: ValueArgument): FactValueContent {
   return { kind: 'text', text: (text ?? '').trim() };
 }
 
-function describeScope(factScope: ResolvedScope, driver: Driver | null): Record<string, string | null> {
+function describeScope(factScope: ResolvedScope, driver: FactDriver | null): Record<string, string | null> {
   return {
     vehicle_plate: factScope.vehiclePlate,
     driver: driver?.name ?? null,

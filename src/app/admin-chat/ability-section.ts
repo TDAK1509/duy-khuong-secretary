@@ -31,6 +31,7 @@ const ABILITY_LINES: Record<string, string> = {
   forget_member_fact: 'Xóa một thông tin đã lưu về một người trong nhóm.',
   forget_all_member_facts: 'Xóa mọi thông tin đã lưu về một người trong nhóm.',
   rewrite_member_plate: 'Đổi biển số xe cho toàn bộ dữ liệu đã lưu của một tài xế.',
+  list_facts: 'Cho biết các thông tin cố định về chuyến đã lưu, theo xe, tài xế hoặc công ty.',
   save_fact: 'Lưu thông tin cố định về một xe, tài xế hoặc tuyến, ví dụ lương, cước, chi phí hoặc khách hàng, và áp dụng cho mọi giấy tờ đã lưu khớp phạm vi.',
   maintenance_status: 'Cho biết lần bảo dưỡng gần nhất của từng xe theo biển số.',
   create_scheduled_task: 'Đặt lịch tự động, ví dụ báo cáo hằng ngày hoặc nhắc bảo dưỡng.',
