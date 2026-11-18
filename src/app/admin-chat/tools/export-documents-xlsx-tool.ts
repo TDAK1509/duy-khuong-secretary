@@ -68,7 +68,7 @@ function buildAmountSubquery(): string {
        AND dl.item IS NULL AND dl.unit = 'vnd' ORDER BY dl.line_no LIMIT 1)`;
 }
 
-function buildSenderSubquery(): string {
+export function buildSenderSubquery(): string {
   return `(SELECT mem.display_name FROM document_sources ds
      JOIN messages msg ON msg.id = ds.message_id AND msg.workspace_id = document.workspace_id
      JOIN memberships mem ON mem.user_id = msg.user_id AND mem.workspace_id = document.workspace_id

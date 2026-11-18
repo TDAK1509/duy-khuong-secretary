@@ -7,6 +7,7 @@ import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-sourc
 import { REWRITE_MEMBER_PLATE_SPEC } from './rewrite-member-plate-spec.ts';
 import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { EXPORT_REPORT_XLSX_SPEC } from './export-report-xlsx-spec.ts';
+import { EXPORT_TRIP_REPORT_XLSX_SPEC } from './export-trip-report-xlsx-spec.ts';
 import { SAVE_FACT_SPEC } from './save-fact-spec.ts';
 import { LIST_FACTS_SPEC } from './list-facts-spec.ts';
 import { UPDATE_FACT_SPEC } from './update-fact-spec.ts';
@@ -50,4 +51,5 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   LIST_DOCUMENTS_SPEC,
   EXPORT_DOCUMENTS_XLSX_SPEC,
   EXPORT_REPORT_XLSX_SPEC,
+  EXPORT_TRIP_REPORT_XLSX_SPEC,
 ];

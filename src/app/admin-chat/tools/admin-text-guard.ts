@@ -2,7 +2,7 @@ export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', '
 
 export type ChangeTool = (typeof CHANGE_TOOLS)[number];
 
-export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'total_fact_values'];
+export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'total_fact_values', 'export_trip_report_xlsx'];
 
 export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx', 'list_facts', 'export_report_xlsx'];
 
