@@ -4,6 +4,9 @@ import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { ValueChange } from '../../facts/plan-value-changes.ts';
 import { describeStoredValue } from './describe-stored-value.ts';
+import { flattenStatement } from '../../facts/keep-newest-statements.ts';
+
+const MAX_STATEMENT_LENGTH = 2000;
 import { hasFact, updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
 import { splitSavedFromRefused, valueArgumentSchema, type RefusedValue } from './fact-value-arguments.ts';
 import { findFactDriver } from './find-fact-driver.ts';
@@ -23,7 +26,6 @@ const UPDATE_REFUSALS: Record<Exclude<FactUpdateResult['kind'], 'updated'>, stri
   no_values_left: 'Không thể xóa hết giá trị. Muốn bỏ cả thông tin này thì xóa thông tin.',
   no_scope_left: 'Phạm vi cần ít nhất một trong: biển số xe, tài xế, nơi lấy hàng, nơi đổ hàng.',
   same_as_other: 'Sau khi đổi, thông tin này sẽ trùng tuyến, xe, tài xế và khách hàng với một thông tin đã lưu khác. Chưa đổi gì.',
-  statement_too_long: 'Nguyên văn của thông tin này đã quá 2000 ký tự, chưa lưu được thay đổi.',
 };
 
 const argumentsSchema = z.strictObject({
@@ -94,8 +96,8 @@ function readValueKey(name: string): string {
 }
 
 function readChangeStatement(raw: string): string {
-  const statement = raw.trim();
-  if (statement === '') refuseInvalidArgument('change_statement');
+  const statement = flattenStatement(raw);
+  if (statement === '' || statement.length > MAX_STATEMENT_LENGTH) refuseInvalidArgument('change_statement');
   return statement;
 }
 

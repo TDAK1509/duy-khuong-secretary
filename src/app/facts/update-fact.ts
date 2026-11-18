@@ -4,8 +4,8 @@ import type { FactValue } from './fact.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
 import { findRouteFactTwin } from './route-fact-identity.ts';
+import { joinNewestStatements } from './keep-newest-statements.ts';
 
-const MAX_STATEMENT_LENGTH = 2000;
 
 export type ScopeChange = {
   vehiclePlate?: string | null;
@@ -26,7 +26,7 @@ export type UpdatedScope = { vehiclePlate: string | null; driverName: string | n
 export type FactUpdateResult =
   | { kind: 'updated'; changes: ValueChange[]; missingValueKeys: string[]; scope: UpdatedScope; linkedDocuments: number }
   | { kind: 'same_as_other'; otherFactId: string }
-  | { kind: 'not_found' | 'no_values_left' | 'no_scope_left' | 'statement_too_long' };
+  | { kind: 'not_found' | 'no_values_left' | 'no_scope_left' };
 
 type FactRow = {
   statement: string;
@@ -83,9 +83,8 @@ export function updateFact(database: Database, update: FactUpdate): Promise<Fact
 async function updateLoadedFact(transaction: Transaction, update: FactUpdate, fact: FactRow): Promise<FactUpdateResult> {
   const valuePlan = await planValueChanges(transaction, update.factId, update.setValues, update.removeValueKeys);
   if (valuePlan.remainingCount === 0) return { kind: 'no_values_left' };
-  const next = mergeScope(fact, update.scopeChange, `${fact.statement}\n${update.changeStatement}`);
+  const next = mergeScope(fact, update.scopeChange, joinNewestStatements(update.changeStatement, fact.statement));
   if (hasNoScope(next)) return { kind: 'no_scope_left' };
-  if (next.statement.length > MAX_STATEMENT_LENGTH) return { kind: 'statement_too_long' };
   const twin = hasScopeChanged(fact, next) ? await findRouteFactTwin(transaction, update.workspaceId, update.factId, { vehiclePlate: next.vehicle_plate, driverUserId: next.driver_user_id }) : null;
   if (twin !== null) return { kind: 'same_as_other', otherFactId: twin.id };
   await applyValueChanges(transaction, update.workspaceId, update.factId, valuePlan.changes);

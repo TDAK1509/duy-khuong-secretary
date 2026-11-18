@@ -7,6 +7,7 @@ import { saveFact, type SaveFactResult } from '../../facts/save-fact.ts';
 import type { ValueChange } from '../../facts/plan-value-changes.ts';
 import type { RouteFact } from '../../facts/route-fact-identity.ts';
 import { describeStoredValue } from './describe-stored-value.ts';
+import { flattenStatement } from '../../facts/keep-newest-statements.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import { listSlotNames, readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
 import { addCustomerValue, describeFactValue, splitSavedFromRefused, valueArgumentSchema } from './fact-value-arguments.ts';
@@ -56,8 +57,13 @@ type SaveSummary = { scope: Record<string, string | null>; values: unknown[]; re
 function describeSaveResult(result: SaveFactResult, summary: SaveSummary): string {
   if (result.action === 'not_same_route') return failTool(NOT_SAME_ROUTE_ERROR);
   if (result.action === 'ambiguous') return JSON.stringify({ ok: true, action: 'ambiguous', candidates: result.candidates.map(describeCandidate), scope: summary.scope });
-  const changes = result.action === 'updated' ? { changes: result.changes.map(describeValueChange) } : {};
-  return JSON.stringify({ ok: true, action: result.action, fact_id: result.factId, ...summary, ...changes, linked_documents: result.linkedDocuments });
+  if (result.action === 'added') return JSON.stringify({ ok: true, action: 'added', fact_id: result.factId, ...summary, linked_documents: result.linkedDocuments });
+  const changes = result.changes.map(describeValueChange);
+  return JSON.stringify({ ok: true, action: 'updated', fact_id: result.factId, ...summary, scope: describeStoredScope(result.stored, summary.scope), changes, linked_documents: result.linkedDocuments });
+}
+
+function describeStoredScope(stored: RouteFact, requested: Record<string, string | null>): Record<string, string | null> {
+  return { vehicle_plate: stored.vehiclePlate, driver: requested['driver'] ?? null, pickup_company: stored.pickupName, dropoff_company: stored.dropoffName, customer_company: stored.customerName };
 }
 
 function describeCandidate(fact: RouteFact): Record<string, string | null> {
@@ -74,7 +80,7 @@ async function pickNamedCompanies(companyReader: ReaderService | null, database:
 }
 
 function readStatement(raw: string): string {
-  const statement = raw.trim();
+  const statement = flattenStatement(raw);
   if (statement === '' || statement.length > MAX_STATEMENT_LENGTH) refuseInvalidArgument('statement');
   return statement;
 }

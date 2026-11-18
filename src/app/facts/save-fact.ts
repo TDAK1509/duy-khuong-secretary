@@ -1,6 +1,7 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import type { FactCompany, FactScope, FactValue, NewFact } from './fact.ts';
+import { CUSTOMER_VALUE_KEY, type FactCompany, type FactScope, type FactValue, type NewFact } from './fact.ts';
+import { joinNewestStatements } from './keep-newest-statements.ts';
 import { storeFactCompanies } from './fact-companies.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
@@ -8,11 +9,10 @@ import { describeNewSide, findSameRouteFacts, isRouteIdentity, type RouteFact, t
 
 export type SaveFactResult =
   | { action: 'added'; factId: string; linkedDocuments: number }
-  | { action: 'updated'; factId: string; linkedDocuments: number; changes: ValueChange[] }
+  | { action: 'updated'; factId: string; linkedDocuments: number; changes: ValueChange[]; stored: RouteFact }
   | { action: 'ambiguous'; candidates: RouteFact[] }
   | { action: 'not_same_route' };
 
-const MAX_STATEMENT_LENGTH = 2000;
 const UPDATE_STATEMENT_SQL = 'UPDATE facts SET statement = $3, updated_at = now() WHERE id = $1 AND workspace_id = $2';
 const COUNT_LINKS_SQL = 'SELECT count(*)::int AS count FROM document_facts WHERE fact_id = $1 AND workspace_id = $2';
 
@@ -34,10 +34,13 @@ export function saveFact(database: Database, fact: NewFact, targetFactId: string
     const identity = describeIdentity(fact.scope);
     if (!isRouteIdentity(identity)) return targetFactId === null ? addFact(transaction, fact) : { action: 'not_same_route' };
     const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity);
-    if (targetFactId !== null) return matches.some((match) => match.id === targetFactId) ? updateSameRoute(transaction, fact, targetFactId) : { action: 'not_same_route' };
+    if (targetFactId !== null) {
+      const target = matches.find((match) => match.id === targetFactId);
+      return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, fact, target);
+    }
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
     const [match] = matches;
-    return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, fact, match.id);
+    return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, fact, match);
   });
 }
 
@@ -53,15 +56,17 @@ async function addFact(transaction: Transaction, fact: NewFact): Promise<SaveFac
   return { action: 'added', factId, linkedDocuments };
 }
 
-async function updateSameRoute(transaction: Transaction, fact: NewFact, factId: string): Promise<SaveFactResult> {
-  const plan = await planValueChanges(transaction, factId, fact.values, []);
+async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: RouteFact): Promise<SaveFactResult> {
+  const factId = stored.id;
+  const namedValues = fact.values.filter((value) => value.matchKey !== CUSTOMER_VALUE_KEY);
+  const plan = await planValueChanges(transaction, factId, namedValues, []);
   const changes = plan.changes.filter(isRealChange);
   if (changes.length > 0) {
     await applyValueChanges(transaction, fact.workspaceId, factId, changes);
     await prependStatement(transaction, fact, factId);
   }
   const [links] = await transaction.query<{ count: number }>(COUNT_LINKS_SQL, [factId, fact.workspaceId]);
-  return { action: 'updated', factId, linkedDocuments: links?.count ?? 0, changes };
+  return { action: 'updated', factId, linkedDocuments: links?.count ?? 0, changes, stored };
 }
 
 function isRealChange({ before, after }: ValueChange): boolean {
@@ -72,16 +77,7 @@ function isRealChange({ before, after }: ValueChange): boolean {
 
 async function prependStatement(transaction: Transaction, fact: NewFact, factId: string): Promise<void> {
   const [row] = await transaction.query<{ statement: string }>('SELECT statement FROM facts WHERE id = $1 AND workspace_id = $2', [factId, fact.workspaceId]);
-  await transaction.query(UPDATE_STATEMENT_SQL, [factId, fact.workspaceId, keepNewestStatements([fact.statement, ...(row?.statement.split('\n') ?? [])])]);
-}
-
-function keepNewestStatements(newestFirst: string[]): string {
-  const kept: string[] = [];
-  for (const line of newestFirst) {
-    if ([...kept, line].join('\n').length > MAX_STATEMENT_LENGTH) break;
-    kept.push(line);
-  }
-  return kept.join('\n');
+  await transaction.query(UPDATE_STATEMENT_SQL, [factId, fact.workspaceId, joinNewestStatements(fact.statement, row?.statement ?? '')]);
 }
 
 async function insertFact(transaction: Transaction, { workspaceId, authorUserId, statement, scope }: NewFact): Promise<string> {
