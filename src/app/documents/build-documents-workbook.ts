@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { DocumentFactValue } from '../facts/document-fact-values.ts';
+import { formatDateCell, formatNumberCell, formatWorkbookSheet } from './format-workbook-sheet.ts';
 
 export type ExportRow = {
   document_date: string | null;
@@ -15,15 +16,16 @@ export type ExportRow = {
 type FactColumn = { key: string; name: string };
 
 const HEADER_LABELS = ['Ngày', 'Loại', 'Tiêu đề', 'Số chứng từ', 'Biển số', 'Số tiền (VND)', 'Người gửi'] as const;
-const AMOUNT_COLUMN_INDEX = 6;
+const DATE_COLUMN = 1;
+const AMOUNT_COLUMN = 6;
 
 export async function buildDocumentsWorkbook(rows: ExportRow[]): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Giấy tờ');
   const factColumns = collectFactColumns(rows);
-  addHeaderRow(sheet, factColumns);
+  sheet.addRow([...HEADER_LABELS, ...factColumns.map((column) => column.name)]);
   for (const row of rows) addDataRow(sheet, row, factColumns);
-  freezeHeader(sheet);
+  formatWorkbookSheet(sheet, { headerRow: 1, lastRow: 1 + rows.length, columnCount: HEADER_LABELS.length + factColumns.length });
   const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
 }
@@ -36,50 +38,17 @@ function collectFactColumns(rows: ExportRow[]): FactColumn[] {
   return [...columns.values()];
 }
 
-function addHeaderRow(sheet: ExcelJS.Worksheet, factColumns: FactColumn[]): void {
-  const row = sheet.addRow([...HEADER_LABELS, ...factColumns.map((column) => column.name)]);
-  row.eachCell((cell) => {
-    cell.font = { bold: true };
-  });
-}
-
 function addDataRow(sheet: ExcelJS.Worksheet, data: ExportRow, factColumns: FactColumn[]): void {
-  sheet.addRow([...buildRowValues(data), ...factColumns.map((column) => formatFactCell(data.fact_values, column.key))]);
-  if (data.amount_vnd !== null) {
-    sheet.lastRow!.getCell(AMOUNT_COLUMN_INDEX).alignment = { horizontal: 'right' };
-  }
+  const row = sheet.addRow([null, data.kind, data.title, data.document_number, data.vehicle_plate, null, data.sender_name]);
+  if (data.document_date !== null) formatDateCell(row.getCell(DATE_COLUMN), data.document_date);
+  if (data.amount_vnd !== null) formatNumberCell(row.getCell(AMOUNT_COLUMN), Math.round(data.amount_vnd));
+  factColumns.forEach((column, index) => writeFactCell(row.getCell(HEADER_LABELS.length + index + 1), data.fact_values, column.key));
 }
 
-function buildRowValues(data: ExportRow): (string | null)[] {
-  return [
-    data.document_date !== null ? formatDate(data.document_date) : null,
-    data.kind,
-    data.title,
-    data.document_number,
-    data.vehicle_plate,
-    data.amount_vnd !== null ? formatVnd(data.amount_vnd) : null,
-    data.sender_name,
-  ];
-}
-
-function formatFactCell(values: DocumentFactValue[], key: string): string | null {
+function writeFactCell(cell: ExcelJS.Cell, values: DocumentFactValue[], key: string): void {
   const value = values.find((candidate) => candidate.key === key);
-  if (value === undefined) return null;
-  if (value.number !== null && value.unit !== null) return `${formatVnd(Number(value.number))}${value.unit}`;
-  return value.text;
-}
-
-function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-');
-  return `${day}/${month}/${year}`;
-}
-
-function formatVnd(amount: number): string {
-  return Math.round(amount)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
-
-function freezeHeader(sheet: ExcelJS.Worksheet): void {
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  if (value === undefined) return;
+  const number = Number(value.number);
+  if (value.number !== null && value.unit !== null && Number.isFinite(number)) return formatNumberCell(cell, number, value.unit);
+  cell.value = value.text;
 }
