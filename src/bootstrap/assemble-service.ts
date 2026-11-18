@@ -4,6 +4,7 @@ import { runOutboundStep } from '../app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { HeldEvents } from '../app/processing/held-events.ts';
+import { HeldTasks } from '../app/scheduled-runs/held-tasks.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import type { CleanupDependencies } from '../app/intake/cleanup-old-photos.ts';
@@ -41,7 +42,8 @@ export type Service = {
   server: FastifyInstance;
   pool: PostgresPool;
   checkDatabaseRole: () => Promise<void>;
-  runTick: () => Promise<void>;
+  runTick: (shutdown: AbortSignal) => Promise<void>;
+  heldTasks: HeldTasks;
   runInboundStep: () => Promise<'processed' | 'idle'>;
   runOutboundStep: () => Promise<'processed' | 'idle'>;
   heldEvents: HeldEvents;
@@ -50,12 +52,14 @@ export type Service = {
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
   const configs = loadAllConfigs(environment, log);
   const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chats } = buildProviders(configs);
+  const heldTasks = new HeldTasks();
   return {
     config: configs.base,
     server: buildServer(pool, configs.base.commit, buildHttpOptions(configs.base, { pool, ownerPool, clock, alerts, connection, channel, webhookConfig: configs.webhookConfig })),
     pool,
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
-    runTick: () => runTick(buildTickOptions(configs, connection, alerts, channel, chats, pool, clock, environment, photoStorage)),
+    runTick: (shutdown) => runTick(buildTickOptions(configs, connection, alerts, channel, chats, pool, clock, environment, photoStorage, { held: heldTasks, shutdown })),
+    heldTasks,
     ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
   };
 }
@@ -160,12 +164,14 @@ function buildTickOptions(
   clock: Clock,
   environment: NodeJS.ProcessEnv,
   photoStorage: PhotoStorage | null,
+  run: { held: HeldTasks; shutdown: AbortSignal },
 ): TickDependencies {
   const { zalo } = configs;
   return {
     renewal: zalo && connection && { ...connection, alerts, callTimeoutMs: zalo.oauthTimeoutMs },
-    scheduledRuns: channel && chats && { database: pool, clock, chat: chats.scheduledRun, channel },
+    scheduledRuns: channel && chats && { database: pool, clock, chat: chats.scheduledRun, channel, ...run },
     photoCleanup: buildPhotoCleanupDeps(pool, clock, photoStorage, loadPhotoCleanupConfig(environment)),
+    shutdown: run.shutdown,
   };
 }
 

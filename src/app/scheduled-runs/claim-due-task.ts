@@ -12,6 +12,7 @@ export type ClaimedTask = {
   instruction: string;
   schedule: Schedule;
   claimedNextRunAt: string;
+  claimedLockedUntil: string;
 };
 
 type ClaimedRow = ScheduleRow & {
@@ -21,6 +22,7 @@ type ClaimedRow = ScheduleRow & {
   title: string;
   instruction: string;
   claimed_next_run_at: string;
+  claimed_locked_until: string;
 };
 
 export async function claimDueTask(database: Database, now: Date): Promise<ClaimedTask | null> {
@@ -37,7 +39,7 @@ export async function claimDueTask(database: Database, now: Date): Promise<Claim
      FROM candidate
      WHERE scheduled_tasks.id = candidate.id
      RETURNING scheduled_tasks.id, workspace_id, created_by, title, instruction,
-       next_run_at::text AS claimed_next_run_at, ${SCHEDULE_COLUMNS}`,
+       next_run_at::text AS claimed_next_run_at, locked_until::text AS claimed_locked_until, ${SCHEDULE_COLUMNS}`,
     [now, new Date(now.getTime() + LOCK_MS)],
   );
   const [row] = rows;
@@ -53,5 +55,6 @@ function describeClaim(row: ClaimedRow): ClaimedTask {
     instruction: row.instruction,
     schedule: readSchedule(row),
     claimedNextRunAt: row.claimed_next_run_at,
+    claimedLockedUntil: row.claimed_locked_until,
   };
 }
