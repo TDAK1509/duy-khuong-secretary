@@ -1,4 +1,5 @@
 import type { Clock } from '../../../services/clock/clock.ts';
+import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { Database } from '../../db/transaction.ts';
 import type { AdminTextGuard } from './admin-text-guard.ts';
@@ -16,4 +17,5 @@ export type AdminToolDependencies = {
   invites: CreatedInvites;
   guard: AdminTextGuard;
   fileStorage?: FileStorage | null;
+  companyReader?: ReaderService | null;
 };

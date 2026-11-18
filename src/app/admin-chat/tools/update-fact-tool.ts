@@ -4,7 +4,9 @@ import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { StoredValue, ValueChange } from '../../facts/plan-value-changes.ts';
 import { updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
-import { readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
+import { listSlotNames, readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
+import { pickFactCompanies, type CompanyPicks } from '../../facts/pick-fact-companies.ts';
+import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import { addCustomerValue, splitSavedFromRefused, valueArgumentSchema, type RefusedValue } from './fact-value-arguments.ts';
 import { findFactDriver } from './find-fact-driver.ts';
 import { failTool, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
@@ -39,10 +41,10 @@ const argumentsSchema = z.strictObject({
 type UpdateFactArguments = z.infer<typeof argumentsSchema>;
 type ResolvedChange = { scopeChange: ScopeChange; pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null; customer: ResolvedCompany | null };
 
-export async function runUpdateFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
+export async function runUpdateFact(database: Database, scope: AccessScope, parsedArguments: unknown, companyReader: ReaderService | null = null): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
   if (!z.uuid().safeParse(request.fact_id).success) return failTool(FACT_NOT_FOUND_ERROR);
-  const parsed = await readFactUpdate(database, scope.workspaceId, request);
+  const parsed = await readFactUpdate(database, scope.workspaceId, request, companyReader);
   if (parsed.isEmpty) return JSON.stringify({ ok: false, error: NOTHING_TO_CHANGE_ERROR, refused_values: parsed.refused });
   const result = await updateFact(database, parsed.update);
   if (result.kind !== 'updated') return failTool(UPDATE_REFUSALS[result.kind]);
@@ -51,8 +53,9 @@ export async function runUpdateFact(database: Database, scope: AccessScope, pars
 
 type ParsedUpdate = { update: FactUpdate; resolved: ResolvedChange; refused: RefusedValue[]; removeNames: Map<string, string>; isEmpty: boolean };
 
-async function readFactUpdate(database: Database, workspaceId: string, request: UpdateFactArguments): Promise<ParsedUpdate> {
-  const resolved = await readScopeChange(database, workspaceId, request);
+async function readFactUpdate(database: Database, workspaceId: string, request: UpdateFactArguments, companyReader: ReaderService | null): Promise<ParsedUpdate> {
+  const picks = await pickFactCompanies(companyReader, database, workspaceId, listSlotNames(request));
+  const resolved = await readScopeChange(database, workspaceId, request, picks);
   const { saved: setValues, refused } = splitSavedFromRefused(request.set_values);
   const saved = addCustomerValue(setValues, resolved.customer);
   const removeNames = new Map(request.remove_values.map((name) => [readValueKey(name), name.trim()]));
@@ -64,12 +67,12 @@ async function readFactUpdate(database: Database, workspaceId: string, request: 
   return { update, resolved, refused, removeNames, isEmpty };
 }
 
-async function readScopeChange(database: Database, workspaceId: string, request: UpdateFactArguments): Promise<ResolvedChange> {
+async function readScopeChange(database: Database, workspaceId: string, request: UpdateFactArguments, picks: CompanyPicks): Promise<ResolvedChange> {
   const clears = new Set(request.clear_scope);
   const driver = await findFactDriver(database, workspaceId, request.driver_member_id);
-  const pickup = await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company');
-  const dropoff = await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company');
-  const customer = await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company');
+  const pickup = await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company', picks.pickup);
+  const dropoff = await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company', picks.dropoff);
+  const customer = await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company', picks.customer);
   const scopeChange = {
     ...pickScopeField(readPlateArgument(request.vehicle_plate), clears.has('vehicle_plate'), 'vehiclePlate'),
     ...pickScopeField(driver?.userId ?? null, clears.has('driver'), 'driverUserId'),

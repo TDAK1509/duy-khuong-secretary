@@ -71,7 +71,7 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const { request, hasFlaggedAnswer } = built;
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
+  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(view.loop, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
 }

@@ -2,7 +2,10 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import type { FactScope } from '../../facts/fact.ts';
+import { pickFactCompanies, type CompanyPicks } from '../../facts/pick-fact-companies.ts';
 import { saveFact } from '../../facts/save-fact.ts';
+import type { ReaderService } from '../../../services/reading/reader-service.ts';
+import { listSlotNames } from './fact-company-argument.ts';
 import { readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
 import { addCustomerValue, describeFactValue, splitSavedFromRefused, valueArgumentSchema } from './fact-value-arguments.ts';
 import { findFactDriver, type FactDriver } from './find-fact-driver.ts';
@@ -26,11 +29,12 @@ const argumentsSchema = z.strictObject({
 
 type SaveFactArguments = z.infer<typeof argumentsSchema>;
 
-export async function runSaveFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
+export async function runSaveFact(database: Database, scope: AccessScope, parsedArguments: unknown, companyReader: ReaderService | null = null): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
   const statement = readStatement(request.statement);
   const driver = await findFactDriver(database, scope.workspaceId, request.driver_member_id);
-  const factScope = await readFactScope(database, scope.workspaceId, request, driver);
+  const picks = await pickFactCompanies(companyReader, database, scope.workspaceId, listSlotNames(request));
+  const factScope = await readFactScope(database, scope.workspaceId, request, driver, picks);
   const { saved, refused } = splitSavedFromRefused(request.values);
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
   const values = addCustomerValue(saved, factScope.customer);
@@ -46,13 +50,13 @@ function readStatement(raw: string): string {
 
 type ResolvedScope = FactScope & { pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null; customer: ResolvedCompany | null };
 
-async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: FactDriver | null): Promise<ResolvedScope> {
+async function readFactScope(database: Database, workspaceId: string, request: SaveFactArguments, driver: FactDriver | null, picks: CompanyPicks): Promise<ResolvedScope> {
   const factScope = {
     vehiclePlate: readPlateArgument(request.vehicle_plate),
     driverUserId: driver?.userId ?? null,
-    pickup: await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company'),
-    dropoff: await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company'),
-    customer: await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company'),
+    pickup: await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company', picks.pickup),
+    dropoff: await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company', picks.dropoff),
+    customer: await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company', picks.customer),
   };
   const isEmpty = [factScope.vehiclePlate, factScope.driverUserId, factScope.pickup, factScope.dropoff].every((part) => part === null);
   if (isEmpty) throw new ToolRefusal(SCOPE_MISSING_ERROR);
