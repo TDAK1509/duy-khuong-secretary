@@ -29,14 +29,14 @@ export async function readWithReader(
   labels: string[],
   catalog: ReaderCatalog,
   facts: string[],
-  namesDriver = false,
+  fromAdmin = false,
 ): Promise<ReadAttempt> {
   const result = await reader.read({
-    system: buildReaderPrompt(now, labels, catalog, facts, namesDriver),
+    system: buildReaderPrompt(now, labels, catalog, facts, fromAdmin),
     text: message.text,
     image: message.photo,
     schemaName: READER_SCHEMA_NAME,
-    schema: buildReaderSchema(namesDriver),
+    schema: buildReaderSchema(fromAdmin),
   });
   const attempt = result.ok ? validateReading(result.json) : result;
   logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);

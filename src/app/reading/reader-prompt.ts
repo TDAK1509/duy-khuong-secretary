@@ -36,11 +36,14 @@ Quy tắc:
 const NAMED_DRIVER_RULE =
   '- named_driver: người gửi là quản lý. Nếu quản lý ghi rõ trong tin nhắn hoặc chú thích ảnh rằng giấy tờ này là của một tài xế, ví dụ "hóa đơn của tài xế Tuấn", ghi đúng tên tài xế đó như quản lý viết, không kèm chữ "tài xế". Tên in trên giấy tờ không phải là named_driver. Nếu quản lý không nêu tài xế, named_driver là null.';
 
-export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], namesDriver = false): string {
+const STANDING_FACT_RULE =
+  '- Thông tin cố định của quản lý: người gửi là quản lý. Nếu tin nhắn không kèm ảnh nêu một thông tin về một xe, một tài xế hoặc một tuyến và nói rõ thông tin đó đúng cho mọi chuyến (ví dụ có chữ "luôn", "mỗi chuyến", "từ nay", "cố định", "thông tin này luôn là như vậy"), thì đây không phải dữ liệu công việc cần lưu: has_work_data là false, needs_explanation là false, items là danh sách rỗng. Nếu tin nhắn không nói rõ là đúng cho mọi chuyến, hoặc nói về một chuyến cụ thể (có ngày, có trọng lượng, có chữ "hôm nay"), đọc như bình thường.';
+
+export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], fromAdmin = false): string {
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: buildWorkspaceLabelsLine(labels),
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts), ...(namesDriver ? [NAMED_DRIVER_RULE] : [])].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, STANDING_FACT_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules)\}/g, (_, name: string) => fills[name] ?? '');
 }
