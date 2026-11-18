@@ -1,4 +1,4 @@
-const MAX_STATEMENT_LENGTH = 2000;
+export const MAX_STATEMENT_LENGTH = 2000;
 const STATEMENT_SEPARATOR = '\n';
 
 export function joinNewestStatements(newest: string, stored: string): string {

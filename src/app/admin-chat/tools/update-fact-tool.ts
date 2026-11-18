@@ -4,9 +4,7 @@ import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { ValueChange } from '../../facts/plan-value-changes.ts';
 import { describeStoredValue } from './describe-stored-value.ts';
-import { flattenStatement } from '../../facts/keep-newest-statements.ts';
-
-const MAX_STATEMENT_LENGTH = 2000;
+import { flattenStatement, MAX_STATEMENT_LENGTH } from '../../facts/keep-newest-statements.ts';
 import { hasFact, updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
 import { splitSavedFromRefused, valueArgumentSchema, type RefusedValue } from './fact-value-arguments.ts';
 import { findFactDriver } from './find-fact-driver.ts';

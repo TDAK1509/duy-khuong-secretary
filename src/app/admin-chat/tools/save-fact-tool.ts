@@ -7,7 +7,7 @@ import { saveFact, type SaveFactResult } from '../../facts/save-fact.ts';
 import type { ValueChange } from '../../facts/plan-value-changes.ts';
 import type { RouteFact } from '../../facts/route-fact-identity.ts';
 import { describeStoredValue } from './describe-stored-value.ts';
-import { flattenStatement } from '../../facts/keep-newest-statements.ts';
+import { flattenStatement, MAX_STATEMENT_LENGTH } from '../../facts/keep-newest-statements.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import { listSlotNames, readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
 import { addCustomerValue, describeFactValue, splitSavedFromRefused, valueArgumentSchema } from './fact-value-arguments.ts';
@@ -15,7 +15,6 @@ import { findFactDriver, type FactDriver } from './find-fact-driver.ts';
 import { failTool, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
-const MAX_STATEMENT_LENGTH = 2000;
 
 const SCOPE_MISSING_ERROR = 'Cần ít nhất một trong: biển số xe, tài xế, nơi lấy hàng, nơi đổ hàng.';
 const NO_VALUE_SAVED_ERROR = 'Không lưu được giá trị nào, nên chưa lưu thông tin này.';
@@ -42,7 +41,7 @@ export async function runSaveFact(database: Database, scope: AccessScope, parsed
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
   const factScope = await readFactScope(database, scope.workspaceId, request, driver, await pickNamedCompanies(companyReader, database, scope.workspaceId, request));
   const values = addCustomerValue(saved, factScope.customer);
-  const result = await saveFact(database, { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, scope: factScope, values }, readTargetFactId(request.fact_id));
+  const result = await saveFact(database, { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, scope: factScope, values }, { targetFactId: readTargetFactId(request.fact_id), updateValues: saved });
   return describeSaveResult(result, { scope: describeScope(factScope, driver), values: values.map(describeFactValue), refused_values: refused });
 }
 

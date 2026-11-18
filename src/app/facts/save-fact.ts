@@ -1,6 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import { CUSTOMER_VALUE_KEY, type FactCompany, type FactScope, type FactValue, type NewFact } from './fact.ts';
+import { type FactCompany, type FactScope, type FactValue, type NewFact } from './fact.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { replaceSlotCompanies, storeFactCompanies } from './fact-companies.ts';
 import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
@@ -29,7 +29,9 @@ const INSERT_VALUE_SQL = `
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `;
 
-export function saveFact(database: Database, fact: NewFact, targetFactId: string | null): Promise<SaveFactResult> {
+export type SaveOptions = { targetFactId: string | null; updateValues: FactValue[] };
+
+export function saveFact(database: Database, fact: NewFact, { targetFactId, updateValues }: SaveOptions): Promise<SaveFactResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, fact.workspaceId);
     const identity = describeIdentity(fact.scope);
@@ -37,11 +39,11 @@ export function saveFact(database: Database, fact: NewFact, targetFactId: string
     const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity);
     if (targetFactId !== null) {
       const target = matches.find((match) => match.id === targetFactId);
-      return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, fact, target);
+      return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, { ...fact, values: updateValues }, target);
     }
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
     const [match] = matches;
-    return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, fact, match);
+    return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, { ...fact, values: updateValues }, match);
   });
 }
 
@@ -59,10 +61,9 @@ async function addFact(transaction: Transaction, fact: NewFact): Promise<SaveFac
 
 async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: RouteFact): Promise<SaveFactResult> {
   const factId = stored.id;
-  const namedValues = fact.values.filter((value) => value.matchKey !== CUSTOMER_VALUE_KEY);
-  const plan = await planValueChanges(transaction, factId, namedValues, []);
+  const plan = await planValueChanges(transaction, factId, fact.values, []);
   const changes = plan.changes.filter(isRealChange);
-  const restoredSlots = COMPANY_SLOTS.filter((slot) => !stored[slot].resolved && stored[slot].matchKey !== null && fact.scope[slot]?.organizationIds != null);
+  const restoredSlots = COMPANY_SLOTS.filter((slot) => !stored[slot].resolved && stored[slot].matchKey !== null && (fact.scope[slot]?.organizationIds?.length ?? 0) > 0);
   if (changes.length > 0) await applyValueChanges(transaction, fact.workspaceId, factId, changes);
   if (changes.length > 0 || restoredSlots.length > 0) await prependStatement(transaction, fact, factId);
   if (restoredSlots.length > 0) await restorePicks(transaction, fact, factId, restoredSlots);

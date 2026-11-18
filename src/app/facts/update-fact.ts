@@ -6,7 +6,6 @@ import { applyValueChanges, planValueChanges, type ValueChange } from './plan-va
 import { findRouteFactTwin } from './route-fact-identity.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 
-
 export type ScopeChange = {
   vehiclePlate?: string | null;
   driverUserId?: string | null;

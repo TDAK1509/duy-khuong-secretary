@@ -113,16 +113,17 @@ companies, so the route was replaced.
     - links are not rebuilt: identity means scope and picks are unchanged, so
       the linked-paper count is read, not recomputed. Except when picks are
       restored: a stored slot that is unresolved (for example after
-      `split_merged_name`) while the new call's slot is resolved takes the new
-      picks (`replaceSlotCompanies`, `*_resolved = true`), and the fact is
+      `split_merged_name`) while the new call's slot is resolved to at least one
+      company takes the new picks (`replaceSlotCompanies`, `*_resolved = true`), and the fact is
       relinked in the same transaction. The reply lists it in
       `restored_companies` ("đã khớp lại công ty …"), so it never reads as a
       no-op, and `linked_documents` is recomputed.
     - an exact restatement (every named value already stored, nothing
       restored) writes nothing: no statement change, no `updated_at`. The
       reply is "Đã có thông tin này, không đổi giá trị nào".
-    - the automatic "Khách hàng" value is left out of a same-route update:
-      identity already means the same customer.
+    - the automatic "Khách hàng" value (added from the customer scope) is left
+      out of a same-route update: identity already means the same customer. A
+      "Khách hàng" value the admin names explicitly is still saved.
     - the reply shows the stored fact's scope names, not the new call's
       spelling.
   - Result per action: the current scope, `linked_documents`, and for
@@ -141,6 +142,9 @@ companies, so the route was replaced.
   - Its statement is trimmed the same way as `save_fact`'s: newest first,
     within 2,000 characters, one statement per line (line breaks inside a
     statement become spaces), instead of refusing once the statement is full.
+    Known limit: facts edited by `update_fact` before this change hold their
+    edits oldest first, so on those the trim can drop a newer old edit before
+    the original statement.
   - After a plate or driver change on a route fact, it runs the same identity
     check under the lock. When the result would equal another saved route
     fact, it refuses and names that fact.
