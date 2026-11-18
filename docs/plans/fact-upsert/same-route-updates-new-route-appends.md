@@ -111,7 +111,20 @@ companies, so the route was replaced.
       wins per value), every value of this fact then wins over other linked
       facts' values. This is intended.
     - links are not rebuilt: identity means scope and picks are unchanged, so
-      the linked-paper count is read, not recomputed.
+      the linked-paper count is read, not recomputed. Except when picks are
+      restored: a stored slot that is unresolved (for example after
+      `split_merged_name`) while the new call's slot is resolved takes the new
+      picks (`replaceSlotCompanies`, `*_resolved = true`), and the fact is
+      relinked in the same transaction. The reply lists it in
+      `restored_companies` ("đã khớp lại công ty …"), so it never reads as a
+      no-op, and `linked_documents` is recomputed.
+    - an exact restatement (every named value already stored, nothing
+      restored) writes nothing: no statement change, no `updated_at`. The
+      reply is "Đã có thông tin này, không đổi giá trị nào".
+    - the automatic "Khách hàng" value is left out of a same-route update:
+      identity already means the same customer.
+    - the reply shows the stored fact's scope names, not the new call's
+      spelling.
   - Result per action: the current scope, `linked_documents`, and for
     `updated` a list of changes: `replaced` (old → new), `added` (new value),
     or none when nothing changed. `refused_values` as today.
@@ -125,6 +138,9 @@ companies, so the route was replaced.
     separate fact (save it), and the old one can be deleted. It still changes
     values, plate and driver, and still clears plate or driver ("bỏ giới hạn
     biển số").
+  - Its statement is trimmed the same way as `save_fact`'s: newest first,
+    within 2,000 characters, one statement per line (line breaks inside a
+    statement become spaces), instead of refusing once the statement is full.
   - After a plate or driver change on a route fact, it runs the same identity
     check under the lock. When the result would equal another saved route
     fact, it refuses and names that fact.

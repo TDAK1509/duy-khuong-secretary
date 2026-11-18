@@ -59,7 +59,8 @@ function describeSaveResult(result: SaveFactResult, summary: SaveSummary): strin
   if (result.action === 'ambiguous') return JSON.stringify({ ok: true, action: 'ambiguous', candidates: result.candidates.map(describeCandidate), scope: summary.scope });
   if (result.action === 'added') return JSON.stringify({ ok: true, action: 'added', fact_id: result.factId, ...summary, linked_documents: result.linkedDocuments });
   const changes = result.changes.map(describeValueChange);
-  return JSON.stringify({ ok: true, action: 'updated', fact_id: result.factId, ...summary, scope: describeStoredScope(result.stored, summary.scope), changes, linked_documents: result.linkedDocuments });
+  const restored = result.restoredSlots.map((slot) => ({ slot, companies: summary.scope[`${slot}_company_matched`] ?? null }));
+  return JSON.stringify({ ok: true, action: 'updated', fact_id: result.factId, ...summary, scope: describeStoredScope(result.stored, summary.scope), changes, restored_companies: restored, linked_documents: result.linkedDocuments });
 }
 
 function describeStoredScope(stored: RouteFact, requested: Record<string, string | null>): Record<string, string | null> {
