@@ -6,8 +6,8 @@ import { linkFactToMatchingDocuments } from './link-facts.ts';
 export type SavedFact = { factId: string; linkedDocuments: number };
 
 const INSERT_FACT_SQL = `
-  INSERT INTO facts (workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  INSERT INTO facts (workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, customer_name, customer_match_key)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
   RETURNING id
 `;
 
@@ -37,6 +37,8 @@ async function insertFact(transaction: Transaction, { workspaceId, authorUserId,
     scope.pickup?.matchKey ?? null,
     scope.dropoff?.name ?? null,
     scope.dropoff?.matchKey ?? null,
+    scope.customer?.name ?? null,
+    scope.customer?.matchKey ?? null,
   ]);
   if (row === undefined) throw new Error('inserting a fact returned no row');
   return row.id;

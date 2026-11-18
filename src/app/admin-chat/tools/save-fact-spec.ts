@@ -15,6 +15,7 @@ export const SAVE_FACT_SPEC: ToolSpec = {
       driver_member_id: { ...NULLABLE_STRING, description: 'id của tài xế, lấy từ list_members. null nếu quản lý không nêu tài xế.' },
       pickup_company: { ...NULLABLE_STRING, description: `Tên công ty hoặc nơi lấy hàng như quản lý viết. ${COMPANY_NAME_RULE} null nếu không nêu.` },
       dropoff_company: { ...NULLABLE_STRING, description: `Tên công ty hoặc nơi đổ hàng như quản lý viết. ${COMPANY_NAME_RULE} null nếu không nêu.` },
+      customer_company: { ...NULLABLE_STRING, description: `Khách hàng của chuyến (công ty nhận hàng ghi trên giấy tờ), như quản lý viết, ví dụ "khách hàng là công ty Minh Đức Phát" ghi là "Minh Đức Phát". ${COMPANY_NAME_RULE} Khách hàng chỉ thu hẹp phạm vi, vẫn cần biển số, tài xế, nơi lấy hàng hoặc nơi đổ hàng. null nếu không nêu.` },
       values: {
         type: 'array',
         description: 'Mọi giá trị quản lý nêu, mỗi giá trị một mục. Một giá trị là số tiền kèm đơn vị, hoặc là chữ.',
@@ -31,7 +32,7 @@ export const SAVE_FACT_SPEC: ToolSpec = {
         },
       },
     },
-    required: ['statement', 'vehicle_plate', 'driver_member_id', 'pickup_company', 'dropoff_company', 'values'],
+    required: ['statement', 'vehicle_plate', 'driver_member_id', 'pickup_company', 'dropoff_company', 'customer_company', 'values'],
     additionalProperties: false,
   },
 };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
-import type { FactValue, FactValueContent } from '../../facts/fact.ts';
+import { CUSTOMER_VALUE_KEY, CUSTOMER_VALUE_NAME, type FactCompany, type FactValue, type FactValueContent } from '../../facts/fact.ts';
 
 const MAX_VALUE_NAME_LENGTH = 80;
 const VALUE_UNITS = ['đ', 'đ/tấn'];
@@ -62,4 +62,9 @@ function readContent({ number, unit, text }: ValueArgument): FactValueContent {
 export function describeFactValue({ name, content }: FactValue): Record<string, string | number> {
   if (content.kind === 'number') return { name, number: content.number, unit: content.unit };
   return { name, text: content.text };
+}
+
+export function addCustomerValue(values: FactValue[], customer: FactCompany | null): FactValue[] {
+  if (customer === null || values.some((value) => value.matchKey === CUSTOMER_VALUE_KEY)) return values;
+  return [...values, { name: CUSTOMER_VALUE_NAME, matchKey: CUSTOMER_VALUE_KEY, content: { kind: 'text', text: customer.name } }];
 }

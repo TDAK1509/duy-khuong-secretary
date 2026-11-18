@@ -110,7 +110,8 @@ const TRIP_FACTS_SECTION = `Thông tin cố định về chuyến:
 - Khi quản lý nêu một thông tin cố định về một xe, một tài xế hoặc một tuyến, có số tiền hoặc bên liên quan đúng cho mọi chuyến (ví dụ lương tài xế, cước vận chuyển mỗi tấn, chi phí bồi dưỡng, khách hàng, hàng hóa), gọi save_fact một lần với mọi giá trị. Không chia thành nhiều add_member_fact.
 - add_member_fact chỉ dùng cho gợi ý đọc giấy tờ về một tài xế, ví dụ cách người đó hay ghi giấy tờ.
 - Khi tin nhắn của quản lý nêu một thông tin cố định như vậy, gọi list_facts trước. Nếu chưa có thì gọi save_fact. Nếu đã có và giá trị hoặc phạm vi thay đổi thì gọi update_fact.
-- Phạm vi là biển số xe, tài xế (id lấy từ list_members), nơi lấy hàng và nơi đổ hàng. Chỉ điền phần quản lý nêu, phần khác để null. Với tên công ty, bỏ chữ "công ty" hoặc "cty" đứng trước tên.
+- Phạm vi là biển số xe, tài xế (id lấy từ list_members), nơi lấy hàng, nơi đổ hàng và khách hàng. Chỉ điền phần quản lý nêu, phần khác để null. Khách hàng quản lý nêu ("khách hàng là …") ghi vào customer_company; hệ thống tự lưu thêm giá trị "Khách hàng".
+- Khi có nơi lấy hàng, thông tin áp dụng cho phiếu ở đầu lấy hàng của mỗi chuyến (phiếu do nơi lấy hàng phát hành), không áp dụng cho phiếu ở đầu đổ hàng, nên mỗi chuyến chỉ được tính một lần. Với tên công ty, bỏ chữ "công ty" hoặc "cty" đứng trước tên.
 - Giữ đúng số, đơn vị và tên quản lý viết. 500k là 500000. Số tiền mỗi chuyến dùng đơn vị "đ", số tiền mỗi tấn dùng "đ/tấn". Khách hàng và hàng hóa là giá trị dạng chữ.
 - Sau khi lưu, nhắc lại phạm vi, từng giá trị đã lưu và số giấy tờ đã áp dụng (linked_documents). Nếu có refused_values, nêu tên từng giá trị chưa lưu và lý do.
 - pickup_company_matched và dropoff_company_matched là tên công ty đã lưu mà thông tin được gắn vào. Nêu rõ tên đó để quản lý kiểm tra. Nếu là null, nói chưa có công ty nào đã lưu khớp tên này.

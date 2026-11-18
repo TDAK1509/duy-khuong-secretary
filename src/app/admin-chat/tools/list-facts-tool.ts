@@ -34,7 +34,7 @@ function describeFact(fact: ListedFact): Record<string, unknown> {
   return {
     id: fact.id,
     statement: fact.statement,
-    scope: { vehicle_plate: fact.vehiclePlate, driver: fact.driverName, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName },
+    scope: { vehicle_plate: fact.vehiclePlate, driver: fact.driverName, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName },
     values: fact.values.map(describeValue),
     linked_documents: fact.linkedDocuments,
     updated_at: `${formatVietnamTime(fact.updatedAt)} ${formatVietnamDate(fact.updatedAt)}`,

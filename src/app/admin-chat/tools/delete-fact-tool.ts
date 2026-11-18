@@ -20,7 +20,7 @@ function describeDeletedFact(fact: DeletedFact): Record<string, unknown> {
   return {
     ok: true,
     statement: fact.statement,
-    scope: { vehicle_plate: fact.vehiclePlate, driver: fact.driverName, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName },
+    scope: { vehicle_plate: fact.vehiclePlate, driver: fact.driverName, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName },
     former_linked_documents: fact.linkedDocuments,
   };
 }
