@@ -11,6 +11,7 @@ type ClaimedRow = {
   kind: 'text' | 'images' | 'file';
   payload: Record<string, unknown>;
   attempts: number;
+  claim_token: string;
 };
 
 const CLAIM_SQL = `
@@ -30,10 +31,10 @@ const CLAIM_SQL = `
     FOR UPDATE SKIP LOCKED
   )
   UPDATE inbound_events
-  SET status = 'processing', locked_until = $2, attempts = attempts + 1
+  SET status = 'processing', locked_until = $2, attempts = attempts + 1, claim_token = gen_random_uuid()
   FROM candidate
   WHERE inbound_events.id = candidate.id
-  RETURNING inbound_events.id, channel, account_id, external_user_id, kind, payload, attempts`;
+  RETURNING inbound_events.id, channel, account_id, external_user_id, kind, payload, attempts, claim_token`;
 
 export async function claimInboundEvent(database: Database, now: Date): Promise<ClaimedEvent | null> {
   const expiresAt = new Date(now.getTime() + LOCK_MS);
@@ -52,5 +53,6 @@ function describeClaim(row: ClaimedRow): ClaimedEvent {
     kind: row.kind,
     payload: row.payload,
     attempts: row.attempts,
+    claimToken: row.claim_token,
   };
 }

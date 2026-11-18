@@ -3,6 +3,7 @@ import { OperatorAlerts } from '../app/alerts/operator-alerts.ts';
 import { runOutboundStep } from '../app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../app/processing/inbound-step.ts';
+import { HeldEvents } from '../app/processing/held-events.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import type { CleanupDependencies } from '../app/intake/cleanup-old-photos.ts';
@@ -43,6 +44,7 @@ export type Service = {
   runTick: () => Promise<void>;
   runInboundStep: () => Promise<'processed' | 'idle'>;
   runOutboundStep: () => Promise<'processed' | 'idle'>;
+  heldEvents: HeldEvents;
 };
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
@@ -207,15 +209,17 @@ type QueueParts = {
   log: (line: string) => void;
 };
 
-type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep'>;
+type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep' | 'heldEvents'>;
 
 function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
-  const inbound = buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chats);
+  const heldEvents = new HeldEvents();
+  const inbound = { ...buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chats), held: heldEvents };
   const outbound = buildOutboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, reportReadyTemplateId);
   return {
     runInboundStep: () => runInboundStep(inbound),
     runOutboundStep: async () => (outbound ? runOutboundStep(outbound) : 'idle'),
+    heldEvents,
   };
 }
 

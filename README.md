@@ -231,6 +231,8 @@ Rules:
 
 `render.yaml` describes one web service (Docker, Singapore) and one Postgres 17 database (Singapore). After the checks pass on a commit on `main` (`autoDeployTrigger: checksPass`), Render builds the `Dockerfile`, runs `node dist/bootstrap/migrate.js` as the pre-deploy command, and starts `node dist/bootstrap/main.js` only if that exits 0. A failed migration cancels the deploy and the previous release keeps serving. The web process never migrates at startup.
 
+During a deploy the old and new instances run side by side until the old one exits. Render gives the old instance up to 300 seconds after `SIGTERM` (`maxShutdownDelaySeconds: 300`). On `SIGTERM` the old instance stops the ticker, closes the HTTP server, stops claiming queue work and logs `[shutdown] started in_progress=<n>`, the number of inbound events it holds. It extends their `locked_until` to 300 seconds after `SIGTERM`, matched by `claim_token`, so the new instance cannot start them. It then keeps working for up to 270 seconds. An event still unfinished then is handed back: `queued`, available at once, with its `claim_token` cleared and one attempt given back, and logged as `[shutdown] handed back event=<id>`. The new instance claims it within seconds, and the cleared token rejects any late write from the old instance. Finally the old instance closes the pool, logs `[shutdown] finished handed_back=<n>` and exits. A failed extension or hand-back is logged, and that event falls back to the 5-minute lock. Every inbound event logs `[inbound] event=<id> done` once its last stage has committed. A run cut off mid-way can repeat an admin tool action when it reruns, as after a crash.
+
 Owner action, before creating the Blueprint:
 
 1. Create an OpenAI API key.
