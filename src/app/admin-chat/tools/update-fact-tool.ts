@@ -5,12 +5,12 @@ import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { StoredValue, ValueChange } from '../../facts/plan-value-changes.ts';
 import { updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
 import { readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
-import { splitSavedFromRefused, valueArgumentSchema, type RefusedValue } from './fact-value-arguments.ts';
+import { addCustomerValue, splitSavedFromRefused, valueArgumentSchema, type RefusedValue } from './fact-value-arguments.ts';
 import { findFactDriver } from './find-fact-driver.ts';
 import { failTool, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
-const SCOPE_FIELDS = ['vehicle_plate', 'driver', 'pickup_company', 'dropoff_company'] as const;
+const SCOPE_FIELDS = ['vehicle_plate', 'driver', 'pickup_company', 'dropoff_company', 'customer_company'] as const;
 
 const FACT_NOT_FOUND_ERROR = 'Không tìm thấy thông tin này. Gọi list_facts để lấy đúng id.';
 const NOTHING_TO_CHANGE_ERROR = 'Không có thay đổi nào để lưu.';
@@ -32,11 +32,12 @@ const argumentsSchema = z.strictObject({
   driver_member_id: z.string().nullable(),
   pickup_company: z.string().nullable(),
   dropoff_company: z.string().nullable(),
+  customer_company: z.string().nullable(),
   clear_scope: z.array(z.enum(SCOPE_FIELDS)),
 });
 
 type UpdateFactArguments = z.infer<typeof argumentsSchema>;
-type ResolvedChange = { scopeChange: ScopeChange; pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null };
+type ResolvedChange = { scopeChange: ScopeChange; pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null; customer: ResolvedCompany | null };
 
 export async function runUpdateFact(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
@@ -52,7 +53,8 @@ type ParsedUpdate = { update: FactUpdate; resolved: ResolvedChange; refused: Ref
 
 async function readFactUpdate(database: Database, workspaceId: string, request: UpdateFactArguments): Promise<ParsedUpdate> {
   const resolved = await readScopeChange(database, workspaceId, request);
-  const { saved, refused } = splitSavedFromRefused(request.set_values);
+  const { saved: setValues, refused } = splitSavedFromRefused(request.set_values);
+  const saved = addCustomerValue(setValues, resolved.customer);
   const removeNames = new Map(request.remove_values.map((name) => [readValueKey(name), name.trim()]));
   const removeValueKeys = [...removeNames.keys()];
   if (saved.some((value) => removeNames.has(value.matchKey))) throw new ToolRefusal(SET_AND_REMOVE_ERROR);
@@ -67,13 +69,15 @@ async function readScopeChange(database: Database, workspaceId: string, request:
   const driver = await findFactDriver(database, workspaceId, request.driver_member_id);
   const pickup = await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company');
   const dropoff = await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company');
+  const customer = await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company');
   const scopeChange = {
     ...pickScopeField(readPlateArgument(request.vehicle_plate), clears.has('vehicle_plate'), 'vehiclePlate'),
     ...pickScopeField(driver?.userId ?? null, clears.has('driver'), 'driverUserId'),
     ...pickScopeField(pickup, clears.has('pickup_company'), 'pickup'),
     ...pickScopeField(dropoff, clears.has('dropoff_company'), 'dropoff'),
+    ...pickScopeField(customer, clears.has('customer_company'), 'customer'),
   };
-  return { scopeChange, pickup, dropoff };
+  return { scopeChange, pickup, dropoff, customer };
 }
 
 function pickScopeField<Value>(value: Value | null, isCleared: boolean, field: keyof ScopeChange): ScopeChange {
@@ -105,8 +109,10 @@ function describeUpdate(result: Extract<FactUpdateResult, { kind: 'updated' }>, 
       driver: result.scope.driverName,
       pickup_company: result.scope.pickupName,
       dropoff_company: result.scope.dropoffName,
+      customer_company: result.scope.customerName,
       ...(resolved.pickup ? { pickup_company_matched: resolved.pickup.matchedOrganization } : {}),
       ...(resolved.dropoff ? { dropoff_company_matched: resolved.dropoff.matchedOrganization } : {}),
+      ...(resolved.customer ? { customer_company_matched: resolved.customer.matchedOrganization } : {}),
     },
     linked_documents: result.linkedDocuments,
   };

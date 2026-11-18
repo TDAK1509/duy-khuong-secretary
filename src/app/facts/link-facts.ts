@@ -16,8 +16,9 @@ const LINK_MATCHES_SQL = `
     AND ($3::uuid IS NULL OR document.id = $3)
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
-    AND (fact.pickup_match_key IS NULL OR ${buildPartyMatch('pickup_match_key')})
-    AND (fact.dropoff_match_key IS NULL OR ${buildPartyMatch('dropoff_match_key')})
+    AND (fact.pickup_match_key IS NULL OR ${buildPartyMatch('pickup_match_key', ['issuer', 'place'])})
+    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildPartyMatch('dropoff_match_key', ['customer', 'place'])})
+    AND (fact.customer_match_key IS NULL OR ${buildPartyMatch('customer_match_key', ['customer'])})
   ON CONFLICT DO NOTHING
   RETURNING document_id
 `;
@@ -31,10 +32,13 @@ export async function linkDocumentToMatchingFacts(transaction: Transaction, work
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentId]);
 }
 
-function buildPartyMatch(matchKeyColumn: 'pickup_match_key' | 'dropoff_match_key'): string {
+type CompanyKeyColumn = 'pickup_match_key' | 'dropoff_match_key' | 'customer_match_key';
+
+function buildPartyMatch(matchKeyColumn: CompanyKeyColumn, roles: string[]): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     WHERE party.document_id = document.id
+      AND party.role IN (${roles.map((role) => `'${role}'`).join(', ')})
       AND (
         party.match_key = fact.${matchKeyColumn}
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.${matchKeyColumn})

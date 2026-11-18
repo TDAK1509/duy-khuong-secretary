@@ -1,3 +1,6 @@
+export const CUSTOMER_VALUE_NAME = 'Khách hàng';
+export const CUSTOMER_VALUE_KEY = 'khachhang';
+
 export type FactCompany = { name: string; matchKey: string };
 
 export type FactScope = {
@@ -5,6 +8,7 @@ export type FactScope = {
   driverUserId: string | null;
   pickup: FactCompany | null;
   dropoff: FactCompany | null;
+  customer: FactCompany | null;
 };
 
 export type FactValueContent = { kind: 'number'; number: number; unit: string } | { kind: 'text'; text: string };
