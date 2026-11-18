@@ -1,6 +1,9 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
+import { describeDropOffNotes, INFERRED_MARK } from './describe-drop-off-notes.ts';
+import { NO_NUMBER } from './trip-report-texts.ts';
+import type { DropOffInference, InferredDropOff } from './infer-drop-offs.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 
 export const TRIP_FIELDS = ['date', 'plate', 'route', 'customer', 'goods', 'weight_kg', 'document_number', 'document_kind', 'sender'] as const;
@@ -24,39 +27,41 @@ export type TripReport = {
   duplicates: PossibleDuplicate[];
   noSourceColumns: string[];
   emptyColumns: string[];
+  dropOffs: DropOffInference | null;
 };
 
 export const GOODS_VALUE_KEY = buildMatchKey('Hàng hóa');
 const NO_PLATE = '(không biển số)';
-const NO_NUMBER = '(không số)';
 
-type WinnerIndex = Map<string, WinningValue>;
+type CellSources = { index: Map<string, WinningValue>; inferred: Map<string, InferredDropOff> };
 
-export function buildTripReport(title: string, columns: TripColumn[], papers: TripPaper[], winners: WinningValue[], reviewPapers: number): TripReport {
+export type TripReportInput = { title: string; columns: TripColumn[]; papers: TripPaper[]; winners: WinningValue[]; reviewPapers: number; dropOffs: DropOffInference | null };
+
+export function buildTripReport({ title, columns, papers, winners, reviewPapers, dropOffs }: TripReportInput): TripReport {
   const index = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
-  const rows = papers.map((paper) => columns.map((column) => readCell(column, paper, index)));
+  const rows = papers.map((paper) => columns.map((column) => readCell(column, paper, { index, inferred: dropOffs?.inferred ?? new Map() })));
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
   const duplicates = findPossibleDuplicates(papers);
   const missingWeight = papers.filter((paper) => paper.weight_kg === null).length;
-  const notes = buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates });
+  const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...(dropOffs === null ? [] : describeDropOffNotes(dropOffs, papers))];
   const table = { title, columns: columns.map((column) => describeColumn(column, papers, index)), rows, extraSheets: [{ name: 'Ghi chú', rows: notes }] };
-  return { table, rowsPerPlate: countRowsPerPlate(papers), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns };
+  return { table, rowsPerPlate: countRowsPerPlate(papers), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, dropOffs };
 }
 
-function readCell(column: TripColumn, paper: TripPaper, index: WinnerIndex): ReportCell {
+function readCell(column: TripColumn, paper: TripPaper, sources: CellSources): ReportCell {
   if (column.source === 'none') return null;
-  if (column.source === 'field') return readField(column.field, paper, index);
-  const winner = index.get(`${paper.id}:${column.matchKey}`);
+  if (column.source === 'field') return readField(column.field, paper, sources);
+  const winner = sources.index.get(`${paper.id}:${column.matchKey}`);
   if (column.source === 'fact_value') return readWinner(winner);
   return calculateAmount(winner, paper.weight_kg);
 }
 
-function readField(field: TripField, paper: TripPaper, index: WinnerIndex): ReportCell {
+function readField(field: TripField, paper: TripPaper, { index, inferred }: CellSources): ReportCell {
   switch (field) {
     case 'date': return paper.document_date;
     case 'plate': return paper.vehicle_plate;
-    case 'route': return describeRoute(paper);
+    case 'route': return describeRoute(paper, inferred.get(paper.id));
     case 'customer': return paper.route_customer ?? paper.customer_party;
     case 'goods': return describeWinnerText(index.get(`${paper.id}:${GOODS_VALUE_KEY}`));
     case 'weight_kg': return paper.weight_kg === null ? null : Number(paper.weight_kg);
@@ -66,9 +71,11 @@ function readField(field: TripField, paper: TripPaper, index: WinnerIndex): Repo
   }
 }
 
-function describeRoute(paper: TripPaper): string | null {
-  if (paper.route_pickup !== null || paper.route_dropoff !== null) return `${paper.route_pickup ?? '?'} → ${paper.route_dropoff ?? '?'}`;
-  return paper.issuer_name === null ? null : `${paper.issuer_name} → ?`;
+function describeRoute(paper: TripPaper, inferred: InferredDropOff | undefined): string | null {
+  const pickup = paper.route_pickup ?? (paper.route_dropoff === null ? paper.issuer_name : null);
+  if (pickup === null && paper.route_dropoff === null) return null;
+  if (inferred !== undefined) return `${pickup ?? '?'} → ${inferred.dropOff} ${INFERRED_MARK}`;
+  return `${pickup ?? '?'} → ${paper.route_dropoff ?? '?'}`;
 }
 
 function readWinner(winner: WinningValue | undefined): ReportCell {
@@ -86,11 +93,11 @@ function calculateAmount(winner: WinningValue | undefined, weightKg: string | nu
   return Math.round((Number(winner.number) * Number(weightKg)) / 1000);
 }
 
-function describeColumn(column: TripColumn, papers: TripPaper[], index: WinnerIndex): ReportColumn {
+function describeColumn(column: TripColumn, papers: TripPaper[], index: CellSources["index"]): ReportColumn {
   return { name: column.name, type: chooseColumnType(column, papers, index) };
 }
 
-function chooseColumnType(column: TripColumn, papers: TripPaper[], index: WinnerIndex): ReportColumn['type'] {
+function chooseColumnType(column: TripColumn, papers: TripPaper[], index: CellSources["index"]): ReportColumn['type'] {
   if (column.source === 'fact_amount') return 'number';
   if (column.source === 'fact_value') return papers.some((paper) => index.get(`${paper.id}:${column.matchKey}`)?.number != null) ? 'number' : 'text';
   if (column.source === 'field' && column.field === 'date') return 'date';
@@ -99,6 +106,10 @@ function chooseColumnType(column: TripColumn, papers: TripPaper[], index: Winner
 }
 
 function findPossibleDuplicates(papers: TripPaper[]): PossibleDuplicate[] {
+  return groupPossibleDuplicates(papers).map(describeDuplicate);
+}
+
+export function groupPossibleDuplicates(papers: TripPaper[]): TripPaper[][] {
   const groups = new Map<string, TripPaper[]>();
   for (const paper of papers) {
     const pickupKey = readPickupKey(paper);
@@ -106,7 +117,7 @@ function findPossibleDuplicates(papers: TripPaper[]): PossibleDuplicate[] {
     const key = `${paper.vehicle_plate}|${paper.document_date}|${pickupKey}`;
     groups.set(key, [...(groups.get(key) ?? []), paper]);
   }
-  return [...groups.values()].filter((group) => group.length > 1).map(describeDuplicate);
+  return [...groups.values()].filter((group) => group.length > 1);
 }
 
 function readPickupKey(paper: TripPaper): string | null {

@@ -18,6 +18,7 @@ export type IntakeDependencies = {
   fileStorage: FileStorage | null;
   photoStorage: PhotoStorage | null;
   reader: ReaderService | null;
+  dropOffReader: ReaderService | null;
   chats: IntakeChats | null;
 };
 

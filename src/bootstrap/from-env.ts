@@ -89,8 +89,14 @@ export function buildFileStorage(config: PhotoStorageConfig): FileStorage {
   }
 }
 
+const DROP_OFF_TIMEOUT_MS = 60_000;
+
 export function buildReader(config: ReaderConfig): ReaderService {
   return routeReadsByImage(buildModelReader(config, config.photo), buildModelReader(config, config.text));
+}
+
+export function buildDropOffReader(config: ReaderConfig): ReaderService {
+  return buildModelReader({ ...config, timeoutMs: DROP_OFF_TIMEOUT_MS }, config.photo);
 }
 
 function buildModelReader(config: ReaderConfig, { model, reasoningEffort }: ReaderModelSetting): ReaderService {
