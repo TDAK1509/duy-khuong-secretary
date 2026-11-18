@@ -7,6 +7,7 @@ services:
     branch: main
     autoDeployTrigger: checksPass
     healthCheckPath: /health
+    maxShutdownDelaySeconds: 300
     preDeployCommand: node dist/bootstrap/migrate.js
     envVars:
       - key: MIGRATION_DATABASE_URL

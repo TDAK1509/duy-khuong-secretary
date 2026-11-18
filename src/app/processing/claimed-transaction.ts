@@ -18,8 +18,8 @@ export function runInClaimedTransaction<Result>(
 
 async function holdClaim(transaction: Transaction, event: ClaimedEvent): Promise<void> {
   const rows = await transaction.query(
-    `SELECT 1 FROM inbound_events WHERE id = $1 AND status = 'processing' AND attempts = $2 FOR UPDATE`,
-    [event.id, event.attempts],
+    `SELECT 1 FROM inbound_events WHERE id = $1 AND status = 'processing' AND claim_token = $2 FOR UPDATE`,
+    [event.id, event.claimToken],
   );
   if (rows.length === 0) throw new ClaimLostError(`the claim on event ${event.id} was lost`);
 }

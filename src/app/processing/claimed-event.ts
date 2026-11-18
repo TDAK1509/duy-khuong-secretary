@@ -8,6 +8,7 @@ export type ClaimedEvent = {
   kind: 'text' | 'images' | 'file';
   payload: Record<string, unknown>;
   attempts: number;
+  claimToken: string;
 };
 
 const sentAtSchema = z.object({ sent_at: z.iso.datetime({ offset: true }) });
