@@ -11,6 +11,7 @@ import { hasCredits } from '../credits/has-credits.ts';
 import { meterChat } from '../credits/meter-chat.ts';
 import type { Database } from '../db/transaction.ts';
 import { claimDueTask, type ClaimedTask } from './claim-due-task.ts';
+import type { HeldTasks } from './held-tasks.ts';
 import { findTaskCreator, type TaskCreator } from './find-task-creator.ts';
 import { finishScheduledRun } from './finish-scheduled-run.ts';
 import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
@@ -26,21 +27,36 @@ export type ScheduledRunDependencies = {
   clock: Clock;
   chat: ChatService;
   channel: MessagingChannel;
+  held: HeldTasks;
+  shutdown: AbortSignal;
 };
 
 export async function runDueTasks(dependencies: ScheduledRunDependencies): Promise<void> {
-  for (let started = 0; started < MAX_TASKS_PER_TICK; started += 1) {
+  for (let started = 0; started < MAX_TASKS_PER_TICK && !dependencies.shutdown.aborted; started += 1) {
     const task = await claimDueTask(dependencies.database, dependencies.clock.now());
     if (task === null) return;
-    await runClaimedTask(dependencies, task);
+    await runHeldTask(dependencies, task);
   }
 }
 
-async function runClaimedTask(dependencies: ScheduledRunDependencies, task: ClaimedTask): Promise<void> {
+async function runHeldTask(dependencies: ScheduledRunDependencies, task: ClaimedTask): Promise<void> {
+  dependencies.held.add(task);
+  console.log(`[scheduled-run] started task=${task.id}`);
+  try {
+    if (await runClaimedTask(dependencies, task)) console.log(`[scheduled-run] finished task=${task.id}`);
+  } finally {
+    dependencies.held.remove(task.id);
+  }
+}
+
+async function runClaimedTask(dependencies: ScheduledRunDependencies, task: ClaimedTask): Promise<boolean> {
   const creator = await findTaskCreator(dependencies.database, task);
-  if (creator === null) return turnOffTask(dependencies.database, task);
+  if (creator === null) {
+    await turnOffTask(dependencies.database, task);
+    return false;
+  }
   const text = await produceResult(dependencies, task, creator);
-  await finishScheduledRun(dependencies, task, creator, text);
+  return finishScheduledRun(dependencies, task, creator, text);
 }
 
 async function produceResult(dependencies: ScheduledRunDependencies, task: ClaimedTask, creator: TaskCreator): Promise<string> {

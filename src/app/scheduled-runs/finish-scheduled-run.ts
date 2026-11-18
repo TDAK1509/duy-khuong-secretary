@@ -16,20 +16,27 @@ export async function finishScheduledRun(
   task: ClaimedTask,
   creator: TaskCreator,
   text: string,
-): Promise<void> {
+): Promise<boolean> {
   const database = scopeDatabase(dependencies.database, { workspaceId: task.workspaceId });
-  await runInTransaction(database, async (transaction) => {
-    if (!(await ownsClaim(transaction, task))) return;
-    if (!(await isCurrentAdmin(transaction, creator.membershipId))) return turnOffTaskIn(transaction, task);
-    if (text.trim() !== NOTHING_TO_REPORT) await deliverResult(transaction, dependencies, { task, creator, text });
-    await moveToNextRun(transaction, task, dependencies.clock.now());
+  return runInTransaction(database, async (transaction) => {
+    if (!(await ownsClaim(transaction, task))) return false;
+    if (!(await isCurrentAdmin(transaction, creator.membershipId))) await turnOffTaskIn(transaction, task);
+    else await completeRun(transaction, dependencies, { task, creator, text });
+    return true;
   });
+}
+
+async function completeRun(transaction: Transaction, dependencies: ScheduledRunDependencies, delivery: { task: ClaimedTask; creator: TaskCreator; text: string }): Promise<void> {
+  if (delivery.text.trim() !== NOTHING_TO_REPORT) await deliverResult(transaction, dependencies, delivery);
+  await moveToNextRun(transaction, delivery.task, dependencies.clock.now());
 }
 
 async function ownsClaim(transaction: Transaction, task: ClaimedTask): Promise<boolean> {
   const rows = await transaction.query(
-    `SELECT 1 FROM scheduled_tasks WHERE id = $1 AND status = 'active' AND next_run_at = $2::timestamptz FOR UPDATE`,
-    [task.id, task.claimedNextRunAt],
+    `SELECT 1 FROM scheduled_tasks
+     WHERE id = $1 AND status = 'active' AND next_run_at = $2::timestamptz AND locked_until = $3::timestamptz
+     FOR UPDATE`,
+    [task.id, task.claimedNextRunAt, task.claimedLockedUntil],
   );
   return rows.length > 0;
 }
