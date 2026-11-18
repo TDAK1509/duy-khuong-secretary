@@ -8,6 +8,8 @@ type ClaimedRow = {
   channel: string;
   account_id: string;
   external_user_id: string;
+  external_event_id: string;
+  is_first_pickup: boolean;
   kind: 'text' | 'images' | 'file';
   payload: Record<string, unknown>;
   attempts: number;
@@ -34,7 +36,8 @@ const CLAIM_SQL = `
   SET status = 'processing', locked_until = $2, attempts = attempts + 1, claim_token = gen_random_uuid()
   FROM candidate
   WHERE inbound_events.id = candidate.id
-  RETURNING inbound_events.id, channel, account_id, external_user_id, kind, payload, attempts, claim_token`;
+  RETURNING inbound_events.id, channel, account_id, external_user_id, external_event_id, kind, payload, attempts, claim_token,
+    (attempts = 1 AND available_at = received_at) AS is_first_pickup`;
 
 export async function claimInboundEvent(database: Database, now: Date): Promise<ClaimedEvent | null> {
   const expiresAt = new Date(now.getTime() + LOCK_MS);
@@ -50,6 +53,8 @@ function describeClaim(row: ClaimedRow): ClaimedEvent {
     channel: row.channel,
     accountId: row.account_id,
     externalUserId: row.external_user_id,
+    externalEventId: row.external_event_id,
+    isFirstPickup: row.is_first_pickup,
     kind: row.kind,
     payload: row.payload,
     attempts: row.attempts,

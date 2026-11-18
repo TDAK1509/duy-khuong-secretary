@@ -22,6 +22,8 @@ const SEND_MESSAGE_PATH = '/v3.0/oa/message/cs';
 const SEND_TEMPLATE_PATH = '/v3.0/oa/message/template';
 const UPLOAD_IMAGE_PATH = '/v2.0/oa/upload/image';
 const USER_DETAIL_PATH = '/v3.0/oa/user/detail';
+const REACTION_PATH = '/v2.0/oa/message';
+const THUMBS_UP_ICON = '/-strong';
 const RATE_LIMIT_ERROR = -32;
 const WINDOW_CLOSED_ERROR = -230;
 const SERVER_ERROR_STATUS = 500;
@@ -177,6 +179,12 @@ export class ZaloOaChannel implements MessagingChannel {
       signal: AbortSignal.timeout(this.settings.timeoutMs),
     });
     return readUploadResult(response);
+  }
+
+  reactWithThumbsUp(to: ChannelRecipient, messageId: string, credential: string): Promise<SendResult> {
+    const url = new URL(REACTION_PATH, this.settings.apiBaseUrl);
+    const body = { recipient: { user_id: to.externalUserId }, sender_action: { react_icon: THUMBS_UP_ICON, react_message_id: messageId } };
+    return guardSend(() => this.postJson(url, body, credential));
   }
 
   async getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null> {

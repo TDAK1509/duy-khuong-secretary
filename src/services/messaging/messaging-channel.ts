@@ -38,5 +38,6 @@ export interface MessagingChannel {
   sendImage(to: ChannelRecipient, photo: Photo, credential: string, text?: string): Promise<SendResult>;
   sendTemplate(to: ChannelRecipient, template: TemplateMessage, credential: string): Promise<SendResult>;
   getDisplayName(user: ChannelRecipient, credential: string): Promise<string | null>;
+  reactWithThumbsUp(to: ChannelRecipient, messageId: string, credential: string): Promise<SendResult>;
   downloadAttachment(url: string, maxBytes: number): Promise<DownloadResult>;
 }

@@ -83,6 +83,8 @@ The route checks the `X-ZEvent-Signature` header (`mac=` and the hex SHA-256 of 
 
 The service logs `[config] zalo-webhook is off; missing: <NAMES>.` while the group is off. The body limit is 1 MB. The background worker then marks each stored event `done`, in order per sender, and records the sender in `channel_identities`.
 
+When the worker picks up a message from a sender whose current membership is `admin` (text, photo or album, file; not an invite code, workspace switch, bare-number choice or internal command), on the event's first pickup only (first attempt, never postponed, handed back or retried: `available_at` still equals `received_at`) and before any other work, it reacts 👍 to that Zalo message: one direct `POST /v2.0/oa/message` with `sender_action.react_icon` `/-strong` and `react_message_id` the message's `msg_id`, outside the outbound queue and its per-minute limit. An album is one message and gets one 👍. It is best effort: no retry and no alert, and the answer is handled as usual either way. It logs `[reaction] sent event=<inbound event id>` or `[reaction] failed event=<inbound event id> reason=<reason>`. When Zalo refuses it with an error code, the line before it is `[zalo] send rejected: error <code>`. Members get no reaction.
+
 ## Send Zalo replies
 
 Replies wait in the `outbound_messages` table (one row per message, at most 2,000 characters each) and a background worker sends them to Zalo one at a time, in order per person. The worker does nothing while the `zalo` group is off. Everyone who writes to the OA gets the welcome text until joining with an invite code exists.
