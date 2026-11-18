@@ -26,6 +26,11 @@ function addReportRow(sheet: ExcelJS.Worksheet, columns: ReportColumn[], cells: 
   cells.forEach((cell, index) => {
     const type = columns[index]?.type;
     if (typeof cell === 'number' && type === 'number') formatNumberCell(row.getCell(index + 1), cell);
-    if (typeof cell === 'string' && type === 'date' && ISO_DATE.test(cell)) formatDateCell(row.getCell(index + 1), cell);
+    if (typeof cell === 'string' && type === 'date' && isCalendarDate(cell)) formatDateCell(row.getCell(index + 1), cell);
   });
+}
+
+function isCalendarDate(text: string): boolean {
+  if (!ISO_DATE.test(text)) return false;
+  return new Date(`${text}T00:00:00Z`).toISOString().startsWith(text);
 }

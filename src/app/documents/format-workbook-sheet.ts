@@ -2,9 +2,9 @@ import type ExcelJS from 'exceljs';
 
 export type SheetLayout = { headerRow: number; lastRow: number; columnCount: number };
 
-export const INTEGER_FORMAT = '#,##0';
-export const DECIMAL_FORMAT = '#,##0.00';
-export const DATE_FORMAT = 'dd/mm/yyyy';
+const INTEGER_FORMAT = '#,##0';
+const DECIMAL_FORMAT = '#,##0.00';
+const DATE_FORMAT = 'dd/mm/yyyy';
 
 const MIN_WIDTH = 8;
 const MAX_WIDTH = 50;

@@ -48,6 +48,7 @@ function addDataRow(sheet: ExcelJS.Worksheet, data: ExportRow, factColumns: Fact
 function writeFactCell(cell: ExcelJS.Cell, values: DocumentFactValue[], key: string): void {
   const value = values.find((candidate) => candidate.key === key);
   if (value === undefined) return;
-  if (value.number !== null && value.unit !== null) return formatNumberCell(cell, Number(value.number), value.unit);
+  const number = Number(value.number);
+  if (value.number !== null && value.unit !== null && Number.isFinite(number)) return formatNumberCell(cell, number, value.unit);
   cell.value = value.text;
 }
