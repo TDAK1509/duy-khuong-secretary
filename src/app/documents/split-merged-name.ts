@@ -2,8 +2,9 @@ import { runInTransaction, type Database, type Transaction } from '../db/transac
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { buildMatchKey } from './build-match-key.ts';
 import { insertOrganization } from './insert-organization.ts';
+import { unresolveOrganizationPicks } from '../facts/unresolve-organization-picks.ts';
 
-export type MergedNameSplit = { documents: number } | null;
+export type MergedNameSplit = { documents: number; factsToResolve: string[] } | null;
 
 type MergedName = { organization_id: string; printed_name: string; match_key: string; type: string };
 
@@ -14,7 +15,8 @@ export function splitMergedName(database: Database, workspaceId: string, printed
     if (!merged) return null;
     await transaction.query('DELETE FROM organization_aliases WHERE workspace_id = $1 AND match_key = $2', [workspaceId, merged.match_key]);
     const organizationId = await insertOrganization(transaction, workspaceId, { type: merged.type, printedName: merged.printed_name, matchKey: merged.match_key });
-    return { documents: await movePartiesToOrganization(transaction, merged, organizationId) };
+    const documents = await movePartiesToOrganization(transaction, merged, organizationId);
+    return { documents, factsToResolve: await unresolveOrganizationPicks(transaction, workspaceId, merged.organization_id) };
   });
 }
 

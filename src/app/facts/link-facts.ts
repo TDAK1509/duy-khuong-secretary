@@ -1,4 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
+import type { CompanySlot } from './pick-fact-companies.ts';
 
 const DRIVER_SENT_A_SOURCE = `EXISTS (
   SELECT 1 FROM document_sources source
@@ -16,9 +17,9 @@ const LINK_MATCHES_SQL = `
     AND ($3::uuid IS NULL OR document.id = $3)
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
-    AND (fact.pickup_match_key IS NULL OR ${buildPartyMatch('pickup_match_key', ['issuer', 'place'])})
-    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildPartyMatch('dropoff_match_key', ['customer', 'place'])})
-    AND (fact.customer_match_key IS NULL OR ${buildPartyMatch('customer_match_key', ['customer'])})
+    AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup', ['issuer', 'place'])})
+    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildCompanyMatch('dropoff', ['customer', 'place'])})
+    AND (fact.customer_match_key IS NULL OR ${buildCompanyMatch('customer', ['customer'])})
   ON CONFLICT DO NOTHING
   RETURNING document_id
 `;
@@ -32,13 +33,27 @@ export async function linkDocumentToMatchingFacts(transaction: Transaction, work
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentId]);
 }
 
-type CompanyKeyColumn = 'pickup_match_key' | 'dropoff_match_key' | 'customer_match_key';
+function buildCompanyMatch(slot: CompanySlot, roles: string[]): string {
+  return `(CASE WHEN fact.${slot}_resolved THEN ${buildPickedMatch(slot, roles)} ELSE ${buildPartyMatch(`${slot}_match_key`, roles)} END)`;
+}
 
-function buildPartyMatch(matchKeyColumn: CompanyKeyColumn, roles: string[]): string {
+function buildPickedMatch(slot: CompanySlot, roles: string[]): string {
+  return `EXISTS (
+    SELECT 1 FROM document_parties party
+    JOIN fact_companies pick ON pick.fact_id = fact.id AND pick.slot = '${slot}' AND pick.organization_id = party.organization_id
+    WHERE party.document_id = document.id AND party.role IN (${listRoles(roles)})
+  )`;
+}
+
+function listRoles(roles: string[]): string {
+  return roles.map((role) => `'${role}'`).join(', ');
+}
+
+function buildPartyMatch(matchKeyColumn: `${CompanySlot}_match_key`, roles: string[]): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     WHERE party.document_id = document.id
-      AND party.role IN (${roles.map((role) => `'${role}'`).join(', ')})
+      AND party.role IN (${listRoles(roles)})
       AND (
         party.match_key = fact.${matchKeyColumn}
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.${matchKeyColumn})

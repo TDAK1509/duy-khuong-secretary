@@ -1,7 +1,9 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import type { FactCompany, FactValue } from './fact.ts';
+import { replaceSlotCompanies } from './fact-companies.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
+import { COMPANY_SLOTS } from './pick-fact-companies.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
 
 const MAX_STATEMENT_LENGTH = 2000;
@@ -39,10 +41,14 @@ type FactRow = {
   dropoff_match_key: string | null;
   customer_name: string | null;
   customer_match_key: string | null;
+  pickup_resolved: boolean;
+  dropoff_resolved: boolean;
+  customer_resolved: boolean;
 };
 
 const LOAD_FACT_SQL = `
-  SELECT statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, customer_name, customer_match_key
+  SELECT statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, customer_name, customer_match_key,
+    pickup_resolved, dropoff_resolved, customer_resolved
   FROM facts WHERE id = $1 AND workspace_id = $2
   FOR UPDATE
 `;
@@ -50,7 +56,8 @@ const LOAD_FACT_SQL = `
 const UPDATE_FACT_SQL = `
   UPDATE facts
   SET statement = $3, vehicle_plate = $4, driver_user_id = $5, pickup_name = $6, pickup_match_key = $7,
-      dropoff_name = $8, dropoff_match_key = $9, customer_name = $10, customer_match_key = $11, updated_at = now()
+      dropoff_name = $8, dropoff_match_key = $9, customer_name = $10, customer_match_key = $11,
+      pickup_resolved = $12, dropoff_resolved = $13, customer_resolved = $14, updated_at = now()
   WHERE id = $1 AND workspace_id = $2
 `;
 
@@ -61,6 +68,11 @@ const LOAD_SCOPE_SQL = `
   LEFT JOIN memberships driver ON driver.workspace_id = fact.workspace_id AND driver.user_id = fact.driver_user_id
   WHERE fact.id = $1 AND fact.workspace_id = $2
 `;
+
+export async function hasFact(database: Database, workspaceId: string, factId: string): Promise<boolean> {
+  const { rows } = await database.query('SELECT 1 FROM facts WHERE id = $1 AND workspace_id = $2', [factId, workspaceId]);
+  return rows.length > 0;
+}
 
 export function updateFact(database: Database, update: FactUpdate): Promise<FactUpdateResult> {
   return runInTransaction(database, async (transaction) => {
@@ -79,14 +91,16 @@ async function updateLoadedFact(transaction: Transaction, update: FactUpdate, fa
   if (next.statement.length > MAX_STATEMENT_LENGTH) return { kind: 'statement_too_long' };
   await applyValueChanges(transaction, update.workspaceId, update.factId, valuePlan.changes);
   await writeFactRow(transaction, update, next);
-  if (hasScopeChanged(fact, next)) await relinkDocuments(transaction, update.workspaceId, update.factId);
+  const changedSlots = COMPANY_SLOTS.filter((slot) => update.scopeChange[slot] !== undefined);
+  for (const slot of changedSlots) await replaceSlotCompanies(transaction, update.workspaceId, update.factId, slot, update.scopeChange[slot]?.organizationIds ?? null);
+  if (hasScopeChanged(fact, next) || changedSlots.length > 0) await relinkDocuments(transaction, update.workspaceId, update.factId);
   return { kind: 'updated', changes: valuePlan.changes, missingValueKeys: valuePlan.missingKeys, ...(await loadScope(transaction, update)) };
 }
 
 function mergeScope(fact: FactRow, change: ScopeChange, statement: string): FactRow {
-  const pickup = mergeCompany(change.pickup, fact.pickup_name, fact.pickup_match_key);
-  const dropoff = mergeCompany(change.dropoff, fact.dropoff_name, fact.dropoff_match_key);
-  const customer = mergeCompany(change.customer, fact.customer_name, fact.customer_match_key);
+  const pickup = mergeCompany(change.pickup, { name: fact.pickup_name, matchKey: fact.pickup_match_key, resolved: fact.pickup_resolved });
+  const dropoff = mergeCompany(change.dropoff, { name: fact.dropoff_name, matchKey: fact.dropoff_match_key, resolved: fact.dropoff_resolved });
+  const customer = mergeCompany(change.customer, { name: fact.customer_name, matchKey: fact.customer_match_key, resolved: fact.customer_resolved });
   return {
     statement,
     vehicle_plate: change.vehiclePlate === undefined ? fact.vehicle_plate : change.vehiclePlate,
@@ -97,14 +111,17 @@ function mergeScope(fact: FactRow, change: ScopeChange, statement: string): Fact
     dropoff_match_key: dropoff.matchKey,
     customer_name: customer.name,
     customer_match_key: customer.matchKey,
+    pickup_resolved: pickup.resolved,
+    dropoff_resolved: dropoff.resolved,
+    customer_resolved: customer.resolved,
   };
 }
 
-type StoredCompany = { name: string | null; matchKey: string | null };
+type StoredCompany = { name: string | null; matchKey: string | null; resolved: boolean };
 
-function mergeCompany(change: FactCompany | null | undefined, name: string | null, matchKey: string | null): StoredCompany {
-  if (change === undefined) return { name, matchKey };
-  return { name: change?.name ?? null, matchKey: change?.matchKey ?? null };
+function mergeCompany(change: FactCompany | null | undefined, stored: StoredCompany): StoredCompany {
+  if (change === undefined) return stored;
+  return { name: change?.name ?? null, matchKey: change?.matchKey ?? null, resolved: change !== null && change.organizationIds !== null };
 }
 
 function hasNoScope(fact: FactRow): boolean {
@@ -124,6 +141,9 @@ async function writeFactRow(transaction: Transaction, { factId, workspaceId }: F
     next.dropoff_match_key,
     next.customer_name,
     next.customer_match_key,
+    next.pickup_resolved,
+    next.dropoff_resolved,
+    next.customer_resolved,
   ]);
 }
 

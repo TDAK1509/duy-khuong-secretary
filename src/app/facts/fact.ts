@@ -1,7 +1,7 @@
 export const CUSTOMER_VALUE_NAME = 'Khách hàng';
 export const CUSTOMER_VALUE_KEY = 'khachhang';
 
-export type FactCompany = { name: string; matchKey: string };
+export type FactCompany = { name: string; matchKey: string; organizationIds: string[] | null };
 
 export type FactScope = {
   vehiclePlate: string | null;
