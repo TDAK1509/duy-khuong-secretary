@@ -69,6 +69,11 @@ const LOAD_SCOPE_SQL = `
   WHERE fact.id = $1 AND fact.workspace_id = $2
 `;
 
+export async function hasFact(database: Database, workspaceId: string, factId: string): Promise<boolean> {
+  const { rows } = await database.query('SELECT 1 FROM facts WHERE id = $1 AND workspace_id = $2', [factId, workspaceId]);
+  return rows.length > 0;
+}
+
 export function updateFact(database: Database, update: FactUpdate): Promise<FactUpdateResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, update.workspaceId);

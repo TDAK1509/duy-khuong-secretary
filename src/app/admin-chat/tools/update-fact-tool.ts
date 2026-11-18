@@ -3,7 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { StoredValue, ValueChange } from '../../facts/plan-value-changes.ts';
-import { updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
+import { hasFact, updateFact, type FactUpdate, type FactUpdateResult, type ScopeChange } from '../../facts/update-fact.ts';
 import { listSlotNames, readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
 import { pickFactCompanies, type CompanyPicks } from '../../facts/pick-fact-companies.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
@@ -44,6 +44,7 @@ type ResolvedChange = { scopeChange: ScopeChange; pickup: ResolvedCompany | null
 export async function runUpdateFact(database: Database, scope: AccessScope, parsedArguments: unknown, companyReader: ReaderService | null = null): Promise<string> {
   const request = argumentsSchema.parse(parsedArguments);
   if (!z.uuid().safeParse(request.fact_id).success) return failTool(FACT_NOT_FOUND_ERROR);
+  if (!(await hasFact(database, scope.workspaceId, request.fact_id))) return failTool(FACT_NOT_FOUND_ERROR);
   const parsed = await readFactUpdate(database, scope.workspaceId, request, companyReader);
   if (parsed.isEmpty) return JSON.stringify({ ok: false, error: NOTHING_TO_CHANGE_ERROR, refused_values: parsed.refused });
   const result = await updateFact(database, parsed.update);

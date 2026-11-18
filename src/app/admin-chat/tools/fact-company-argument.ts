@@ -12,11 +12,15 @@ export async function readCompanyArgument(database: Database, workspaceId: strin
   const name = raw.trim();
   const matchKey = buildMatchKey(name);
   if (matchKey === '') refuseInvalidArgument(field);
-  if (pick !== undefined) return { name, matchKey, organizationIds: pick.organizationIds, matchedOrganization: pick.organizationNames.join('; ') || null };
   const resolution = await resolveFactCompany(database, workspaceId, matchKey);
+  if (pick !== undefined) return readPickedCompany(name, resolution.kind === 'known' ? resolution.matchKey : matchKey, pick);
   if (resolution.kind === 'ambiguous') throw new ToolRefusal(describeAmbiguousCompany(name, resolution.organizationNames));
   if (resolution.kind === 'unknown') return { name, matchKey, organizationIds: null, matchedOrganization: null };
   return { name, matchKey: resolution.matchKey, organizationIds: null, matchedOrganization: resolution.organizationName };
+}
+
+function readPickedCompany(name: string, matchKey: string, pick: PickedCompanies): ResolvedCompany {
+  return { name, matchKey, organizationIds: pick.organizationIds, matchedOrganization: pick.organizationNames.join('; ') || null };
 }
 
 function describeAmbiguousCompany(name: string, organizationNames: string[]): string {

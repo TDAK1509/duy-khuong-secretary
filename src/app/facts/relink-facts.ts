@@ -96,16 +96,16 @@ async function rewriteLinks(transaction: Transaction, workspaceId: string, factI
   return { factId, before, after, customer: customer.company?.name ?? null, customerProblem: customer.problem, slots };
 }
 
-function describeSlotOutcome(slot: CompanySlot, name: string | undefined, picks: CompanyPicks | null): SlotOutcome[] {
-  if (name === undefined) return [];
-  if (picks === null) return [{ slot, name, picked: 'pending' }];
-  return [{ slot, name, picked: picks[slot]?.organizationIds.length ?? null }];
-}
-
 async function storeSlotPicks(transaction: Transaction, workspaceId: string, factId: string, slot: CompanySlot, pick: PickedCompanies | undefined): Promise<void> {
   if (pick === undefined) return;
   const marked = await transaction.query(`UPDATE facts SET ${slot}_resolved = true WHERE id = $1 AND NOT ${slot}_resolved RETURNING id`, [factId]);
   if (marked.length > 0) await replaceSlotCompanies(transaction, workspaceId, factId, slot, pick.organizationIds);
+}
+
+function describeSlotOutcome(slot: CompanySlot, name: string | undefined, picks: CompanyPicks | null): SlotOutcome[] {
+  if (name === undefined) return [];
+  if (picks === null) return [{ slot, name, picked: 'pending' }];
+  return [{ slot, name, picked: picks[slot]?.organizationIds.length ?? null }];
 }
 
 async function countLinks(transaction: Transaction, factId: string): Promise<number> {

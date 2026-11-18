@@ -4,7 +4,7 @@ import type { CompanySlot } from './pick-fact-companies.ts';
 
 const INSERT_PICKS_SQL = `
   INSERT INTO fact_companies (workspace_id, fact_id, slot, organization_id)
-  SELECT $1, $2, $3, organization_id FROM unnest($4::uuid[]) AS picked(organization_id)
+  SELECT $1, $2, $3, organization.id FROM organizations organization WHERE organization.workspace_id = $1 AND organization.id = ANY($4::uuid[])
   ON CONFLICT DO NOTHING`;
 
 export async function storeFactCompanies(transaction: Transaction, workspaceId: string, factId: string, scope: Pick<FactScope, CompanySlot>): Promise<void> {

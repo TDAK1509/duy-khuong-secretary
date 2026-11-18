@@ -5,8 +5,7 @@ import type { FactScope } from '../../facts/fact.ts';
 import { pickFactCompanies, type CompanyPicks } from '../../facts/pick-fact-companies.ts';
 import { saveFact } from '../../facts/save-fact.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
-import { listSlotNames } from './fact-company-argument.ts';
-import { readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
+import { listSlotNames, readCompanyArgument, type ResolvedCompany } from './fact-company-argument.ts';
 import { addCustomerValue, describeFactValue, splitSavedFromRefused, valueArgumentSchema } from './fact-value-arguments.ts';
 import { findFactDriver, type FactDriver } from './find-fact-driver.ts';
 import { refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
@@ -33,13 +32,17 @@ export async function runSaveFact(database: Database, scope: AccessScope, parsed
   const request = argumentsSchema.parse(parsedArguments);
   const statement = readStatement(request.statement);
   const driver = await findFactDriver(database, scope.workspaceId, request.driver_member_id);
-  const picks = await pickFactCompanies(companyReader, database, scope.workspaceId, listSlotNames(request));
-  const factScope = await readFactScope(database, scope.workspaceId, request, driver, picks);
   const { saved, refused } = splitSavedFromRefused(request.values);
   if (saved.length === 0) return JSON.stringify({ ok: false, error: NO_VALUE_SAVED_ERROR, refused_values: refused });
+  const factScope = await readFactScope(database, scope.workspaceId, request, driver, await pickNamedCompanies(companyReader, database, scope.workspaceId, request));
   const values = addCustomerValue(saved, factScope.customer);
   const fact = await saveFact(database, { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, scope: factScope, values });
   return JSON.stringify({ ok: true, fact_id: fact.factId, scope: describeScope(factScope, driver), values: values.map(describeFactValue), refused_values: refused, linked_documents: fact.linkedDocuments });
+}
+
+async function pickNamedCompanies(companyReader: ReaderService | null, database: Database, workspaceId: string, request: SaveFactArguments): Promise<CompanyPicks> {
+  readPlateArgument(request.vehicle_plate);
+  return pickFactCompanies(companyReader, database, workspaceId, listSlotNames(request));
 }
 
 function readStatement(raw: string): string {
