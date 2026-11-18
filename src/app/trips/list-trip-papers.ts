@@ -18,7 +18,6 @@ export type TripPaper = {
   route_customer: string | null;
   route_pickup_key: string | null;
   issuer_name: string | null;
-  issuer_key: string | null;
   issuer_company_id: string | null;
   customer_party: string | null;
   weight_kg: string | null;
@@ -44,7 +43,7 @@ export async function listTripPapers(database: Database, query: TripPaperQuery):
   const { rows } = await database.query<TripPaper>(
     `SELECT document.id, to_char(document.document_date, 'YYYY-MM-DD') AS document_date, document.vehicle_plate, document.document_number, document.kind,
        route.pickup_name AS route_pickup, route.dropoff_name AS route_dropoff, route.customer_name AS route_customer, route.pickup_match_key AS route_pickup_key,
-       issuer.printed_name AS issuer_name, issuer.match_key AS issuer_key, issuer.company_id AS issuer_company_id,
+       issuer.printed_name AS issuer_name, issuer.company_id AS issuer_company_id,
        customer.printed_name AS customer_party,
        ${buildWeightSql(where)} AS weight_kg,
        ${buildSenderSubquery()} AS sender_name

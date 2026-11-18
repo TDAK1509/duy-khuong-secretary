@@ -111,7 +111,6 @@ function findPossibleDuplicates(papers: TripPaper[]): PossibleDuplicate[] {
 
 function readPickupKey(paper: TripPaper): string | null {
   if (paper.issuer_company_id !== null) return `company:${paper.issuer_company_id}`;
-  if (paper.issuer_key !== null) return `name:${paper.issuer_key}`;
   return paper.route_pickup_key === null ? null : `name:${paper.route_pickup_key}`;
 }
 
