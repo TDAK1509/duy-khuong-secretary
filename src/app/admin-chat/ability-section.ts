@@ -48,4 +48,5 @@ const ABILITY_LINES: Record<string, string> = {
   list_documents: 'Liệt kê các giấy tờ được tính trong một tổng số trên giấy tờ.',
   export_report_xlsx: 'Lưu một bảng báo cáo lớn thành file Excel và trả về đường dẫn tải xuống.',
   export_documents_xlsx: 'Xuất danh sách giấy tờ ra file Excel và trả về đường dẫn tải xuống.',
+  export_trip_report_xlsx: 'Lập báo cáo chuyến hoặc chi phí chuyến ra file Excel, mỗi dòng một giấy tờ chuyến.',
 };

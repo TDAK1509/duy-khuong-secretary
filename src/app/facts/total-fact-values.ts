@@ -58,7 +58,7 @@ function buildWinnerJoin(where: WhereClause, valueName: string): string {
   ) winner ON true`;
 }
 
-function buildWeightSql(where: WhereClause): string {
+export function buildWeightSql(where: WhereClause): string {
   return `(SELECT line.number::text FROM document_lines line JOIN meanings meaning ON meaning.id = line.meaning_id
     WHERE line.document_id = document.id AND line.item IS NULL AND line.unit = 'kg'
       AND meaning.value_type = 'number' AND meaning.match_key = ${where.bind(buildMatchKey(WEIGHT_MEANING))}
