@@ -2,6 +2,7 @@ import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-r
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import { describeDropOffNotes, INFERRED_MARK } from './describe-drop-off-notes.ts';
+import { NO_NUMBER } from './trip-report-texts.ts';
 import type { DropOffInference, InferredDropOff } from './infer-drop-offs.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 
@@ -31,7 +32,6 @@ export type TripReport = {
 
 export const GOODS_VALUE_KEY = buildMatchKey('Hàng hóa');
 const NO_PLATE = '(không biển số)';
-const NO_NUMBER = '(không số)';
 
 type CellSources = { index: Map<string, WinningValue>; inferred: Map<string, InferredDropOff> };
 

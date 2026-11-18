@@ -4,7 +4,7 @@ import { groupPossibleDuplicates } from './build-trip-report.ts';
 import { listDropOffCandidates, type DropOffCandidate } from './list-drop-off-candidates.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { pairDropOffsByModel, type ModelPairing, type ModelRow } from './pair-drop-offs-by-model.ts';
-import { isInWindow, pairDropOffsByRule, type PairingCandidate, type PairingRow } from './pair-drop-offs-by-rule.ts';
+import { groupByPlate, isInWindow, pairDropOffsByRule, readPairingTimes, type PairingCandidate, type PairingRow } from './pair-drop-offs-by-rule.ts';
 
 export type InferredDropOff = { dropOff: string; method: 'rule' | 'ai'; receiptNumber: string | null };
 
@@ -16,6 +16,7 @@ type DatedPaper = TripPaper & { vehicle_plate: string; document_date: string };
 
 export async function inferDropOffs(database: Database, reader: ReaderService | null, request: DropOffRequest): Promise<DropOffInference> {
   const rows = listPairingRows(request.papers);
+  const eligible = request.papers.filter((paper) => readPairingRole(paper) === 'eligible').length;
   const candidates = await listDropOffCandidates(database, {
     workspaceId: request.workspaceId,
     plates: [...new Set(rows.map((row) => row.plate))],
@@ -26,7 +27,7 @@ export async function inferDropOffs(database: Database, reader: ReaderService | 
   const pairingCandidates = candidates.map(toPairingCandidate);
   const rule = pairDropOffsByRule(rows, pairingCandidates);
   const model = await pairDropOffsByModel(reader, listModelRows(rows, pairingCandidates, rule, request.papers), candidates.map(toModelCandidate));
-  const inference = collectInference(rows, candidates, rule.pairs, model);
+  const inference = collectInference(eligible, candidates, rule.pairs, model);
   logInference(inference);
   return inference;
 }
@@ -36,7 +37,7 @@ function listPairingRows(papers: TripPaper[]): PairingRow[] {
   return papers.filter(isDated).flatMap((paper) => {
     const role = readPairingRole(paper);
     if (role === null) return [];
-    return [{ id: paper.id, plate: paper.vehicle_plate, date: paper.document_date, preciseAt: paper.precise_at, weightKg: readWeight(paper.weight_kg), isEligible: role === 'eligible', isPossibleDuplicate: duplicateIds.has(paper.id) }];
+    return [{ id: paper.id, plate: paper.vehicle_plate, date: paper.document_date, preciseAt: paper.precise_at, times: readPairingTimes(paper.document_date, paper.precise_at), weightKg: readWeight(paper.weight_kg), isEligible: role === 'eligible', isPossibleDuplicate: duplicateIds.has(paper.id) }];
   });
 }
 
@@ -56,7 +57,7 @@ function readWeight(weightKg: string | null): number | null {
 }
 
 function toPairingCandidate(candidate: DropOffCandidate): PairingCandidate {
-  return { id: candidate.id, plate: candidate.vehicle_plate, date: candidate.document_date, preciseAt: candidate.precise_at, weightKg: readWeight(candidate.weight_kg) };
+  return { id: candidate.id, plate: candidate.vehicle_plate, times: readPairingTimes(candidate.document_date, candidate.precise_at), weightKg: readWeight(candidate.weight_kg) };
 }
 
 function toModelCandidate(candidate: DropOffCandidate) {
@@ -65,14 +66,15 @@ function toModelCandidate(candidate: DropOffCandidate) {
 
 function listModelRows(rows: PairingRow[], candidates: PairingCandidate[], rule: { pairs: Map<string, string>; taken: Set<string> }, papers: TripPaper[]): ModelRow[] {
   const pickups = new Map(papers.map((paper) => [paper.id, paper.route_pickup ?? paper.issuer_name ?? '']));
+  const byPlate = groupByPlate(candidates);
   return rows.flatMap((row) => {
     if (!row.isEligible || rule.pairs.has(row.id)) return [];
-    const candidateIds = candidates.filter((candidate) => !rule.taken.has(candidate.id) && isInWindow(row, candidate)).map((candidate) => candidate.id);
+    const candidateIds = (byPlate.get(row.plate) ?? []).filter((candidate) => !rule.taken.has(candidate.id) && isInWindow(row, candidate)).map((candidate) => candidate.id);
     return candidateIds.length === 0 ? [] : [{ ...row, pickup: pickups.get(row.id) ?? '', candidateIds }];
   });
 }
 
-function collectInference(rows: PairingRow[], candidates: DropOffCandidate[], rulePairs: Map<string, string>, model: ModelPairing): DropOffInference {
+function collectInference(eligible: number, candidates: DropOffCandidate[], rulePairs: Map<string, string>, model: ModelPairing): DropOffInference {
   const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const inferred = new Map<string, InferredDropOff>();
   const addPair = (rowId: string, candidateId: string, method: InferredDropOff['method']) => {
@@ -81,7 +83,6 @@ function collectInference(rows: PairingRow[], candidates: DropOffCandidate[], ru
   };
   for (const [rowId, candidateId] of rulePairs) addPair(rowId, candidateId, 'rule');
   if (model.kind === 'ran') for (const [rowId, candidateId] of model.pairs) addPair(rowId, candidateId, 'ai');
-  const eligible = rows.filter((row) => row.isEligible).length;
   return { inferred, eligible, stillUnknown: eligible - inferred.size, model };
 }
 

@@ -35,10 +35,10 @@ import { loadPhotoCleanupConfig } from './photo-cleanup-config.ts';
 import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
 import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
-
-type Readers = { reader: ReaderService | null; dropOffReader: ReaderService | null };
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
+
+type Readers = { reader: ReaderService | null; dropOffReader: ReaderService | null };
 
 export type Service = {
   config: Config;

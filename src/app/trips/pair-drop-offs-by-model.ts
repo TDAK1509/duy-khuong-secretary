@@ -44,6 +44,7 @@ export async function pairDropOffsByModel(reader: ReaderService | null, rows: Mo
   if (rows.length === 0) return { kind: 'skipped', reason: 'no_rows' };
   if (reader === null) return { kind: 'skipped', reason: 'not_configured' };
   const input = buildModelInput(rows, candidates);
+  if (input.offered.size === 0) return { kind: 'skipped', reason: 'input_too_large' };
   const startedAt = Date.now();
   const result = await reader.read({ system: PAIRING_PROMPT, text: input.text, image: null, schemaName: 'trip_drop_off_pairs', schema: ANSWER_SCHEMA });
   if (!result.ok) return { kind: 'failed', reason: result.reason };
@@ -65,24 +66,44 @@ function buildModelInput(rows: ModelRow[], candidates: ModelCandidate[]): ModelI
 }
 
 function describeInput(rows: ModelRow[], byId: Map<string, ModelCandidate>): ModelInput {
-  const opaqueIds = new Map<string, string>();
-  const candidateMap: Record<string, object> = {};
+  const keys = new OpaqueCandidateKeys(byId);
   const offered = new Map<string, OfferedRow>();
   const rowEntries = rows.map((row, index) => {
     const rowKey = `r${index + 1}`;
-    const offeredCandidates = new Map<string, string>();
-    for (const candidateId of row.candidateIds) {
-      const candidate = byId.get(candidateId);
-      if (candidate === undefined) continue;
-      const key = opaqueIds.get(candidateId) ?? `c${opaqueIds.size + 1}`;
-      opaqueIds.set(candidateId, key);
-      candidateMap[key] = describeCandidate(candidate);
-      offeredCandidates.set(key, candidateId);
-    }
+    const offeredCandidates = keys.offer(row.candidateIds);
     offered.set(rowKey, { rowId: row.id, candidates: offeredCandidates });
     return { id: rowKey, plate: row.plate, ...describeTime(row.date, row.preciseAt), pickup: row.pickup.slice(0, MAX_COMPANY_LENGTH), weight_kg: row.weightKg, candidates: [...offeredCandidates.keys()] };
   });
-  return { text: JSON.stringify({ candidates: candidateMap, rows: rowEntries }), offered, candidateCount: opaqueIds.size };
+  return { text: JSON.stringify({ candidates: keys.describe(), rows: rowEntries }), offered, candidateCount: keys.size };
+}
+
+class OpaqueCandidateKeys {
+  private readonly keys = new Map<string, { key: string; candidate: ModelCandidate }>();
+  private readonly byId: Map<string, ModelCandidate>;
+
+  constructor(byId: Map<string, ModelCandidate>) {
+    this.byId = byId;
+  }
+
+  get size(): number {
+    return this.keys.size;
+  }
+
+  offer(candidateIds: string[]): Map<string, string> {
+    const offered = new Map<string, string>();
+    for (const candidateId of candidateIds) {
+      const candidate = this.byId.get(candidateId);
+      if (candidate === undefined) continue;
+      const key = this.keys.get(candidateId)?.key ?? `c${this.keys.size + 1}`;
+      this.keys.set(candidateId, { key, candidate });
+      offered.set(key, candidateId);
+    }
+    return offered;
+  }
+
+  describe(): Record<string, object> {
+    return Object.fromEntries([...this.keys.values()].map(({ key, candidate }) => [key, describeCandidate(candidate)]));
+  }
 }
 
 function describeCandidate(candidate: ModelCandidate): object {
@@ -97,8 +118,9 @@ function acceptPairs(answers: z.infer<typeof answerSchema>['pairs'], offered: Ma
   const rowAnswers = new Map<string, { rowId: string; candidateId: string | null }>();
   for (const { row, candidate } of answers) {
     const offer = offered.get(row);
-    if (offer === undefined || candidate === NONE) continue;
-    rowAnswers.set(row, { rowId: offer.rowId, candidateId: rowAnswers.has(row) ? null : (offer.candidates.get(candidate) ?? null) });
+    if (offer === undefined) continue;
+    const candidateId = candidate === NONE ? null : (offer.candidates.get(candidate) ?? null);
+    rowAnswers.set(row, { rowId: offer.rowId, candidateId: rowAnswers.has(row) ? null : candidateId });
   }
   const chosen = [...rowAnswers.values()].map((answer) => answer.candidateId);
   const pairs = new Map<string, string>();
