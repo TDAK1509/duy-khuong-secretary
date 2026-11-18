@@ -44,15 +44,13 @@ export async function listTripPapers(database: Database, query: TripPaperQuery):
     `SELECT document.id, to_char(document.document_date, 'YYYY-MM-DD') AS document_date, document.vehicle_plate, document.document_number, document.kind,
        route.pickup_name AS route_pickup, route.dropoff_name AS route_dropoff, route.customer_name AS route_customer, route.pickup_match_key AS route_pickup_key,
        issuer.printed_name AS issuer_name, issuer.match_key AS issuer_key,
-       ${buildFirstPartySql('customer')} AS customer_party,
+       customer.printed_name AS customer_party,
        ${buildWeightSql(where)} AS weight_kg,
        ${buildSenderSubquery()} AS sender_name
      FROM documents document
      ${ROUTE_FACT_JOIN}
-     LEFT JOIN LATERAL (
-       SELECT party.printed_name, party.match_key FROM document_parties party
-       WHERE party.document_id = document.id AND party.role = 'issuer' ORDER BY party.created_at, party.id LIMIT 1
-     ) issuer ON true
+     ${buildFirstPartyJoin('issuer')}
+     ${buildFirstPartyJoin('customer')}
      WHERE ${where.toSql()} AND ${IS_TRIP_PAPER}
      ORDER BY document.document_date NULLS LAST, document.vehicle_plate NULLS LAST, document.created_at, document.id
      LIMIT ${where.bind(query.limit)}`,
@@ -99,7 +97,9 @@ function buildTripWhere(query: TripPaperQuery, rule: DocumentRule): WhereClause 
   return buildDocumentWhere(query.workspaceId, filters, rule);
 }
 
-function buildFirstPartySql(role: 'customer'): string {
-  return `(SELECT party.printed_name FROM document_parties party
-     WHERE party.document_id = document.id AND party.role = '${role}' ORDER BY party.created_at, party.id LIMIT 1)`;
+function buildFirstPartyJoin(role: 'issuer' | 'customer'): string {
+  return `LEFT JOIN LATERAL (
+       SELECT party.printed_name, party.match_key FROM document_parties party
+       WHERE party.document_id = document.id AND party.role = '${role}' ORDER BY party.created_at, party.id LIMIT 1
+     ) ${role} ON true`;
 }

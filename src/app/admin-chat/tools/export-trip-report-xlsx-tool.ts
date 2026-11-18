@@ -44,7 +44,7 @@ export async function runExportTripReportXlsx(dependencies: AdminToolDependencie
   const request = argumentsSchema.parse(parsedArguments);
   const problem = findRequestProblem(request);
   if (problem !== null) return failTool(problem);
-  const resolved = resolveColumns(request.columns, await listKnownValues(dependencies.database, scope.workspaceId));
+  const resolved = readColumns(request.columns, await listKnownValues(dependencies.database, scope.workspaceId));
   if (!resolved.ok) return failTool(resolved.error);
   return exportTripReport(storage, dependencies.database, scope, { request, columns: resolved.columns });
 }
@@ -55,30 +55,29 @@ function findRequestProblem({ title, date_from: dateFrom, date_to: dateTo, colum
   if (dateFrom > dateTo) return 'Ngày bắt đầu phải trước ngày kết thúc.';
   if ((Date.parse(dateTo) - Date.parse(dateFrom)) / DAY_MS > MAX_DAYS) return `Báo cáo chuyến chỉ lấy tối đa ${MAX_DAYS} ngày. Hãy chia thành nhiều báo cáo.`;
   if (columns.length === 0 || columns.length > MAX_COLUMNS) return `Báo cáo cần có từ 1 đến ${MAX_COLUMNS} cột.`;
-  return columns.map(findColumnProblem).find((columnProblem) => columnProblem !== null) ?? null;
-}
-
-function findColumnProblem({ name, source, field, value_name: valueName }: ColumnArgument): string | null {
-  if (name.trim() === '' || name.length > MAX_COLUMN_NAME_LENGTH) return `Tên cột cần có từ 1 đến ${MAX_COLUMN_NAME_LENGTH} ký tự.`;
-  if (source === 'field' && field === null) return `Cột "${name}" cần field.`;
-  if ((source === 'fact_value' || source === 'fact_amount') && (valueName === null || buildMatchKey(valueName) === '')) return `Cột "${name}" cần value_name.`;
   return null;
 }
 
-function resolveColumns(columns: ColumnArgument[], known: KnownValue[]): ResolvedColumns {
+function readColumns(columns: ColumnArgument[], known: KnownValue[]): ResolvedColumns {
   const resolved: TripColumn[] = [];
   for (const column of columns) {
-    const result = resolveColumn(column, known);
+    const result = readColumn(column, known);
     if (typeof result === 'string') return { ok: false, error: result };
     resolved.push(result);
   }
   return { ok: true, columns: resolved };
 }
 
-function resolveColumn({ name, source, field, value_name: valueName }: ColumnArgument, known: KnownValue[]): TripColumn | string {
+function readColumn({ name, source, field, value_name: valueName }: ColumnArgument, known: KnownValue[]): TripColumn | string {
+  if (name.trim() === '' || name.length > MAX_COLUMN_NAME_LENGTH) return `Tên cột cần có từ 1 đến ${MAX_COLUMN_NAME_LENGTH} ký tự.`;
   if (source === 'none') return { name, source };
-  if (source === 'field') return { name, source, field: field! };
-  const value = known.find((candidate) => candidate.match_key === buildMatchKey(valueName!));
+  if (source === 'field') return field === null ? `Cột "${name}" cần field.` : { name, source, field };
+  if (valueName === null || buildMatchKey(valueName) === '') return `Cột "${name}" cần value_name.`;
+  return readValueColumn(name, source, valueName, known);
+}
+
+function readValueColumn(name: string, source: 'fact_value' | 'fact_amount', valueName: string, known: KnownValue[]): TripColumn | string {
+  const value = known.find((candidate) => candidate.match_key === buildMatchKey(valueName));
   if (value === undefined) return `Không có giá trị "${valueName}" trong thông tin chuyến đã lưu. Các giá trị đã lưu: ${listNames(known)}.`;
   if (source === 'fact_amount' && !value.per_ton) return `Giá trị "${valueName}" không tính theo đ/tấn. Các giá trị theo đ/tấn: ${listNames(known.filter((candidate) => candidate.per_ton))}.`;
   return { name, source, matchKey: value.match_key };

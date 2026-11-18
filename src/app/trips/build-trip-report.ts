@@ -1,4 +1,5 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
+import { buildMatchKey } from '../documents/build-match-key.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 
@@ -25,7 +26,7 @@ export type TripReport = {
   emptyColumns: string[];
 };
 
-export const GOODS_VALUE_KEY = 'hanghoa';
+export const GOODS_VALUE_KEY = buildMatchKey('Hàng hóa');
 const NO_PLATE = '(không biển số)';
 const NO_NUMBER = '(không số)';
 
