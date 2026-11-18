@@ -31,6 +31,7 @@ import {
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
 import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
+import { reactToAdminMessage } from './react-to-admin-message.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
 import type { IntakeChats } from '../intake/intake-context.ts';
@@ -58,6 +59,7 @@ async function dispatchInboundEvent(
   event: ClaimedEvent,
   stages: Stages,
 ): Promise<Finished | NotConfigured> {
+  await reactToAdminMessage(dependencies, event, readText(event));
   await stages.runStage(releaseHeldStage(dependencies, event));
   if (event.kind === 'file') return handleFileEvent(dependencies, event, stages);
   return answerByText(dependencies, event, stages);

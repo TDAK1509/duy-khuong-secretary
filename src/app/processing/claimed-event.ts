@@ -5,6 +5,7 @@ export type ClaimedEvent = {
   channel: string;
   accountId: string;
   externalUserId: string;
+  externalEventId: string;
   kind: 'text' | 'images' | 'file';
   payload: Record<string, unknown>;
   attempts: number;
