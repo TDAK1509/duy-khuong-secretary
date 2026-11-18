@@ -6,7 +6,7 @@ const COMPANY_NAME_RULE = 'Bỏ chữ "công ty" hoặc "cty" đứng trước t
 export const SAVE_FACT_SPEC: ToolSpec = {
   name: 'save_fact',
   description:
-    'Lưu một thông tin cố định do quản lý nêu về một xe, một tài xế hoặc một tuyến (nơi lấy hàng, nơi đổ hàng), ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng, hàng hóa. Thông tin áp dụng cho mọi giấy tờ đã lưu khớp phạm vi. Gọi một lần với mọi giá trị. Cần ít nhất một trong vehicle_plate, driver_member_id, pickup_company, dropoff_company.',
+    'Lưu một thông tin cố định do quản lý nêu về một xe, một tài xế hoặc một tuyến (nơi lấy hàng, nơi đổ hàng), ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng, hàng hóa. Thông tin áp dụng cho mọi giấy tờ đã lưu khớp phạm vi. Gọi một lần với mọi giá trị. Khi có nơi lấy hàng hoặc nơi đổ hàng, hệ thống tự tìm thông tin đã lưu cùng tuyến, cùng xe, cùng tài xế và cùng khách hàng: nếu có thì cập nhật giá trị của thông tin đó (action "updated"), nếu không thì lưu thông tin mới (action "added"), nếu có nhiều thông tin khớp thì không đổi gì (action "ambiguous"). Cần ít nhất một trong vehicle_plate, driver_member_id, pickup_company, dropoff_company.',
   parameters: {
     type: 'object',
     properties: {
@@ -16,6 +16,10 @@ export const SAVE_FACT_SPEC: ToolSpec = {
       pickup_company: { ...NULLABLE_STRING, description: `Tên công ty hoặc nơi lấy hàng như quản lý viết. ${COMPANY_NAME_RULE} null nếu không nêu.` },
       dropoff_company: { ...NULLABLE_STRING, description: `Tên công ty hoặc nơi đổ hàng như quản lý viết. ${COMPANY_NAME_RULE} null nếu không nêu.` },
       customer_company: { ...NULLABLE_STRING, description: `Khách hàng của chuyến (công ty nhận hàng ghi trên giấy tờ), như quản lý viết, ví dụ "khách hàng là công ty Minh Đức Phát" ghi là "Minh Đức Phát". ${COMPANY_NAME_RULE} Khách hàng chỉ thu hẹp phạm vi, vẫn cần biển số, tài xế, nơi lấy hàng hoặc nơi đổ hàng. null nếu không nêu.` },
+      fact_id: {
+        ...NULLABLE_STRING,
+        description: 'Chỉ dùng sau khi save_fact trả về action "ambiguous" và quản lý đã chọn một thông tin: id của thông tin đó. Còn lại để null.',
+      },
       values: {
         type: 'array',
         description: 'Mọi giá trị quản lý nêu, mỗi giá trị một mục. Một giá trị là số tiền kèm đơn vị, hoặc là chữ.',
@@ -32,7 +36,7 @@ export const SAVE_FACT_SPEC: ToolSpec = {
         },
       },
     },
-    required: ['statement', 'vehicle_plate', 'driver_member_id', 'pickup_company', 'dropoff_company', 'customer_company', 'values'],
+    required: ['statement', 'vehicle_plate', 'driver_member_id', 'pickup_company', 'dropoff_company', 'customer_company', 'values', 'fact_id'],
     additionalProperties: false,
   },
 };

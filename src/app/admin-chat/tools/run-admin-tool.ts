@@ -87,7 +87,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   rewrite_member_plate: ({ database }, scope, args) => runRewriteMemberPlate(database, scope, args),
   save_fact: ({ database, companyReader }, scope, args) => runSaveFact(database, scope, args, companyReader ?? null),
   list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
-  update_fact: ({ database, companyReader }, scope, args) => runUpdateFact(database, scope, args, companyReader ?? null),
+  update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),
   delete_fact: ({ database }, scope, args) => runDeleteFact(database, scope, args),
   total_fact_values: ({ database }, scope, args) => runTotalFactValues(database, scope, args),
   maintenance_status: runMaintenanceStatus,
