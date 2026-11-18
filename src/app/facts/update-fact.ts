@@ -1,19 +1,15 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import type { FactCompany, FactValue } from './fact.ts';
-import { replaceSlotCompanies } from './fact-companies.ts';
+import type { FactValue } from './fact.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
-import { COMPANY_SLOTS } from './pick-fact-companies.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
+import { findRouteFactTwin } from './route-fact-identity.ts';
 
 const MAX_STATEMENT_LENGTH = 2000;
 
 export type ScopeChange = {
   vehiclePlate?: string | null;
   driverUserId?: string | null;
-  pickup?: FactCompany | null;
-  dropoff?: FactCompany | null;
-  customer?: FactCompany | null;
 };
 
 export type FactUpdate = {
@@ -29,6 +25,7 @@ export type UpdatedScope = { vehiclePlate: string | null; driverName: string | n
 
 export type FactUpdateResult =
   | { kind: 'updated'; changes: ValueChange[]; missingValueKeys: string[]; scope: UpdatedScope; linkedDocuments: number }
+  | { kind: 'same_as_other'; otherFactId: string }
   | { kind: 'not_found' | 'no_values_left' | 'no_scope_left' | 'statement_too_long' };
 
 type FactRow = {
@@ -89,39 +86,21 @@ async function updateLoadedFact(transaction: Transaction, update: FactUpdate, fa
   const next = mergeScope(fact, update.scopeChange, `${fact.statement}\n${update.changeStatement}`);
   if (hasNoScope(next)) return { kind: 'no_scope_left' };
   if (next.statement.length > MAX_STATEMENT_LENGTH) return { kind: 'statement_too_long' };
+  const twin = hasScopeChanged(fact, next) ? await findRouteFactTwin(transaction, update.workspaceId, update.factId, { vehiclePlate: next.vehicle_plate, driverUserId: next.driver_user_id }) : null;
+  if (twin !== null) return { kind: 'same_as_other', otherFactId: twin.id };
   await applyValueChanges(transaction, update.workspaceId, update.factId, valuePlan.changes);
   await writeFactRow(transaction, update, next);
-  const changedSlots = COMPANY_SLOTS.filter((slot) => update.scopeChange[slot] !== undefined);
-  for (const slot of changedSlots) await replaceSlotCompanies(transaction, update.workspaceId, update.factId, slot, update.scopeChange[slot]?.organizationIds ?? null);
-  if (hasScopeChanged(fact, next) || changedSlots.length > 0) await relinkDocuments(transaction, update.workspaceId, update.factId);
+  if (hasScopeChanged(fact, next)) await relinkDocuments(transaction, update.workspaceId, update.factId);
   return { kind: 'updated', changes: valuePlan.changes, missingValueKeys: valuePlan.missingKeys, ...(await loadScope(transaction, update)) };
 }
 
 function mergeScope(fact: FactRow, change: ScopeChange, statement: string): FactRow {
-  const pickup = mergeCompany(change.pickup, { name: fact.pickup_name, matchKey: fact.pickup_match_key, resolved: fact.pickup_resolved });
-  const dropoff = mergeCompany(change.dropoff, { name: fact.dropoff_name, matchKey: fact.dropoff_match_key, resolved: fact.dropoff_resolved });
-  const customer = mergeCompany(change.customer, { name: fact.customer_name, matchKey: fact.customer_match_key, resolved: fact.customer_resolved });
   return {
+    ...fact,
     statement,
     vehicle_plate: change.vehiclePlate === undefined ? fact.vehicle_plate : change.vehiclePlate,
     driver_user_id: change.driverUserId === undefined ? fact.driver_user_id : change.driverUserId,
-    pickup_name: pickup.name,
-    pickup_match_key: pickup.matchKey,
-    dropoff_name: dropoff.name,
-    dropoff_match_key: dropoff.matchKey,
-    customer_name: customer.name,
-    customer_match_key: customer.matchKey,
-    pickup_resolved: pickup.resolved,
-    dropoff_resolved: dropoff.resolved,
-    customer_resolved: customer.resolved,
   };
-}
-
-type StoredCompany = { name: string | null; matchKey: string | null; resolved: boolean };
-
-function mergeCompany(change: FactCompany | null | undefined, stored: StoredCompany): StoredCompany {
-  if (change === undefined) return stored;
-  return { name: change?.name ?? null, matchKey: change?.matchKey ?? null, resolved: change !== null && change.organizationIds !== null };
 }
 
 function hasNoScope(fact: FactRow): boolean {
@@ -148,7 +127,7 @@ async function writeFactRow(transaction: Transaction, { factId, workspaceId }: F
 }
 
 function hasScopeChanged(before: FactRow, after: FactRow): boolean {
-  const keys = ['vehicle_plate', 'driver_user_id', 'pickup_match_key', 'dropoff_match_key', 'customer_match_key'] as const;
+  const keys = ['vehicle_plate', 'driver_user_id'] as const;
   return keys.some((key) => before[key] !== after[key]);
 }
 
