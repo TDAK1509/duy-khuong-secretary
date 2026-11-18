@@ -101,7 +101,7 @@ function chooseColumnType(column: TripColumn, papers: TripPaper[], index: Winner
 function findPossibleDuplicates(papers: TripPaper[]): PossibleDuplicate[] {
   const groups = new Map<string, TripPaper[]>();
   for (const paper of papers) {
-    const pickupKey = paper.route_pickup_key ?? paper.issuer_key;
+    const pickupKey = readPickupKey(paper);
     if (paper.vehicle_plate === null || paper.document_date === null || pickupKey === null) continue;
     const key = `${paper.vehicle_plate}|${paper.document_date}|${pickupKey}`;
     groups.set(key, [...(groups.get(key) ?? []), paper]);
@@ -109,12 +109,17 @@ function findPossibleDuplicates(papers: TripPaper[]): PossibleDuplicate[] {
   return [...groups.values()].filter((group) => group.length > 1).map(describeDuplicate);
 }
 
+function readPickupKey(paper: TripPaper): string | null {
+  if (paper.issuer_company_id !== null) return `company:${paper.issuer_company_id}`;
+  return paper.route_pickup_key === null ? null : `name:${paper.route_pickup_key}`;
+}
+
 function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
   const [first] = group as [TripPaper, ...TripPaper[]];
   return {
     plate: first.vehicle_plate ?? NO_PLATE,
     date: first.document_date ?? '',
-    pickup: first.route_pickup ?? first.issuer_name ?? '',
+    pickup: first.issuer_name ?? first.route_pickup ?? '',
     documentNumbers: group.map((paper) => paper.document_number ?? NO_NUMBER),
   };
 }
