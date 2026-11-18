@@ -65,7 +65,7 @@ function meterServices(
 ): Pick<IntakeContext, 'dependencies' | 'reader'> {
   const meter = { database: dependencies.database, workspaceId: sender.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.channel.maxTextLength } };
   return {
-    dependencies: { ...dependencies, chats: meterChats(chats, meter) },
+    dependencies: { ...dependencies, chats: meterChats(chats, meter), dropOffReader: dependencies.dropOffReader && meterReader(dependencies.dropOffReader, meter, () => 'chat_answer') },
     reader: meterReader(reader, meter, (request) => (request.image === null ? 'text_read' : 'photo_read')),
   };
 }

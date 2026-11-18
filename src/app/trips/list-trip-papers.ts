@@ -22,6 +22,7 @@ export type TripPaper = {
   customer_party: string | null;
   weight_kg: string | null;
   sender_name: string | null;
+  precise_at: string | null;
 };
 
 export type WinningValue = { document_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
@@ -46,7 +47,8 @@ export async function listTripPapers(database: Database, query: TripPaperQuery):
        issuer.printed_name AS issuer_name, issuer.company_id AS issuer_company_id,
        customer.printed_name AS customer_party,
        ${buildWeightSql(where)} AS weight_kg,
-       ${buildSenderSubquery()} AS sender_name
+       ${buildSenderSubquery()} AS sender_name,
+       ${buildPreciseTimeSql()} AS precise_at
      FROM documents document
      ${ROUTE_FACT_JOIN}
      ${buildFirstPartyJoin('issuer')}
@@ -90,6 +92,11 @@ export async function listKnownValues(database: Database, workspaceId: string): 
     [workspaceId, PER_TON_UNIT],
   );
   return rows;
+}
+
+export function buildPreciseTimeSql(): string {
+  return `(SELECT to_char(min(line.at), 'YYYY-MM-DD"T"HH24:MI') FROM document_lines line
+     WHERE line.document_id = document.id AND line.at IS NOT NULL AND line.at::time <> '00:00')`;
 }
 
 function buildTripWhere(query: TripPaperQuery, rule: DocumentRule): WhereClause {

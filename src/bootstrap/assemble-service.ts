@@ -26,6 +26,7 @@ import {
   buildFileStorage,
   buildMessagingChannel,
   buildPhotoStorage,
+  buildDropOffReader,
   buildReader,
 } from './from-env.ts';
 import { createOwnerReadPool } from './owner-read-pool.ts';
@@ -34,6 +35,8 @@ import { loadPhotoCleanupConfig } from './photo-cleanup-config.ts';
 import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
 import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
+
+type Readers = { reader: ReaderService | null; dropOffReader: ReaderService | null };
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
 
@@ -51,7 +54,7 @@ export type Service = {
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
   const configs = loadAllConfigs(environment, log);
-  const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chats } = buildProviders(configs);
+  const { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, dropOffReader, chats } = buildProviders(configs);
   const heldTasks = new HeldTasks();
   return {
     config: configs.base,
@@ -60,7 +63,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     checkDatabaseRole: () => checkDatabaseRole(pool, log),
     runTick: (shutdown) => runTick(buildTickOptions(configs, connection, alerts, channel, chats, pool, clock, environment, photoStorage, { held: heldTasks, shutdown })),
     heldTasks,
-    ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
+    ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, dropOffReader, chats, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
   };
 }
 
@@ -118,14 +121,15 @@ type ServiceProviders = {
   photoStorage: PhotoStorage | null;
   fileStorage: FileStorage | null;
   reader: ReaderService | null;
+  dropOffReader: ReaderService | null;
   chats: ChatServices | null;
 };
 
 function buildProviders(configs: ServiceConfigs): ServiceProviders {
   const { pool, ownerPool, clock, alerts } = buildCoreProviders(configs.base);
   const { connection, channel } = buildZaloProviders(configs, pool, clock);
-  const { photoStorage, fileStorage, reader, chats } = buildOptionalServices(configs);
-  return { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, chats };
+  const { photoStorage, fileStorage, reader, dropOffReader, chats } = buildOptionalServices(configs);
+  return { pool, ownerPool, clock, alerts, connection, channel, photoStorage, fileStorage, reader, dropOffReader, chats };
 }
 
 function buildCoreProviders(base: Config) {
@@ -146,8 +150,9 @@ function buildOptionalServices(configs: ServiceConfigs) {
   const photoStorage = configs.photoStorageConfig && buildPhotoStorage(configs.photoStorageConfig);
   const fileStorage = configs.photoStorageConfig && buildFileStorage(configs.photoStorageConfig);
   const reader = configs.readerConfig && buildReader(configs.readerConfig);
+  const dropOffReader = configs.readerConfig && buildDropOffReader(configs.readerConfig);
   const chats = configs.chatConfig && buildChatServices(configs.chatConfig);
-  return { photoStorage, fileStorage, reader, chats };
+  return { photoStorage, fileStorage, reader, dropOffReader, chats };
 }
 
 function buildConnectionDependencies(zalo: ZaloConfig, pool: PostgresPool, clock: Clock) {
@@ -210,6 +215,7 @@ type QueueParts = {
   photoStorage: PhotoStorage | null;
   fileStorage: FileStorage | null;
   reader: ReaderService | null;
+  dropOffReader: ReaderService | null;
   chats: ChatServices | null;
   reportReadyTemplateId: string | null;
   log: (line: string) => void;
@@ -217,10 +223,10 @@ type QueueParts = {
 
 type QueueSteps = Pick<Service, 'runInboundStep' | 'runOutboundStep' | 'heldEvents'>;
 
-function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, chats, reportReadyTemplateId, log }: QueueParts): QueueSteps {
+function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fileStorage, reader, dropOffReader, chats, reportReadyTemplateId, log }: QueueParts): QueueSteps {
   const notices = new OffGroupNotices(clock, log);
   const heldEvents = new HeldEvents();
-  const inbound = { ...buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, reader, chats), held: heldEvents };
+  const inbound = { ...buildInboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, fileStorage, { reader, dropOffReader }, chats), held: heldEvents };
   const outbound = buildOutboundConfig(pool, clock, alerts, notices, channel, zalo, photoStorage, reportReadyTemplateId);
   return {
     runInboundStep: () => runInboundStep(inbound),
@@ -229,14 +235,14 @@ function buildQueueSteps({ pool, clock, alerts, channel, zalo, photoStorage, fil
   };
 }
 
-function buildInboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, fileStorage: FileStorage | null, reader: ReaderService | null, chats: ChatServices | null) {
+function buildInboundConfig(pool: PostgresPool, clock: Clock, alerts: OperatorAlerts, notices: OffGroupNotices, channel: MessagingChannel | null, zalo: ZaloConfig | null, photoStorage: PhotoStorage | null, fileStorage: FileStorage | null, { reader, dropOffReader }: Readers, chats: ChatServices | null) {
   return {
     database: pool,
     clock,
     alerts,
     notices,
     handler: createInboundHandler(
-      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, fileStorage, reader, chats },
+      channel && zalo && { channel, clock, database: pool, encryptionKey: zalo.encryptionKey, photoStorage, fileStorage, reader, dropOffReader, chats },
     ),
   };
 }

@@ -18,4 +18,5 @@ export type AdminToolDependencies = {
   guard: AdminTextGuard;
   fileStorage?: FileStorage | null;
   companyReader?: ReaderService | null;
+  dropOffReader?: ReaderService | null;
 };
