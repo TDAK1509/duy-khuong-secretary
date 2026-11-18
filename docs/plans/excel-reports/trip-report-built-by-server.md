@@ -70,8 +70,9 @@ Steps:
   - A paper that meets both is one row. Nothing is said about other papers:
     they are not rows.
 - Possible duplicates: two rows with the same plate, the same document date
-  and the same pickup company (route fact pickup, else the dispatch paper's
-  issuer) are listed in "Ghi chú". Both stay in the table.
+  and the same pickup company (the paper's printed issuer, by its saved
+  company or else its name, else the route fact's pickup) are listed in
+  "Ghi chú". Both stay in the table.
 - New admin tool (name chosen by the developer), following
   `export_documents_xlsx`
   (`src/app/admin-chat/tools/export-documents-xlsx-tool.ts`) for storage, the
