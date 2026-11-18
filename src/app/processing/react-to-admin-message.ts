@@ -4,7 +4,7 @@ import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandlerDependencies } from './handle-inbound-event.ts';
 
 export async function reactToAdminMessage(dependencies: InboundHandlerDependencies, event: ClaimedEvent, text: string | null): Promise<void> {
-  if (event.attempts !== 1) return;
+  if (!event.isFirstPickup) return;
   try {
     await reactIfAdmin(dependencies, event, text);
   } catch (error) {

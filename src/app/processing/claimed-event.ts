@@ -6,6 +6,7 @@ export type ClaimedEvent = {
   accountId: string;
   externalUserId: string;
   externalEventId: string;
+  isFirstPickup: boolean;
   kind: 'text' | 'images' | 'file';
   payload: Record<string, unknown>;
   attempts: number;
