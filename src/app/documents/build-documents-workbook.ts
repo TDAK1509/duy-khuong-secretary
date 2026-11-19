@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { DocumentFactValue } from '../facts/document-fact-values.ts';
 import { chooseValueUnit } from './choose-value-unit.ts';
-import { FIRST_DATA_ROW, formatDateCell, formatNumberCell, formatWorkbookSheet, HEADER_ROW, type ColumnUnit } from './format-workbook-sheet.ts';
+import { formatDateCell, formatNumberCell, formatWorkbookSheet, HEADER_ROW, type ColumnUnit } from './format-workbook-sheet.ts';
 
 export type ExportRow = {
   document_date: string | null;
@@ -29,9 +29,9 @@ export async function buildDocumentsWorkbook({ title, createdAt, rows }: Documen
   const sheet = workbook.addWorksheet('Giấy tờ');
   const factColumns = collectFactColumns(rows);
   sheet.getRow(HEADER_ROW).values = [...HEADER_LABELS, ...factColumns.map((column) => column.name)];
-  rows.forEach((row, index) => writeDataRow(sheet.getRow(FIRST_DATA_ROW + index), row, factColumns));
+  rows.forEach((row, index) => writeDataRow(sheet.getRow(HEADER_ROW + 1 + index), row, factColumns));
   const factUnits = factColumns.map((column) => chooseValueUnit(rows.flatMap((row) => row.fact_values.filter((value) => value.key === column.key))));
-  formatWorkbookSheet(sheet, { title, createdAt, lastDataRow: HEADER_ROW + rows.length, units: [...FIXED_UNITS, ...factUnits] });
+  formatWorkbookSheet(sheet, { title, createdAt, headerRow: HEADER_ROW, lastDataRow: HEADER_ROW + rows.length, units: [...FIXED_UNITS, ...factUnits] });
   const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
 }

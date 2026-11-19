@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ReportCell, ReportColumn } from './build-report-workbook.ts';
 import { isAdditiveUnit, readColumnUnit } from './column-units.ts';
+import { summaryArgumentSchema } from './report-summary.ts';
 
 export type SortKey = { column: number; direction: 'asc' | 'desc' };
 
@@ -15,6 +16,8 @@ export const layoutArgumentSchema = z
     sort: z.array(z.object({ column: z.number(), direction: z.enum(['asc', 'desc']) })),
     group_by: z.number().nullable(),
     totals: z.array(z.number()).nullable(),
+    summary: summaryArgumentSchema,
+    subtitle: z.string().nullable().optional(),
   })
   .nullable()
   .optional();

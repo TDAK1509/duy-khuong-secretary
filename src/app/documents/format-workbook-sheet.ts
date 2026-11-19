@@ -5,10 +5,15 @@ export { COLUMN_UNITS, type ColumnUnit } from './column-units.ts';
 
 export type SubtotalRow = { row: number; firstDataRow: number; lastDataRow: number; groupColumn: number; groupLabel: string; labelColumn: number | null };
 
-export type SheetLayout = { title: string; createdAt: Date; lastDataRow: number; units: (ColumnUnit | null)[]; totalColumns?: number[] | null; subtotals?: SubtotalRow[] };
+export type SheetLayout = { title: string; createdAt: Date; headerRow: number; introLines?: IntroLine[]; lastDataRow: number; units: (ColumnUnit | null)[]; totalColumns?: number[] | null; subtotals?: SubtotalRow[] };
 
 export const HEADER_ROW = 4;
-export const FIRST_DATA_ROW = HEADER_ROW + 1;
+
+export type IntroLine = { text: string; style: 'subtitle' | 'figure' };
+
+export function findHeaderRow(introLines: IntroLine[]): number {
+  return HEADER_ROW + introLines.length;
+}
 
 const UNIT_FORMATS: Record<Exclude<ColumnUnit, 'rate' | 'number'>, string> = { vnd: '#,##0 "đ"', kg: '#,##0 "kg"', ton: '#,##0.00 "tấn"', liter: '#,##0.0 "lít"' };
 const INTEGER_FORMAT = '#,##0';
@@ -31,12 +36,13 @@ export function formatWorkbookSheet(sheet: ExcelJS.Worksheet, layout: SheetLayou
   for (const subtotal of layout.subtotals ?? []) writeSubtotalRow(sheet, subtotal, layout);
   const lastRow = addTotalRow(sheet, layout);
   writeTitleBlock(sheet, layout);
-  styleHeaderRow(sheet.getRow(HEADER_ROW), layout.units.length);
+  styleHeaderRow(sheet.getRow(layout.headerRow), layout.units.length);
   styleBodyRows(sheet, layout);
-  fitColumnWidths(sheet, layout.units.length, lastRow);
-  sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW }];
-  sheet.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: Math.max(HEADER_ROW, layout.lastDataRow), column: layout.units.length } };
-  sheet.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: `${HEADER_ROW}:${HEADER_ROW}` };
+  fitColumnWidths(sheet, layout, lastRow);
+  const { headerRow } = layout;
+  sheet.views = [{ state: 'frozen', ySplit: headerRow }];
+  sheet.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: Math.max(headerRow, layout.lastDataRow), column: layout.units.length } };
+  sheet.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: `${headerRow}:${headerRow}` };
 }
 
 export function formatNumberCell(cell: ExcelJS.Cell, value: number, unit: string | null = null): void {
@@ -51,10 +57,10 @@ export function formatDateCell(cell: ExcelJS.Cell, isoDate: string): void {
   cell.numFmt = DATE_FORMAT;
 }
 
-function applyUnitFormats(sheet: ExcelJS.Worksheet, { units, lastDataRow }: SheetLayout): void {
+function applyUnitFormats(sheet: ExcelJS.Worksheet, { units, lastDataRow, headerRow }: SheetLayout): void {
   units.forEach((unit, index) => {
     if (unit === null || unit === 'rate') return;
-    for (let rowNumber = FIRST_DATA_ROW; rowNumber <= lastDataRow; rowNumber += 1) {
+    for (let rowNumber = headerRow + 1; rowNumber <= lastDataRow; rowNumber += 1) {
       const cell = sheet.getRow(rowNumber).getCell(index + 1);
       if (typeof cell.value === 'number') cell.numFmt = chooseUnitFormat(unit, cell.value);
     }
@@ -91,14 +97,15 @@ function listTotalColumns({ units, totalColumns }: SheetLayout): number[] {
 
 function addTotalRow(sheet: ExcelJS.Worksheet, layout: SheetLayout): number {
   const { units, lastDataRow } = layout;
+  const firstDataRow = layout.headerRow + 1;
   const totaled = listTotalColumns(layout);
-  if (totaled.length === 0 || lastDataRow < FIRST_DATA_ROW) return lastDataRow;
+  if (totaled.length === 0 || lastDataRow < firstDataRow) return lastDataRow;
   const row = sheet.getRow(lastDataRow + 1);
   const labelColumn = units.findIndex((_, index) => !totaled.includes(index));
   if (labelColumn >= 0) row.getCell(labelColumn + 1).value = TOTAL_LABEL;
   const skipRows = new Set((layout.subtotals ?? []).map((subtotal) => subtotal.row));
   const countsHiddenRows = skipRows.size > 0;
-  for (const index of totaled) writeTotalCell(sheet, row.getCell(index + 1), { column: index + 1, firstRow: FIRST_DATA_ROW, lastRow: lastDataRow, unit: units[index]!, skipRows, countsHiddenRows });
+  for (const index of totaled) writeTotalCell(sheet, row.getCell(index + 1), { column: index + 1, firstRow: firstDataRow, lastRow: lastDataRow, unit: units[index]!, skipRows, countsHiddenRows });
   if (labelColumn < 0) labelTotalByFormat(row.getCell(totaled[0]! + 1));
   styleSummaryRow(row, units.length, HOUSE_COLORS.totalFill, true);
   return lastDataRow + 1;
@@ -141,19 +148,25 @@ function styleSummaryRow(row: ExcelJS.Row, columnCount: number, fill: string, is
   }
 }
 
-function writeTitleBlock(sheet: ExcelJS.Worksheet, { title, createdAt, lastDataRow, units, subtotals }: SheetLayout): void {
-  const lastColumn = Math.max(1, units.length);
-  const titleCell = sheet.getRow(1).getCell(1);
-  titleCell.value = title;
-  titleCell.font = { bold: true, size: 15, color: { argb: HOUSE_COLORS.darkBlue } };
+function writeTitleBlock(sheet: ExcelJS.Worksheet, layout: SheetLayout): void {
+  const { title, createdAt, headerRow, lastDataRow, subtotals } = layout;
+  const dataRows = Math.max(0, lastDataRow - headerRow - (subtotals?.length ?? 0));
+  writeMergedLine(sheet, 1, title, layout, { bold: true, size: 15, color: { argb: HOUSE_COLORS.darkBlue } });
   sheet.getRow(1).height = 24;
-  const infoCell = sheet.getRow(2).getCell(1);
-  infoCell.value = `Số dòng: ${Math.max(0, lastDataRow - HEADER_ROW - (subtotals?.length ?? 0))} · Tạo lúc: ${formatVietnamTime(createdAt)}`;
-  infoCell.font = { italic: true, size: 10, color: { argb: HOUSE_COLORS.infoGrey } };
-  if (lastColumn > 1) {
-    sheet.mergeCells(1, 1, 1, lastColumn);
-    sheet.mergeCells(2, 1, 2, lastColumn);
-  }
+  writeMergedLine(sheet, 2, `Số dòng: ${dataRows} · Tạo lúc: ${formatVietnamTime(createdAt)}`, layout, { italic: true, size: 10, color: { argb: HOUSE_COLORS.infoGrey } });
+  (layout.introLines ?? []).forEach((line, index) => writeMergedLine(sheet, 3 + index, line.text, layout, INTRO_FONTS[line.style]));
+}
+
+const INTRO_FONTS: Record<IntroLine['style'], Partial<ExcelJS.Font>> = {
+  subtitle: { size: 11, color: { argb: HOUSE_COLORS.darkBlue } },
+  figure: { bold: true, size: 11 },
+};
+
+function writeMergedLine(sheet: ExcelJS.Worksheet, rowNumber: number, text: string, { units }: SheetLayout, font: Partial<ExcelJS.Font>): void {
+  const cell = sheet.getRow(rowNumber).getCell(1);
+  cell.value = text;
+  cell.font = font;
+  if (units.length > 1) sheet.mergeCells(rowNumber, 1, rowNumber, units.length);
 }
 
 function formatVietnamTime(moment: Date): string {
@@ -172,10 +185,10 @@ function styleHeaderRow(row: ExcelJS.Row, columnCount: number): void {
   }
 }
 
-function styleBodyRows(sheet: ExcelJS.Worksheet, { lastDataRow, units, subtotals }: SheetLayout): void {
+function styleBodyRows(sheet: ExcelJS.Worksheet, { headerRow, lastDataRow, units, subtotals }: SheetLayout): void {
   const summaryRows = new Set((subtotals ?? []).map((subtotal) => subtotal.row));
   let dataIndex = 0;
-  for (let rowNumber = FIRST_DATA_ROW; rowNumber <= lastDataRow; rowNumber += 1) {
+  for (let rowNumber = headerRow + 1; rowNumber <= lastDataRow; rowNumber += 1) {
     if (summaryRows.has(rowNumber)) continue;
     const isBanded = dataIndex % 2 === 1;
     dataIndex += 1;
@@ -196,9 +209,10 @@ function chooseBodyAlignment(value: ExcelJS.CellValue): Partial<ExcelJS.Alignmen
   return { vertical: 'top', wrapText: true };
 }
 
-function fitColumnWidths(sheet: ExcelJS.Worksheet, columnCount: number, lastRow: number): void {
+function fitColumnWidths(sheet: ExcelJS.Worksheet, { units, headerRow }: SheetLayout, lastRow: number): void {
+  const columnCount = units.length;
   const longest = new Array<number>(columnCount).fill(0);
-  for (let rowNumber = HEADER_ROW; rowNumber <= lastRow; rowNumber += 1) {
+  for (let rowNumber = headerRow; rowNumber <= lastRow; rowNumber += 1) {
     sheet.getRow(rowNumber).eachCell((cell, column) => {
       if (column <= columnCount) longest[column - 1] = Math.max(longest[column - 1]!, measureLongestLine(describeDisplayedText(cell)));
     });
