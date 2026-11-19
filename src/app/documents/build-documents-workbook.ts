@@ -31,7 +31,7 @@ export async function buildDocumentsWorkbook({ title, createdAt, rows }: Documen
   sheet.getRow(HEADER_ROW).values = [...HEADER_LABELS, ...factColumns.map((column) => column.name)];
   rows.forEach((row, index) => writeDataRow(sheet.getRow(HEADER_ROW + 1 + index), row, factColumns));
   const factUnits = factColumns.map((column) => chooseValueUnit(rows.flatMap((row) => row.fact_values.filter((value) => value.key === column.key))));
-  formatWorkbookSheet(sheet, { title, createdAt, headerRow: HEADER_ROW, lastDataRow: HEADER_ROW + rows.length, units: [...FIXED_UNITS, ...factUnits] });
+  formatWorkbookSheet(sheet, { title, createdAt, lastDataRow: HEADER_ROW + rows.length, units: [...FIXED_UNITS, ...factUnits] });
   const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
 }

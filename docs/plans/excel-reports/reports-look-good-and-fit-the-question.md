@@ -3,6 +3,28 @@
 These PRs merge in the order written. Each one leaves production working when
 it ships alone.
 
+Simplified after all three shipped (owner decision, 19/11/2026): "LLM should
+only create the file following the required format from the users (users
+normally name the columns), we only do those, beautifully and correctly."
+
+- Kept: PR 1 as written (house style, units per column, one "Tổng cộng" row
+  with `SUBTOTAL(109)` over the data rows and a cached server sum, 0 when an
+  additive column has no numbers).
+- Kept from PR 2: `layout.sort` only, used when the admin asks for an order.
+  Without it, rows go by the first date column ascending, else in tool order.
+  Text is trimmed before comparing.
+- Removed: PR 2's `group_by`, `totals`, subtotal rows, outline levels and the
+  `SUBTOTAL(9)` path, and all of PR 3 (summary, subtitle, the trip period
+  line). Reports get no extra rows inside the table and no lines above the
+  header. Old layout fields are accepted and ignored.
+- Prompt: build exactly the columns the admin named, in their order, with no
+  other columns, rows or sections; with no columns named, the fewest that
+  answer the question; sort only on request.
+- Why: in a grouped report the subtotal label "Tổng <plate>" landed in the
+  admin's "Tên chuyến" column and read like a route.
+
+The PR 2 and PR 3 sections below describe what shipped and was then removed.
+
 Facts every PR in this file relies on:
 
 - The bot sends three kinds of Excel files, all built by server code with
