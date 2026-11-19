@@ -65,7 +65,7 @@ function describeSaveResult(result: SaveFactResult, summary: SaveSummary): strin
 }
 
 function describeStoredScope(stored: RouteFact, requested: Record<string, string | null>): Record<string, string | null> {
-  return { vehicle_plate: stored.vehiclePlate, driver: requested['driver'] ?? null, pickup_company: stored.pickupName, dropoff_company: stored.dropoffName, customer_company: stored.customerName };
+  return { vehicle_plate: stored.vehiclePlate, driver: requested['driver'] ?? null, pickup_company: stored.pickupName, dropoff_company: stored.dropoffName, customer_company: stored.customerName, goods: stored.goodsName };
 }
 
 function describeCandidate(fact: RouteFact): Record<string, string | null> {

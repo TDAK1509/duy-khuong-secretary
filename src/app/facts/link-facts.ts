@@ -19,8 +19,8 @@ const IS_TRIP_TICKET = `(
 )`;
 
 const NO_ROLES = 'ARRAY[]::text[]';
-const PICKUP_ROLES = `(CASE document.stage WHEN 'receipt' THEN ${NO_ROLES} ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
-const DROPOFF_ROLES = `(CASE document.stage WHEN 'dispatch' THEN ${NO_ROLES} ELSE ARRAY['issuer', 'place'] END)`;
+const PICKUP_ROLES = `(CASE WHEN document.stage = 'receipt' THEN ${NO_ROLES} WHEN document.stage IS NULL THEN ARRAY['issuer'] ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
+const DROPOFF_ROLES = `(CASE WHEN document.stage = 'dispatch' THEN ${NO_ROLES} WHEN document.stage IS NULL THEN ARRAY['issuer'] ELSE ARRAY['issuer', 'place'] END)`;
 const CUSTOMER_ROLES = `ARRAY['customer']`;
 
 const FACT_GOODS = `
