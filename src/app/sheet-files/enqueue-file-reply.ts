@@ -2,9 +2,9 @@ import type { Transaction } from '../db/transaction.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { FileClaim } from './file-claims.ts';
 
-export type FileReply = { claim: FileClaim; text: string; now: Date; maxTextLength: number };
+export type FileReply = { recipient: FileRecipient; text: string; now: Date; maxTextLength: number };
 
-type FileRecipient = { channel: string; accountId: string; externalUserId: string; membershipId: string; externalEventId: string; receivedAt: Date };
+export type FileRecipient = { channel: string; accountId: string; externalUserId: string; membershipId: string; externalEventId: string; receivedAt: Date };
 
 const LATE_REPLY_MS = 30 * 60 * 1000;
 
@@ -16,9 +16,12 @@ const RECIPIENT_QUERY = `
   JOIN memberships membership ON membership.user_id = message.user_id AND membership.workspace_id = message.workspace_id
   WHERE message.id = $1`;
 
-export async function enqueueFileReply(transaction: Transaction, { claim, text, now, maxTextLength }: FileReply): Promise<boolean> {
+export async function findFileRecipient(transaction: Transaction, claim: FileClaim): Promise<FileRecipient | null> {
   const [recipient] = await transaction.query<FileRecipient>(RECIPIENT_QUERY, [claim.messageId]);
-  if (recipient === undefined) return false;
+  return recipient ?? null;
+}
+
+export async function enqueueFileReply(transaction: Transaction, { recipient, text, now, maxTextLength }: FileReply): Promise<void> {
   await enqueueText(transaction, {
     to: { channel: recipient.channel, accountId: recipient.accountId, externalUserId: recipient.externalUserId },
     text: addLatePrefix(text, recipient.receivedAt, now),
@@ -27,7 +30,6 @@ export async function enqueueFileReply(transaction: Transaction, { claim, text, 
     adminMembershipId: recipient.membershipId,
     quote: { messageId: recipient.externalEventId },
   });
-  return true;
 }
 
 function addLatePrefix(text: string, receivedAt: Date, now: Date): string {

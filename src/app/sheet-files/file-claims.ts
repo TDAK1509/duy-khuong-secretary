@@ -21,6 +21,7 @@ export type HeldFile = Pick<FileClaim, 'fileId' | 'workspaceId' | 'step' | 'toke
 
 export const LEASE_MS = 5 * 60 * 1000;
 const RETRY_BASE_MS = 30_000;
+const MAX_RETRY_DOUBLINGS = 4;
 const MAX_ERROR_LENGTH = 200;
 
 const STEP_STATE: Record<FileStep, string> = {
@@ -91,7 +92,7 @@ export async function completeFileStep(transaction: Transaction, held: HeldFile,
 }
 
 export async function releaseFileForRetry(database: Database, claim: FileClaim, error: unknown, now: Date): Promise<void> {
-  const retryAt = new Date(now.getTime() + RETRY_BASE_MS * 2 ** Math.max(0, claim.attempts - 1));
+  const retryAt = new Date(now.getTime() + RETRY_BASE_MS * 2 ** Math.min(MAX_RETRY_DOUBLINGS, Math.max(0, claim.attempts - 1)));
   await writeFenced(database, claim, async (transaction) => {
     await transaction.query('UPDATE message_files SET claim_token = NULL, locked_until = $2, last_error = $3 WHERE id = $1', [claim.fileId, retryAt, describeError(error)]);
   });
@@ -102,14 +103,21 @@ function describeError(error: unknown): string {
   return text.slice(0, MAX_ERROR_LENGTH);
 }
 
-export async function extendFileLease(database: Database, held: HeldFile, lockedUntil: Date): Promise<void> {
-  await writeFenced(database, held, async (transaction) => {
+export class FileClaimLostError extends Error {
+  constructor(fileId: string) {
+    super(`the claim on file ${fileId} was lost`);
+    this.name = 'FileClaimLostError';
+  }
+}
+
+export async function extendFileLease(database: Database, held: HeldFile, lockedUntil: Date): Promise<boolean> {
+  return writeFenced(database, held, async (transaction) => {
     await transaction.query('UPDATE message_files SET locked_until = $2 WHERE id = $1', [held.fileId, lockedUntil]);
   });
 }
 
 export async function handBackFile(database: Database, held: HeldFile): Promise<boolean> {
   return writeFenced(database, held, async (transaction) => {
-    await transaction.query("UPDATE message_files SET claim_token = NULL, locked_until = NULL, attempts = greatest(attempts - 1, 0), last_error = 'shutdown' WHERE id = $1", [held.fileId]);
+    await transaction.query("UPDATE message_files SET claim_token = NULL, locked_until = NULL, attempts = greatest(attempts - 1, 0) WHERE id = $1", [held.fileId]);
   });
 }
