@@ -48,7 +48,7 @@ export async function runExportTripReportXlsx(dependencies: AdminToolDependencie
   if (problem !== null) return failTool(problem);
   const resolved = readColumns(request.columns, await listKnownValues(dependencies.database, scope.workspaceId));
   if (!resolved.ok) return failTool(resolved.error);
-  return exportTripReport(storage, dependencies.database, scope, { request, columns: resolved.columns, dropOffReader: dependencies.dropOffReader ?? null });
+  return exportTripReport(storage, dependencies.database, scope, { request, columns: resolved.columns, dropOffReader: dependencies.dropOffReader ?? null, createdAt: dependencies.clock.now() });
 }
 
 function findRequestProblem({ title, date_from: dateFrom, date_to: dateTo, columns }: TripReportRequest): string | null {
@@ -89,16 +89,16 @@ function listNames(values: KnownValue[]): string {
   return values.length === 0 ? 'không có' : values.map((value) => value.name).join(', ');
 }
 
-type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOffReader: ReaderService | null };
+type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOffReader: ReaderService | null; createdAt: Date };
 
-async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, { request, columns, dropOffReader }: PlannedReport): Promise<string> {
+async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport): Promise<string> {
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
   const papers = await listTripPapers(database, query);
   if (papers.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
   if (papers.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
   const winners = await listWinningValues(database, scope.workspaceId, papers.map((paper) => paper.id), listValueKeys(columns));
   const dropOffs = hasRouteColumn(columns) ? await inferDropOffs(database, dropOffReader, { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, papers }) : null;
-  const report = buildTripReport({ title: request.title, columns, papers, winners, reviewPapers: await countReviewTripPapers(database, query), dropOffs });
+  const report = buildTripReport({ title: request.title, createdAt, columns, papers, winners, reviewPapers: await countReviewTripPapers(database, query), dropOffs });
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(report.table), 'bao-cao-chuyen');
   return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), expires_hours: EXPORT_EXPIRES_HOURS });
 }

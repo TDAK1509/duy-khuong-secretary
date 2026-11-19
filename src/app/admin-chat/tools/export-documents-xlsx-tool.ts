@@ -20,13 +20,15 @@ export async function runExportDocumentsXlsx(dependencies: AdminToolDependencies
   if (storage === null) return failTool(EXPORT_NOT_CONFIGURED_ERROR);
   const args = argumentsSchema.parse(parsedArguments);
   if (hasUnrealDate(args)) return failTool(INVALID_DATE_ERROR);
-  return executeExport(storage, dependencies.database, scope, buildDocumentFilters(args), describeFilter(args));
+  return executeExport(storage, dependencies, scope, { filters: buildDocumentFilters(args), describedFilter: describeFilter(args) });
 }
 
-async function executeExport(storage: FileStorage, database: Database, scope: AccessScope, filters: DocumentFilters, describedFilter: string): Promise<string> {
+type ExportRequest = { filters: DocumentFilters; describedFilter: string };
+
+async function executeExport(storage: FileStorage, { database, clock }: AdminToolDependencies, scope: AccessScope, { filters, describedFilter }: ExportRequest): Promise<string> {
   const rows = await queryExportRows(database, scope, filters);
   if (rows.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches', described_filter: describedFilter });
-  const bytes = await buildDocumentsWorkbook(rows);
+  const bytes = await buildDocumentsWorkbook({ title: describedFilter, createdAt: clock.now(), rows });
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, bytes, 'giay-to');
   return JSON.stringify({ ok: true, url, filename, count: rows.length, described_filter: describedFilter, expires_hours: EXPORT_EXPIRES_HOURS });
 }

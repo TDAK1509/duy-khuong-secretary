@@ -1,6 +1,9 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
+import type { NoteBlock } from '../documents/add-note-sheet.ts';
+import { chooseValueUnit } from '../documents/choose-value-unit.ts';
+import type { ColumnUnit } from '../documents/format-workbook-sheet.ts';
 import { describeDropOffNotes, INFERRED_MARK } from './describe-drop-off-notes.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
 import type { DropOffInference, InferredDropOff } from './infer-drop-offs.ts';
@@ -35,9 +38,9 @@ const NO_PLATE = '(không biển số)';
 
 type CellSources = { index: Map<string, WinningValue>; inferred: Map<string, InferredDropOff> };
 
-export type TripReportInput = { title: string; columns: TripColumn[]; papers: TripPaper[]; winners: WinningValue[]; reviewPapers: number; dropOffs: DropOffInference | null };
+export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; papers: TripPaper[]; winners: WinningValue[]; reviewPapers: number; dropOffs: DropOffInference | null };
 
-export function buildTripReport({ title, columns, papers, winners, reviewPapers, dropOffs }: TripReportInput): TripReport {
+export function buildTripReport({ title, createdAt, columns, papers, winners, reviewPapers, dropOffs }: TripReportInput): TripReport {
   const index = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
   const rows = papers.map((paper) => columns.map((column) => readCell(column, paper, { index, inferred: dropOffs?.inferred ?? new Map() })));
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
@@ -45,7 +48,7 @@ export function buildTripReport({ title, columns, papers, winners, reviewPapers,
   const duplicates = findPossibleDuplicates(papers);
   const missingWeight = papers.filter((paper) => paper.weight_kg === null).length;
   const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...(dropOffs === null ? [] : describeDropOffNotes(dropOffs, papers))];
-  const table = { title, columns: columns.map((column) => describeColumn(column, papers, index)), rows, extraSheets: [{ name: 'Ghi chú', rows: notes }] };
+  const table = { title, createdAt, columns: columns.map((column) => describeColumn(column, papers, index)), rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
   return { table, rowsPerPlate: countRowsPerPlate(papers), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, dropOffs };
 }
 
@@ -94,7 +97,15 @@ function calculateAmount(winner: WinningValue | undefined, weightKg: string | nu
 }
 
 function describeColumn(column: TripColumn, papers: TripPaper[], index: CellSources["index"]): ReportColumn {
-  return { name: column.name, type: chooseColumnType(column, papers, index) };
+  const type = chooseColumnType(column, papers, index);
+  return { name: column.name, type, unit: type === 'number' ? chooseColumnUnit(column, papers, index) : null };
+}
+
+function chooseColumnUnit(column: TripColumn, papers: TripPaper[], index: CellSources["index"]): ColumnUnit | null {
+  if (column.source === 'fact_amount') return 'vnd';
+  if (column.source === 'field' && column.field === 'weight_kg') return 'kg';
+  if (column.source !== 'fact_value') return null;
+  return chooseValueUnit(papers.flatMap((paper) => index.get(`${paper.id}:${column.matchKey}`) ?? []));
 }
 
 function chooseColumnType(column: TripColumn, papers: TripPaper[], index: CellSources["index"]): ReportColumn['type'] {
@@ -146,15 +157,15 @@ function countRowsPerPlate(papers: TripPaper[]): Record<string, number> {
 
 type NoteFacts = { noSourceColumns: string[]; emptyColumns: string[]; reviewPapers: number; missingWeight: number; duplicates: PossibleDuplicate[] };
 
-function buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }: NoteFacts): string[][] {
+function buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }: NoteFacts): NoteBlock[] {
   return [
-    ['Cột chưa có dữ liệu đã lưu', listNames(noSourceColumns)],
-    ['Cột trống ở mọi dòng', listNames(emptyColumns)],
-    ['Giấy tờ đang chờ duyệt, chưa có trong bảng', String(reviewPapers)],
-    ['Giấy tờ thiếu trọng lượng hàng', String(missingWeight)],
-    [],
-    ['Có thể trùng chuyến (cùng xe, cùng ngày, cùng nơi lấy hàng)', duplicates.length === 0 ? 'Không có' : String(duplicates.length)],
-    ...(duplicates.length === 0 ? [] : [['Biển số', 'Ngày', 'Nơi lấy hàng', 'Số chứng từ'], ...duplicates.map(describeDuplicateRow)]),
+    { kind: 'label', label: 'Cột chưa có dữ liệu đã lưu', value: listNames(noSourceColumns) },
+    { kind: 'label', label: 'Cột trống ở mọi dòng', value: listNames(emptyColumns) },
+    { kind: 'label', label: 'Giấy tờ đang chờ duyệt, chưa có trong bảng', value: String(reviewPapers) },
+    { kind: 'label', label: 'Giấy tờ thiếu trọng lượng hàng', value: String(missingWeight) },
+    { kind: 'blank' },
+    { kind: 'label', label: 'Có thể trùng chuyến (cùng xe, cùng ngày, cùng nơi lấy hàng)', value: duplicates.length === 0 ? 'Không có' : String(duplicates.length) },
+    ...(duplicates.length === 0 ? [] : [{ kind: 'table' as const, header: ['Biển số', 'Ngày', 'Nơi lấy hàng', 'Số chứng từ'], rows: duplicates.map(describeDuplicateRow) }]),
   ];
 }
 
