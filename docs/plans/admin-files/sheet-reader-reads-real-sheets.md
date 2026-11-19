@@ -206,9 +206,9 @@ Steps, for the owner:
 - Row identity and replacement (`src/app/sheet-files/run-file-step.ts`)
   - The identity of a sheet row: workspace, header signature, plate, date, and
     document number when a document number column is mapped. The header
-    signature is a hash of the sorted match keys of the sheet's mapped columns
-    (every field but `ignore`), so the same export format matches itself
-    whatever kind name the reader gives it. It is stored in a new nullable
+    signature is a hash of the match keys of the whole header row (every
+    column name, in order), so the same export format matches itself whatever
+    kind name or detail/ignore mapping the reader gives it. It is stored in a new nullable
     `documents.sheet_signature` column, indexed concurrently on
     `(workspace_id, sheet_signature, document_date)`.
   - A saved document without a document number also matches a row that has

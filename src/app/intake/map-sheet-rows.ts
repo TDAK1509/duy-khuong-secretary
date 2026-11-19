@@ -30,7 +30,7 @@ export function planSheetMapping(reading: SheetReading, headers: string[]): Shee
   const indexOf = (field: SheetMappingField) => reading.columnMapping.find((role) => role.field === field)?.columnIndex ?? null;
   return {
     kind: reading.documentKind,
-    signature: signMappedHeaders(reading, headers),
+    signature: signHeaderRow(headers),
     dateFormat: reading.dateFormat,
     dateIndex: indexOf('document_date') ?? 0,
     titleIndex: indexOf('title'),
@@ -42,9 +42,8 @@ export function planSheetMapping(reading: SheetReading, headers: string[]): Shee
   };
 }
 
-function signMappedHeaders(reading: SheetReading, headers: string[]): string {
-  const keys = reading.columnMapping.filter((role) => role.field !== 'ignore').map((role) => buildMatchKey(headers[role.columnIndex] ?? ''));
-  return createHash('sha256').update(JSON.stringify(keys.sort())).digest('hex');
+function signHeaderRow(headers: string[]): string {
+  return createHash('sha256').update(JSON.stringify(headers.map(buildMatchKey))).digest('hex');
 }
 
 export type RowAttempt =
