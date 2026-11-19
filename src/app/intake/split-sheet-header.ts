@@ -5,6 +5,7 @@ export type SplitSheet = { headers: string[]; headerRowNumber: number; contextLi
 const SCAN_ROWS = 10;
 const CORROBORATING_ROWS = 3;
 const MIN_HEADER_CELLS = 2;
+const VALUE_LIKE = /^[-+]?[\d.,:/ ]+$/;
 
 export function splitSheetHeader(rows: SheetRow[]): SplitSheet | null {
   const [first] = rows;
@@ -30,8 +31,9 @@ function findHeaderIndex(rows: SheetRow[]): number {
 
 function scoreHeaderRow(row: SheetRow, following: SheetRow[]): number {
   const filled = row.cells.flatMap((cell, column) => (cell === '' ? [] : [column]));
-  const distinct = new Set(row.cells.filter((cell) => cell !== '')).size;
-  if (distinct < MIN_HEADER_CELLS) return 0;
+  const distinctCells = [...new Set(row.cells.filter((cell) => cell !== ''))];
+  if (distinctCells.length < MIN_HEADER_CELLS) return 0;
+  const distinct = distinctCells.length + distinctCells.filter((cell) => !VALUE_LIKE.test(cell)).length;
   const corroboration = following.filter((next) => filled.filter((column) => (next.cells[column] ?? '') !== '').length * 2 >= filled.length).length;
   return distinct + corroboration;
 }

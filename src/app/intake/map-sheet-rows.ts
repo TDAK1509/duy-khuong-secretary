@@ -19,7 +19,7 @@ export type SheetMappingPlan = {
 
 export type SkipReason = 'header' | 'total' | 'no_date' | 'no_plate';
 
-const TOTAL_ROW = /^(tổng|cộng)/iu;
+const TOTAL_ROW = /^(tổng\s*cộng|tổng|cộng)\s*[:.]?\s*$/iu;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function planSheetMapping(reading: SheetReading, headers: string[]): SheetMappingPlan {
@@ -41,21 +41,26 @@ export type RowAttempt =
   | { ok: true; rowNumber: number; draft: DocumentDraft }
   | { ok: false; rowNumber: number; reason: SkipReason };
 
-export function mapRowToDraft(plan: SheetMappingPlan, row: SheetRow, headers: string[]): RowAttempt {
-  const reason = findSkipReason(plan, row, headers);
-  if (reason !== null) return { ok: false, rowNumber: row.rowNumber, reason };
-  const documentDate = parseSheetDate(row.cells[plan.dateIndex] ?? '', plan.dateFormat)!;
+export type DataRow = { row: SheetRow; position: number };
+
+export function mapRowToDraft(plan: SheetMappingPlan, { row, position }: DataRow, headers: string[]): RowAttempt {
+  const checked = checkRow(plan, row, headers);
+  if (!checked.ok) return { ok: false, rowNumber: row.rowNumber, reason: checked.reason };
+  const { documentDate } = checked;
   const plate = readPlate(plan, row.cells);
   const title = readCell(row.cells, plan.titleIndex) ?? [plan.kind, plate, formatVietnamDate(documentDate)].filter((part) => part !== null && part !== '').join(' ');
-  return { ok: true, rowNumber: row.rowNumber, draft: buildDraft(plan, row.cells, { rowNumber: row.rowNumber, documentDate, title, plate }) };
+  return { ok: true, rowNumber: row.rowNumber, draft: buildDraft(plan, row.cells, { itemIndex: position, documentDate, title, plate }) };
 }
 
-function findSkipReason(plan: SheetMappingPlan, { cells }: SheetRow, headers: string[]): SkipReason | null {
-  if (headers.every((header, index) => header === (cells[index] ?? ''))) return 'header';
-  if (TOTAL_ROW.test(cells.find((cell) => cell !== '') ?? '')) return 'total';
-  if (parseSheetDate(cells[plan.dateIndex] ?? '', plan.dateFormat) === null) return 'no_date';
-  if (plan.plateIndex !== null && readPlate(plan, cells) === null) return 'no_plate';
-  return null;
+type CheckedRow = { ok: true; documentDate: string } | { ok: false; reason: SkipReason };
+
+function checkRow(plan: SheetMappingPlan, { cells }: SheetRow, headers: string[]): CheckedRow {
+  if (headers.every((header, index) => header === (cells[index] ?? ''))) return { ok: false, reason: 'header' };
+  if (TOTAL_ROW.test((cells.find((cell) => cell !== '') ?? '').normalize('NFC'))) return { ok: false, reason: 'total' };
+  const documentDate = parseSheetDate(cells[plan.dateIndex] ?? '', plan.dateFormat);
+  if (documentDate === null) return { ok: false, reason: 'no_date' };
+  if (plan.plateIndex !== null && readPlate(plan, cells) === null) return { ok: false, reason: 'no_plate' };
+  return { ok: true, documentDate };
 }
 
 function readPlate(plan: SheetMappingPlan, cells: string[]): string | null {
@@ -72,7 +77,7 @@ function formatVietnamDate(isoDate: string): string {
   return isoDate.split('-').reverse().join('/');
 }
 
-type DraftInputs = { rowNumber: number; documentDate: string; title: string; plate: string | null };
+type DraftInputs = { itemIndex: number; documentDate: string; title: string; plate: string | null };
 
 function buildDraft(plan: SheetMappingPlan, cells: string[], inputs: DraftInputs): DocumentDraft {
   const fields = collectRowFields(plan, cells, inputs);
@@ -106,7 +111,7 @@ function buildReadingItem(kind: string, inputs: DraftInputs, fields: RowFields):
 
 function buildNewRecord(kind: string, inputs: DraftInputs, fields: RowFields): NewRecord {
   return {
-    itemIndex: inputs.rowNumber, category: kind, documentTitle: inputs.title, maintenanceItem: null,
+    itemIndex: inputs.itemIndex, category: kind, documentTitle: inputs.title, maintenanceItem: null,
     vehiclePlate: fields.plate, documentNumber: fields.documentNumber, occurredOn: inputs.documentDate,
     amountVnd: null, identifiers: [], summary: fields.summary, details: fields.details,
   };

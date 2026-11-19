@@ -72,7 +72,7 @@ async function callSheetReader(dependencies: ProcessFilesDependencies, { claim, 
 }
 
 function mapRows({ claim, headers, rows }: FileRows, plan: SheetMappingPlan): FileOutcome {
-  const attempts = rows.map((row) => mapRowToDraft(plan, row, headers));
+  const attempts = rows.map((row, index) => mapRowToDraft(plan, { row, position: index + 1 }, headers));
   const drafts = attempts.flatMap((attempt) => (attempt.ok ? [attempt.draft] : []));
   const skipped = attempts.flatMap((attempt) => (attempt.ok ? [] : [attempt.rowNumber]));
   const text = formatSavedAndSkipped(drafts.length, rows.length, plan.kind, skipped);

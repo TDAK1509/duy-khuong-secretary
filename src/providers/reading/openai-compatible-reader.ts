@@ -79,6 +79,10 @@ function toDataUrl(photo: Photo): string {
 }
 
 function logApiFailure(error: unknown): void {
-  if (error instanceof OpenAI.APIError) console.error(`[reader] api failed status=${error.status ?? 'none'} message=${JSON.stringify(error.message.slice(0, 300))}`);
+  if (error instanceof OpenAI.APIError) console.error(`[reader] api failed status=${error.status ?? 'none'} code=${error.code ?? 'none'} type=${error.type ?? 'none'} message=${JSON.stringify(redactKeys(error.message).slice(0, 300))}`);
   else console.error(`[reader] api failed error=${error instanceof Error ? error.name : 'unknown'}`);
+}
+
+function redactKeys(text: string): string {
+  return text.replace(/sk-[A-Za-z0-9*_-]+/g, 'sk-[redacted]');
 }
