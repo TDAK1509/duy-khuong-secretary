@@ -3,7 +3,6 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import { buildReportWorkbook, type ReportTable } from '../../documents/build-report-workbook.ts';
 import { COLUMN_UNITS } from '../../documents/format-workbook-sheet.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout } from '../../documents/report-layout.ts';
-import { describeIntro, readReportIntro } from '../../documents/report-summary.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { EXPORT_EXPIRES_HOURS, EXPORT_NOT_CONFIGURED_ERROR, storeExcelExport } from './store-excel-export.ts';
 import { failTool, REFUSAL_ERROR } from './tool-result.ts';
@@ -26,12 +25,9 @@ export async function runExportReportXlsx(dependencies: AdminToolDependencies, s
   const problem = findTableProblem(request);
   if (problem !== null) return failTool(problem);
   const choice = readReportLayout(request.layout, request.columns);
-  const layout = choice.kind === 'valid' ? choice.layout : null;
-  const base = { title: request.title, columns: request.columns, createdAt: dependencies.clock.now(), rows: request.rows.map((cells) => readCells(request.columns, cells)), layout };
-  const intro = readReportIntro(request.layout, layout !== null, base);
-  const table = { ...base, ...intro };
+  const table = { title: request.title, columns: request.columns, createdAt: dependencies.clock.now(), rows: request.rows.map((cells) => readCells(request.columns, cells)), layout: choice.layout };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao');
-  return JSON.stringify({ ok: true, url, filename, rows: table.rows.length, layout: describeEffectiveLayout(choice, request.columns), ...describeIntro(intro), expires_hours: EXPORT_EXPIRES_HOURS });
+  return JSON.stringify({ ok: true, url, filename, rows: table.rows.length, layout: describeEffectiveLayout(choice, request.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
 type TableRequest = z.infer<typeof argumentsSchema>;
