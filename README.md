@@ -62,7 +62,7 @@ The `zalo` feature group is on only when `MESSAGING_PROVIDER`, `ZALO_APP_ID`, `Z
 | `CHANNEL_TOKEN_ENCRYPTION_KEY` | none | 64 hex characters, or base64 of exactly 32 bytes (the form Render generates). Any other value stops the start |
 | `PUBLIC_BASE_URL` | `RENDER_EXTERNAL_URL`, else none | Public URL of this service, for example `https://duy-khuong-secretary.onrender.com`. Set it only for a custom domain |
 | `ZALO_VERIFIER_FILE_NAME`, `ZALO_VERIFIER_FILE_CONTENT` | none | Both optional. When both are set, `GET /<file name>` returns the content as `text/html` (Zalo domain verification) |
-| `ZALO_MEDIA_HOSTS` | `zdn.vn,zadn.vn` | Comma-separated hosts that photo downloads may use. A host matches when it equals an entry or ends with `.` plus an entry |
+| `ZALO_MEDIA_HOSTS` | `zdn.vn,zadn.vn,dlfl.vn` | Comma-separated hosts that photo and file downloads may use. `dlfl.vn` was seen as the file host in a verified Zalo webhook; its ownership is not confirmed. A host matches when it equals an entry or ends with `.` plus an entry |
 | `ZALO_OA_SECRET` | none | The OA secret key shown in the Zalo app's webhook settings; turns the webhook on |
 | `ALERT_PROVIDER` | `log` | `log` writes alerts to the error log; `webhook` posts `{"text":"..."}` to `ALERT_WEBHOOK_URL` |
 | `ALERT_WEBHOOK_URL` | none | Required when `ALERT_PROVIDER=webhook`; the start fails without it |
@@ -106,6 +106,8 @@ The operator gets `[alert] Zalo send got no answer for outbound message <id>. It
 Everything a person in a workspace sends is stored in the `messages` table, in their chat of the workspace they chose. A photo is downloaded from Zalo at once and kept in the private bucket under `<workspace id>/<message id>.jpg` (or `.png`). Every reply is also stored as a bot message. A photo over 5 MB, a file that is not JPEG or PNG (the first bytes are checked; the server never decodes the image), or a download that fails gets its own reply and stores no message.
 
 The download uses `https` only, from a host in `ZALO_MEDIA_HOSTS`. It follows at most 3 redirects, checks each target the same way, and refuses a host whose addresses are loopback, private, link-local, unique-local or unspecified. A refused URL is logged without its query string.
+
+An admin's `.xlsx` or `.csv` file goes through the same download rules. A failed download is logged as `[intake] file download failed: <reason>` (`host_refused` for a host outside the list, `network` for a connection error or a host whose addresses are not public, `http` for a non-2xx answer or too many redirects; never the URL) and the admin gets "Không tải được file này. Vui lòng gửi lại. Nếu vẫn không được, báo cho người quản trị hệ thống." A file whose bytes are not a real `.xlsx` or `.csv` is logged as `[intake] file is not a sheet: <event id>` and the admin gets "File này không phải file Excel (.xlsx) hoặc CSV đọc được. Kiểm tra lại file rồi gửi lại." A file over 5 MB gets "File quá lớn, tối đa 5 MB." No file event ends without a reply.
 
 The `photos` group is on only when `PHOTO_STORAGE` and every `S3_*` value except `S3_FORCE_PATH_STYLE` are set. While it is off the service logs `[config] photos is off; missing: <NAMES>.` and photo messages wait; texts are still stored.
 
