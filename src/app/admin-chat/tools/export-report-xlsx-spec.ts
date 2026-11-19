@@ -1,4 +1,5 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
+import { REPORT_LAYOUT_PROPERTY } from './report-layout-spec.ts';
 
 export const EXPORT_REPORT_XLSX_SPEC: ToolSpec = {
   name: 'export_report_xlsx',
@@ -26,13 +27,14 @@ export const EXPORT_REPORT_XLSX_SPEC: ToolSpec = {
           additionalProperties: false,
         },
       },
+      layout: REPORT_LAYOUT_PROPERTY,
       rows: {
         type: 'array',
         description: 'Các dòng, tối đa 5000 dòng. Mỗi dòng là danh sách ô theo đúng thứ tự cột, mỗi ô là chữ. Ô của cột số ghi số không có dấu phân cách hàng nghìn, dùng dấu chấm cho phần thập phân, ví dụ "654260" hoặc "56.38". Ô trống ghi null.',
         items: { type: 'array', items: { type: ['string', 'null'] } },
       },
     },
-    required: ['title', 'columns', 'rows'],
+    required: ['title', 'columns', 'rows', 'layout'],
     additionalProperties: false,
   },
 };
