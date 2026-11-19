@@ -3,8 +3,6 @@ import type { DropOffInference } from './infer-drop-offs.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
 
-export const INFERRED_MARK = '(AI suy luận ra)';
-
 const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
 
 export function describeDropOffNotes(inference: DropOffInference, papers: TripPaper[]): NoteBlock[] {

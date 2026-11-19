@@ -15,7 +15,7 @@ const INTEGER_FORMAT = '#,##0';
 const DECIMAL_FORMAT = '#,##0.00';
 const DATE_FORMAT = 'dd/mm/yyyy';
 const TOTAL_LABEL = 'Tổng cộng';
-const INFERRED_MARK = '(AI suy luận ra)';
+export const INFERRED_MARK = '(AI suy luận ra)';
 
 export const HOUSE_COLORS = { darkBlue: 'FF1F3864', white: 'FFFFFFFF', bandFill: 'FFF2F5FA', rowLine: 'FFD0D7E2', totalFill: 'FFDCE6F2', infoGrey: 'FF595959', inferredAmber: 'FF7F6000' } as const;
 
@@ -50,10 +50,6 @@ export function formatDateCell(cell: ExcelJS.Cell, isoDate: string): void {
   cell.numFmt = DATE_FORMAT;
 }
 
-export function isAdditiveUnit(unit: ColumnUnit | null): boolean {
-  return unit !== null && ADDITIVE_UNITS.includes(unit);
-}
-
 function applyUnitFormats(sheet: ExcelJS.Worksheet, { units, lastDataRow }: SheetLayout): void {
   units.forEach((unit, index) => {
     if (unit === null || unit === 'rate') return;
@@ -76,8 +72,17 @@ function addTotalRow(sheet: ExcelJS.Worksheet, { units, lastDataRow }: SheetLayo
   const labelColumn = units.findIndex((_, index) => !totaled.includes(index));
   if (labelColumn >= 0) row.getCell(labelColumn + 1).value = TOTAL_LABEL;
   for (const index of totaled) writeTotalCell(sheet, row.getCell(index + 1), { column: index + 1, lastDataRow, unit: units[index]! });
+  if (labelColumn < 0) labelTotalByFormat(row.getCell(totaled[0]! + 1));
   styleTotalRow(row, units.length);
   return lastDataRow + 1;
+}
+
+function isAdditiveUnit(unit: ColumnUnit | null): boolean {
+  return unit !== null && ADDITIVE_UNITS.includes(unit);
+}
+
+function labelTotalByFormat(cell: ExcelJS.Cell): void {
+  cell.numFmt = `"${TOTAL_LABEL}: "${cell.numFmt}`;
 }
 
 type TotalTarget = { column: number; lastDataRow: number; unit: ColumnUnit };
