@@ -63,12 +63,6 @@ function chooseUnitFormat(unit: ColumnUnit, value: number): string {
   return UNIT_FORMATS[unit];
 }
 
-
-
-function listTotalColumns({ units }: SheetLayout): number[] {
-  return units.flatMap((unit, index) => (isAdditiveUnit(unit) ? [index] : []));
-}
-
 function addTotalRow(sheet: ExcelJS.Worksheet, layout: SheetLayout): number {
   const { units, lastDataRow } = layout;
   const totaled = listTotalColumns(layout);
@@ -80,6 +74,10 @@ function addTotalRow(sheet: ExcelJS.Worksheet, layout: SheetLayout): number {
   if (labelColumn < 0) labelTotalByFormat(row.getCell(totaled[0]! + 1));
   styleTotalRow(row, units.length);
   return lastDataRow + 1;
+}
+
+function listTotalColumns({ units }: SheetLayout): number[] {
+  return units.flatMap((unit, index) => (isAdditiveUnit(unit) ? [index] : []));
 }
 
 function labelTotalByFormat(cell: ExcelJS.Cell): void {
