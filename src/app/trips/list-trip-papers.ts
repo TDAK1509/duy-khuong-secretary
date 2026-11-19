@@ -13,6 +13,7 @@ export type TripPaper = {
   vehicle_plate: string | null;
   document_number: string | null;
   kind: string;
+  stage: string | null;
   route_pickup: string | null;
   route_dropoff: string | null;
   route_customer: string | null;
@@ -42,7 +43,7 @@ const IS_TRIP_PAPER = `(document.stage = 'dispatch' OR route.id IS NOT NULL)`;
 export async function listTripPapers(database: Database, query: TripPaperQuery): Promise<TripPaper[]> {
   const where = buildTripWhere(query, ACCEPTED_CONFIRMED);
   const { rows } = await database.query<TripPaper>(
-    `SELECT document.id, to_char(document.document_date, 'YYYY-MM-DD') AS document_date, document.vehicle_plate, document.document_number, document.kind,
+    `SELECT document.id, to_char(document.document_date, 'YYYY-MM-DD') AS document_date, document.vehicle_plate, document.document_number, document.kind, document.stage,
        route.pickup_name AS route_pickup, route.dropoff_name AS route_dropoff, route.customer_name AS route_customer, route.pickup_match_key AS route_pickup_key,
        issuer.printed_name AS issuer_name, issuer.company_id AS issuer_company_id,
        customer.printed_name AS customer_party,
