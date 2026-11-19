@@ -36,18 +36,12 @@ export function formatParseFailure(fileName: string): string {
 export const SHEET_CAPTION_USED_TEXT = 'Đã đọc theo ghi chú kèm file.';
 export const SHEET_READER_FAILURE_TEXT = 'Trợ lý không đọc được file. Gửi lại hoặc kiểm tra định dạng.';
 
-export function formatSavedAndSkipped(savedCount: number, totalCount: number, kind: string, skipped: number[]): string {
-  if (skipped.length === 0) return formatAllSaved(totalCount, kind);
-  if (savedCount === 0) return formatNoneSaved(skipped);
-  return `Đã lưu ${savedCount}/${totalCount} dòng vào chứng từ "${kind}". Bỏ qua các dòng: ${skipped.join(', ')}.`;
-}
+export type SheetResult = { kind: string; added: number; updated: number; skipped: number[]; duplicates: number[] };
 
-function formatAllSaved(totalCount: number, kind: string): string {
-  return `Đã lưu ${totalCount} dòng vào chứng từ "${kind}".`;
-}
-
-function formatNoneSaved(skipped: number[]): string {
-  return `Không lưu được dòng nào. Bỏ qua các dòng: ${skipped.join(', ')}.`;
+export function formatSheetResult({ kind, added, updated, skipped, duplicates }: SheetResult): string {
+  const skippedCount = skipped.length + duplicates.length;
+  const details = [skipped.length > 0 ? `dòng ${skipped.join(', ')}` : '', duplicates.length > 0 ? `trùng: dòng ${duplicates.join(', ')}` : ''].filter((part) => part !== '').join('; ');
+  return `Chứng từ "${kind}": ${added} dòng mới, ${updated} dòng cập nhật, ${skippedCount} dòng bỏ qua${details === '' ? '' : ` (${details})`}.`;
 }
 
 function toKilobytes(bytes: number): number {

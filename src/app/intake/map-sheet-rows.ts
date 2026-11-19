@@ -3,6 +3,7 @@ import type { ReadingItem } from '../reading/reading.ts';
 import type { NewRecord, RecordDetail } from '../records/new-record.ts';
 import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
 import { normalizeCode } from '../reading/normalize.ts';
+import { buildSheetLine } from './sheet-line-values.ts';
 import type { SheetDateFormat, SheetMappingField, SheetReading } from './sheet-reader-schema.ts';
 
 export type SheetMappingPlan = {
@@ -102,10 +103,11 @@ function buildPlannedItem(kind: string, inputs: DraftInputs, fields: RowFields):
 }
 
 function buildReadingItem(kind: string, inputs: DraftInputs, fields: RowFields): ReadingItem {
+  const lines = fields.details.filter((detail) => detail.value.trim() !== '').map((detail) => buildSheetLine(detail.label, detail.value));
   return {
     category: kind, document_title: inputs.title, maintenance_item: null, occurred_on: inputs.documentDate,
     amount_vnd: null, identifiers: [], vehicle_plate: fields.plate, document_number: fields.documentNumber,
-    document_kind: kind, stage: null, parties: [], details: [],
+    document_kind: kind, stage: null, parties: [], details: lines,
   };
 }
 

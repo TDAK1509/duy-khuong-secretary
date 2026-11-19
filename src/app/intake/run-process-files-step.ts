@@ -10,12 +10,14 @@ import type { HeldFiles } from '../sheet-files/held-files.ts';
 import { runFileStep, type FileOutcome, type FileWork, type RenewLease } from '../sheet-files/run-file-step.ts';
 import { OUT_OF_CREDIT_TEXT } from './intake-texts.ts';
 import { mapRowToDraft, planSheetMapping, type SheetMappingPlan } from './map-sheet-rows.ts';
+import type { DocumentDraft } from '../documents/document-draft.ts';
+import { describeSheetIdentity, type SavedCounts, type SheetDraft } from '../sheet-files/save-sheet-drafts.ts';
 import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
 import { parseSheet } from './parse-sheet.ts';
 import { readSheet, type SheetReadOutcome } from './read-sheet.ts';
 import {
   formatParseFailure,
-  formatSavedAndSkipped,
+  formatSheetResult,
   formatTooManyRows,
   MAX_SHEET_ROWS,
   SHEET_CAPTION_USED_TEXT,
@@ -73,8 +75,27 @@ async function callSheetReader(dependencies: ProcessFilesDependencies, { claim, 
 
 function mapRows({ claim, headers, rows }: FileRows, plan: SheetMappingPlan): FileOutcome {
   const attempts = rows.map((row, index) => mapRowToDraft(plan, { row, position: index + 1 }, headers));
-  const drafts = attempts.flatMap((attempt) => (attempt.ok ? [attempt.draft] : []));
   const skipped = attempts.flatMap((attempt) => (attempt.ok ? [] : [attempt.rowNumber]));
-  const text = formatSavedAndSkipped(drafts.length, rows.length, plan.kind, skipped);
-  return { text: claim.caption === null ? text : `${SHEET_CAPTION_USED_TEXT} ${text}`, finishesFile: true, drafts };
+  const { drafts, duplicates } = dropDuplicateRows(attempts.flatMap((attempt) => (attempt.ok ? [attempt] : [])), plan.numberIndex !== null);
+  const describe = (counts: SavedCounts) => {
+    const text = formatSheetResult({ kind: plan.kind, ...counts, skipped, duplicates });
+    return claim.caption === null ? text : `${SHEET_CAPTION_USED_TEXT} ${text}`;
+  };
+  return { text: describe({ added: 0, updated: 0 }), finishesFile: true, sheet: { drafts, describe } };
+}
+
+type SavedRow = { rowNumber: number; draft: DocumentDraft };
+
+function dropDuplicateRows(rows: SavedRow[], matchesNumber: boolean): { drafts: SheetDraft[]; duplicates: number[] } {
+  const seen = new Set<string>();
+  const drafts: SheetDraft[] = [];
+  const duplicates: number[] = [];
+  for (const { rowNumber, draft } of rows) {
+    const sheetDraft = { draft, matchesNumber };
+    const identity = describeSheetIdentity(sheetDraft);
+    if (seen.has(identity)) duplicates.push(rowNumber);
+    else drafts.push(sheetDraft);
+    seen.add(identity);
+  }
+  return { drafts, duplicates };
 }
