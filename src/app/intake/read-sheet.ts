@@ -18,5 +18,7 @@ export async function readSheet(reader: ReaderService, input: SheetReaderInput):
     schema: SHEET_READER_SCHEMA,
   });
   if (!result.ok) return { ok: false };
-  return validateSheetReading(result.json);
+  const attempt = validateSheetReading(result.json, input.headers.length);
+  if (!attempt.ok) console.error(`[sheet-reader] answer rejected reason=${attempt.reason}`);
+  return attempt.ok ? attempt : { ok: false };
 }

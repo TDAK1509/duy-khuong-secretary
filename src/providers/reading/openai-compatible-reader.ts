@@ -37,6 +37,7 @@ export class OpenAiCompatibleReader implements ReaderService {
       return parseReply(completion);
     } catch (error) {
       if (error instanceof OpenAI.APIConnectionTimeoutError) return { ok: false, reason: 'timeout' };
+      logApiFailure(error);
       return { ok: false, reason: 'unavailable' };
     }
   }
@@ -75,4 +76,9 @@ function buildUserContent(request: ReaderRequest): OpenAI.Chat.ChatCompletionCon
 
 function toDataUrl(photo: Photo): string {
   return `data:${photo.contentType};base64,${Buffer.from(photo.bytes).toString('base64')}`;
+}
+
+function logApiFailure(error: unknown): void {
+  if (error instanceof OpenAI.APIError) console.error(`[reader] api failed status=${error.status ?? 'none'} message=${JSON.stringify(error.message.slice(0, 300))}`);
+  else console.error(`[reader] api failed error=${error instanceof Error ? error.name : 'unknown'}`);
 }

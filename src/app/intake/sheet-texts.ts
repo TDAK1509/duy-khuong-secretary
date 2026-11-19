@@ -12,8 +12,17 @@ export function formatSheetReceipt(fileName: string, fileSizeBytes: number): str
   return `Đã nhận file "${fileName}" (${toKilobytes(fileSizeBytes)} KB).`;
 }
 
-export function formatHeadersFound(fileName: string, rowCount: number, headers: string[]): string {
-  return `File "${fileName}" có ${rowCount} dòng dữ liệu với các cột: ${headers.join(', ')}.`;
+export type FoundHeaders = { rowCount: number; headers: string[]; headerRowNumber: number };
+
+export function formatHeadersFound(fileName: string, { rowCount, headers, headerRowNumber }: FoundHeaders): string {
+  const headerNote = headerRowNumber === 1 ? '' : ` (dòng tiêu đề: ${headerRowNumber})`;
+  return `File "${fileName}" có ${rowCount} dòng dữ liệu với các cột${headerNote}: ${headers.filter((header) => header !== '').join(', ')}.`;
+}
+
+export const MAX_SHEET_ROWS = 5000;
+
+export function formatTooManyRows(fileName: string, maxRows: number): string {
+  return `File "${fileName}" có hơn ${maxRows} dòng dữ liệu. Vui lòng chia thành nhiều file nhỏ hơn rồi gửi lại.`;
 }
 
 export function formatNoDataRows(fileName: string): string {
@@ -24,8 +33,6 @@ export function formatParseFailure(fileName: string): string {
   return `File "${fileName}" không đọc được. Kiểm tra định dạng và gửi lại.`;
 }
 
-export const SHEET_MISSING_DATE_COLUMN_TEXT = 'Không nhận diện được cột ngày. Kiểm tra lại file.';
-export const SHEET_MISSING_TITLE_COLUMN_TEXT = 'Không nhận diện được cột tiêu đề. Kiểm tra lại file.';
 export const SHEET_CAPTION_USED_TEXT = 'Đã đọc theo ghi chú kèm file.';
 export const SHEET_READER_FAILURE_TEXT = 'Trợ lý không đọc được file. Gửi lại hoặc kiểm tra định dạng.';
 
