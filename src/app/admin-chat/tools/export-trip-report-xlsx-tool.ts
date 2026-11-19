@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
+import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { buildTripReport, GOODS_VALUE_KEY, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
@@ -33,6 +34,7 @@ const argumentsSchema = z.strictObject({
   date_to: z.string(),
   plate: z.string().nullable(),
   columns: z.array(columnSchema),
+  layout: layoutArgumentSchema,
 });
 
 type TripReportRequest = z.infer<typeof argumentsSchema>;
@@ -99,8 +101,10 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const winners = await listWinningValues(database, scope.workspaceId, papers.map((paper) => paper.id), listValueKeys(columns));
   const dropOffs = hasRouteColumn(columns) ? await inferDropOffs(database, dropOffReader, { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, papers }) : null;
   const report = buildTripReport({ title: request.title, createdAt, columns, papers, winners, reviewPapers: await countReviewTripPapers(database, query), dropOffs });
-  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(report.table), 'bao-cao-chuyen');
-  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), expires_hours: EXPORT_EXPIRES_HOURS });
+  const choice = readReportLayout(request.layout, report.table.columns);
+  const table = { ...report.table, layout: choice.kind === 'valid' ? choice.layout : null };
+  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
+  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
 function hasRouteColumn(columns: TripColumn[]): boolean {
