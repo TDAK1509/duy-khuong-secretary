@@ -14,7 +14,7 @@ const LINK_MATCHES_SQL = `
   JOIN documents document ON document.workspace_id = fact.workspace_id
   WHERE fact.workspace_id = $1
     AND ($2::uuid IS NULL OR fact.id = $2)
-    AND ($3::uuid IS NULL OR document.id = $3)
+    AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
     AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup', ['issuer', 'place'])})
@@ -30,7 +30,12 @@ export async function linkFactToMatchingDocuments(transaction: Transaction, work
 }
 
 export async function linkDocumentToMatchingFacts(transaction: Transaction, workspaceId: string, documentId: string): Promise<void> {
-  await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentId]);
+  await linkDocumentsToMatchingFacts(transaction, workspaceId, [documentId]);
+}
+
+export async function linkDocumentsToMatchingFacts(transaction: Transaction, workspaceId: string, documentIds: string[]): Promise<void> {
+  if (documentIds.length === 0) return;
+  await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentIds]);
 }
 
 function buildCompanyMatch(slot: CompanySlot, roles: string[]): string {

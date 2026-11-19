@@ -3,9 +3,9 @@ import type { Database } from '../db/transaction.ts';
 import { enqueueFileReply, findFileRecipient } from './enqueue-file-reply.ts';
 import { claimFile, completeFileStep, extendFileLease, FileClaimLostError, LEASE_MS, releaseFileForRetry, writeFenced, type FileClaim, type FileStep } from './file-claims.ts';
 import type { HeldFiles } from './held-files.ts';
-import { saveSheetDrafts, type SavedCounts, type SheetDraft } from './save-sheet-drafts.ts';
+import { saveSheetDrafts, type SavedCounts, type SheetBatch } from './save-sheet-drafts.ts';
 
-export type SheetSave = { drafts: SheetDraft[]; describe(counts: SavedCounts): string };
+export type SheetSave = { batch: SheetBatch; describe(counts: SavedCounts): string };
 
 export type FileOutcome = { finishesFile: boolean } & ({ text: string } | { sheet: SheetSave });
 
@@ -58,7 +58,7 @@ async function commitOutcome(dependencies: FileStepDependencies, claim: FileClai
       console.log(`[files] admin gone file=${claim.fileId}`);
       return completeFileStep(transaction, claim, { finishesFile: true }, now);
     }
-    const text = 'sheet' in outcome ? outcome.sheet.describe(await saveSheetDrafts(transaction, claim, outcome.sheet.drafts)) : outcome.text;
+    const text = 'sheet' in outcome ? outcome.sheet.describe(await saveSheetDrafts(transaction, claim, outcome.sheet.batch)) : outcome.text;
     await enqueueFileReply(transaction, { recipient, text, now, maxTextLength: dependencies.maxTextLength });
     await completeFileStep(transaction, claim, { finishesFile: outcome.finishesFile }, now);
   });

@@ -20,7 +20,7 @@ export async function insertDocument(
   await linkDocumentToMatchingFacts(transaction, message.workspaceId, documentId);
 }
 
-function buildDocumentRow({ workspaceId, driverUserId }: DocumentMessage, draft: DocumentDraft): Record<string, unknown> {
+export function buildDocumentRow({ workspaceId, driverUserId }: DocumentMessage, draft: DocumentDraft): Record<string, unknown> {
   const { item, record } = draft.items[0] ?? failEmptyDraft();
   return {
     workspace_id: workspaceId,
