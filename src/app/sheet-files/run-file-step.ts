@@ -1,13 +1,13 @@
 import type { Clock } from '../../services/clock/clock.ts';
-import type { Database, Transaction } from '../db/transaction.ts';
-import type { DocumentDraft } from '../documents/document-draft.ts';
-import { insertDocument } from '../documents/insert-document.ts';
-import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
+import type { Database } from '../db/transaction.ts';
 import { enqueueFileReply, findFileRecipient } from './enqueue-file-reply.ts';
 import { claimFile, completeFileStep, extendFileLease, FileClaimLostError, LEASE_MS, releaseFileForRetry, writeFenced, type FileClaim, type FileStep } from './file-claims.ts';
 import type { HeldFiles } from './held-files.ts';
+import { saveSheetDrafts, type SavedCounts, type SheetDraft } from './save-sheet-drafts.ts';
 
-export type FileOutcome = { text: string; finishesFile: boolean; drafts?: DocumentDraft[] };
+export type SheetSave = { drafts: SheetDraft[]; describe(counts: SavedCounts): string };
+
+export type FileOutcome = { finishesFile: boolean } & ({ text: string } | { sheet: SheetSave });
 
 export type RenewLease = () => Promise<void>;
 
@@ -58,14 +58,8 @@ async function commitOutcome(dependencies: FileStepDependencies, claim: FileClai
       console.log(`[files] admin gone file=${claim.fileId}`);
       return completeFileStep(transaction, claim, { finishesFile: true }, now);
     }
-    await saveDrafts(transaction, claim, outcome.drafts ?? []);
-    await enqueueFileReply(transaction, { recipient, text: outcome.text, now, maxTextLength: dependencies.maxTextLength });
+    const text = 'sheet' in outcome ? outcome.sheet.describe(await saveSheetDrafts(transaction, claim, outcome.sheet.drafts)) : outcome.text;
+    await enqueueFileReply(transaction, { recipient, text, now, maxTextLength: dependencies.maxTextLength });
     await completeFileStep(transaction, claim, { finishesFile: outcome.finishesFile }, now);
   });
-}
-
-async function saveDrafts(transaction: Transaction, claim: FileClaim, drafts: DocumentDraft[]): Promise<void> {
-  if (drafts.length === 0) return;
-  await lockWorkspaceRecords(transaction, claim.workspaceId);
-  for (const draft of drafts) await insertDocument(transaction, { id: claim.messageId, workspaceId: claim.workspaceId }, draft);
 }
