@@ -1,5 +1,5 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
-import { buildMatchKey } from '../documents/build-match-key.ts';
+import { GOODS_VALUE_KEY } from '../facts/fact.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
@@ -33,7 +33,7 @@ export type TripReport = {
   dropOffs: DropOffInference | null;
 };
 
-export const GOODS_VALUE_KEY = buildMatchKey('Hàng hóa');
+export { GOODS_VALUE_KEY };
 const NO_PLATE = '(không biển số)';
 
 type CellSources = { index: Map<string, WinningValue>; inferred: Map<string, InferredDropOff> };
@@ -75,10 +75,14 @@ function readField(field: TripField, paper: TripPaper, { index, inferred }: Cell
 }
 
 function describeRoute(paper: TripPaper, inferred: InferredDropOff | undefined): string | null {
-  const pickup = paper.route_pickup ?? (paper.route_dropoff === null ? paper.issuer_name : null);
+  const pickup = paper.route_pickup ?? (paper.route_dropoff === null ? readDispatchIssuer(paper) : null);
   if (pickup === null && paper.route_dropoff === null) return null;
   if (inferred !== undefined) return `${pickup ?? '?'} → ${inferred.dropOff} ${INFERRED_MARK}`;
   return `${pickup ?? '?'} → ${paper.route_dropoff ?? '?'}`;
+}
+
+export function readDispatchIssuer(paper: TripPaper): string | null {
+  return paper.stage === 'dispatch' ? paper.issuer_name : null;
 }
 
 function readWinner(winner: WinningValue | undefined): ReportCell {
@@ -132,8 +136,9 @@ export function groupPossibleDuplicates(papers: TripPaper[]): TripPaper[][] {
 }
 
 function readPickupKey(paper: TripPaper): string | null {
-  if (paper.issuer_company_id !== null) return `company:${paper.issuer_company_id}`;
-  return paper.route_pickup_key === null ? null : `name:${paper.route_pickup_key}`;
+  if (paper.route_pickup_key !== null) return `name:${paper.route_pickup_key}`;
+  if (paper.route_dropoff !== null || paper.stage !== 'dispatch') return null;
+  return paper.issuer_company_id === null ? null : `company:${paper.issuer_company_id}`;
 }
 
 function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
@@ -141,7 +146,7 @@ function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
   return {
     plate: first.vehicle_plate ?? NO_PLATE,
     date: first.document_date ?? '',
-    pickup: first.issuer_name ?? first.route_pickup ?? '',
+    pickup: first.route_pickup ?? readDispatchIssuer(first) ?? '',
     documentNumbers: group.map((paper) => paper.document_number ?? NO_NUMBER),
   };
 }

@@ -1,12 +1,13 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import { type FactCompany, type FactScope, type FactValue, type NewFact } from './fact.ts';
+import { type FactCompany, type FactValue, type NewFact } from './fact.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { replaceSlotCompanies, storeFactCompanies } from './fact-companies.ts';
 import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
-import { describeNewSide, findSameRouteFacts, isRouteIdentity, type RouteFact, type RouteIdentity } from './route-fact-identity.ts';
+import { describeNewSide, findSameRouteFacts, isRouteIdentity, readGoodsKey, type RouteFact, type RouteIdentity } from './route-fact-identity.ts';
+import { GOODS_VALUE_KEY } from './fact.ts';
 
 export type SaveFactResult =
   | { action: 'added'; factId: string; linkedDocuments: number }
@@ -34,21 +35,24 @@ export type SaveOptions = { targetFactId: string | null; updateValues: FactValue
 export function saveFact(database: Database, fact: NewFact, { targetFactId, updateValues }: SaveOptions): Promise<SaveFactResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, fact.workspaceId);
-    const identity = describeIdentity(fact.scope);
+    const identity = describeIdentity(fact);
     if (!isRouteIdentity(identity)) return targetFactId === null ? addFact(transaction, fact) : { action: 'not_same_route' };
-    const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity);
     if (targetFactId !== null) {
-      const target = matches.find((match) => match.id === targetFactId);
+      const target = (await findSameRouteFacts(transaction, fact.workspaceId, { ...identity, goods: null })).find((match) => match.id === targetFactId);
       return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, { ...fact, values: updateValues }, target);
     }
+    const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity);
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
     const [match] = matches;
     return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, { ...fact, values: updateValues }, match);
   });
 }
 
-function describeIdentity(scope: FactScope): RouteIdentity {
-  return { vehiclePlate: scope.vehiclePlate, driverUserId: scope.driverUserId, pickup: describeNewSide(scope.pickup), dropoff: describeNewSide(scope.dropoff), customer: describeNewSide(scope.customer) };
+function describeIdentity({ scope, values }: NewFact): RouteIdentity {
+  return {
+    vehiclePlate: scope.vehiclePlate, driverUserId: scope.driverUserId, goods: readGoodsKey(values),
+    pickup: describeNewSide(scope.pickup), dropoff: describeNewSide(scope.dropoff), customer: describeNewSide(scope.customer),
+  };
 }
 
 async function addFact(transaction: Transaction, fact: NewFact): Promise<SaveFactResult> {
@@ -67,6 +71,7 @@ async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: 
   if (changes.length > 0) await applyValueChanges(transaction, fact.workspaceId, factId, changes);
   if (changes.length > 0 || restoredSlots.length > 0) await prependStatement(transaction, fact, factId);
   if (restoredSlots.length > 0) await restorePicks(transaction, fact, factId, restoredSlots);
+  if (restoredSlots.length > 0 || changes.some((change) => change.matchKey === GOODS_VALUE_KEY)) await relinkFact(transaction, fact.workspaceId, factId);
   const [links] = await transaction.query<{ count: number }>(COUNT_LINKS_SQL, [factId, fact.workspaceId]);
   return { action: 'updated', factId, linkedDocuments: links?.count ?? 0, changes, restoredSlots, stored };
 }
@@ -76,8 +81,11 @@ async function restorePicks(transaction: Transaction, fact: NewFact, factId: str
     await replaceSlotCompanies(transaction, fact.workspaceId, factId, slot, fact.scope[slot]?.organizationIds ?? null);
     await transaction.query(`UPDATE facts SET ${slot}_resolved = true WHERE id = $1 AND workspace_id = $2`, [factId, fact.workspaceId]);
   }
-  await transaction.query('DELETE FROM document_facts WHERE fact_id = $1 AND workspace_id = $2', [factId, fact.workspaceId]);
-  await linkFactToMatchingDocuments(transaction, fact.workspaceId, factId);
+}
+
+async function relinkFact(transaction: Transaction, workspaceId: string, factId: string): Promise<void> {
+  await transaction.query('DELETE FROM document_facts WHERE fact_id = $1 AND workspace_id = $2', [factId, workspaceId]);
+  await linkFactToMatchingDocuments(transaction, workspaceId, factId);
 }
 
 function isRealChange({ before, after }: ValueChange): boolean {

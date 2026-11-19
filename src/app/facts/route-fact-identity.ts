@@ -1,10 +1,11 @@
 import type { Transaction } from '../db/transaction.ts';
-import type { FactCompany } from './fact.ts';
+import { buildMatchKey } from '../documents/build-match-key.ts';
+import { GOODS_VALUE_KEY, type FactCompany, type FactValue } from './fact.ts';
 import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
 
 export type RouteSide = { matchKey: string | null; resolved: boolean; picks: string[] };
 
-export type RouteIdentity = { vehiclePlate: string | null; driverUserId: string | null } & Record<CompanySlot, RouteSide>;
+export type RouteIdentity = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null } & Record<CompanySlot, RouteSide>;
 
 export type RouteFact = RouteIdentity & { id: string; pickupName: string | null; dropoffName: string | null; customerName: string | null };
 
@@ -24,13 +25,15 @@ type RouteFactRow = {
   customer_match_key: string | null;
   customer_resolved: boolean;
   customer_picks: string[];
+  goods: string | null;
 };
 
 const SELECT_ROUTE_FACTS_SQL = `
   SELECT fact.id, fact.vehicle_plate, fact.driver_user_id,
     fact.pickup_name, fact.pickup_match_key, fact.pickup_resolved, ${buildPicksSql('pickup')} AS pickup_picks,
     fact.dropoff_name, fact.dropoff_match_key, fact.dropoff_resolved, ${buildPicksSql('dropoff')} AS dropoff_picks,
-    fact.customer_name, fact.customer_match_key, fact.customer_resolved, ${buildPicksSql('customer')} AS customer_picks
+    fact.customer_name, fact.customer_match_key, fact.customer_resolved, ${buildPicksSql('customer')} AS customer_picks,
+    (SELECT value.text_value FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}') AS goods
   FROM facts fact`;
 
 const LIST_ROUTE_FACTS_SQL = `${SELECT_ROUTE_FACTS_SQL}
@@ -46,6 +49,11 @@ export function isRouteIdentity(identity: RouteIdentity): boolean {
   return identity.pickup.matchKey !== null || identity.dropoff.matchKey !== null;
 }
 
+export function readGoodsKey(values: FactValue[]): string {
+  const goods = values.find((value) => value.matchKey === GOODS_VALUE_KEY)?.content;
+  return goods?.kind === 'text' ? buildMatchKey(goods.text) : '';
+}
+
 export function describeNewSide(company: FactCompany | null): RouteSide {
   return { matchKey: company?.matchKey ?? null, resolved: company !== null && company.organizationIds !== null, picks: company?.organizationIds ?? [] };
 }
@@ -54,17 +62,17 @@ export async function findSameRouteFacts(transaction: Transaction, workspaceId: 
   const rows = await transaction.query<RouteFactRow>(LIST_ROUTE_FACTS_SQL, [workspaceId, identity.vehiclePlate, identity.driverUserId]);
   const facts = rows.map(toRouteFact);
   const aliases = await loadAliases(transaction, workspaceId, [identity, ...facts]);
-  return facts.filter((fact) => COMPANY_SLOTS.every((slot) => isSameCompany(identity[slot], fact[slot], aliases)));
+  return facts.filter((fact) => isSameGoods(identity, fact) && COMPANY_SLOTS.every((slot) => isSameCompany(identity[slot], fact[slot], aliases)));
 }
 
-export type ScopeOwner = { vehiclePlate: string | null; driverUserId: string | null };
+export type ScopeOwner = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null };
 
 export async function findRouteFactTwin(transaction: Transaction, workspaceId: string, factId: string, owner: ScopeOwner): Promise<RouteFact | null> {
   const [row] = await transaction.query<RouteFactRow>(LOAD_ROUTE_FACT_SQL, [factId, workspaceId]);
   if (row === undefined) return null;
   const fact = toRouteFact(row);
   if (!isRouteIdentity(fact)) return null;
-  const matches = await findSameRouteFacts(transaction, workspaceId, { ...fact, ...owner });
+  const matches = await findSameRouteFacts(transaction, workspaceId, { ...fact, vehiclePlate: owner.vehiclePlate, driverUserId: owner.driverUserId, goods: owner.goods ?? fact.goods });
   return matches.find((match) => match.id !== factId) ?? null;
 }
 
@@ -80,6 +88,7 @@ function toRouteFact(row: RouteFactRow): RouteFact {
     pickupName: row.pickup_name,
     dropoffName: row.dropoff_name,
     customerName: row.customer_name,
+    goods: buildMatchKey(row.goods ?? ''),
     pickup: { matchKey: row.pickup_match_key, resolved: row.pickup_resolved, picks: row.pickup_picks },
     dropoff: { matchKey: row.dropoff_match_key, resolved: row.dropoff_resolved, picks: row.dropoff_picks },
     customer: { matchKey: row.customer_match_key, resolved: row.customer_resolved, picks: row.customer_picks },
@@ -94,6 +103,10 @@ async function loadAliases(transaction: Transaction, workspaceId: string, identi
   const index: AliasIndex = new Map();
   for (const row of rows) index.set(row.match_key, new Set([...(index.get(row.match_key) ?? []), row.organization_id]));
   return index;
+}
+
+function isSameGoods(identity: RouteIdentity, fact: RouteIdentity): boolean {
+  return identity.goods === null || fact.goods === null || identity.goods === fact.goods;
 }
 
 function isSameCompany(first: RouteSide, second: RouteSide, aliases: AliasIndex): boolean {
