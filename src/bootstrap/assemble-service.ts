@@ -35,6 +35,7 @@ import { loadPhotoCleanupConfig } from './photo-cleanup-config.ts';
 import { loadPhotoStorageConfig, type PhotoStorageConfig } from './photo-storage-config.ts';
 import { loadReportTemplateConfig } from './report-template-config.ts';
 import { loadReaderConfig, type ReaderConfig } from './reader-config.ts';
+import { buildFileSteps, type FileSteps } from './build-file-steps.ts';
 import { buildServer, type ServerOptions } from './server.ts';
 import { loadZaloConfig, loadZaloWebhookConfig, type ZaloConfig, type ZaloWebhookConfig } from './zalo-config.ts';
 
@@ -50,7 +51,7 @@ export type Service = {
   runInboundStep: () => Promise<'processed' | 'idle'>;
   runOutboundStep: () => Promise<'processed' | 'idle'>;
   heldEvents: HeldEvents;
-};
+} & FileSteps;
 
 export function assembleService(environment: NodeJS.ProcessEnv, log: (line: string) => void = console.log): Service {
   const configs = loadAllConfigs(environment, log);
@@ -64,6 +65,7 @@ export function assembleService(environment: NodeJS.ProcessEnv, log: (line: stri
     runTick: (shutdown) => runTick(buildTickOptions(configs, connection, alerts, channel, chats, pool, clock, environment, photoStorage, { held: heldTasks, shutdown })),
     heldTasks,
     ...buildQueueSteps({ pool, clock, alerts, channel, zalo: configs.zalo, photoStorage, fileStorage, reader, dropOffReader, chats, reportReadyTemplateId: configs.reportReadyTemplateId, log }),
+    ...buildFileSteps({ database: pool, clock, channel, fileStorage, reader, log }),
   };
 }
 
