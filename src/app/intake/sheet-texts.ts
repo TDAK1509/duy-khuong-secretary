@@ -4,6 +4,10 @@ export const SHEET_NON_ADMIN_TEXT = 'Chỉ quản trị viên mới gửi đư�
 
 export const SHEET_TOO_MANY_FILES_TEXT = 'Vui lòng gửi từng file một.';
 
+export const SHEET_NOT_DOWNLOADED_TEXT = 'Không tải được file này. Vui lòng gửi lại. Nếu vẫn không được, báo cho người quản trị hệ thống.';
+
+export const SHEET_NOT_READABLE_TEXT = 'File này không phải file Excel (.xlsx) hoặc CSV đọc được. Kiểm tra lại file rồi gửi lại.';
+
 export function formatSheetReceipt(fileName: string, fileSizeBytes: number): string {
   return `Đã nhận file "${fileName}" (${toKilobytes(fileSizeBytes)} KB).`;
 }

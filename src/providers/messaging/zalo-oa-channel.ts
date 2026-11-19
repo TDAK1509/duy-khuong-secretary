@@ -49,7 +49,9 @@ const NON_PUBLIC_IPV6_RANGES: [string, number][] = [
   ['fe80::', 10],
   ['ff00::', 8],
 ];
-const UNAVAILABLE: DownloadResult = { ok: false, reason: 'unavailable' };
+const HOST_REFUSED: DownloadResult = { ok: false, reason: 'host_refused' };
+const NETWORK_FAILURE: DownloadResult = { ok: false, reason: 'network' };
+const HTTP_FAILURE: DownloadResult = { ok: false, reason: 'http' };
 
 const REQUEST_NEVER_SENT_CODES = [
   'ECONNREFUSED',
@@ -208,7 +210,7 @@ export class ZaloOaChannel implements MessagingChannel {
     try {
       return await this.followRedirects(url, maxBytes);
     } catch {
-      return UNAVAILABLE;
+      return NETWORK_FAILURE;
     }
   }
 
@@ -216,14 +218,14 @@ export class ZaloOaChannel implements MessagingChannel {
     let next = firstUrl;
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
       const target = this.parseAllowedUrl(next);
-      if (target === null) break;
+      if (target === null) return HOST_REFUSED;
       const response = await this.openResponse(target);
       const location = readRedirectLocation(response);
       if (location === null) return readLimited(response, maxBytes);
       response.destroy();
       next = new URL(location, target).href;
     }
-    return UNAVAILABLE;
+    return HTTP_FAILURE;
   }
 
   private parseAllowedUrl(url: string): URL | null {
@@ -276,7 +278,7 @@ export class ZaloOaChannel implements MessagingChannel {
 async function readLimited(response: IncomingMessage, maxBytes: number): Promise<DownloadResult> {
   if (!isSuccessStatus(response.statusCode)) {
     response.destroy();
-    return UNAVAILABLE;
+    return HTTP_FAILURE;
   }
   return collectBoundedChunks(response, maxBytes);
 }

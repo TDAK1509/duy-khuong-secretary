@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import type { DownloadFailure } from '../../services/messaging/messaging-channel.ts';
 import type { FileStorage, SheetExtension } from '../../services/storage/file-storage.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -10,7 +11,7 @@ import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import { detectSheetType } from './detect-sheet-type.ts';
 import type { IntakeDependencies } from './intake-context.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
-import { formatSheetReceipt, SHEET_OVERSIZED_TEXT, SHEET_TOO_MANY_FILES_TEXT } from './sheet-texts.ts';
+import { formatSheetReceipt, SHEET_NOT_DOWNLOADED_TEXT, SHEET_NOT_READABLE_TEXT, SHEET_OVERSIZED_TEXT, SHEET_TOO_MANY_FILES_TEXT } from './sheet-texts.ts';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const FILE_NAME_LIMIT = 200;
@@ -70,7 +71,7 @@ async function downloadAndStore(
   const download = await dependencies.channel.downloadAttachment(file.fileUrl, MAX_FILE_BYTES);
   if (!download.ok) return handleDownloadFailure(dependencies, stages, event, download.reason);
   const extension = detectSheetType(file.fileName, download.bytes);
-  if (extension === null) return dropSignatureMismatch(stages, event);
+  if (extension === null) return refuseNonSheet(dependencies, stages, event);
   return storeAcceptedFile(dependencies, stages, event, sender, file, download.bytes, extension);
 }
 
@@ -78,17 +79,16 @@ function handleDownloadFailure(
   dependencies: IntakeDependencies,
   stages: Stages,
   event: ClaimedEvent,
-  reason: 'too_large' | 'unavailable',
+  reason: DownloadFailure,
 ): Promise<Finished> {
   if (reason === 'too_large') return refuseFileEvent(dependencies, stages, event, SHEET_OVERSIZED_TEXT);
-  return dropSignatureMismatch(stages, event);
+  console.error(`[intake] file download failed: ${reason}`);
+  return refuseFileEvent(dependencies, stages, event, SHEET_NOT_DOWNLOADED_TEXT);
 }
 
-function dropSignatureMismatch(stages: Stages, event: ClaimedEvent): Promise<Finished> {
-  console.error(`[intake] file signature does not match extension: ${event.id}`);
-  return stages.finishEvent(async (transaction) => {
-    await recordSenderIdentity(transaction, event);
-  });
+function refuseNonSheet(dependencies: IntakeDependencies, stages: Stages, event: ClaimedEvent): Promise<Finished> {
+  console.error(`[intake] file is not a sheet: ${event.id}`);
+  return refuseFileEvent(dependencies, stages, event, SHEET_NOT_READABLE_TEXT);
 }
 
 async function storeAcceptedFile(

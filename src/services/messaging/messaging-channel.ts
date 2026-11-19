@@ -25,7 +25,9 @@ export type SendResult =
 
 export type DownloadResult =
   | { ok: true; bytes: Uint8Array }
-  | { ok: false; reason: 'too_large' | 'unavailable' };
+  | { ok: false; reason: DownloadFailure };
+
+export type DownloadFailure = 'too_large' | 'host_refused' | 'network' | 'http';
 
 export type TemplateMessage = { templateId: string; params: Record<string, string> };
 
