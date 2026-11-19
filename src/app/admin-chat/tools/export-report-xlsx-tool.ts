@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { buildReportWorkbook, type ReportTable } from '../../documents/build-report-workbook.ts';
+import { COLUMN_UNITS } from '../../documents/format-workbook-sheet.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { EXPORT_EXPIRES_HOURS, EXPORT_NOT_CONFIGURED_ERROR, storeExcelExport } from './store-excel-export.ts';
 import { failTool, REFUSAL_ERROR } from './tool-result.ts';
@@ -10,7 +11,7 @@ const MAX_ROWS = 5000;
 
 const argumentsSchema = z.strictObject({
   title: z.string(),
-  columns: z.array(z.strictObject({ name: z.string(), type: z.enum(['number', 'text']) })),
+  columns: z.array(z.strictObject({ name: z.string(), type: z.enum(['number', 'text']), unit: z.enum(COLUMN_UNITS).nullable().optional() })),
   rows: z.array(z.array(z.string().nullable())),
 });
 
@@ -21,7 +22,7 @@ export async function runExportReportXlsx(dependencies: AdminToolDependencies, s
   const request = argumentsSchema.parse(parsedArguments);
   const problem = findTableProblem(request);
   if (problem !== null) return failTool(problem);
-  const table = { ...request, rows: request.rows.map((cells) => readCells(request.columns, cells)) };
+  const table = { ...request, createdAt: dependencies.clock.now(), rows: request.rows.map((cells) => readCells(request.columns, cells)) };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao');
   return JSON.stringify({ ok: true, url, filename, rows: table.rows.length, expires_hours: EXPORT_EXPIRES_HOURS });
 }

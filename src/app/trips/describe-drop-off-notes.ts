@@ -1,12 +1,11 @@
+import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import type { DropOffInference } from './infer-drop-offs.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
 
-export const INFERRED_MARK = '(AI suy luận ra)';
-
 const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
 
-export function describeDropOffNotes(inference: DropOffInference, papers: TripPaper[]): string[][] {
+export function describeDropOffNotes(inference: DropOffInference, papers: TripPaper[]): NoteBlock[] {
   const byId = new Map(papers.map((paper) => [paper.id, paper]));
   const pairings = [...inference.inferred].flatMap(([paperId, pair]) => {
     const paper = byId.get(paperId);
@@ -14,11 +13,11 @@ export function describeDropOffNotes(inference: DropOffInference, papers: TripPa
     return [[paper.vehicle_plate ?? '', formatDate(paper.document_date), paper.document_number ?? NO_NUMBER, pair.receiptNumber ?? NO_NUMBER, METHOD_NAMES[pair.method]]];
   });
   return [
-    [],
-    ['Nơi đổ hàng do AI suy luận ra', String(pairings.length)],
-    ['Bước AI', describeModelStep(inference.model)],
-    ['Dòng vẫn chưa rõ nơi đổ hàng', String(inference.stillUnknown)],
-    ...(pairings.length === 0 ? [] : [['Biển số', 'Ngày', 'Số phiếu lấy hàng', 'Số phiếu nhận hàng', 'Cách ghép'], ...pairings]),
+    { kind: 'blank' },
+    { kind: 'label', label: 'Nơi đổ hàng do AI suy luận ra', value: String(pairings.length) },
+    { kind: 'label', label: 'Bước AI', value: describeModelStep(inference.model) },
+    { kind: 'label', label: 'Dòng vẫn chưa rõ nơi đổ hàng', value: String(inference.stillUnknown) },
+    ...(pairings.length === 0 ? [] : [{ kind: 'table' as const, header: ['Biển số', 'Ngày', 'Số phiếu lấy hàng', 'Số phiếu nhận hàng', 'Cách ghép'], rows: pairings }]),
   ];
 }
 

@@ -16,8 +16,13 @@ export const EXPORT_REPORT_XLSX_SPEC: ToolSpec = {
           properties: {
             name: { type: 'string', description: 'Tên cột, ghi đơn vị trong tên, ví dụ "Trọng lượng (kg)".' },
             type: { type: 'string', enum: ['number', 'text'], description: 'number cho cột số, text cho cột chữ.' },
+            unit: {
+              type: ['string', 'null'],
+              enum: ['vnd', 'kg', 'ton', 'liter', 'rate', 'number', null],
+              description: 'Đơn vị của cột số: vnd cho tiền đồng, kg cho ki-lô-gam, ton cho tấn, liter cho lít, rate cho đơn giá (đ/tấn, đ/chuyến…), number cho số khác. Cột vnd, kg, ton, liter có dòng "Tổng cộng". null cho cột chữ.',
+            },
           },
-          required: ['name', 'type'],
+          required: ['name', 'type', 'unit'],
           additionalProperties: false,
         },
       },
