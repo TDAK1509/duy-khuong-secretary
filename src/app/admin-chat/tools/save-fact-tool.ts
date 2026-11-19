@@ -18,6 +18,7 @@ import { readPlateArgument } from './vehicle-plate.ts';
 
 const SCOPE_MISSING_ERROR = 'Cần ít nhất một trong: biển số xe, tài xế, nơi lấy hàng, nơi đổ hàng.';
 const NO_VALUE_SAVED_ERROR = 'Không lưu được giá trị nào, nên chưa lưu thông tin này.';
+const SAME_AS_OTHER_ERROR = 'Sau khi đổi hàng hóa, thông tin này sẽ trùng với một thông tin đã lưu khác cùng tuyến. Chưa lưu gì.';
 const NOT_SAME_ROUTE_ERROR = 'fact_id không phải thông tin cùng tuyến, cùng xe, cùng tài xế và cùng khách hàng với thông tin này. Chưa lưu gì.';
 
 const argumentsSchema = z.strictObject({
@@ -55,6 +56,7 @@ type SaveSummary = { scope: Record<string, string | null>; values: unknown[]; re
 
 function describeSaveResult(result: SaveFactResult, summary: SaveSummary): string {
   if (result.action === 'not_same_route') return failTool(NOT_SAME_ROUTE_ERROR);
+  if (result.action === 'same_as_other') return JSON.stringify({ ok: false, error: SAME_AS_OTHER_ERROR, other_fact_id: result.otherFactId });
   if (result.action === 'ambiguous') return JSON.stringify({ ok: true, action: 'ambiguous', candidates: result.candidates.map(describeCandidate), scope: summary.scope });
   if (result.action === 'added') return JSON.stringify({ ok: true, action: 'added', fact_id: result.factId, ...summary, linked_documents: result.linkedDocuments });
   const changes = result.changes.map(describeValueChange);
@@ -63,11 +65,11 @@ function describeSaveResult(result: SaveFactResult, summary: SaveSummary): strin
 }
 
 function describeStoredScope(stored: RouteFact, requested: Record<string, string | null>): Record<string, string | null> {
-  return { vehicle_plate: stored.vehiclePlate, driver: requested['driver'] ?? null, pickup_company: stored.pickupName, dropoff_company: stored.dropoffName, customer_company: stored.customerName };
+  return { vehicle_plate: stored.vehiclePlate, driver: requested['driver'] ?? null, pickup_company: stored.pickupName, dropoff_company: stored.dropoffName, customer_company: stored.customerName, goods: stored.goodsName };
 }
 
 function describeCandidate(fact: RouteFact): Record<string, string | null> {
-  return { fact_id: fact.id, vehicle_plate: fact.vehiclePlate, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName };
+  return { fact_id: fact.id, vehicle_plate: fact.vehiclePlate, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName, goods: fact.goodsName };
 }
 
 function describeValueChange({ name, before, after }: ValueChange): Record<string, unknown> {

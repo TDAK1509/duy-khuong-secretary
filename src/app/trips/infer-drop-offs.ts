@@ -1,6 +1,6 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Database } from '../db/transaction.ts';
-import { groupPossibleDuplicates } from './build-trip-report.ts';
+import { groupPossibleDuplicates, readDispatchIssuer } from './build-trip-report.ts';
 import { listDropOffCandidates, type DropOffCandidate } from './list-drop-off-candidates.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { pairDropOffsByModel, type ModelPairing, type ModelRow } from './pair-drop-offs-by-model.ts';
@@ -47,7 +47,7 @@ function isDated(paper: TripPaper): paper is DatedPaper {
 
 function readPairingRole(paper: TripPaper): 'eligible' | 'reserving' | null {
   const hasRouteFact = paper.route_pickup !== null || paper.route_dropoff !== null;
-  if (!hasRouteFact) return paper.issuer_name === null ? null : 'eligible';
+  if (!hasRouteFact) return readDispatchIssuer(paper) === null ? null : 'eligible';
   if (paper.route_pickup === null) return null;
   return paper.route_dropoff === null ? 'eligible' : 'reserving';
 }
@@ -65,7 +65,7 @@ function toModelCandidate(candidate: DropOffCandidate) {
 }
 
 function listModelRows(rows: PairingRow[], candidates: PairingCandidate[], rule: { pairs: Map<string, string>; taken: Set<string> }, papers: TripPaper[]): ModelRow[] {
-  const pickups = new Map(papers.map((paper) => [paper.id, paper.route_pickup ?? paper.issuer_name ?? '']));
+  const pickups = new Map(papers.map((paper) => [paper.id, paper.route_pickup ?? readDispatchIssuer(paper) ?? '']));
   const byPlate = groupByPlate(candidates);
   return rows.flatMap((row) => {
     if (!row.isEligible || rule.pairs.has(row.id)) return [];

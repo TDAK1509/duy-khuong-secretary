@@ -1,5 +1,6 @@
 export const CUSTOMER_VALUE_NAME = 'Khách hàng';
 export const CUSTOMER_VALUE_KEY = 'khachhang';
+export const GOODS_VALUE_KEY = 'hanghoa';
 
 export type FactCompany = { name: string; matchKey: string; organizationIds: string[] | null };
 

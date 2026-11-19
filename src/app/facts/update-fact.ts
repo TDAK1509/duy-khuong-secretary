@@ -1,6 +1,7 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import type { FactValue } from './fact.ts';
+import { buildMatchKey } from '../documents/build-match-key.ts';
+import { GOODS_VALUE_KEY, type FactValue } from './fact.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
 import { findRouteFactTwin } from './route-fact-identity.ts';
@@ -84,12 +85,23 @@ async function updateLoadedFact(transaction: Transaction, update: FactUpdate, fa
   if (valuePlan.remainingCount === 0) return { kind: 'no_values_left' };
   const next = mergeScope(fact, update.scopeChange, joinNewestStatements(update.changeStatement, fact.statement));
   if (hasNoScope(next)) return { kind: 'no_scope_left' };
-  const twin = hasScopeChanged(fact, next) ? await findRouteFactTwin(transaction, update.workspaceId, update.factId, { vehiclePlate: next.vehicle_plate, driverUserId: next.driver_user_id }) : null;
-  if (twin !== null) return { kind: 'same_as_other', otherFactId: twin.id };
+  const linkChange = await checkLinkChange(transaction, update, { before: fact, after: next, changes: valuePlan.changes });
+  if (linkChange.twinId !== null) return { kind: 'same_as_other', otherFactId: linkChange.twinId };
+  const changesLinks = linkChange.changesLinks;
   await applyValueChanges(transaction, update.workspaceId, update.factId, valuePlan.changes);
   await writeFactRow(transaction, update, next);
-  if (hasScopeChanged(fact, next)) await relinkDocuments(transaction, update.workspaceId, update.factId);
+  if (changesLinks) await relinkDocuments(transaction, update.workspaceId, update.factId);
   return { kind: 'updated', changes: valuePlan.changes, missingValueKeys: valuePlan.missingKeys, ...(await loadScope(transaction, update)) };
+}
+
+type FactChange = { before: FactRow; after: FactRow; changes: ValueChange[] };
+
+async function checkLinkChange(transaction: Transaction, update: FactUpdate, { before, after, changes }: FactChange): Promise<{ changesLinks: boolean; twinId: string | null }> {
+  const goodsChange = changes.find((change) => change.matchKey === GOODS_VALUE_KEY);
+  if (!hasScopeChanged(before, after) && goodsChange === undefined) return { changesLinks: false, twinId: null };
+  const goods = goodsChange === undefined ? null : buildMatchKey(goodsChange.after?.text ?? '');
+  const twin = await findRouteFactTwin(transaction, update.workspaceId, update.factId, { vehiclePlate: after.vehicle_plate, driverUserId: after.driver_user_id, goods });
+  return { changesLinks: true, twinId: twin?.id ?? null };
 }
 
 function mergeScope(fact: FactRow, change: ScopeChange, statement: string): FactRow {
