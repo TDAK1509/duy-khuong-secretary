@@ -20,7 +20,27 @@ const UNIT_SUFFIXES: Partial<Record<ColumnUnit, { suffix: string; digits: number
   liter: { suffix: ' lít', digits: 1 },
 };
 
-export function readSummary(raw: z.infer<typeof summaryArgumentSchema>, columns: ReportColumn[]): SummaryItem[] | null {
+export function listIntroLines(subtitle: string | null, figures: SummaryFigure[]): IntroLine[] {
+  return [...(subtitle === null ? [] : [{ text: subtitle, style: 'subtitle' as const }]), ...figures.map((figure) => ({ text: describeFigure(figure), style: 'figure' as const }))];
+}
+
+export function describeFigure({ label, value, unit, blankRows }: SummaryFigure): string {
+  const format = unit === null ? undefined : UNIT_SUFFIXES[unit];
+  const digits = format?.digits ?? 0;
+  const number = value.toLocaleString('vi-VN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return `${label}: ${number}${format?.suffix ?? ''}${blankRows > 0 ? ` (${blankRows} dòng trống)` : ''}`;
+}
+
+export type ReportIntro = { subtitle: string | null; figures: SummaryFigure[] };
+
+export type IntroRequest = { summary?: z.infer<typeof summaryArgumentSchema>; subtitle?: string | null } | null | undefined;
+
+export function readReportIntro(raw: IntroRequest, isLayoutValid: boolean, table: { columns: ReportColumn[]; rows: ReportCell[][] }): ReportIntro {
+  if (!isLayoutValid || raw === null || raw === undefined) return { subtitle: null, figures: [] };
+  return { subtitle: cleanSubtitle(raw.subtitle), figures: computeSummaryFigures(readSummary(raw.summary, table.columns), table.rows, table.columns) };
+}
+
+function readSummary(raw: z.infer<typeof summaryArgumentSchema>, columns: ReportColumn[]): SummaryItem[] | null {
   if (raw === null || raw === undefined || raw.length === 0) return null;
   const items = raw.map((item) => ({ ...item, label: item.label.trim() }));
   const reason = findSummaryProblem(items, columns);
@@ -40,7 +60,7 @@ function findSummaryProblem(items: SummaryItem[], columns: ReportColumn[]): stri
   return null;
 }
 
-export function computeSummaryFigures(items: SummaryItem[] | null, rows: ReportCell[][], columns: ReportColumn[]): SummaryFigure[] {
+function computeSummaryFigures(items: SummaryItem[] | null, rows: ReportCell[][], columns: ReportColumn[]): SummaryFigure[] {
   return (items ?? []).map((item) => computeFigure(item, rows, columns));
 }
 
@@ -53,29 +73,9 @@ function computeFigure({ label, measure, column }: SummaryItem, rows: ReportCell
   return { label, value: sum, unit: readColumnUnit(columns[column]!), blankRows: cells.length - present.length };
 }
 
-export function cleanSubtitle(raw: string | null | undefined): string | null {
+function cleanSubtitle(raw: string | null | undefined): string | null {
   const text = (raw ?? '').replace(CONTROL_CHARACTERS, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_SUBTITLE_LENGTH);
   return text === '' ? null : text;
-}
-
-export function listIntroLines(subtitle: string | null, figures: SummaryFigure[]): IntroLine[] {
-  return [...(subtitle === null ? [] : [{ text: subtitle, style: 'subtitle' as const }]), ...figures.map((figure) => ({ text: describeFigure(figure), style: 'figure' as const }))];
-}
-
-export function describeFigure({ label, value, unit, blankRows }: SummaryFigure): string {
-  const format = unit === null ? undefined : UNIT_SUFFIXES[unit];
-  const digits = format?.digits ?? 0;
-  const number = value.toLocaleString('vi-VN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-  return `${label}: ${number}${format?.suffix ?? ''}${blankRows > 0 ? ` (${blankRows} dòng trống)` : ''}`;
-}
-
-export type ReportIntro = { subtitle: string | null; figures: SummaryFigure[] };
-
-export type IntroRequest = { summary?: z.infer<typeof summaryArgumentSchema>; subtitle?: string | null } | null | undefined;
-
-export function readReportIntro(raw: IntroRequest, isLayoutValid: boolean, table: { columns: ReportColumn[]; rows: ReportCell[][] }): ReportIntro {
-  if (!isLayoutValid || raw === null || raw === undefined) return { subtitle: null, figures: [] };
-  return { subtitle: cleanSubtitle(raw.subtitle), figures: computeSummaryFigures(readSummary(raw.summary, table.columns), table.rows, table.columns) };
 }
 
 export function describeIntro({ subtitle, figures }: ReportIntro): Record<string, unknown> {

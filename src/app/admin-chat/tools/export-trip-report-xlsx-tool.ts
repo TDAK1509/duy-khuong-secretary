@@ -105,7 +105,8 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const choice = readReportLayout(request.layout, report.table.columns);
   const layout = choice.kind === 'valid' ? choice.layout : null;
   const modelIntro = readReportIntro(request.layout, layout !== null, report.table);
-  const intro = { ...modelIntro, subtitle: [describePeriod(request.date_from, request.date_to), modelIntro.subtitle].filter((part) => part !== null).join(', ') };
+  const period = describePeriod(request.date_from, request.date_to);
+  const intro = { ...modelIntro, subtitle: [period, dropRepeatedPeriod(modelIntro.subtitle, period)].filter((part) => part !== null).join(', ') };
   const table = { ...report.table, layout, ...intro };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
   return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), layout: describeEffectiveLayout(choice, table.columns), ...describeIntro(intro), expires_hours: EXPORT_EXPIRES_HOURS });
@@ -139,6 +140,12 @@ function summarizeDropOffs({ inferred, stillUnknown }: DropOffInference) {
     inferred_ai: pairs.filter((pair) => pair.method === 'ai').length,
     still_unknown: stillUnknown,
   };
+}
+
+function dropRepeatedPeriod(subtitle: string | null, period: string): string | null {
+  if (subtitle === null || !subtitle.toLowerCase().startsWith(period.toLowerCase())) return subtitle;
+  const rest = subtitle.slice(period.length).replace(/^[\s,;:·-]+/, '');
+  return rest === '' ? null : rest;
 }
 
 function describePeriod(dateFrom: string, dateTo: string): string {
