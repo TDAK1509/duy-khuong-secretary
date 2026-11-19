@@ -15,6 +15,7 @@ import { parseSheet } from './parse-sheet.ts';
 import { readSheet, type SheetReadOutcome } from './read-sheet.ts';
 import {
   formatSavedAndSkipped,
+  SHEET_CAPTION_USED_TEXT,
   SHEET_MISSING_DATE_COLUMN_TEXT,
   SHEET_MISSING_TITLE_COLUMN_TEXT,
   SHEET_READER_FAILURE_TEXT,
@@ -40,6 +41,7 @@ type ReadyFile = {
   extension: SheetExtension;
   workspaceId: string;
   messageId: string;
+  caption: string | null;
 };
 
 type ReadyFileWithRows = ReadyFile & { headers: string[]; rows: string[][] };
@@ -73,7 +75,8 @@ const READY_FILE_QUERY = `
          file_name AS "fileName",
          extension,
          workspace_id AS "workspaceId",
-         message_id AS "messageId"
+         message_id AS "messageId",
+         caption
   FROM message_files
   WHERE parsed_at IS NOT NULL AND processed_at IS NULL
   ORDER BY created_at
@@ -105,7 +108,7 @@ function textForMappingProblem(problem: MappingProblem): string {
 async function callSheetReader(dependencies: ProcessFilesDependencies, file: ReadyFileWithRows): Promise<SheetReadOutcome> {
   const meter = { database: dependencies.database, workspaceId: file.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.channel.maxTextLength } };
   const metered = meterReader(dependencies.reader, meter, () => 'text_read');
-  return readSheet(metered, { fileName: file.fileName, headers: file.headers, dataRows: file.rows.slice(0, MAX_PREVIEW_ROWS) });
+  return readSheet(metered, { fileName: file.fileName, caption: file.caption, headers: file.headers, dataRows: file.rows.slice(0, MAX_PREVIEW_ROWS) });
 }
 
 async function applyMappingToRows(dependencies: ProcessFilesDependencies, file: ReadyFileWithRows, plan: SheetMappingPlan): Promise<OutboundReply> {
@@ -114,7 +117,7 @@ async function applyMappingToRows(dependencies: ProcessFilesDependencies, file: 
   const skipped = attempts.flatMap((attempt) => (attempt.ok ? [] : [attempt.rowNumber]));
   await saveDrafts(dependencies, file, saved.map((attempt) => attempt.draft));
   const text = formatSavedAndSkipped(saved.length, file.rows.length, plan.kind, skipped);
-  return { text };
+  return { text: file.caption === null ? text : `${SHEET_CAPTION_USED_TEXT} ${text}` };
 }
 
 async function saveDrafts(dependencies: ProcessFilesDependencies, file: ReadyFileWithRows, drafts: DocumentDraft[]): Promise<void> {

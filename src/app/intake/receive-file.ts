@@ -9,12 +9,14 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { Finished, NotConfigured, Stages } from '../processing/stages.ts';
 import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
 import { detectSheetType } from './detect-sheet-type.ts';
+import { findFileCaption } from './link-caption.ts';
 import type { IntakeDependencies } from './intake-context.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import { formatSheetReceipt, SHEET_NOT_DOWNLOADED_TEXT, SHEET_NOT_READABLE_TEXT, SHEET_OVERSIZED_TEXT, SHEET_TOO_MANY_FILES_TEXT } from './sheet-texts.ts';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const FILE_NAME_LIMIT = 200;
+const MAX_CAPTION_LENGTH = 1000;
 
 export type SingleFile = { kind: 'one'; fileUrl: string; fileName: string; fileSize: number };
 
@@ -160,11 +162,12 @@ async function storeFileMessage(
      ON CONFLICT (inbound_event_id, event_part) DO NOTHING`,
     [insert.messageId, sender.workspaceId, sender.userId, name, event.id],
   );
+  const caption = await findFileCaption(transaction, event.id, MAX_CAPTION_LENGTH);
   await transaction.query(
-    `INSERT INTO message_files (message_id, workspace_id, file_key, file_name, file_size_bytes, extension)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO message_files (message_id, workspace_id, file_key, file_name, file_size_bytes, extension, caption)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (message_id) DO NOTHING`,
-    [insert.messageId, sender.workspaceId, insert.fileKey, name, insert.file.fileSize, insert.extension],
+    [insert.messageId, sender.workspaceId, insert.fileKey, name, insert.file.fileSize, insert.extension, caption],
   );
 }
 

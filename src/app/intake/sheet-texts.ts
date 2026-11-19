@@ -26,6 +26,7 @@ export function formatParseFailure(fileName: string): string {
 
 export const SHEET_MISSING_DATE_COLUMN_TEXT = 'Không nhận diện được cột ngày. Kiểm tra lại file.';
 export const SHEET_MISSING_TITLE_COLUMN_TEXT = 'Không nhận diện được cột tiêu đề. Kiểm tra lại file.';
+export const SHEET_CAPTION_USED_TEXT = 'Đã đọc theo ghi chú kèm file.';
 export const SHEET_READER_FAILURE_TEXT = 'Trợ lý không đọc được file. Gửi lại hoặc kiểm tra định dạng.';
 
 export function formatSavedAndSkipped(savedCount: number, totalCount: number, kind: string, skipped: number[]): string {
