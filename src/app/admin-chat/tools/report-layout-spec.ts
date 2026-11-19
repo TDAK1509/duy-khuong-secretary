@@ -1,7 +1,5 @@
-export const REPORT_LAYOUT_PROPERTY = {
-  type: ['object', 'null'],
-  description:
-    'Cách sắp xếp và nhóm các dòng cho câu hỏi này, hoặc null để giữ thứ tự dòng. Cột ghi bằng số thứ tự, bắt đầu từ 0, theo đúng thứ tự trong columns.',
+const LAYOUT_OBJECT = {
+  type: 'object',
   properties: {
     sort: {
       type: 'array',
@@ -25,4 +23,10 @@ export const REPORT_LAYOUT_PROPERTY = {
   },
   required: ['sort', 'group_by', 'totals'],
   additionalProperties: false,
+};
+
+export const REPORT_LAYOUT_PROPERTY = {
+  description:
+    'Cách sắp xếp và nhóm các dòng cho câu hỏi này, hoặc null để giữ thứ tự dòng. Cột ghi bằng số thứ tự, bắt đầu từ 0, theo đúng thứ tự trong columns.',
+  anyOf: [LAYOUT_OBJECT, { type: 'null' }],
 };

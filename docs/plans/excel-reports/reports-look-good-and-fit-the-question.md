@@ -228,11 +228,14 @@ Steps, for the developer (local):
   last group labelled "(Trống)". After each group, a subtotal row: the group
   column holds the group value (or "(Trống)"), the first text column holds
   "Tổng <value>", and each total column has
-  `SUBTOTAL(109, <group's first row>:<group's last row>)` with the
+  `SUBTOTAL(9, <group's first row>:<group's last row>)` with the
   server-computed sum as the cached result. Bold, light fill. The group's data
-  rows get outline level 1.
-- Grand total "Tổng cộng":
-  `SUBTOTAL(109, <first data row>:<last row before the grand total>)` with the
+  rows get outline level 1. Function 9, not 109, as Excel's own Subtotal tool
+  does: collapsing an outline group hides its rows, and 109 would then drop
+  them from the subtotal and the grand total. 9 still ignores rows hidden by
+  the filter and nested SUBTOTAL cells.
+- Grand total "Tổng cộng" (when the sheet has groups):
+  `SUBTOTAL(9, <first data row>:<last row before the grand total>)` with the
   cached sum of the data rows. Excel's SUBTOTAL ignores nested SUBTOTAL rows,
   so the subtotals are not counted twice.
 - Filter: covers the header, data and subtotal rows. Filtering the group

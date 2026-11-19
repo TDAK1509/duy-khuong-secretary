@@ -66,22 +66,27 @@ function chooseUnitFormat(unit: ColumnUnit, value: number): string {
   return UNIT_FORMATS[unit];
 }
 
-function listTotalColumns({ units, totalColumns }: SheetLayout): number[] {
-  return totalColumns ?? units.flatMap((unit, index) => (isAdditiveUnit(unit) ? [index] : []));
-}
-
 function writeSubtotalRow(sheet: ExcelJS.Worksheet, subtotal: SubtotalRow, layout: SheetLayout): void {
   const row = sheet.getRow(subtotal.row);
   const groupCell = sheet.getRow(subtotal.firstDataRow).getCell(subtotal.groupColumn + 1);
-  row.getCell(subtotal.groupColumn + 1).value = groupCell.value === null || groupCell.value === undefined ? subtotal.groupLabel : groupCell.value;
+  row.getCell(subtotal.groupColumn + 1).value = isBlankValue(groupCell.value) ? subtotal.groupLabel : groupCell.value;
   row.getCell(subtotal.groupColumn + 1).numFmt = groupCell.numFmt;
   if (subtotal.labelColumn !== null) row.getCell(subtotal.labelColumn + 1).value = `Tổng ${subtotal.groupLabel}`;
   for (const index of listTotalColumns(layout)) {
     const range = { column: index + 1, firstRow: subtotal.firstDataRow, lastRow: subtotal.lastDataRow };
-    writeTotalCell(sheet, row.getCell(index + 1), { ...range, unit: layout.units[index]!, skipRows: new Set() });
+    writeTotalCell(sheet, row.getCell(index + 1), { ...range, unit: layout.units[index]!, skipRows: new Set(), countsHiddenRows: true });
   }
   styleSummaryRow(row, layout.units.length, HOUSE_COLORS.subtotalFill);
   for (let rowNumber = subtotal.firstDataRow; rowNumber <= subtotal.lastDataRow; rowNumber += 1) sheet.getRow(rowNumber).outlineLevel = 1;
+  sheet.properties.outlineLevelRow = 1;
+}
+
+function isBlankValue(value: ExcelJS.CellValue): boolean {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+}
+
+function listTotalColumns({ units, totalColumns }: SheetLayout): number[] {
+  return totalColumns ?? units.flatMap((unit, index) => (isAdditiveUnit(unit) ? [index] : []));
 }
 
 function addTotalRow(sheet: ExcelJS.Worksheet, layout: SheetLayout): number {
@@ -92,7 +97,8 @@ function addTotalRow(sheet: ExcelJS.Worksheet, layout: SheetLayout): number {
   const labelColumn = units.findIndex((_, index) => !totaled.includes(index));
   if (labelColumn >= 0) row.getCell(labelColumn + 1).value = TOTAL_LABEL;
   const skipRows = new Set((layout.subtotals ?? []).map((subtotal) => subtotal.row));
-  for (const index of totaled) writeTotalCell(sheet, row.getCell(index + 1), { column: index + 1, firstRow: FIRST_DATA_ROW, lastRow: lastDataRow, unit: units[index]!, skipRows });
+  const countsHiddenRows = skipRows.size > 0;
+  for (const index of totaled) writeTotalCell(sheet, row.getCell(index + 1), { column: index + 1, firstRow: FIRST_DATA_ROW, lastRow: lastDataRow, unit: units[index]!, skipRows, countsHiddenRows });
   if (labelColumn < 0) labelTotalByFormat(row.getCell(totaled[0]! + 1));
   styleSummaryRow(row, units.length, HOUSE_COLORS.totalFill, true);
   return lastDataRow + 1;
@@ -102,11 +108,15 @@ function labelTotalByFormat(cell: ExcelJS.Cell): void {
   cell.numFmt = `"${TOTAL_LABEL}: "${cell.numFmt}`;
 }
 
-type TotalTarget = { column: number; firstRow: number; lastRow: number; unit: ColumnUnit; skipRows: Set<number> };
+type TotalTarget = { column: number; firstRow: number; lastRow: number; unit: ColumnUnit; skipRows: Set<number>; countsHiddenRows: boolean };
+
+const SUM_VISIBLE = 109;
+const SUM_UNFILTERED = 9;
 
 function writeTotalCell(sheet: ExcelJS.Worksheet, cell: ExcelJS.Cell, target: TotalTarget): void {
   const letter = sheet.getColumn(target.column).letter;
-  cell.value = { formula: `SUBTOTAL(109,${letter}${target.firstRow}:${letter}${target.lastRow})`, result: sumColumn(sheet, target) };
+  const sumFunction = target.countsHiddenRows ? SUM_UNFILTERED : SUM_VISIBLE;
+  cell.value = { formula: `SUBTOTAL(${sumFunction},${letter}${target.firstRow}:${letter}${target.lastRow})`, result: sumColumn(sheet, target) };
   cell.numFmt = chooseUnitFormat(target.unit, 0);
 }
 
