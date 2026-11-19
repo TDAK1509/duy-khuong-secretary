@@ -1,12 +1,10 @@
-import type { ParsedSheet } from './parse-sheet.ts';
+import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
 
-export function parseCsv(bytes: Uint8Array): ParsedSheet {
+export function parseCsv(bytes: Uint8Array): SheetRow[] {
   const text = decodeUtf8(bytes);
-  if (text.length === 0) return { ok: true, headers: [], rows: [] };
-  const separator = pickSeparator(text);
-  const [headers, ...dataRows] = tokenize(text, separator).filter(hasAnyNonEmptyCell);
-  if (!headers) return { ok: true, headers: [], rows: [] };
-  return { ok: true, headers, rows: dataRows };
+  if (text.length === 0) return [];
+  const rows = tokenize(text, pickSeparator(text)).map((cells, index) => ({ rowNumber: index + 1, cells: cells.map((cell) => cell.trim()) }));
+  return rows.filter((row) => hasAnyNonEmptyCell(row.cells));
 }
 
 function decodeUtf8(bytes: Uint8Array): string {

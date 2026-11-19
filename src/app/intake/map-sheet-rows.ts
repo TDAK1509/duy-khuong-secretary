@@ -1,75 +1,98 @@
 import type { DocumentDraft, PlannedItem } from '../documents/document-draft.ts';
 import type { ReadingItem } from '../reading/reading.ts';
 import type { NewRecord, RecordDetail } from '../records/new-record.ts';
+import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
+import { normalizeCode } from '../reading/normalize.ts';
 import type { SheetDateFormat, SheetMappingField, SheetReading } from './sheet-reader-schema.ts';
-import { FALLBACK_DOCUMENT_KIND } from './sheet-reader-schema.ts';
-
-export type HeaderRole = { header: string; field: SheetMappingField };
 
 export type SheetMappingPlan = {
   kind: string;
-  dateFormat: SheetDateFormat | null;
-  dateHeader: string;
-  titleHeader: string;
-  roles: HeaderRole[];
+  dateFormat: SheetDateFormat;
+  dateIndex: number;
+  titleIndex: number | null;
+  plateIndex: number | null;
+  numberIndex: number | null;
+  issuerIndex: number | null;
+  summaryIndex: number | null;
+  details: { index: number; label: string }[];
 };
 
-export type MappingProblem = 'missing_date' | 'missing_title';
+export type SkipReason = 'header' | 'total' | 'no_date' | 'no_plate';
 
-export type MappingResult = { ok: true; plan: SheetMappingPlan } | { ok: false; problem: MappingProblem };
+const TOTAL_ROW = /^(tổng\s*cộng|tổng|cộng)\s*[:.]?\s*$/iu;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function planSheetMapping(headers: string[], reading: SheetReading): MappingResult {
-  const roles = listHeaderRoles(headers, reading.column_mapping);
-  const dateHeader = findSingleHeader(roles, 'document_date');
-  if (dateHeader === null) return { ok: false, problem: 'missing_date' };
-  const titleHeader = findSingleHeader(roles, 'title');
-  if (titleHeader === null) return { ok: false, problem: 'missing_title' };
-  return { ok: true, plan: { kind: trimKind(reading.document_kind), dateFormat: reading.date_format, dateHeader, titleHeader, roles } };
-}
-
-function trimKind(kind: string): string {
-  const trimmed = kind.trim();
-  return trimmed === '' ? FALLBACK_DOCUMENT_KIND : trimmed;
-}
-
-function listHeaderRoles(headers: string[], mapping: Record<string, SheetMappingField>): HeaderRole[] {
-  return headers.map((header) => ({ header, field: mapping[header] ?? 'ignore' }));
-}
-
-function findSingleHeader(roles: HeaderRole[], field: SheetMappingField): string | null {
-  const matching = roles.filter((role) => role.field === field);
-  return matching.length === 1 ? matching[0]!.header : null;
+export function planSheetMapping(reading: SheetReading, headers: string[]): SheetMappingPlan {
+  const indexOf = (field: SheetMappingField) => reading.columnMapping.find((role) => role.field === field)?.columnIndex ?? null;
+  return {
+    kind: reading.documentKind,
+    dateFormat: reading.dateFormat,
+    dateIndex: indexOf('document_date') ?? 0,
+    titleIndex: indexOf('title'),
+    plateIndex: indexOf('vehicle_plate'),
+    numberIndex: indexOf('document_number'),
+    issuerIndex: indexOf('issuer_key'),
+    summaryIndex: indexOf('summary'),
+    details: reading.columnMapping.filter((role) => role.field === 'detail').map((role) => ({ index: role.columnIndex, label: headers[role.columnIndex] ?? '' })),
+  };
 }
 
 export type RowAttempt =
   | { ok: true; rowNumber: number; draft: DocumentDraft }
-  | { ok: false; rowNumber: number };
+  | { ok: false; rowNumber: number; reason: SkipReason };
 
-export function mapRowToDraft(plan: SheetMappingPlan, cells: string[], headers: string[], rowNumber: number): RowAttempt {
-  const cellByHeader = toCellMap(headers, cells);
-  const documentDate = parseSheetDate(cellByHeader[plan.dateHeader] ?? '', plan.dateFormat);
-  if (documentDate === null) return { ok: false, rowNumber };
-  const title = cellByHeader[plan.titleHeader]?.trim() ?? '';
-  if (title === '') return { ok: false, rowNumber };
-  return { ok: true, rowNumber, draft: buildDraft(plan, cellByHeader, { rowNumber, documentDate, title }) };
+export type DataRow = { row: SheetRow; position: number };
+
+export function mapRowToDraft(plan: SheetMappingPlan, { row, position }: DataRow, headers: string[]): RowAttempt {
+  const checked = checkRow(plan, row, headers);
+  if (!checked.ok) return { ok: false, rowNumber: row.rowNumber, reason: checked.reason };
+  const { documentDate } = checked;
+  const plate = readPlate(plan, row.cells);
+  const title = readCell(row.cells, plan.titleIndex) ?? [plan.kind, plate, formatVietnamDate(documentDate)].filter((part) => part !== null && part !== '').join(' ');
+  return { ok: true, rowNumber: row.rowNumber, draft: buildDraft(plan, row.cells, { itemIndex: position, documentDate, title, plate }) };
 }
 
-type DraftInputs = { rowNumber: number; documentDate: string; title: string };
+type CheckedRow = { ok: true; documentDate: string } | { ok: false; reason: SkipReason };
 
-function buildDraft(plan: SheetMappingPlan, cells: Record<string, string>, inputs: DraftInputs): DocumentDraft {
-  const fields = collectRowFields(plan, cells, inputs.title);
+function checkRow(plan: SheetMappingPlan, { cells }: SheetRow, headers: string[]): CheckedRow {
+  if (headers.every((header, index) => header === (cells[index] ?? ''))) return { ok: false, reason: 'header' };
+  if (TOTAL_ROW.test((cells.find((cell) => cell !== '') ?? '').normalize('NFC'))) return { ok: false, reason: 'total' };
+  const documentDate = parseSheetDate(cells[plan.dateIndex] ?? '', plan.dateFormat);
+  if (documentDate === null) return { ok: false, reason: 'no_date' };
+  if (plan.plateIndex !== null && readPlate(plan, cells) === null) return { ok: false, reason: 'no_plate' };
+  return { ok: true, documentDate };
+}
+
+function readPlate(plan: SheetMappingPlan, cells: string[]): string | null {
+  return plan.plateIndex === null ? null : normalizeCode(cells[plan.plateIndex] ?? '');
+}
+
+function readCell(cells: string[], index: number | null): string | null {
+  if (index === null) return null;
+  const value = cells[index]?.trim() ?? '';
+  return value === '' ? null : value;
+}
+
+function formatVietnamDate(isoDate: string): string {
+  return isoDate.split('-').reverse().join('/');
+}
+
+type DraftInputs = { itemIndex: number; documentDate: string; title: string; plate: string | null };
+
+function buildDraft(plan: SheetMappingPlan, cells: string[], inputs: DraftInputs): DocumentDraft {
+  const fields = collectRowFields(plan, cells, inputs);
   const planned = buildPlannedItem(plan.kind, inputs, fields);
   return { issuerKey: fields.issuerKey, documentNumber: fields.documentNumber, documentDate: inputs.documentDate, vehiclePlate: fields.plate, items: [planned], lineItems: [planned] };
 }
 
 type RowFields = { plate: string | null; documentNumber: string | null; issuerKey: string | null; summary: string; details: RecordDetail[] };
 
-function collectRowFields(plan: SheetMappingPlan, cells: Record<string, string>, title: string): RowFields {
+function collectRowFields(plan: SheetMappingPlan, cells: string[], inputs: DraftInputs): RowFields {
   return {
-    plate: pickPlate(plan, cells),
-    documentNumber: pickTrimmed(plan, cells, 'document_number'),
-    issuerKey: pickTrimmed(plan, cells, 'issuer_key'),
-    summary: pickTrimmed(plan, cells, 'summary') ?? title,
+    plate: inputs.plate,
+    documentNumber: readCell(cells, plan.numberIndex),
+    issuerKey: readCell(cells, plan.issuerIndex),
+    summary: readCell(cells, plan.summaryIndex) ?? inputs.title,
     details: buildDetails(plan, cells),
   };
 }
@@ -88,50 +111,27 @@ function buildReadingItem(kind: string, inputs: DraftInputs, fields: RowFields):
 
 function buildNewRecord(kind: string, inputs: DraftInputs, fields: RowFields): NewRecord {
   return {
-    itemIndex: inputs.rowNumber, category: kind, documentTitle: inputs.title, maintenanceItem: null,
+    itemIndex: inputs.itemIndex, category: kind, documentTitle: inputs.title, maintenanceItem: null,
     vehiclePlate: fields.plate, documentNumber: fields.documentNumber, occurredOn: inputs.documentDate,
     amountVnd: null, identifiers: [], summary: fields.summary, details: fields.details,
   };
 }
 
-function toCellMap(headers: string[], cells: string[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  headers.forEach((header, index) => {
-    map[header] = cells[index] ?? '';
-  });
-  return map;
+function buildDetails(plan: SheetMappingPlan, cells: string[]): RecordDetail[] {
+  return plan.details.map(({ index, label }) => ({ label, value: cells[index] ?? '', number: null, unit: null }));
 }
 
-function pickTrimmed(plan: SheetMappingPlan, cells: Record<string, string>, field: SheetMappingField): string | null {
-  const header = plan.roles.find((role) => role.field === field)?.header;
-  if (header === undefined) return null;
-  const value = cells[header]?.trim() ?? '';
-  return value === '' ? null : value;
-}
-
-function pickPlate(plan: SheetMappingPlan, cells: Record<string, string>): string | null {
-  const header = plan.roles.find((role) => role.field === 'vehicle_plate')?.header;
-  if (header === undefined) return null;
-  const value = cells[header]?.trim().toUpperCase() ?? '';
-  return value === '' ? null : value;
-}
-
-function buildDetails(plan: SheetMappingPlan, cells: Record<string, string>): RecordDetail[] {
-  const detailHeaders = plan.roles.filter((role) => role.field === 'detail').map((role) => role.header);
-  return detailHeaders.map((header) => ({ label: header, value: cells[header] ?? '', number: null, unit: null }));
-}
-
-export function parseSheetDate(cell: string, format: SheetDateFormat | null): string | null {
+export function parseSheetDate(cell: string, format: SheetDateFormat): string | null {
   const trimmed = cell.trim();
-  if (trimmed === '' || format === null || format === 'other') return null;
-  const parsed = applyDateFormat(trimmed, format);
+  if (trimmed === '') return null;
+  const parsed = ISO_DATE.test(trimmed) ? applyDateFormat(trimmed, 'YYYY-MM-DD') : applyDateFormat(trimmed, format);
   if (parsed === null) return null;
   return isRealDate(parsed.year, parsed.month, parsed.day) ? toIso(parsed) : null;
 }
 
 type DateParts = { year: number; month: number; day: number };
 
-function applyDateFormat(text: string, format: Exclude<SheetDateFormat, 'other'>): DateParts | null {
+function applyDateFormat(text: string, format: SheetDateFormat): DateParts | null {
   const match = text.match(/^(\d{1,4})[-/](\d{1,2})[-/](\d{1,4})$/);
   if (!match) return null;
   const [, a, b, c] = match;

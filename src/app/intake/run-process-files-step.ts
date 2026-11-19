@@ -9,15 +9,16 @@ import type { FileClaim } from '../sheet-files/file-claims.ts';
 import type { HeldFiles } from '../sheet-files/held-files.ts';
 import { runFileStep, type FileOutcome, type FileWork, type RenewLease } from '../sheet-files/run-file-step.ts';
 import { OUT_OF_CREDIT_TEXT } from './intake-texts.ts';
-import { mapRowToDraft, planSheetMapping, type MappingProblem, type SheetMappingPlan } from './map-sheet-rows.ts';
+import { mapRowToDraft, planSheetMapping, type SheetMappingPlan } from './map-sheet-rows.ts';
+import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
 import { parseSheet } from './parse-sheet.ts';
 import { readSheet, type SheetReadOutcome } from './read-sheet.ts';
 import {
   formatParseFailure,
   formatSavedAndSkipped,
+  formatTooManyRows,
+  MAX_SHEET_ROWS,
   SHEET_CAPTION_USED_TEXT,
-  SHEET_MISSING_DATE_COLUMN_TEXT,
-  SHEET_MISSING_TITLE_COLUMN_TEXT,
   SHEET_READER_FAILURE_TEXT,
 } from './sheet-texts.ts';
 
@@ -33,7 +34,7 @@ export type ProcessFilesDependencies = {
   held: HeldFiles;
 };
 
-type FileRows = { claim: FileClaim; headers: string[]; rows: string[][] };
+type FileRows = { claim: FileClaim; headers: string[]; contextLines: string[]; rows: SheetRow[] };
 
 export function runProcessFilesStep(dependencies: ProcessFilesDependencies): Promise<'processed' | 'idle'> {
   return runFileStep(dependencies, buildProcessWork(dependencies));
@@ -51,7 +52,8 @@ async function processFile(dependencies: ProcessFilesDependencies, claim: FileCl
   const bytes = await dependencies.fileStorage.get(claim.fileKey);
   const parsed = bytes === null ? { ok: false as const } : await parseSheet(claim.extension, bytes, dependencies.sheetParser);
   if (!parsed.ok) return { text: formatParseFailure(claim.fileName), finishesFile: true };
-  return readAndMap(dependencies, { claim, headers: parsed.headers, rows: parsed.rows }, renewLease);
+  if (parsed.rows.length > MAX_SHEET_ROWS) return { text: formatTooManyRows(claim.fileName, MAX_SHEET_ROWS), finishesFile: true };
+  return readAndMap(dependencies, { claim, headers: parsed.headers, contextLines: parsed.contextLines, rows: parsed.rows }, renewLease);
 }
 
 async function readAndMap(dependencies: ProcessFilesDependencies, file: FileRows, renewLease: RenewLease): Promise<FileOutcome> {
@@ -60,24 +62,17 @@ async function readAndMap(dependencies: ProcessFilesDependencies, file: FileRows
   const outcome = await callSheetReader(dependencies, file);
   await renewLease();
   if (!outcome.ok) return { text: SHEET_READER_FAILURE_TEXT, finishesFile: true };
-  const mapping = planSheetMapping(file.headers, outcome.reading);
-  if (!mapping.ok) return { text: describeMappingProblem(mapping.problem), finishesFile: true };
-  return mapRows(file, mapping.plan);
+  return mapRows(file, planSheetMapping(outcome.reading, file.headers));
 }
 
-function describeMappingProblem(problem: MappingProblem): string {
-  if (problem === 'missing_date') return SHEET_MISSING_DATE_COLUMN_TEXT;
-  return SHEET_MISSING_TITLE_COLUMN_TEXT;
-}
-
-async function callSheetReader(dependencies: ProcessFilesDependencies, { claim, headers, rows }: FileRows): Promise<SheetReadOutcome> {
+async function callSheetReader(dependencies: ProcessFilesDependencies, { claim, headers, contextLines, rows }: FileRows): Promise<SheetReadOutcome> {
   const meter = { database: dependencies.database, workspaceId: claim.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.maxTextLength } };
   const metered = meterReader(dependencies.reader, meter, () => 'text_read');
-  return readSheet(metered, { fileName: claim.fileName, caption: claim.caption, headers, dataRows: rows.slice(0, MAX_PREVIEW_ROWS) });
+  return readSheet(metered, { fileName: claim.fileName, caption: claim.caption, contextLines, headers, dataRows: rows.slice(0, MAX_PREVIEW_ROWS).map((row) => row.cells) });
 }
 
 function mapRows({ claim, headers, rows }: FileRows, plan: SheetMappingPlan): FileOutcome {
-  const attempts = rows.map((row, index) => mapRowToDraft(plan, row, headers, index + 1));
+  const attempts = rows.map((row, index) => mapRowToDraft(plan, { row, position: index + 1 }, headers));
   const drafts = attempts.flatMap((attempt) => (attempt.ok ? [attempt.draft] : []));
   const skipped = attempts.flatMap((attempt) => (attempt.ok ? [] : [attempt.rowNumber]));
   const text = formatSavedAndSkipped(drafts.length, rows.length, plan.kind, skipped);
