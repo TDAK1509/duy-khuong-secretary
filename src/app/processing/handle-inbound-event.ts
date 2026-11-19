@@ -15,7 +15,7 @@ import { answerInternalLoginCommand, isInternalLoginCommand } from '../internal-
 import { answerMcpTokenCommand, isMcpTokenCommand } from '../internal-mcp/answer-mcp-token-command.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
 import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
-import { holdOrLinkCaption } from '../intake/link-caption.ts';
+import { captureCaption } from '../intake/link-caption.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
 import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
@@ -101,7 +101,7 @@ async function answerByText(
   const text = readText(event);
   const sender = await findIntakeSender(dependencies.database, event, text);
   if (sender !== null && sender.role === 'admin' && event.kind === 'text') {
-    const captioned = await holdOrLinkCaption(dependencies, stages, event, sender);
+    const captioned = await captureCaption(dependencies, stages, { event, sender, text });
     if (captioned !== null) return captioned;
   }
   if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
