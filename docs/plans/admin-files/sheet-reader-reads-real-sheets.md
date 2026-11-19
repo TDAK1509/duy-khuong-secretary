@@ -207,8 +207,8 @@ Steps, for the owner:
   - The identity of a sheet row: workspace, header signature, plate, date, and
     document number when a document number column is mapped. The header
     signature is a hash of the match keys of the whole header row (every
-    column name, in order), so the same export format matches itself whatever
-    kind name or detail/ignore mapping the reader gives it. It is stored in a new nullable
+    non-empty column name, in order), so the same export format matches
+    itself whatever kind name or column mapping the reader gives it. It is stored in a new nullable
     `documents.sheet_signature` column, indexed concurrently on
     `(workspace_id, sheet_signature, document_date)`.
   - A saved document without a document number also matches a row that has

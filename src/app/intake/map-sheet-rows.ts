@@ -43,7 +43,8 @@ export function planSheetMapping(reading: SheetReading, headers: string[]): Shee
 }
 
 function signHeaderRow(headers: string[]): string {
-  return createHash('sha256').update(JSON.stringify(headers.map(buildMatchKey))).digest('hex');
+  const keys = headers.map(buildMatchKey).filter((key) => key !== '');
+  return createHash('sha256').update(JSON.stringify(keys)).digest('hex');
 }
 
 export type RowAttempt =
