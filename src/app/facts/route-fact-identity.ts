@@ -7,7 +7,7 @@ export type RouteSide = { matchKey: string | null; resolved: boolean; picks: str
 
 export type RouteIdentity = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null } & Record<CompanySlot, RouteSide>;
 
-export type RouteFact = RouteIdentity & { id: string; pickupName: string | null; dropoffName: string | null; customerName: string | null };
+export type RouteFact = RouteIdentity & { id: string; pickupName: string | null; dropoffName: string | null; customerName: string | null; goodsName: string | null };
 
 type RouteFactRow = {
   id: string;
@@ -89,6 +89,7 @@ function toRouteFact(row: RouteFactRow): RouteFact {
     dropoffName: row.dropoff_name,
     customerName: row.customer_name,
     goods: buildMatchKey(row.goods ?? ''),
+    goodsName: row.goods,
     pickup: { matchKey: row.pickup_match_key, resolved: row.pickup_resolved, picks: row.pickup_picks },
     dropoff: { matchKey: row.dropoff_match_key, resolved: row.dropoff_resolved, picks: row.dropoff_picks },
     customer: { matchKey: row.customer_match_key, resolved: row.customer_resolved, picks: row.customer_picks },

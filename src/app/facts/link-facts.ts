@@ -26,25 +26,25 @@ const CUSTOMER_ROLES = `ARRAY['customer']`;
 
 const SPLIT_GOODS = (column: string) => `regexp_split_to_table(lower(unaccent(${column})), '[^a-z0-9]+')`;
 
-const FACT_GOODS_TOKENS = `(
-  SELECT array_agg(DISTINCT token) FROM fact_values value CROSS JOIN LATERAL ${SPLIT_GOODS('value.text_value')} token
-  WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}' AND token <> ''
-)`;
+const FACT_GOODS = `
+  SELECT nullif(${ACCENT_FREE_KEY('value.text_value')}, '') AS key,
+    (SELECT array_agg(DISTINCT token) FROM ${SPLIT_GOODS('value.text_value')} token WHERE token <> '') AS tokens
+  FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}'`;
 
-const GOODS_MATCH = `(fact_goods.tokens IS NULL OR EXISTS (
-  SELECT 1 FROM document_lines line CROSS JOIN LATERAL ${SPLIT_GOODS('line.value')} token
-  WHERE line.document_id = document.id AND line.item IS NULL AND ${ACCENT_FREE_KEY('line.label')} = '${GOODS_VALUE_KEY}' AND token <> ''
-    AND EXISTS (
-      SELECT 1 FROM unnest(fact_goods.tokens) wanted
-      WHERE wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token))
-    )
+const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
+  SELECT 1 FROM document_lines line
+  WHERE line.document_id = document.id AND line.item IS NULL AND ${ACCENT_FREE_KEY('line.label')} = '${GOODS_VALUE_KEY}'
+    AND (${ACCENT_FREE_KEY('line.value')} = fact_goods.key OR EXISTS (
+      SELECT 1 FROM ${SPLIT_GOODS('line.value')} token CROSS JOIN unnest(fact_goods.tokens) wanted
+      WHERE token <> '' AND (wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token)))
+    ))
 ))`;
 
 const LINK_MATCHES_SQL = `
   INSERT INTO document_facts (workspace_id, document_id, fact_id)
   SELECT document.workspace_id, document.id, fact.id
   FROM facts fact
-  CROSS JOIN LATERAL (SELECT ${FACT_GOODS_TOKENS} AS tokens) fact_goods
+  LEFT JOIN LATERAL (${FACT_GOODS}) fact_goods ON true
   JOIN documents document ON document.workspace_id = fact.workspace_id
   WHERE fact.workspace_id = $1
     AND ($2::uuid IS NULL OR fact.id = $2)

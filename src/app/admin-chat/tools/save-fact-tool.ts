@@ -67,7 +67,7 @@ function describeStoredScope(stored: RouteFact, requested: Record<string, string
 }
 
 function describeCandidate(fact: RouteFact): Record<string, string | null> {
-  return { fact_id: fact.id, vehicle_plate: fact.vehiclePlate, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName };
+  return { fact_id: fact.id, vehicle_plate: fact.vehiclePlate, pickup_company: fact.pickupName, dropoff_company: fact.dropoffName, customer_company: fact.customerName, goods: fact.goodsName };
 }
 
 function describeValueChange({ name, before, after }: ValueChange): Record<string, unknown> {

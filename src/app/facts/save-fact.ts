@@ -41,7 +41,7 @@ export function saveFact(database: Database, fact: NewFact, { targetFactId, upda
       const target = (await findSameRouteFacts(transaction, fact.workspaceId, { ...identity, goods: null })).find((match) => match.id === targetFactId);
       return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, { ...fact, values: updateValues }, target);
     }
-    const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity);
+    const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity.goods === '' ? { ...identity, goods: null } : identity);
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
     const [match] = matches;
     return match === undefined ? addFact(transaction, fact) : updateSameRoute(transaction, { ...fact, values: updateValues }, match);
