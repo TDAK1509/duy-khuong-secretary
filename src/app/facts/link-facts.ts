@@ -8,36 +8,36 @@ const DRIVER_SENT_A_SOURCE = `EXISTS (
   WHERE source.document_id = document.id AND message.user_id = fact.driver_user_id
 )`;
 
-const ACCENT_FREE_KEY = (column: string) => `regexp_replace(lower(unaccent(${column})), '[^a-z0-9]', '', 'g')`;
-
 const IS_ROUTE_FACT = '(fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)';
 
 const IS_TRIP_TICKET = `(
   document.status = 'accepted'
-  AND (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${ACCENT_FREE_KEY('document.kind')}, 'phieucan') > 0))
-  AND ${ACCENT_FREE_KEY('document.kind')} <> 'tinnhan'
+  AND (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${buildAccentFreeKey('document.kind')}, 'phieucan') > 0))
+  AND ${buildAccentFreeKey('document.kind')} <> 'tinnhan'
   AND document.sheet_signature IS NULL
   AND NOT EXISTS (SELECT 1 FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL)
 )`;
 
-const PICKUP_ROLES = `(CASE document.stage WHEN 'receipt' THEN ARRAY['supplier'] ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
-const DROPOFF_ROLES = `(CASE document.stage WHEN 'dispatch' THEN ARRAY['customer', 'place'] WHEN 'receipt' THEN ARRAY['issuer', 'place'] ELSE ARRAY['issuer', 'customer', 'place'] END)`;
+const NO_ROLES = 'ARRAY[]::text[]';
+const PICKUP_ROLES = `(CASE document.stage WHEN 'receipt' THEN ${NO_ROLES} ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
+const DROPOFF_ROLES = `(CASE document.stage WHEN 'dispatch' THEN ${NO_ROLES} ELSE ARRAY['issuer', 'place'] END)`;
 const CUSTOMER_ROLES = `ARRAY['customer']`;
 
-const SPLIT_GOODS = (column: string) => `regexp_split_to_table(lower(unaccent(${column})), '[^a-z0-9]+')`;
-
 const FACT_GOODS = `
-  SELECT nullif(${ACCENT_FREE_KEY('value.text_value')}, '') AS key,
-    (SELECT array_agg(DISTINCT token) FROM ${SPLIT_GOODS('value.text_value')} token WHERE token <> '') AS tokens
+  SELECT nullif(${buildAccentFreeKey('value.text_value')}, '') AS key,
+    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token <> ''), '{}') AS tokens,
+    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token ~ '[0-9]' OR length(token) >= 4), '{}') AS distinctive
   FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}'`;
+
+const TOKEN_MATCHES_BY_PREFIX = '(wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token)))';
 
 const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
   SELECT 1 FROM document_lines line
-  WHERE line.document_id = document.id AND line.item IS NULL AND ${ACCENT_FREE_KEY('line.label')} = '${GOODS_VALUE_KEY}'
-    AND (${ACCENT_FREE_KEY('line.value')} = fact_goods.key OR EXISTS (
-      SELECT 1 FROM ${SPLIT_GOODS('line.value')} token CROSS JOIN unnest(fact_goods.tokens) wanted
-      WHERE token <> '' AND (wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token)))
-    ))
+  WHERE line.document_id = document.id AND line.item IS NULL AND ${buildAccentFreeKey('line.label')} = '${GOODS_VALUE_KEY}'
+    AND (${buildAccentFreeKey('line.value')} = fact_goods.key OR CASE
+      WHEN cardinality(fact_goods.distinctive) > 0 THEN ${buildEveryTokenFound('fact_goods.distinctive', TOKEN_MATCHES_BY_PREFIX)}
+      ELSE cardinality(fact_goods.tokens) > 0 AND ${buildEveryTokenFound('fact_goods.tokens', 'wanted = token')}
+    END)
 ))`;
 
 const LINK_MATCHES_SQL = `
@@ -95,5 +95,20 @@ function buildPartyMatch(matchKeyColumn: `${CompanySlot}_match_key`, roles: stri
         party.match_key = fact.${matchKeyColumn}
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.${matchKeyColumn})
       )
+  )`;
+}
+
+function buildAccentFreeKey(column: string): string {
+  return `regexp_replace(lower(unaccent(${column})), '[^a-z0-9]', '', 'g')`;
+}
+
+function splitGoodsTokens(column: string): string {
+  return `regexp_split_to_table(lower(unaccent(${column})), '[^a-z0-9]+')`;
+}
+
+function buildEveryTokenFound(wantedTokens: string, matches: string): string {
+  return `NOT EXISTS (
+    SELECT 1 FROM unnest(${wantedTokens}) wanted
+    WHERE NOT EXISTS (SELECT 1 FROM ${splitGoodsTokens('line.value')} token WHERE token <> '' AND ${matches})
   )`;
 }

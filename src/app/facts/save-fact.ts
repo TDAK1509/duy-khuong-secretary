@@ -1,18 +1,18 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import { type FactCompany, type FactValue, type NewFact } from './fact.ts';
+import { GOODS_VALUE_KEY, type FactCompany, type FactValue, type NewFact } from './fact.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { replaceSlotCompanies, storeFactCompanies } from './fact-companies.ts';
 import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
-import { describeNewSide, findSameRouteFacts, isRouteIdentity, readGoodsKey, type RouteFact, type RouteIdentity } from './route-fact-identity.ts';
-import { GOODS_VALUE_KEY } from './fact.ts';
+import { describeNewSide, findRouteFactTwin, findSameRouteFacts, isRouteIdentity, readGoodsKey, type RouteFact, type RouteIdentity } from './route-fact-identity.ts';
 
 export type SaveFactResult =
   | { action: 'added'; factId: string; linkedDocuments: number }
   | { action: 'updated'; factId: string; linkedDocuments: number; changes: ValueChange[]; restoredSlots: CompanySlot[]; stored: RouteFact }
   | { action: 'ambiguous'; candidates: RouteFact[] }
+  | { action: 'same_as_other'; otherFactId: string }
   | { action: 'not_same_route' };
 
 const UPDATE_STATEMENT_SQL = 'UPDATE facts SET statement = $3, updated_at = now() WHERE id = $1 AND workspace_id = $2';
@@ -39,7 +39,7 @@ export function saveFact(database: Database, fact: NewFact, { targetFactId, upda
     if (!isRouteIdentity(identity)) return targetFactId === null ? addFact(transaction, fact) : { action: 'not_same_route' };
     if (targetFactId !== null) {
       const target = (await findSameRouteFacts(transaction, fact.workspaceId, { ...identity, goods: null })).find((match) => match.id === targetFactId);
-      return target === undefined ? { action: 'not_same_route' } : updateSameRoute(transaction, { ...fact, values: updateValues }, target);
+      return target === undefined ? { action: 'not_same_route' } : updateTarget(transaction, { ...fact, values: updateValues }, target);
     }
     const matches = await findSameRouteFacts(transaction, fact.workspaceId, identity.goods === '' ? { ...identity, goods: null } : identity);
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
@@ -61,6 +61,12 @@ async function addFact(transaction: Transaction, fact: NewFact): Promise<SaveFac
   for (const [position, value] of fact.values.entries()) await insertValue(transaction, fact.workspaceId, factId, position, value);
   const linkedDocuments = await linkFactToMatchingDocuments(transaction, fact.workspaceId, factId);
   return { action: 'added', factId, linkedDocuments };
+}
+
+async function updateTarget(transaction: Transaction, fact: NewFact, target: RouteFact): Promise<SaveFactResult> {
+  const goodsChanged = fact.values.some((value) => value.matchKey === GOODS_VALUE_KEY) && readGoodsKey(fact.values) !== target.goods;
+  const twin = goodsChanged ? await findRouteFactTwin(transaction, fact.workspaceId, target.id, { vehiclePlate: target.vehiclePlate, driverUserId: target.driverUserId, goods: readGoodsKey(fact.values) }) : null;
+  return twin === null ? updateSameRoute(transaction, fact, target) : { action: 'same_as_other', otherFactId: twin.id };
 }
 
 async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: RouteFact): Promise<SaveFactResult> {

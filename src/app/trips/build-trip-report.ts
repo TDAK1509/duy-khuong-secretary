@@ -33,7 +33,6 @@ export type TripReport = {
   dropOffs: DropOffInference | null;
 };
 
-export { GOODS_VALUE_KEY };
 const NO_PLATE = '(không biển số)';
 
 type CellSources = { index: Map<string, WinningValue>; inferred: Map<string, InferredDropOff> };
