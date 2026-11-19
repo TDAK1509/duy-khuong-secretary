@@ -166,8 +166,8 @@ Depends on: PR 1.
 
 Brief: For each `detail` column, numeric cells become document lines with a
 meaning (the header name) and a unit taken from the header or the values. Each
-sheet row has an identity (kind, plate, date, and document number when there
-is one). A row whose identity was already saved from a sheet replaces that
+sheet row has an identity (the sheet's header signature, plate, date, and
+document number when there is one). A row whose identity was already saved from a sheet replaces that
 document's lines instead of adding a new document.
 
 Before: Sheet rows have no numeric lines, so "how many km" cannot be added up,
@@ -192,24 +192,43 @@ Steps, for the owner:
     document has no lines.
   - After: each detail cell becomes a document line with the header as its
     label and its meaning (`find-or-insert-meaning.ts`):
-    - a plain decimal: a number, with its unit from the header (the text in
-      parentheses, or a known word: km, kg, tấn, lít, đ, VND, phút, giờ), else
-      none;
-    - `hh:mm`: a number of minutes, unit `phút`;
+    - a plain decimal: a number, with its unit from the header (a known word
+      first: km/h, km, kg, tấn, lít, đ, VND, VNĐ, đồng, phút, giờ; else a
+      one-word tag in parentheses that is not GPS, TB or similar). Money with
+      dot thousands ("150.000") is read as thousands. A number whose header
+      names no unit stays a text line, because `document_lines` stores number
+      and unit together or not at all (accepted deviation);
+    - `hh:mm`: a number of minutes, unit `phút`, or hours under a header whose
+      unit is giờ; under a time-of-day header ("Giờ đi", "Giờ đến") a text
+      line;
     - anything else: a text line.
   - Totals (`total-document-numbers.ts`) then work on these meanings.
 - Row identity and replacement (`src/app/sheet-files/run-file-step.ts`)
-  - The identity of a sheet row: workspace, document kind (match key), plate,
-    date, and document number when a document number column is mapped.
+  - The identity of a sheet row: workspace, header signature, plate, date, and
+    document number when a document number column is mapped. The header
+    signature is a hash of the sorted match keys of the sheet's mapped columns
+    (every field but `ignore`), so the same export format matches itself
+    whatever kind name the reader gives it. It is stored in a new nullable
+    `documents.sheet_signature` column, indexed concurrently on
+    `(workspace_id, sheet_signature, document_date)`.
+  - A saved document without a document number also matches a row that has
+    one.
   - Within one upload, a second row with the same identity is skipped and
     listed as a duplicate.
   - Against saved documents: when a document with the same identity exists and
-    all its sources are sheet uploads, its lines and summary are replaced, and
-    the new upload is added as a source. The reply counts it as updated. A
+    all its sources are sheet uploads, its lines and summary are replaced, the
+    new upload is added as a source, and the document is linked again to the
+    facts it matches. It keeps its existing kind; the reader's kind is used
+    only for new documents. The reply counts it as updated. A
     document with any non-sheet source is never changed: the row is saved as
     a new document and counted as such.
   - All of this runs in the process step's single fenced transaction, under
-    the workspace lock.
+    the workspace lock, as a few set-based statements for the whole upload
+    (one lookup, multi-row inserts of documents, meanings, lines and sources,
+    one update, one fact-linking statement), not one round trip per line.
+  - Documents saved by the first version of this PR have no signature and are
+    not matched: the first resend after the signature change saves them again
+    as new rows.
 - The result reply: "N dòng mới, M dòng cập nhật, K dòng bỏ qua (…)".
 - README, the file section: numeric lines and replacement on resend.
 

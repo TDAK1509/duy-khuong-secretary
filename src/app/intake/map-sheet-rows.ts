@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { buildMatchKey } from '../documents/build-match-key.ts';
 import type { DocumentDraft, PlannedItem } from '../documents/document-draft.ts';
 import type { ReadingItem } from '../reading/reading.ts';
 import type { NewRecord, RecordDetail } from '../records/new-record.ts';
@@ -8,6 +10,7 @@ import type { SheetDateFormat, SheetMappingField, SheetReading } from './sheet-r
 
 export type SheetMappingPlan = {
   kind: string;
+  signature: string;
   dateFormat: SheetDateFormat;
   dateIndex: number;
   titleIndex: number | null;
@@ -27,6 +30,7 @@ export function planSheetMapping(reading: SheetReading, headers: string[]): Shee
   const indexOf = (field: SheetMappingField) => reading.columnMapping.find((role) => role.field === field)?.columnIndex ?? null;
   return {
     kind: reading.documentKind,
+    signature: signMappedHeaders(reading, headers),
     dateFormat: reading.dateFormat,
     dateIndex: indexOf('document_date') ?? 0,
     titleIndex: indexOf('title'),
@@ -36,6 +40,11 @@ export function planSheetMapping(reading: SheetReading, headers: string[]): Shee
     summaryIndex: indexOf('summary'),
     details: reading.columnMapping.filter((role) => role.field === 'detail').map((role) => ({ index: role.columnIndex, label: headers[role.columnIndex] ?? '' })),
   };
+}
+
+function signMappedHeaders(reading: SheetReading, headers: string[]): string {
+  const keys = reading.columnMapping.filter((role) => role.field !== 'ignore').map((role) => buildMatchKey(headers[role.columnIndex] ?? ''));
+  return createHash('sha256').update(JSON.stringify(keys.sort())).digest('hex');
 }
 
 export type RowAttempt =

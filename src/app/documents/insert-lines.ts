@@ -14,7 +14,7 @@ export async function insertLines(transaction: Transaction, message: DocumentMes
   }
 }
 
-function buildLineRow(
+export function buildLineRow(
   { workspaceId }: DocumentMessage,
   documentId: string,
   lineNo: number,
