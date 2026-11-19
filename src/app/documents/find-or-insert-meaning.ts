@@ -25,13 +25,13 @@ export async function findOrInsertMeanings(transaction: Transaction, workspaceId
   return new Map(rows.map((row) => [`${row.value_type}|${row.match_key}`, row.id]));
 }
 
-export function describeMeaning(detail: ReadingDetail): string {
-  return `${readValueType(detail)}|${buildMatchKey(detail.meaning ?? '')}`;
-}
-
 function buildMeaningRow(detail: ReadingDetail): { value_type: string; name: string; match_key: string }[] {
   const matchKey = buildMatchKey(detail.meaning ?? '');
   return matchKey === '' ? [] : [{ value_type: readValueType(detail), name: toMeaningName(detail.meaning ?? '', matchKey), match_key: matchKey }];
+}
+
+export function describeMeaning(detail: ReadingDetail): string {
+  return `${readValueType(detail)}|${buildMatchKey(detail.meaning ?? '')}`;
 }
 
 function readValueType(detail: ReadingDetail): string {

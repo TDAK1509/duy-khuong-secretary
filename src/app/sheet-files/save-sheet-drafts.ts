@@ -2,12 +2,11 @@ import { randomUUID } from 'node:crypto';
 import type { Transaction } from '../db/transaction.ts';
 import type { DocumentDraft } from '../documents/document-draft.ts';
 import { buildDocumentRow } from '../documents/insert-document.ts';
-import { buildLineRow } from '../documents/insert-lines.ts';
+import { buildLineRow, listLineDetails } from '../documents/insert-lines.ts';
 import { insertRows } from '../documents/insert-row.ts';
 import { describeMeaning, findOrInsertMeanings } from '../documents/find-or-insert-meaning.ts';
 import type { DocumentMessage } from '../documents/store-documents.ts';
 import { linkDocumentsToMatchingFacts } from '../facts/link-facts.ts';
-import type { ReadingDetail } from '../reading/reading.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import type { FileClaim } from './file-claims.ts';
 
@@ -91,16 +90,12 @@ async function updateExistingDocuments(transaction: Transaction, message: Docume
 }
 
 async function insertSheetLines(transaction: Transaction, message: DocumentMessage, entries: PlacedDraft[]): Promise<void> {
-  const linesByDocument = entries.map(({ documentId, draft }) => ({ documentId, details: readLineDetails(draft) }));
+  const linesByDocument = entries.map(({ documentId, draft }) => ({ documentId, details: listLineDetails(draft) }));
   const meaningIds = await findOrInsertMeanings(transaction, message.workspaceId, linesByDocument.flatMap((entry) => entry.details));
   const rows = linesByDocument.flatMap(({ documentId, details }) =>
     details.map((detail, lineNo) => buildLineRow(message, documentId, lineNo, detail, meaningIds.get(describeMeaning(detail)) ?? null)),
   );
   await insertRows(transaction, 'document_lines', rows);
-}
-
-function readLineDetails(draft: DocumentDraft): ReadingDetail[] {
-  return draft.lineItems.flatMap(({ item }) => item.details).filter((detail) => detail.label.trim() !== '');
 }
 
 function buildSourceRows(message: DocumentMessage, { documentId, draft }: PlacedDraft): Record<string, unknown>[] {
