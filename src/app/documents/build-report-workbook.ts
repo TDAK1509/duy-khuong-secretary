@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
-import { FIRST_DATA_ROW, formatDateCell, formatNumberCell, formatWorkbookSheet, HEADER_ROW, type ColumnUnit, type SubtotalRow } from './format-workbook-sheet.ts';
+import { findHeaderRow, formatDateCell, formatNumberCell, formatWorkbookSheet, type ColumnUnit, type SubtotalRow } from './format-workbook-sheet.ts';
+import { listIntroLines, type SummaryFigure } from './report-summary.ts';
 import { groupSortedRows, sortReportRows, type ReportLayout, type RowGroup } from './report-layout.ts';
 import { addNoteSheet, type NoteSheet } from './add-note-sheet.ts';
 import { readColumnUnit } from './column-units.ts';
@@ -8,16 +9,18 @@ export type ReportColumn = { name: string; type: 'number' | 'text' | 'date'; uni
 
 export type ReportCell = number | string | null;
 
-export type ReportTable = { title: string; createdAt: Date; columns: ReportColumn[]; rows: ReportCell[][]; layout?: ReportLayout | null; extraSheets?: NoteSheet[] };
+export type ReportTable = { title: string; createdAt: Date; columns: ReportColumn[]; rows: ReportCell[][]; layout?: ReportLayout | null; subtitle?: string | null; figures?: SummaryFigure[]; extraSheets?: NoteSheet[] };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function buildReportWorkbook(table: ReportTable): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Báo cáo');
-  sheet.getRow(HEADER_ROW).values = table.columns.map((column) => column.name);
-  const body = writeBody(sheet, table);
-  formatWorkbookSheet(sheet, { title: table.title, createdAt: table.createdAt, units: table.columns.map(readColumnUnit), ...body, totalColumns: table.layout?.totals ?? null });
+  const introLines = listIntroLines(table.subtitle ?? null, table.figures ?? []);
+  const headerRow = findHeaderRow(introLines);
+  sheet.getRow(headerRow).values = table.columns.map((column) => column.name);
+  const body = writeBody(sheet, table, headerRow);
+  formatWorkbookSheet(sheet, { title: table.title, createdAt: table.createdAt, headerRow, introLines, units: table.columns.map(readColumnUnit), ...body, totalColumns: table.layout?.totals ?? null });
   for (const noteSheet of table.extraSheets ?? []) addNoteSheet(workbook, noteSheet);
   const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
@@ -25,21 +28,24 @@ export async function buildReportWorkbook(table: ReportTable): Promise<Uint8Arra
 
 type WrittenBody = { lastDataRow: number; subtotals: SubtotalRow[] };
 
-function writeBody(sheet: ExcelJS.Worksheet, { columns, rows, layout }: ReportTable): WrittenBody {
+function writeBody(sheet: ExcelJS.Worksheet, { columns, rows, layout }: ReportTable, headerRow: number): WrittenBody {
   const ordered = layout ? sortReportRows(rows, layout) : rows;
   const groupBy = layout?.groupBy ?? null;
   const groupColumn = groupBy === null ? undefined : columns[groupBy];
   if (groupBy === null || groupColumn === undefined) {
-    ordered.forEach((cells, index) => writeReportRow(sheet.getRow(FIRST_DATA_ROW + index), columns, cells));
-    return { lastDataRow: HEADER_ROW + ordered.length, subtotals: [] };
+    ordered.forEach((cells, index) => writeReportRow(sheet.getRow(headerRow + 1 + index), columns, cells));
+    return { lastDataRow: headerRow + ordered.length, subtotals: [] };
   }
-  return writeGroups(sheet, columns, groupSortedRows(ordered, groupBy, (cell) => describeGroupValue(cell, groupColumn)), groupBy);
+  const groups = groupSortedRows(ordered, groupBy, (cell) => describeGroupValue(cell, groupColumn));
+  return writeGroups(sheet, { columns, groups, groupColumn: groupBy, firstRow: headerRow + 1 });
 }
 
-function writeGroups(sheet: ExcelJS.Worksheet, columns: ReportColumn[], groups: RowGroup[], groupColumn: number): WrittenBody {
+type GroupedBody = { columns: ReportColumn[]; groups: RowGroup[]; groupColumn: number; firstRow: number };
+
+function writeGroups(sheet: ExcelJS.Worksheet, { columns, groups, groupColumn, firstRow }: GroupedBody): WrittenBody {
   const labelColumn = columns.findIndex((column, index) => column.type === 'text' && index !== groupColumn);
   const subtotals: SubtotalRow[] = [];
-  let rowNumber = FIRST_DATA_ROW;
+  let rowNumber = firstRow;
   for (const group of groups) {
     const firstDataRow = rowNumber;
     for (const cells of group.rows) writeReportRow(sheet.getRow(rowNumber++), columns, cells);

@@ -3,6 +3,7 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout } from '../../documents/report-layout.ts';
+import { describeIntro, readReportIntro } from '../../documents/report-summary.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { buildTripReport, GOODS_VALUE_KEY, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
@@ -102,9 +103,13 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const dropOffs = hasRouteColumn(columns) ? await inferDropOffs(database, dropOffReader, { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, papers }) : null;
   const report = buildTripReport({ title: request.title, createdAt, columns, papers, winners, reviewPapers: await countReviewTripPapers(database, query), dropOffs });
   const choice = readReportLayout(request.layout, report.table.columns);
-  const table = { ...report.table, layout: choice.kind === 'valid' ? choice.layout : null };
+  const layout = choice.kind === 'valid' ? choice.layout : null;
+  const modelIntro = readReportIntro(request.layout, layout !== null, report.table);
+  const period = describePeriod(request.date_from, request.date_to);
+  const intro = { ...modelIntro, subtitle: [period, dropRepeatedPeriod(modelIntro.subtitle, period)].filter((part) => part !== null).join(', ') };
+  const table = { ...report.table, layout, ...intro };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
-  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
+  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), layout: describeEffectiveLayout(choice, table.columns), ...describeIntro(intro), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
 function hasRouteColumn(columns: TripColumn[]): boolean {
@@ -135,4 +140,22 @@ function summarizeDropOffs({ inferred, stillUnknown }: DropOffInference) {
     inferred_ai: pairs.filter((pair) => pair.method === 'ai').length,
     still_unknown: stillUnknown,
   };
+}
+
+function dropRepeatedPeriod(subtitle: string | null, period: string): string | null {
+  if (subtitle === null || !subtitle.toLowerCase().startsWith(period.toLowerCase())) return subtitle;
+  const rest = subtitle.slice(period.length).replace(/^[\s,;:·-]+/, '');
+  return rest === '' ? null : rest;
+}
+
+function describePeriod(dateFrom: string, dateTo: string): string {
+  const [fromYear, fromMonth, fromDay] = dateFrom.split('-');
+  const [toYear, toMonth] = dateTo.split('-');
+  const monthEnd = new Date(Date.UTC(Number(toYear), Number(toMonth), 0)).toISOString().slice(0, 10);
+  if (fromDay === '01' && fromYear === toYear && fromMonth === toMonth && dateTo === monthEnd) return `Tháng ${fromMonth}/${fromYear}`;
+  return `Từ ${formatDate(dateFrom)} đến ${formatDate(dateTo)}`;
+}
+
+function formatDate(isoDate: string): string {
+  return isoDate.split('-').reverse().join('/');
 }
