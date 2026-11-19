@@ -7,7 +7,7 @@ import { saveSheetDrafts, type SavedCounts, type SheetDraft } from './save-sheet
 
 export type SheetSave = { drafts: SheetDraft[]; describe(counts: SavedCounts): string };
 
-export type FileOutcome = { text: string; finishesFile: boolean; sheet?: SheetSave };
+export type FileOutcome = { finishesFile: boolean } & ({ text: string } | { sheet: SheetSave });
 
 export type RenewLease = () => Promise<void>;
 
@@ -58,7 +58,7 @@ async function commitOutcome(dependencies: FileStepDependencies, claim: FileClai
       console.log(`[files] admin gone file=${claim.fileId}`);
       return completeFileStep(transaction, claim, { finishesFile: true }, now);
     }
-    const text = outcome.sheet ? outcome.sheet.describe(await saveSheetDrafts(transaction, claim, outcome.sheet.drafts)) : outcome.text;
+    const text = 'sheet' in outcome ? outcome.sheet.describe(await saveSheetDrafts(transaction, claim, outcome.sheet.drafts)) : outcome.text;
     await enqueueFileReply(transaction, { recipient, text, now, maxTextLength: dependencies.maxTextLength });
     await completeFileStep(transaction, claim, { finishesFile: outcome.finishesFile }, now);
   });

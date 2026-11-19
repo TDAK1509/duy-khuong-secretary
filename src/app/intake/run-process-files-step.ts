@@ -81,7 +81,7 @@ function mapRows({ claim, headers, rows }: FileRows, plan: SheetMappingPlan): Fi
     const text = formatSheetResult({ kind: plan.kind, ...counts, skipped, duplicates });
     return claim.caption === null ? text : `${SHEET_CAPTION_USED_TEXT} ${text}`;
   };
-  return { text: describe({ added: 0, updated: 0 }), finishesFile: true, sheet: { drafts, describe } };
+  return { finishesFile: true, sheet: { drafts, describe } };
 }
 
 type SavedRow = { rowNumber: number; draft: DocumentDraft };
