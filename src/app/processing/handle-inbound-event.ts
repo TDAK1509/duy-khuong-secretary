@@ -15,6 +15,7 @@ import { answerInternalLoginCommand, isInternalLoginCommand } from '../internal-
 import { answerMcpTokenCommand, isMcpTokenCommand } from '../internal-mcp/answer-mcp-token-command.ts';
 import { findIntakeSender } from '../intake/find-intake-sender.ts';
 import { readFileFromPayload, receiveFile } from '../intake/receive-file.ts';
+import { captureCaption } from '../intake/link-caption.ts';
 import { receiveIntake } from '../intake/receive-intake.ts';
 import { SHEET_NON_ADMIN_TEXT } from '../intake/sheet-texts.ts';
 import { hasUsableInvite } from '../workspaces/has-usable-invite.ts';
@@ -30,7 +31,7 @@ import {
 } from './conversation-texts.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { InboundHandler } from './inbound-step.ts';
-import type { Finished, NotConfigured, Stage, Stages } from './stages.ts';
+import type { Finished, NotConfigured, Postponed, Stage, Stages } from './stages.ts';
 import { reactToAdminMessage } from './react-to-admin-message.ts';
 import { recordSenderIdentity } from './record-sender-identity.ts';
 import { replyToMember } from './reply-to-member.ts';
@@ -59,7 +60,7 @@ async function dispatchInboundEvent(
   dependencies: InboundHandlerDependencies,
   event: ClaimedEvent,
   stages: Stages,
-): Promise<Finished | NotConfigured> {
+): Promise<Finished | NotConfigured | Postponed> {
   await reactToAdminMessage(dependencies, event, readText(event));
   await stages.runStage(releaseHeldStage(dependencies, event));
   if (event.kind === 'file') return handleFileEvent(dependencies, event, stages);
@@ -70,7 +71,7 @@ async function handleFileEvent(
   dependencies: InboundHandlerDependencies,
   event: ClaimedEvent,
   stages: Stages,
-): Promise<Finished | NotConfigured> {
+): Promise<Finished | NotConfigured | Postponed> {
   const sender = await findIntakeSender(dependencies.database, event, null);
   if (sender === null || sender.role !== 'admin') return refuseNonAdminFile(dependencies, event, stages);
   return receiveFile(dependencies, stages, event, sender, readFileFromPayload(event));
@@ -96,9 +97,13 @@ async function answerByText(
   dependencies: InboundHandlerDependencies,
   event: ClaimedEvent,
   stages: Stages,
-): Promise<Finished | NotConfigured> {
+): Promise<Finished | NotConfigured | Postponed> {
   const text = readText(event);
   const sender = await findIntakeSender(dependencies.database, event, text);
+  if (sender !== null && sender.role === 'admin' && event.kind === 'text') {
+    const captioned = await captureCaption(dependencies, stages, { event, sender, text });
+    if (captioned !== null) return captioned;
+  }
   if (sender !== null) return receiveIntake(dependencies, stages, event, sender);
   return handleNonIntakeSender(dependencies, stages, event, text);
 }

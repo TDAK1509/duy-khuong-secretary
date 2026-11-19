@@ -4,11 +4,12 @@ import type { IntakeSender } from '../intake/find-intake-sender.ts';
 
 const HISTORY_LIMIT = 20;
 const PHOTO_MARK = '[ảnh]';
+const CAPTION_MARK = '[ghi chú kèm file, đã dùng để đọc file]';
 const HIDDEN_ANSWER_TEXT = '(Câu trả lời cũ đã được ẩn.)';
 
 export type History = { turns: ChatTurn[]; hasFlaggedAnswer: boolean };
 
-type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null; holds_other_text: boolean };
+type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null; holds_other_text: boolean; is_caption: boolean };
 
 export async function loadHistoryTurns(
   database: Database,
@@ -18,7 +19,9 @@ export async function loadHistoryTurns(
   hideFlaggedAnswers: boolean,
 ): Promise<History> {
   const { rows } = await database.query<HistoryRow>(
-    `SELECT author, text, image_key, holds_other_text FROM messages
+    `SELECT author, text, image_key, holds_other_text,
+       EXISTS (SELECT 1 FROM inbound_events event WHERE event.id = messages.inbound_event_id AND event.caption_for_event_id IS NOT NULL) AS is_caption
+     FROM messages
      WHERE workspace_id = $1 AND user_id = $2 AND created_at >= $3 AND source <> 'mcp'
        AND id <> $4 AND reply_to IS DISTINCT FROM $4
      ORDER BY created_at DESC, id DESC
@@ -33,6 +36,7 @@ export async function loadHistoryTurns(
 
 function toTurn(row: HistoryRow, hideFlaggedAnswers: boolean): ChatTurn {
   if (row.author === 'bot') return { role: 'assistant', text: describeAnswer(row, hideFlaggedAnswers) };
+  if (row.is_caption) return { role: 'user', text: `${CAPTION_MARK} ${row.text ?? ''}` };
   return { role: 'user', text: row.image_key === null ? row.text : describePhotoMessage(row.text) };
 }
 

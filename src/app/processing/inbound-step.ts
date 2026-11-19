@@ -6,11 +6,11 @@ import { claimInboundEvent } from './claim-inbound-event.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 import type { HeldEvents } from './held-events.ts';
 import type { OffGroupNotices } from './off-group-notices.ts';
-import { postponeEvent } from './postpone-event.ts';
+import { postponeEvent, postponeEventUntil } from './postpone-event.ts';
 import { failExhaustedEvent, MAX_ATTEMPTS, recordFailure } from './record-failure.ts';
-import { createStages, type Finished, type NotConfigured, type Stages } from './stages.ts';
+import { createStages, type Finished, type NotConfigured, type Postponed, type Stages } from './stages.ts';
 
-export type InboundHandler = (event: ClaimedEvent, stages: Stages) => Promise<Finished | NotConfigured>;
+export type InboundHandler = (event: ClaimedEvent, stages: Stages) => Promise<Finished | NotConfigured | Postponed>;
 
 export type InboundDependencies = {
   database: Database;
@@ -43,6 +43,7 @@ async function handleClaimedEvent(dependencies: InboundDependencies, event: Clai
   try {
     const result = await handler(event, createStages(database, event, clock));
     if (result.kind === 'not_configured') await postponeEvent(dependencies, event, result.group);
+    else if (result.kind === 'postponed') await postponeEventUntil(database, event, result.until);
     else console.log(`[inbound] event=${event.id} done`);
   } catch (error) {
     await recordFailure(dependencies, event, clock.now(), error);

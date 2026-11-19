@@ -8,6 +8,8 @@ export type Finished = { kind: 'finished' };
 
 export type NotConfigured = { kind: 'not_configured'; group: string };
 
+export type Postponed = { kind: 'postponed'; until: Date };
+
 export type Stage = {
   isDone(transaction: Transaction): Promise<boolean>;
   write(transaction: Transaction): Promise<void>;
