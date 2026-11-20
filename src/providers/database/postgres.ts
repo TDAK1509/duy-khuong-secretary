@@ -17,6 +17,7 @@ export function createPostgresPool(
   const pool = new pg.Pool({
     connectionString: databaseUrl,
     connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+    options: '-c jit=off',
     query_timeout: timeouts.queryTimeoutMs,
     statement_timeout: timeouts.statementTimeoutMs,
   });

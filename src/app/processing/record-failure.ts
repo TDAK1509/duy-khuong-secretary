@@ -1,6 +1,7 @@
 import { describeInboundEventFailed } from '../alerts/alert-texts.ts';
 import type { OperatorAlerts } from '../alerts/operator-alerts.ts';
 import type { Database } from '../db/transaction.ts';
+import { describeError } from '../errors/describe-error.ts';
 import { runInClaimedTransaction } from './claimed-transaction.ts';
 import type { ClaimedEvent } from './claimed-event.ts';
 
@@ -15,7 +16,7 @@ export async function recordFailure(
   now: Date,
   error: unknown,
 ): Promise<void> {
-  const errorName = error instanceof Error ? error.name : 'unknown error';
+  const errorName = describeError(error);
   if (event.attempts < MAX_ATTEMPTS) {
     await requeueWithWait(dependencies.database, event, now, errorName);
     return;
