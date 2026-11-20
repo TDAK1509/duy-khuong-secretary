@@ -68,10 +68,7 @@ function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
 }
 
 function buildUserContent(request: ReaderRequest): OpenAI.Chat.ChatCompletionContentPart[] {
-  const parts: OpenAI.Chat.ChatCompletionContentPart[] = [];
-  if (request.text !== null) parts.push({ type: 'text', text: request.text });
-  if (request.image !== null) parts.push({ type: 'image_url', image_url: { url: toDataUrl(request.image) } });
-  return parts;
+  return request.userParts.map((part): OpenAI.Chat.ChatCompletionContentPart => (part.kind === 'text' ? { type: 'text', text: part.text } : { type: 'image_url', image_url: { url: toDataUrl(part.photo) } }));
 }
 
 function toDataUrl(photo: Photo): string {

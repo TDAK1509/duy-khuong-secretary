@@ -1,11 +1,12 @@
-import type { ReaderService } from '../../services/reading/reader-service.ts';
+import type { ReaderPart, ReaderService } from '../../services/reading/reader-service.ts';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { listMemberFacts } from '../memory/list-member-facts.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
 import type { ReaderCatalog } from '../reading/document-rules.ts';
-import { buildReaderPrompt } from '../reading/reader-prompt.ts';
+import { buildReaderDataParts, buildReaderPrompt } from '../reading/reader-prompt.ts';
+import { buildPhotoParts, wrapRetrievedData } from '../reading/retrieved-data.ts';
 import { buildReaderSchema, READER_SCHEMA_NAME } from '../reading/reader-schema.ts';
 import { validateReading, type ReadAttempt } from '../reading/reading.ts';
 import type { IntakeContext } from './intake-context.ts';
@@ -33,12 +34,22 @@ export async function readWithReader(
 ): Promise<ReadAttempt> {
   const result = await reader.read({
     system: buildReaderPrompt(now, labels, catalog, facts, fromAdmin),
-    text: message.text,
-    image: message.photo,
+    userParts: buildReaderParts(message, buildReaderDataParts(labels, catalog, facts)),
     schemaName: READER_SCHEMA_NAME,
     schema: buildReaderSchema(fromAdmin),
   });
   const attempt = result.ok ? validateReading(result.json) : result;
   logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);
   return attempt;
+}
+
+const READ_REQUEST = 'Đọc tin nhắn và ảnh trong các thẻ dữ liệu ở trên theo các quy tắc, rồi trả về JSON.';
+
+function buildReaderParts(message: MessageContent, dataParts: ReaderPart[]): ReaderPart[] {
+  return [
+    ...dataParts,
+    ...(message.text === null ? [] : [{ kind: 'text' as const, text: wrapRetrievedData('message', message.text) }]),
+    ...(message.photo === null ? [] : buildPhotoParts(message.photo)),
+    { kind: 'text', text: READ_REQUEST },
+  ];
 }

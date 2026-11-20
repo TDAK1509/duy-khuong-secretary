@@ -1,5 +1,5 @@
-import type { ChatRequest, ChatService, ChatTurn, ToolSpec } from '../../services/chat/chat-service.ts';
-import { labelAdminMessage } from './label-admin-message.ts';
+import type { ChatRequest, ChatService, ToolSpec } from '../../services/chat/chat-service.ts';
+import { labelAdminMessage, type LabelInput } from './label-admin-message.ts';
 import { isCurrentMember } from '../access/is-current-member.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -54,7 +54,7 @@ type Answer = {
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
   const firstRequest = await buildChatRequest(context, message, profile, false);
-  const loop = await chooseToolLoop(context, message, profile.role, firstRequest.request.turns);
+  const loop = await chooseToolLoop(context, message, profile.role, firstRequest.labelInput);
   const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote, loop }, firstRequest);
   const isRefusedOnlyByHistory = first.answer.refusedTools.length > 0 && first.hasFlaggedAnswer && !hasNote;
   if (!isRefusedOnlyByHistory) return first.answer;
@@ -64,7 +64,7 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
 
 type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean; loop: ToolLoopChoice };
 
-type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean };
+type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean; labelInput: LabelInput };
 
 async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView, built: BuiltRequest): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
@@ -118,12 +118,13 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const tools = listChatTools(profile.role);
+  const currentTurn = await buildUserTurn(database, message);
   const request = {
     system: buildPrompt(profile, clock.now(), await loadMemory(context), tools),
-    turns: [...history.turns, await buildUserTurn(database, message)],
+    turns: [...history.turns, currentTurn],
     tools,
   };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: currentTurn.role === 'user' ? currentTurn.text : null } };
 }
 
 async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {
@@ -138,11 +139,11 @@ function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: Too
 
 type ToolLoopChoice = { chat: ChatService; maxRounds: number };
 
-async function chooseToolLoop(context: IntakeContext, message: ChatMessage, role: ChatProfile['role'], turns: ChatTurn[]): Promise<ToolLoopChoice> {
+async function chooseToolLoop(context: IntakeContext, message: ChatMessage, role: ChatProfile['role'], labelInput: LabelInput): Promise<ToolLoopChoice> {
   const { chats } = context.dependencies;
   if (chats === null) throw new Error('the chat service is not configured');
   if (role !== 'admin') return { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
-  const label = await labelAdminMessage(chats.adminChat, turns);
+  const label = await labelAdminMessage(chats.adminChat, labelInput);
   console.log(`[admin-route] message=${message.id} label=${label}`);
   return { chat: label === 'report' ? chats.adminReport : chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS };
 }

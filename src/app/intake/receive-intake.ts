@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ReaderService } from '../../services/reading/reader-service.ts';
+import { hasImagePart, type ReaderService } from '../../services/reading/reader-service.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -66,7 +66,7 @@ function meterServices(
   const meter = { database: dependencies.database, workspaceId: sender.workspaceId, charged: { clock: dependencies.clock, maxTextLength: dependencies.channel.maxTextLength } };
   return {
     dependencies: { ...dependencies, chats: meterChats(chats, meter), dropOffReader: dependencies.dropOffReader && meterReader(dependencies.dropOffReader, meter, () => 'chat_answer') },
-    reader: meterReader(reader, meter, (request) => (request.image === null ? 'text_read' : 'photo_read')),
+    reader: meterReader(reader, meter, (request) => (hasImagePart(request) ? 'photo_read' : 'text_read')),
   };
 }
 
