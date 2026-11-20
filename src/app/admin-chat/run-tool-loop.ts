@@ -1,6 +1,7 @@
 import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
 import { failInvalidArgument } from './tools/tool-result.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
+import { wrapRetrievedData } from '../reading/retrieved-data.ts';
 import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
 
 export const DEFAULT_TOOL_ROUNDS = 5;
@@ -49,9 +50,15 @@ async function runToolRound({ calls, replayItems }: ToolCallsReply, runTool: Run
   rounds.push({ calls: logged, ran: true });
   for (const [index, call] of calls.entries()) {
     const output = index < MAX_CALLS_PER_ROUND ? await runCall(call, runTool, logged) : skipCall(call, logged);
-    results.push({ role: 'tool_result', callId: call.id, output });
+    results.push({ role: 'tool_result', callId: call.id, output: wrapRetrievedData(`tool:${readToolLabel(call.name)}`, output) });
   }
   return [{ role: 'assistant_tool_calls', calls, replayItems }, ...results];
+}
+
+const TOOL_NAME = /^[a-z][a-z_]{0,63}$/;
+
+function readToolLabel(name: string): string {
+  return TOOL_NAME.test(name) ? name : 'unknown';
 }
 
 async function runCall(call: ToolCall, runTool: RunTool, logged: LoggedCall[]): Promise<string> {
