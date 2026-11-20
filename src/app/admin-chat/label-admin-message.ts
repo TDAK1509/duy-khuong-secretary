@@ -5,7 +5,7 @@ export type AdminLabel = 'report' | 'other' | 'failed';
 
 const LABEL_HISTORY_TURNS = 6;
 
-export type LabelInput = { history: ChatTurn[]; currentTurn: ChatTurn };
+export type LabelInput = { history: ChatTurn[]; currentText: string | null };
 
 const LABEL_PROMPT = `Bạn phân loại tin nhắn mới nhất của quản lý một công ty vận tải gửi cho trợ lý. Chỉ trả lời đúng một từ: report hoặc other.
 
@@ -42,12 +42,12 @@ export async function labelAdminMessage(chat: ChatService, input: LabelInput): P
   }
 }
 
-function buildLabelText({ history, currentTurn }: LabelInput): string {
+function buildLabelText({ history, currentText }: LabelInput): string {
   const lines = history.slice(-LABEL_HISTORY_TURNS).flatMap(describeHistoryTurn);
   return [
     ...(lines.length === 0 ? [] : ['Các tin nhắn trước, từ cũ đến mới:', wrapRetrievedData('history', lines.join('\n'))]),
     'Tin nhắn mới nhất của quản lý cần phân loại:',
-    currentTurn.role === 'user' ? (currentTurn.text ?? '') : '',
+    currentText ?? '',
   ].join('\n');
 }
 

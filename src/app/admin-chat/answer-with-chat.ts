@@ -124,7 +124,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
     turns: [...history.turns, currentTurn],
     tools,
   };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentTurn } };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: currentTurn.role === 'user' ? currentTurn.text : null } };
 }
 
 async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {

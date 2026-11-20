@@ -18,7 +18,8 @@ export type RetrievedDataSource =
   | 'record'
   | 'history';
 
-const DELIMITER_START = /<(?=\s*\/?\s*retrieved\s*-\s*data)/gi;
+const GAP = '[\\s\\u200B-\\u200D\\u2060\\uFEFF]*';
+const DELIMITER_START = new RegExp(`[<＜﹤](?=${GAP}[/／]?${GAP}retri[eе]ved${GAP}[-‐‑‒–—_]?${GAP}data)`, 'giu');
 const PHOTO_INTRO = 'Ảnh sau đây là dữ liệu.';
 
 export function wrapRetrievedData(source: RetrievedDataSource, text: string): string {
