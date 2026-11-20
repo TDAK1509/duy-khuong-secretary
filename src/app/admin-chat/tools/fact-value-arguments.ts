@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
+import { PER_TON_UNIT } from '../../facts/total-fact-values.ts';
 import { CUSTOMER_VALUE_KEY, CUSTOMER_VALUE_NAME, type FactCompany, type FactValue, type FactValueContent } from '../../facts/fact.ts';
 
 const MAX_VALUE_NAME_LENGTH = 80;
-const VALUE_UNITS = ['đ', 'đ/tấn'];
+const PER_TRIP_UNIT = 'đ';
+const MONEY = '(đ|₫|vnd|vnđ|đồng|dong)';
+const PER_TRIP_FORM = new RegExp(`^${MONEY}(/(chuyến|chuyen|lượt|luot|xe))?$`);
+const PER_TON_FORM = new RegExp(`^${MONEY}/(tấn|tan)$`);
 
 const INVALID_VALUE_NAME_REASON = 'Tên giá trị phải có từ 1 đến 80 ký tự và có chữ hoặc số.';
 const DUPLICATE_VALUE_NAME_REASON = 'Trùng tên với một giá trị khác trong cùng thông tin.';
 const INVALID_VALUE_KIND_REASON = 'Giá trị phải là một số kèm đơn vị, hoặc là chữ, không phải cả hai.';
-const INVALID_UNIT_REASON = 'Đơn vị phải là "đ" (mỗi chuyến) hoặc "đ/tấn" (mỗi tấn).';
 const NEGATIVE_NUMBER_REASON = 'Số tiền phải lớn hơn hoặc bằng 0.';
 
 export const valueArgumentSchema = z.strictObject({
@@ -45,8 +48,22 @@ function findContentRefusalReason({ number, unit, text }: ValueArgument): string
   const hasNumber = number !== null;
   if (hasText === hasNumber || hasNumber !== (unit !== null)) return INVALID_VALUE_KIND_REASON;
   if (number === null) return null;
-  if (!VALUE_UNITS.includes(unit?.trim() ?? '')) return INVALID_UNIT_REASON;
+  if (readMoneyUnit(unit) === null) return describeInvalidUnit(unit ?? '');
   return number >= 0 && Number.isFinite(number) ? null : NEGATIVE_NUMBER_REASON;
+}
+
+function describeInvalidUnit(unit: string): string {
+  return `Đơn vị "${unit}" chưa hợp lệ. Ghi số tiền đầy đủ bằng đồng, kèm "đ" cho số tiền mỗi chuyến (ví dụ 50k/chuyến là 50000 "đ") hoặc "đ/tấn" cho số tiền mỗi tấn (ví dụ 105k/tấn là 105000 "đ/tấn").`;
+}
+
+function failUnvalidatedUnit(): never {
+  throw new Error('a money value reached storage without a valid unit');
+}
+
+function readMoneyUnit(unit: string | null): string | null {
+  const form = (unit ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, '');
+  if (PER_TRIP_FORM.test(form)) return PER_TRIP_UNIT;
+  return PER_TON_FORM.test(form) ? PER_TON_UNIT : null;
 }
 
 function toFactValue(value: ValueArgument): FactValue {
@@ -55,7 +72,7 @@ function toFactValue(value: ValueArgument): FactValue {
 }
 
 function readContent({ number, unit, text }: ValueArgument): FactValueContent {
-  if (number !== null && unit !== null) return { kind: 'number', number, unit: unit.trim() };
+  if (number !== null && unit !== null) return { kind: 'number', number, unit: readMoneyUnit(unit) ?? failUnvalidatedUnit() };
   return { kind: 'text', text: (text ?? '').trim() };
 }
 

@@ -1,5 +1,6 @@
 import type { ChatRequest, ChatResult, ChatService, ChatTurn, ToolCall } from '../../services/chat/chat-service.ts';
-import { failInvalidArgument } from './tools/tool-result.ts';
+import { failInvalidArgument, failTool } from './tools/tool-result.ts';
+import { describeError } from '../errors/describe-error.ts';
 import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from './chat-texts.ts';
 import { wrapRetrievedData } from '../reading/retrieved-data.ts';
 import { describeToolCall, describeToolOutput, NOT_RUN, THREW } from './describe-tool-call.ts';
@@ -56,6 +57,7 @@ async function runToolRound({ calls, replayItems }: ToolCallsReply, runTool: Run
 }
 
 const TOOL_NAME = /^[a-z][a-z_]{0,63}$/;
+const TOOL_FAILED_ERROR = 'Công cụ gặp lỗi khi chạy nên chưa làm được việc này. Không gọi lại công cụ này trong lượt này; nói ngắn trong câu trả lời là việc này chưa làm được.';
 
 function readToolLabel(name: string): string {
   return TOOL_NAME.test(name) ? name : 'unknown';
@@ -67,8 +69,8 @@ async function runCall(call: ToolCall, runTool: RunTool, logged: LoggedCall[]): 
     logged.push({ ...describeToolCall(call), result: describeToolOutput(output) });
     return output;
   } catch (error) {
-    logged.push({ ...describeToolCall(call), result: THREW });
-    throw error;
+    logged.push({ ...describeToolCall(call), result: `${THREW}(${describeError(error)})` });
+    return failTool(TOOL_FAILED_ERROR);
   }
 }
 
