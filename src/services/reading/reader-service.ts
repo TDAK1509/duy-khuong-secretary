@@ -3,12 +3,17 @@ import type { Photo } from '../storage/photo-storage.ts';
 
 export type JsonSchema = Record<string, unknown>;
 
+export type ReaderPart = { kind: 'text'; text: string } | { kind: 'image'; photo: Photo };
+
 export interface ReaderRequest {
   system: string;
-  text: string | null;
-  image: Photo | null;
+  userParts: ReaderPart[];
   schemaName: string;
   schema: JsonSchema;
+}
+
+export function hasImagePart(request: ReaderRequest): boolean {
+  return request.userParts.some((part) => part.kind === 'image');
 }
 
 export type ReaderResult =

@@ -1,5 +1,5 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
-import { buildSheetReaderPrompt, type SheetReaderInput } from './sheet-reader-prompt.ts';
+import { buildSheetReaderParts, SHEET_READER_PROMPT, type SheetReaderInput } from './sheet-reader-prompt.ts';
 import {
   SHEET_READER_SCHEMA,
   SHEET_READER_SCHEMA_NAME,
@@ -11,9 +11,8 @@ export type SheetReadOutcome = { ok: true; reading: SheetReading } | { ok: false
 
 export async function readSheet(reader: ReaderService, input: SheetReaderInput): Promise<SheetReadOutcome> {
   const result = await reader.read({
-    system: buildSheetReaderPrompt(input),
-    text: null,
-    image: null,
+    system: SHEET_READER_PROMPT,
+    userParts: buildSheetReaderParts(input),
     schemaName: SHEET_READER_SCHEMA_NAME,
     schema: SHEET_READER_SCHEMA,
   });
