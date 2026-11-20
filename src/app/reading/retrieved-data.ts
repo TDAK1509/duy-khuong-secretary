@@ -16,7 +16,11 @@ export type RetrievedDataSource =
   | 'company-names'
   | 'trip-papers'
   | 'record'
-  | 'history';
+  | 'history'
+  | 'profile'
+  | 'memory'
+  | 'saved-note'
+  | `tool:${string}`;
 
 const GAP = '[\\s\\u200B-\\u200D\\u2060\\uFEFF]*';
 const DELIMITER_START = new RegExp(`[<＜﹤](?=${GAP}[/／]?${GAP}retri[eе]ved${GAP}[-‐‑‒–—_]?${GAP}data)`, 'giu');

@@ -13,7 +13,8 @@ import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildMemberPrompt } from './member-prompt.ts';
 import { buildAbilitySection } from './ability-section.ts';
-import { buildUserTurn } from './build-user-turn.ts';
+import { buildChatContextTurn, describeCurrentRequest } from './build-chat-context.ts';
+import { buildCurrentRequest } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
@@ -118,13 +119,11 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const tools = listChatTools(profile.role);
-  const currentTurn = await buildUserTurn(database, message);
-  const request = {
-    system: buildPrompt(profile, clock.now(), await loadMemory(context), tools),
-    turns: [...history.turns, currentTurn],
-    tools,
-  };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: currentTurn.role === 'user' ? currentTurn.text : null } };
+  const current = await buildCurrentRequest(database, message);
+  const profileLines = [`Nhóm: ${profile.workspaceName}`, `Người đang trò chuyện: ${profile.displayName}`];
+  const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), history: history.turns, current });
+  const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: describeCurrentRequest(current) } };
 }
 
 async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {
@@ -132,9 +131,9 @@ async function loadMemory({ dependencies, sender }: IntakeContext): Promise<stri
   return readPrivateMemory(scopeDatabase(dependencies.database, ownerScope), sender);
 }
 
-function buildPrompt(profile: ChatProfile, now: Date, memory: string, tools: ToolSpec[]): string {
-  const build = profile.role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
-  return [build({ ...profile, now, memory }), buildAbilitySection(tools)].join('\n\n');
+function buildPrompt(role: ChatProfile['role'], now: Date, tools: ToolSpec[]): string {
+  const build = role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
+  return [build({ now }), buildAbilitySection(tools)].join('\n\n');
 }
 
 type ToolLoopChoice = { chat: ChatService; maxRounds: number };

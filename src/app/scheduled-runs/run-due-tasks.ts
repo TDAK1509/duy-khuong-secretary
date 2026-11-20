@@ -17,7 +17,7 @@ import { finishScheduledRun } from './finish-scheduled-run.ts';
 import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { describeFailedRun, describeSkippedRun, labelAnswer } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
-import { buildScheduledRunPrompt } from './scheduled-run-prompt.ts';
+import { buildScheduledRunPrompt, buildScheduledRunTurn } from './scheduled-run-prompt.ts';
 import { AdminTextGuard } from '../admin-chat/tools/admin-text-guard.ts';
 
 const MAX_TASKS_PER_TICK = 5;
@@ -82,8 +82,8 @@ async function runModel(
 function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date): ChatRequest {
   const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName, now };
   return {
-    system: buildScheduledRunPrompt(facts),
-    turns: [{ role: 'user', text: task.instruction }],
+    system: buildScheduledRunPrompt(now),
+    turns: [{ role: 'user', text: buildScheduledRunTurn(facts, task.instruction) }],
     tools: SCHEDULED_RUN_TOOLS,
   };
 }

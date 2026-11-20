@@ -1,5 +1,6 @@
 import type { ChatService, ChatTurn } from '../../services/chat/chat-service.ts';
 import { RETRIEVED_DATA_RULE, wrapRetrievedData } from '../reading/retrieved-data.ts';
+import { describeHistoryLines } from './build-chat-context.ts';
 
 export type AdminLabel = 'report' | 'other' | 'failed';
 
@@ -43,7 +44,7 @@ export async function labelAdminMessage(chat: ChatService, input: LabelInput): P
 }
 
 function buildLabelText({ history, currentText }: LabelInput): string {
-  const lines = history.slice(-LABEL_HISTORY_TURNS).flatMap(describeHistoryTurn);
+  const lines = describeHistoryLines(history.slice(-LABEL_HISTORY_TURNS));
   return [
     ...(lines.length === 0 ? [] : ['Các tin nhắn trước, từ cũ đến mới:', wrapRetrievedData('history', lines.join('\n'))]),
     'Tin nhắn mới nhất của quản lý cần phân loại:',
@@ -51,10 +52,6 @@ function buildLabelText({ history, currentText }: LabelInput): string {
   ].join('\n');
 }
 
-function describeHistoryTurn(turn: ChatTurn): string[] {
-  if (turn.role === 'user') return turn.text === null ? [] : [`Quản lý: ${turn.text}`];
-  return turn.role === 'assistant' ? [`Trợ lý: ${turn.text}`] : [];
-}
 
 const LEADING_LABEL = /^\W*(report|other)\b/i;
 
