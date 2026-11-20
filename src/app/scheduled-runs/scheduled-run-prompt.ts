@@ -3,7 +3,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 
 import { RETRIEVED_DATA_RULE, wrapRetrievedData } from '../reading/retrieved-data.ts';
 
-export type ScheduledRunFacts = { workspaceName: string; taskTitle: string; creatorName: string; now: Date };
+export type ScheduledRunFacts = { workspaceName: string; taskTitle: string; creatorName: string };
 
 export function buildScheduledRunPrompt(now: Date): string {
   return `Bạn là Trợ lý của một nhóm xe tải, đang chạy một lịch tự động do quản lý đặt.

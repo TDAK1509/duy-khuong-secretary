@@ -80,7 +80,7 @@ async function runModel(
 }
 
 function buildRunRequest(task: ClaimedTask, creator: TaskCreator, now: Date): ChatRequest {
-  const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName, now };
+  const facts = { workspaceName: creator.workspaceName, taskTitle: task.title, creatorName: creator.displayName };
   return {
     system: buildScheduledRunPrompt(now),
     turns: [{ role: 'user', text: buildScheduledRunTurn(facts, task.instruction) }],
