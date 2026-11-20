@@ -57,7 +57,7 @@ async function runToolRound({ calls, replayItems }: ToolCallsReply, runTool: Run
 }
 
 const TOOL_NAME = /^[a-z][a-z_]{0,63}$/;
-const TOOL_FAILED_ERROR = 'Công cụ gặp lỗi khi chạy nên chưa làm được việc này. Không gọi lại công cụ này trong lượt này; nói ngắn với người dùng là chưa làm được và nhờ gửi lại sau.';
+const TOOL_FAILED_ERROR = 'Công cụ gặp lỗi khi chạy nên chưa làm được việc này. Không gọi lại công cụ này trong lượt này; nói ngắn trong câu trả lời là việc này chưa làm được.';
 
 function readToolLabel(name: string): string {
   return TOOL_NAME.test(name) ? name : 'unknown';

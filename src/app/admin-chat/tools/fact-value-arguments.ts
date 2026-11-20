@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
+import { PER_TON_UNIT } from '../../facts/total-fact-values.ts';
 import { CUSTOMER_VALUE_KEY, CUSTOMER_VALUE_NAME, type FactCompany, type FactValue, type FactValueContent } from '../../facts/fact.ts';
 
 const MAX_VALUE_NAME_LENGTH = 80;
 const PER_TRIP_UNIT = 'đ';
-const PER_TON_UNIT = 'đ/tấn';
-const MONEY = '(đ|vnd|vnđ|đồng|dong)';
+const MONEY = '(đ|₫|vnd|vnđ|đồng|dong)';
 const PER_TRIP_FORM = new RegExp(`^${MONEY}(/(chuyến|chuyen|lượt|luot|xe))?$`);
 const PER_TON_FORM = new RegExp(`^${MONEY}/(tấn|tan)$`);
 
@@ -56,6 +56,10 @@ function describeInvalidUnit(unit: string): string {
   return `Đơn vị "${unit}" chưa hợp lệ. Ghi số tiền đầy đủ bằng đồng, kèm "đ" cho số tiền mỗi chuyến (ví dụ 50k/chuyến là 50000 "đ") hoặc "đ/tấn" cho số tiền mỗi tấn (ví dụ 105k/tấn là 105000 "đ/tấn").`;
 }
 
+function failUnvalidatedUnit(): never {
+  throw new Error('a money value reached storage without a valid unit');
+}
+
 function readMoneyUnit(unit: string | null): string | null {
   const form = (unit ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, '');
   if (PER_TRIP_FORM.test(form)) return PER_TRIP_UNIT;
@@ -68,7 +72,7 @@ function toFactValue(value: ValueArgument): FactValue {
 }
 
 function readContent({ number, unit, text }: ValueArgument): FactValueContent {
-  if (number !== null && unit !== null) return { kind: 'number', number, unit: readMoneyUnit(unit) ?? PER_TRIP_UNIT };
+  if (number !== null && unit !== null) return { kind: 'number', number, unit: readMoneyUnit(unit) ?? failUnvalidatedUnit() };
   return { kind: 'text', text: (text ?? '').trim() };
 }
 

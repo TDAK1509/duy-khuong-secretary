@@ -6,5 +6,6 @@ const LONG_NUMBER = /\d{6,}/g;
 export function describeError(error: unknown): string {
   if (!(error instanceof Error)) return 'unknown error';
   const message = error.message.replace(API_KEY, 'sk-[redacted]').replace(QUOTED_VALUE, '"…"').replace(LONG_NUMBER, '#');
-  return `${error.name}: ${message}`.slice(0, MAX_ERROR_LENGTH);
+  const code = 'code' in error && typeof error.code === 'string' ? ` [${error.code}]` : '';
+  return `${error.name}${code}: ${message}`.slice(0, MAX_ERROR_LENGTH);
 }

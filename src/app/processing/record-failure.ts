@@ -16,13 +16,13 @@ export async function recordFailure(
   now: Date,
   error: unknown,
 ): Promise<void> {
-  const errorName = describeError(error);
+  const errorDescription = describeError(error);
   if (event.attempts < MAX_ATTEMPTS) {
-    await requeueWithWait(dependencies.database, event, now, errorName);
+    await requeueWithWait(dependencies.database, event, now, errorDescription);
     return;
   }
-  await markFailed(dependencies.database, event, errorName);
-  await dependencies.alerts.raise(describeInboundEventFailed(event.id, event.attempts, errorName));
+  await markFailed(dependencies.database, event, errorDescription);
+  await dependencies.alerts.raise(describeInboundEventFailed(event.id, event.attempts, errorDescription));
 }
 
 export async function failExhaustedEvent(dependencies: FailureDependencies, event: ClaimedEvent): Promise<void> {
@@ -36,19 +36,19 @@ export async function failExhaustedEvent(dependencies: FailureDependencies, even
   await dependencies.alerts.raise(describeInboundEventFailed(event.id, MAX_ATTEMPTS, errorName));
 }
 
-async function requeueWithWait(database: Database, event: ClaimedEvent, now: Date, errorName: string): Promise<void> {
+async function requeueWithWait(database: Database, event: ClaimedEvent, now: Date, errorDescription: string): Promise<void> {
   const availableAt = new Date(now.getTime() + FIRST_RETRY_WAIT_MS * 2 ** (event.attempts - 1));
   await runInClaimedTransaction(database, event, (transaction) =>
     transaction.query(`UPDATE inbound_events SET status = 'queued', available_at = $2, last_error = $3, locked_until = NULL WHERE id = $1`, [
       event.id,
       availableAt,
-      errorName,
+      errorDescription,
     ]),
   );
 }
 
-async function markFailed(database: Database, event: ClaimedEvent, errorName: string): Promise<void> {
+async function markFailed(database: Database, event: ClaimedEvent, errorDescription: string): Promise<void> {
   await runInClaimedTransaction(database, event, (transaction) =>
-    transaction.query(`UPDATE inbound_events SET status = 'failed', last_error = $2, locked_until = NULL WHERE id = $1`, [event.id, errorName]),
+    transaction.query(`UPDATE inbound_events SET status = 'failed', last_error = $2, locked_until = NULL WHERE id = $1`, [event.id, errorDescription]),
   );
 }
