@@ -15,6 +15,7 @@ import { describeSheetIdentity, type SavedCounts } from '../sheet-files/save-she
 import type { SheetRow } from '../../services/sheets/sheet-parser.ts';
 import { parseSheet } from './parse-sheet.ts';
 import { readSheet, type SheetReadOutcome } from './read-sheet.ts';
+import { readFileBytes } from './read-file-bytes.ts';
 import {
   formatParseFailure,
   formatSheetResult,
@@ -51,8 +52,7 @@ function buildProcessWork(dependencies: ProcessFilesDependencies): FileWork {
 }
 
 async function processFile(dependencies: ProcessFilesDependencies, claim: FileClaim, renewLease: RenewLease): Promise<FileOutcome> {
-  const bytes = await dependencies.fileStorage.get(claim.fileKey);
-  const parsed = bytes === null ? { ok: false as const } : await parseSheet(claim.extension, bytes, dependencies.sheetParser);
+  const parsed = await parseSheet(claim.extension, await readFileBytes(dependencies.fileStorage, claim), dependencies.sheetParser);
   if (!parsed.ok) return { text: formatParseFailure(claim.fileName), finishesFile: true };
   if (parsed.rows.length > MAX_SHEET_ROWS) return { text: formatTooManyRows(claim.fileName, MAX_SHEET_ROWS), finishesFile: true };
   return readAndMap(dependencies, { claim, headers: parsed.headers, contextLines: parsed.contextLines, rows: parsed.rows }, renewLease);
