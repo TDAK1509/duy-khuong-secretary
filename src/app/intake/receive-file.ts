@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { DownloadFailure } from '../../services/messaging/messaging-channel.ts';
 import type { FileStorage, SheetExtension } from '../../services/storage/file-storage.ts';
 import { toDatabaseScope } from '../access/to-database-scope.ts';
-import type { Transaction } from '../db/transaction.ts';
+import { scopeDatabase } from '../db/scoped-database.ts';
+import type { Database, Transaction } from '../db/transaction.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { Finished, NotConfigured, Stages } from '../processing/stages.ts';
@@ -104,8 +105,9 @@ async function storeAcceptedFile(
 ): Promise<Finished> {
   const scope = toDatabaseScope(sender);
   const scopedStages = stages.forScope(scope);
-  const stored = await runStoreFileStage(scopedStages, event, sender, file, extension);
-  await requireFileStorage(dependencies).put(stored.fileKey, bytes, contentTypeFor(extension));
+  const target = await chooseFileTarget(scopeDatabase(dependencies.database, scope), event, sender, extension);
+  await requireFileStorage(dependencies).put(target.fileKey, bytes, contentTypeFor(extension));
+  await runStoreFileStage(scopedStages, event, sender, { ...target, file, extension });
   return scopedStages.finishEvent((transaction) => finishFileIntake(transaction, dependencies, event, sender, file));
 }
 
@@ -121,22 +123,25 @@ function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
   return fileStorage;
 }
 
-type StoredFileRow = { id: string; fileKey: string };
+type FileTarget = { messageId: string; fileKey: string };
 
-async function runStoreFileStage(
-  stages: Stages,
-  event: ClaimedEvent,
-  sender: IntakeSender,
-  file: SingleFile,
-  extension: SheetExtension,
-): Promise<StoredFileRow> {
+const FIND_STORED_FILE_SQL = `
+  SELECT file.message_id, file.file_key FROM messages message
+  JOIN message_files file ON file.message_id = message.id
+  WHERE message.inbound_event_id = $1 AND message.event_part = 0`;
+
+async function chooseFileTarget(database: Database, event: ClaimedEvent, sender: IntakeSender, extension: SheetExtension): Promise<FileTarget> {
+  const { rows: [stored] } = await database.query<{ message_id: string; file_key: string }>(FIND_STORED_FILE_SQL, [event.id]);
+  if (stored !== undefined) return { messageId: stored.message_id, fileKey: stored.file_key };
   const messageId = randomUUID();
-  const fileKey = `${sender.workspaceId}/${messageId}.${extension}`;
+  return { messageId, fileKey: `${sender.workspaceId}/${messageId}.${extension}` };
+}
+
+async function runStoreFileStage(stages: Stages, event: ClaimedEvent, sender: IntakeSender, insert: FileInsert): Promise<void> {
   await stages.runStage({
     isDone: (transaction) => hasStoredFileFor(transaction, event),
-    write: (transaction) => storeFileMessage(transaction, event, sender, { messageId, fileKey, file, extension }),
+    write: (transaction) => storeFileMessage(transaction, event, sender, insert),
   });
-  return { id: messageId, fileKey };
 }
 
 async function hasStoredFileFor(transaction: Transaction, event: ClaimedEvent): Promise<boolean> {

@@ -6,6 +6,7 @@ import type { FileClaim } from '../sheet-files/file-claims.ts';
 import type { HeldFiles } from '../sheet-files/held-files.ts';
 import { runFileStep, type FileOutcome, type FileWork } from '../sheet-files/run-file-step.ts';
 import { parseSheet } from './parse-sheet.ts';
+import { readFileBytes } from './read-file-bytes.ts';
 import { formatHeadersFound, formatNoDataRows, formatParseFailure, formatTooManyRows, MAX_SHEET_ROWS } from './sheet-texts.ts';
 
 export type ParseFilesDependencies = {
@@ -30,8 +31,7 @@ function buildParseWork(dependencies: ParseFilesDependencies): FileWork {
 }
 
 async function parseFile(dependencies: ParseFilesDependencies, claim: FileClaim): Promise<FileOutcome> {
-  const bytes = await dependencies.fileStorage.get(claim.fileKey);
-  const parsed = bytes === null ? { ok: false as const } : await parseSheet(claim.extension, bytes, dependencies.sheetParser);
+  const parsed = await parseSheet(claim.extension, await readFileBytes(dependencies.fileStorage, claim), dependencies.sheetParser);
   if (!parsed.ok) return { text: formatParseFailure(claim.fileName), finishesFile: true };
   if (parsed.rows.length === 0) return { text: formatNoDataRows(claim.fileName), finishesFile: true };
   if (parsed.rows.length > MAX_SHEET_ROWS) return { text: formatTooManyRows(claim.fileName, MAX_SHEET_ROWS), finishesFile: true };
