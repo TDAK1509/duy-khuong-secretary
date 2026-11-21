@@ -111,18 +111,6 @@ async function storeAcceptedFile(
   return scopedStages.finishEvent((transaction) => finishFileIntake(transaction, dependencies, event, sender, file));
 }
 
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-function contentTypeFor(extension: SheetExtension): string {
-  return extension === 'csv' ? 'text/csv' : XLSX_CONTENT_TYPE;
-}
-
-function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
-  const { fileStorage } = dependencies;
-  if (!fileStorage) throw new Error('file storage is not configured');
-  return fileStorage;
-}
-
 type FileTarget = { messageId: string; fileKey: string };
 
 const FIND_STORED_FILE_SQL = `
@@ -135,6 +123,18 @@ async function chooseFileTarget(database: Database, event: ClaimedEvent, sender:
   if (stored !== undefined) return { messageId: stored.message_id, fileKey: stored.file_key };
   const messageId = randomUUID();
   return { messageId, fileKey: `${sender.workspaceId}/${messageId}.${extension}` };
+}
+
+const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function contentTypeFor(extension: SheetExtension): string {
+  return extension === 'csv' ? 'text/csv' : XLSX_CONTENT_TYPE;
+}
+
+function requireFileStorage(dependencies: IntakeDependencies): FileStorage {
+  const { fileStorage } = dependencies;
+  if (!fileStorage) throw new Error('file storage is not configured');
+  return fileStorage;
 }
 
 async function runStoreFileStage(stages: Stages, event: ClaimedEvent, sender: IntakeSender, insert: FileInsert): Promise<void> {
