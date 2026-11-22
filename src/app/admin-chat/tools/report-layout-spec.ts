@@ -3,7 +3,7 @@ const LAYOUT_OBJECT = {
   properties: {
     sort: {
       type: 'array',
-      description: 'Tối đa 3 khóa sắp xếp, khóa đầu quan trọng nhất. Chỉ dùng khi quản lý yêu cầu thứ tự. Để trống thì máy chủ xếp theo cột ngày đầu tiên tăng dần nếu có, nếu không giữ nguyên thứ tự dòng. Ô trống luôn xếp cuối.',
+      description: 'Tối đa 3 khóa sắp xếp, khóa đầu quan trọng nhất. Chỉ dùng khi quản lý yêu cầu thứ tự. Để trống thì báo cáo chuyến xếp theo ngày chuyến, báo cáo khác xếp theo cột ngày đầu tiên tăng dần nếu có, nếu không giữ nguyên thứ tự dòng. Ô trống luôn xếp cuối.',
       items: {
         type: 'object',
         properties: {
