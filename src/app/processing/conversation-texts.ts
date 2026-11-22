@@ -12,6 +12,9 @@ export const NO_PENDING_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ.
 const JOINED_MEMBER_HINT = 'Từ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé. Bạn cũng có thể hỏi Trợ lý về dữ liệu mình đã gửi, hoặc hỏi "Bạn làm được gì?".';
 const JOINED_ADMIN_HINT = 'Bạn có thể hỏi Trợ lý về dữ liệu của nhóm, mời hoặc xóa thành viên và đặt lịch tự động. Hỏi "Bạn làm được gì?" để xem đủ.';
 
+export const DOCUMENT_SETUP_OFFER_TEXT =
+  'Anh/chị có muốn khai báo các loại giấy tờ của công ty không? Trợ lý sẽ đề xuất mẫu từ các phiếu đã lưu, hoặc anh/chị gửi một ảnh mẫu, rồi chọn thông tin cần lưu. Nhờ vậy giấy tờ tài xế gửi được đọc đúng hơn. Trả lời "có" để bắt đầu.';
+
 const INVALID_CODE_TEXT = 'Mã mời không đúng, đã dùng hoặc đã hết hạn. Bạn xin quản lý một mã mới nhé.';
 
 export function formatJoinResult(result: JoinResult): string {
@@ -26,8 +29,8 @@ export function formatJoinResult(result: JoinResult): string {
 }
 
 function formatJoinedText({ workspaceName, displayName, role }: JoinedPerson): string {
-  const hint = role === 'admin' ? JOINED_ADMIN_HINT : JOINED_MEMBER_HINT;
-  return `Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.\n${hint}`;
+  const hints = role === 'admin' ? [JOINED_ADMIN_HINT, DOCUMENT_SETUP_OFFER_TEXT] : [JOINED_MEMBER_HINT];
+  return [`Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.`, ...hints].join('\n');
 }
 
 export type JoinedPerson = Extract<JoinResult, { kind: 'joined' }>;

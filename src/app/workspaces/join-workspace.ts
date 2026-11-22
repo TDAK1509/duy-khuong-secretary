@@ -78,8 +78,8 @@ async function admit(transaction: Transaction, request: JoinRequest, invite: Inv
   const { identity, zaloName, now } = request;
   const userId = identity.userId ?? (await linkIdentityToNewUser(transaction, identity));
   await transaction.query(
-    'INSERT INTO memberships (workspace_id, user_id, role, display_name) VALUES ($1, $2, $3, $4)',
-    [invite.workspaceId, userId, invite.role, invite.displayName],
+    'INSERT INTO memberships (workspace_id, user_id, role, display_name, document_setup_offered_at) VALUES ($1, $2, $3, $4, $5)',
+    [invite.workspaceId, userId, invite.role, invite.displayName, invite.role === 'admin' ? now : null],
   );
   await setCurrentWorkspace(transaction, identity, invite.workspaceId);
   await rememberZaloName(transaction, identity, zaloName);
