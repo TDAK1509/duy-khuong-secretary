@@ -1,6 +1,6 @@
 import type { Database } from '../app/db/transaction.ts';
-import { HeldBackfills } from '../app/template-backfills/held-backfills.ts';
-import { runBackfillStep } from '../app/template-backfills/run-backfill-step.ts';
+import { HeldBackfills } from '../app/documents/templates/backfills/held-backfills.ts';
+import { runBackfillStep } from '../app/documents/templates/backfills/run-backfill-step.ts';
 import type { Clock } from '../services/clock/clock.ts';
 import type { MessagingChannel } from '../services/messaging/messaging-channel.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';

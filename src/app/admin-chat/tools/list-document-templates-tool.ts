@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { runInTransaction, type Database } from '../../db/transaction.ts';
-import type { DocumentTemplate, TemplateField } from '../../document-templates/document-template.ts';
-import { countPapersByTemplate, listDocumentTemplates } from '../../document-templates/list-document-templates.ts';
+import type { DocumentTemplate, TemplateField } from '../../documents/templates/document-template.ts';
+import { countPapersByTemplate, listDocumentTemplates } from '../../documents/templates/list-document-templates.ts';
 import { formatVietnamDate } from '../../time/format-vietnam-date.ts';
 import { formatVietnamTime } from '../../time/format-vietnam-time.ts';
 

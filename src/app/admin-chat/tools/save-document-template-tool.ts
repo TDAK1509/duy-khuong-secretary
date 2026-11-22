@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
-import { MAX_TEMPLATES_PER_WORKSPACE, type TemplateField } from '../../document-templates/document-template.ts';
-import { saveDocumentTemplate, type NewDocumentTemplate, type SaveTemplateResult } from '../../document-templates/save-document-template.ts';
-import { MAX_BACKFILL_PAPERS } from '../../template-backfills/find-backfill-candidates.ts';
+import { MAX_TEMPLATES_PER_WORKSPACE, type TemplateField } from '../../documents/templates/document-template.ts';
+import { saveDocumentTemplate, type NewDocumentTemplate, type SaveTemplateResult } from '../../documents/templates/save-document-template.ts';
+import { MAX_BACKFILL_PAPERS } from '../../documents/templates/backfills/find-backfill-candidates.ts';
 import { fieldArgumentSchema, readTemplateDescription, readTemplateFields, readTemplateKind, readTemplateName } from './document-template-arguments.ts';
-import type { QueuedBackfill } from '../../template-backfills/queue-template-backfill.ts';
+import type { QueuedBackfill } from '../../documents/templates/backfills/queue-template-backfill.ts';
 import { resolveTemplateIssuer, type TemplateIssuer } from './document-template-issuer.ts';
 import { failTool } from './tool-result.ts';
 

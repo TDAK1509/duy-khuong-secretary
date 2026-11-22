@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
-import { MAX_FIELDS_PER_TEMPLATE, type TemplateField } from '../../document-templates/document-template.ts';
+import { MAX_FIELDS_PER_TEMPLATE, type TemplateField } from '../../documents/templates/document-template.ts';
 import { STANDARD_UNITS } from '../../reading/reading.ts';
 import { refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 

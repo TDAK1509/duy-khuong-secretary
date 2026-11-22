@@ -4,7 +4,7 @@ import { runOutboundStep } from '../app/delivery/outbound-step.ts';
 import { createInboundHandler } from '../app/processing/handle-inbound-event.ts';
 import { runInboundStep } from '../app/processing/inbound-step.ts';
 import { HeldEvents } from '../app/processing/held-events.ts';
-import { HeldTasks } from '../app/scheduled-runs/held-tasks.ts';
+import { HeldTasks } from '../app/schedules/runs/held-tasks.ts';
 import { OffGroupNotices } from '../app/processing/off-group-notices.ts';
 import { checkDatabaseRole } from '../app/db/check-database-role.ts';
 import type { CleanupDependencies } from '../app/intake/cleanup-old-photos.ts';

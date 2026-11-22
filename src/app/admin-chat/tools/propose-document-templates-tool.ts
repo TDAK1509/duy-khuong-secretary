@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { runInTransaction, type Database } from '../../db/transaction.ts';
-import { proposeTemplateFromPaper, proposeTemplatesFromPapers, type ProposedField, type TemplateProposal } from '../../document-templates/propose-document-templates.ts';
-import { estimateCredits, findCreditRangePerPaper, type CreditRange } from '../../template-backfills/estimate-backfill-credits.ts';
-import { findBackfillCandidates } from '../../template-backfills/find-backfill-candidates.ts';
+import { proposeTemplateFromPaper, proposeTemplatesFromPapers, type ProposedField, type TemplateProposal } from '../../documents/templates/propose-document-templates.ts';
+import { estimateCredits, findCreditRangePerPaper, type CreditRange } from '../../documents/templates/backfills/estimate-backfill-credits.ts';
+import { findBackfillCandidates } from '../../documents/templates/backfills/find-backfill-candidates.ts';
 import { failTool, refuseInvalidArgument } from './tool-result.ts';
 
 const PAPER_NOT_FOUND_ERROR = 'Không tìm thấy giấy tờ này.';

@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { scopeDatabase } from '../app/db/scoped-database.ts';
-import { findMessagesToReread } from '../app/document-reads/find-messages-to-reread.ts';
-import { findNonPhotoMessage } from '../app/document-reads/find-non-photo-message.ts';
-import { findTestPhotosToRemove } from '../app/document-reads/find-test-photos-to-remove.ts';
-import { rereadDocuments, type RereadSummary } from '../app/document-reads/reread-documents.ts';
-import type { RereadServices } from '../app/document-reads/reread-message.ts';
+import { findMessagesToReread } from '../app/documents/rereads/find-messages-to-reread.ts';
+import { findNonPhotoMessage } from '../app/documents/rereads/find-non-photo-message.ts';
+import { findTestPhotosToRemove } from '../app/documents/rereads/find-test-photos-to-remove.ts';
+import { rereadDocuments, type RereadSummary } from '../app/documents/rereads/reread-documents.ts';
+import type { RereadServices } from '../app/documents/rereads/reread-message.ts';
 import { createPostgresPool, type PostgresPool } from '../providers/database/postgres.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import type { PhotoStorage } from '../services/storage/photo-storage.ts';
