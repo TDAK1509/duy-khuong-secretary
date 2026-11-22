@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
-import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout } from '../../documents/report-layout.ts';
+import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
@@ -107,10 +107,14 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const documentIds = trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
   const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns));
   const report = buildTripReport({ title: request.title, createdAt, columns, trips, pickups, winners, reviewPapers: await countReviewTripPapers(database, query), pairing, dateFrom: request.date_from, dateTo: request.date_to });
-  const choice = readReportLayout(request.layout, report.table.columns);
+  const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.table.columns));
   const table = { ...report.table, layout: choice.layout };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
   return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
+}
+
+function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {
+  return choice.kind === 'chosen' ? choice : { ...choice, layout: { sort: [] } };
 }
 
 function addDays(date: string, days: number): string {
