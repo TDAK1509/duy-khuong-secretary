@@ -28,9 +28,10 @@ export function formatJoinResult(result: JoinResult): string {
   }
 }
 
-function formatJoinedText({ workspaceName, displayName, role }: JoinedPerson): string {
-  const hints = role === 'admin' ? [JOINED_ADMIN_HINT, DOCUMENT_SETUP_OFFER_TEXT] : [JOINED_MEMBER_HINT];
-  return [`Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.`, ...hints].join('\n');
+function formatJoinedText({ workspaceName, displayName, role, offersDocumentSetup }: JoinedPerson): string {
+  const hint = role === 'admin' ? JOINED_ADMIN_HINT : JOINED_MEMBER_HINT;
+  const offer = offersDocumentSetup ? [DOCUMENT_SETUP_OFFER_TEXT] : [];
+  return [`Bạn đã vào nhóm "${workspaceName}" với tên ${displayName}, vai trò ${labelRole(role)}.`, hint, ...offer].join('\n');
 }
 
 export type JoinedPerson = Extract<JoinResult, { kind: 'joined' }>;

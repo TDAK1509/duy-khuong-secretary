@@ -6,13 +6,14 @@ import type { ChannelRecipient } from '../../services/messaging/messaging-channe
 import type { Transaction } from '../db/transaction.ts';
 import { hashInviteCode } from './invite-code.ts';
 import type { Role } from './role-label.ts';
+import { hasDocumentTemplate } from '../admin-chat/document-setup-offer.ts';
 
 export type JoinRequest = { identity: ChannelIdentity; code: string; zaloName: string | null; now: Date };
 
 export type Inviter = { membershipId: string; recipient: ChannelRecipient };
 
 export type JoinResult =
-  | { kind: 'joined'; workspaceName: string; displayName: string; role: Role; inviter: Inviter | null }
+  | { kind: 'joined'; workspaceName: string; displayName: string; role: Role; inviter: Inviter | null; offersDocumentSetup: boolean }
   | { kind: 'already_member'; workspaceName: string }
   | { kind: 'invalid_code' };
 
@@ -31,9 +32,10 @@ export async function joinWithInviteCode(transaction: Transaction, request: Join
   if (await isMemberOf(transaction, request.identity, invite.workspaceId)) {
     return { kind: 'already_member', workspaceName: invite.workspaceName };
   }
-  await admit(transaction, request, invite);
+  const offersDocumentSetup = invite.role === 'admin' && !(await hasDocumentTemplate(transaction, invite.workspaceId));
+  await admit(transaction, request, invite, offersDocumentSetup);
   const inviter = await findInviter(transaction, invite);
-  return { kind: 'joined', workspaceName: invite.workspaceName, displayName: invite.displayName, role: invite.role, inviter };
+  return { kind: 'joined', workspaceName: invite.workspaceName, displayName: invite.displayName, role: invite.role, inviter, offersDocumentSetup };
 }
 
 type InviteRow = {
@@ -74,12 +76,12 @@ async function isMemberOf(transaction: Transaction, identity: ChannelIdentity, w
   return memberships.length > 0;
 }
 
-async function admit(transaction: Transaction, request: JoinRequest, invite: Invite): Promise<void> {
+async function admit(transaction: Transaction, request: JoinRequest, invite: Invite, offersDocumentSetup: boolean): Promise<void> {
   const { identity, zaloName, now } = request;
   const userId = identity.userId ?? (await linkIdentityToNewUser(transaction, identity));
   await transaction.query(
     'INSERT INTO memberships (workspace_id, user_id, role, display_name, document_setup_offered_at) VALUES ($1, $2, $3, $4, $5)',
-    [invite.workspaceId, userId, invite.role, invite.displayName, invite.role === 'admin' ? now : null],
+    [invite.workspaceId, userId, invite.role, invite.displayName, offersDocumentSetup ? now : null],
   );
   await setCurrentWorkspace(transaction, identity, invite.workspaceId);
   await rememberZaloName(transaction, identity, zaloName);

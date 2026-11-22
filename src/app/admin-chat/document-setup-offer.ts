@@ -19,7 +19,7 @@ export async function listOfferMadeProfileLines(database: Database, workspaceId:
   return hasTemplate ? [] : [OFFER_MADE_PROFILE_LINE];
 }
 
-function hasDocumentTemplate(transaction: Transaction, workspaceId: string): Promise<boolean> {
+export function hasDocumentTemplate(transaction: Transaction, workspaceId: string): Promise<boolean> {
   return transaction.withScope({ workspaceId }, async () => {
     const rows = await transaction.query('SELECT 1 FROM document_templates WHERE workspace_id = $1 LIMIT 1', [workspaceId]);
     return rows.length > 0;
