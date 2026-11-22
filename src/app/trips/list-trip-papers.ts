@@ -155,7 +155,7 @@ export function buildPreciseTimeSql(): string {
 }
 
 function buildTripWhere(query: TripPaperQuery, rule: DocumentRule): WhereClause {
-  const filters: DocumentFilters = { organization: null, role: null, stage: null, kind: null, plate: query.plate, dateFrom: query.dateFrom, dateTo: query.dateTo, dateMeaning: null };
+  const filters: DocumentFilters = { organization: null, role: null, stage: null, kind: null, plate: query.plate, dateFrom: query.dateFrom, dateTo: query.dateTo, dateMeaning: null, template: null };
   return buildDocumentWhere(query.workspaceId, filters, rule);
 }
 

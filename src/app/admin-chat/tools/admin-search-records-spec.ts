@@ -10,6 +10,11 @@ const OCCURRED_FROM = {
   description: 'Lấy mục có ngày công việc trên giấy tờ từ ngày này, dạng YYYY-MM-DD, tính cả ngày này. Mục thiếu ngày bị loại. null nếu không giới hạn.',
 };
 
+const TEMPLATE = {
+  type: ['string', 'null'],
+  description: 'Tên mẫu giấy tờ đã lưu, chép đúng từ list_document_templates: chỉ lấy mục của giấy tờ đã được đọc theo mẫu đó. null nếu không lọc theo mẫu.',
+};
+
 const OCCURRED_TO = {
   type: ['string', 'null'],
   description: 'Lấy mục có ngày công việc trên giấy tờ đến hết ngày này, dạng YYYY-MM-DD. Mục thiếu ngày bị loại. null nếu không giới hạn.',
@@ -26,7 +31,7 @@ function addDocumentDateParameters(parameters: JsonSchema): JsonSchema {
   const required = (parameters['required'] as string[]).filter((name) => name !== 'cursor');
   return {
     ...parameters,
-    properties: { ...properties, occurred_from: OCCURRED_FROM, occurred_to: OCCURRED_TO, cursor },
-    required: [...required, 'occurred_from', 'occurred_to', 'cursor'],
+    properties: { ...properties, occurred_from: OCCURRED_FROM, occurred_to: OCCURRED_TO, template: TEMPLATE, cursor },
+    required: [...required, 'occurred_from', 'occurred_to', 'template', 'cursor'],
   };
 }

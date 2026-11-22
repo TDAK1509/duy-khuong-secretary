@@ -11,6 +11,7 @@ export type RetrievedDataSource =
   | 'document-kinds'
   | 'companies'
   | 'meanings'
+  | 'document-templates'
   | 'member-facts'
   | 'sheet'
   | 'company-names'

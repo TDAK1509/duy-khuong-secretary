@@ -10,6 +10,8 @@ export interface ReaderRequest {
   userParts: ReaderPart[];
   schemaName: string;
   schema: JsonSchema;
+  imageDetail?: 'high';
+  useTextModel?: boolean;
 }
 
 export function hasImagePart(request: ReaderRequest): boolean {

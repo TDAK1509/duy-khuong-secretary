@@ -31,8 +31,21 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
    "required":["category","document_title","maintenance_item","occurred_on","amount_vnd","identifiers","vehicle_plate","document_number","document_kind","stage","parties","details"]}}},
  "required":["has_work_data","needs_explanation","has_question","photo_problem","items"]};
 
-export function buildReaderSchema(fromAdmin: boolean): JsonSchema {
-  if (!fromAdmin) return READER_SCHEMA;
-  const properties = { ...(READER_SCHEMA['properties'] as Record<string, unknown>), named_driver: { type: ['string', 'null'] } };
-  return { ...READER_SCHEMA, properties, required: [...(READER_SCHEMA['required'] as string[]), 'named_driver'] };
+export function buildReaderSchema(fromAdmin: boolean, withTemplate = false): JsonSchema {
+  const schema = fromAdmin ? addNamedDriver(READER_SCHEMA) : READER_SCHEMA;
+  return withTemplate ? addTemplateToItems(schema) : schema;
+}
+
+function addNamedDriver(schema: JsonSchema): JsonSchema {
+  const properties = { ...(schema['properties'] as Record<string, unknown>), named_driver: { type: ['string', 'null'] } };
+  return { ...schema, properties, required: [...(schema['required'] as string[]), 'named_driver'] };
+}
+
+function addTemplateToItems(schema: JsonSchema): JsonSchema {
+  const properties = schema['properties'] as Record<string, JsonSchema>;
+  const itemList = properties['items'] as JsonSchema;
+  const item = itemList['items'] as JsonSchema;
+  const itemProperties = { ...(item['properties'] as Record<string, unknown>), template: { type: ['string', 'null'] } };
+  const itemWithTemplate = { ...item, properties: itemProperties, required: [...(item['required'] as string[]), 'template'] };
+  return { ...schema, properties: { ...properties, items: { ...itemList, items: itemWithTemplate } } };
 }

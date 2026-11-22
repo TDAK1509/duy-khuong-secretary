@@ -4,14 +4,20 @@ import { buildAccentFreeEquals } from '../records/search-records.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 import { buildMatchKey } from './build-match-key.ts';
 
-export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; kind: string | null; plate: string | null; dateFrom: string | null; dateTo: string | null; dateMeaning: string | null };
+export type DocumentFilters = { organization: string | null; role: string | null; stage: string | null; kind: string | null; plate: string | null; dateFrom: string | null; dateTo: string | null; dateMeaning: string | null; template: string | null };
 
 export function addDocumentFilters(where: WhereClause, filters: DocumentFilters): void {
   if (filters.organization !== null || filters.role !== null) where.require(buildPartyExists(where, filters));
   if (filters.stage !== null) where.require(`document.stage = ${where.bind(filters.stage)}`);
   if (filters.kind !== null) where.require(buildAccentFreeEquals(where, 'document.kind', filters.kind));
   if (filters.plate !== null) where.require(`document.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
+  if (filters.template !== null) where.require(buildTemplateCondition(where, filters.template));
   addDateRange(where, filters);
+}
+
+function buildTemplateCondition(where: WhereClause, template: string): string {
+  const nameKey = where.bind(buildMatchKey(template));
+  return `document.template_id IN (SELECT template.id FROM document_templates template WHERE template.workspace_id = document.workspace_id AND template.name_key = ${nameKey})`;
 }
 
 function buildPartyExists(where: WhereClause, filters: DocumentFilters): string {

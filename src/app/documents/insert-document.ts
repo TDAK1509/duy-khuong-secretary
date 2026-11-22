@@ -34,6 +34,7 @@ export function buildDocumentRow({ workspaceId, driverUserId }: DocumentMessage,
     vehicle_plate: draft.vehiclePlate,
     summary: record.summary,
     details: JSON.stringify(record.details),
+    template_id: item.template,
     ...(driverUserId ? { driver_user_id: driverUserId } : {}),
   };
 }

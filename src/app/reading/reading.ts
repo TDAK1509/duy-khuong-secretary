@@ -58,6 +58,7 @@ const itemSchema = z.strictObject({
   stage: z.enum(['dispatch', 'receipt']).nullable(),
   parties: z.array(partySchema),
   details: z.array(detailSchema),
+  template: z.string().nullable().default(null),
 });
 
 const readingSchema = z.strictObject({
