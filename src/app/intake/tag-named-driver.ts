@@ -1,6 +1,7 @@
 import type { Transaction } from '../db/transaction.ts';
 import { toAccentFreeForm } from '../reading/normalize.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
+import { formatMissingDetails } from './format-missing-details.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 import type { ReplyPlan } from './plan-reply.ts';
 
@@ -24,7 +25,7 @@ export async function findDriverTag(transaction: Transaction, sender: IntakeSend
 
 export function nameDriverInReply(plan: ReplyPlan, tag: DriverTag | null): ReplyPlan {
   if (tag === null || plan.saved === null) return plan;
-  if (tag.kind === 'tagged') return { ...plan, replyText: formatSavedReply(plan.saved, tag.driver.name) };
+  if (tag.kind === 'tagged') return { ...plan, replyText: formatSavedReply(plan.saved, tag.driver.name) + formatMissingDetails(plan.readItems) };
   return { ...plan, replyText: `${plan.replyText}\n${describeUntaggedDriver(tag)}` };
 }
 
