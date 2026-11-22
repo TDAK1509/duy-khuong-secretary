@@ -7,7 +7,7 @@ import { enqueueReply, enqueueReplyPhotos, enqueueSourceCard } from '../intake/e
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { listChatTools } from './tools/chat-tools.ts';
-import { ADMIN_TOOL_ROUNDS, DEFAULT_TOOL_ROUNDS, runToolLoop, type LoggedRound, type RunTool, type ToolLoopResult } from './run-tool-loop.ts';
+import { ADMIN_TOOL_ROUNDS, DEFAULT_TOOL_ROUNDS, runToolLoop, type LoggedRound, type RunTool, type ToolLoopOutcome, type ToolLoopResult } from './run-tool-loop.ts';
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
@@ -30,6 +30,8 @@ import { AdminTextGuard, type ChangeTool } from './tools/admin-text-guard.ts';
 import type { AdminToolDependencies } from './tools/tool-dependencies.ts';
 import { buildChangeRefusedNotice } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
+import { claimDocumentSetupOffer, listOfferMadeProfileLines } from './document-setup-offer.ts';
+import { DOCUMENT_SETUP_OFFER_TEXT } from '../processing/conversation-texts.ts';
 
 export async function answerWithChat(context: IntakeContext, message: ChatMessage): Promise<void> {
   const profile = await loadChatProfile(context.dependencies.database, context.sender.membershipId);
@@ -43,6 +45,7 @@ export async function answerWithChat(context: IntakeContext, message: ChatMessag
 
 type Answer = {
   role: ChatProfile['role'];
+  outcome: ToolLoopOutcome;
   text: string;
   photos: AttachablePhoto[];
   createdTaskIds: string[];
@@ -74,16 +77,17 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
   const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(view.loop, message, request, (call) => runChatTool(dependencies, caller, call));
-  return { answer: collectAnswer(result.text, profile.role, dependencies), hasFlaggedAnswer };
+  return { answer: collectAnswer(result, profile.role, dependencies), hasFlaggedAnswer };
 }
 
 function readConversation({ event }: IntakeContext): Conversation {
   return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
-function collectAnswer(text: string, role: ChatProfile['role'], { attachments, sources, created, invites, guard }: AdminToolDependencies): Answer {
+function collectAnswer({ outcome, text }: ToolLoopResult, role: ChatProfile['role'], { attachments, sources, created, invites, guard }: AdminToolDependencies): Answer {
   return {
     role,
+    outcome,
     text,
     photos: dropDeliveredPhotos(attachments.list(), sources.list()),
     createdTaskIds: created.listTaskIds(),
@@ -120,10 +124,15 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
   const tools = listChatTools(profile.role);
   const current = await buildCurrentRequest(database, message);
-  const profileLines = [`Nhóm: ${profile.workspaceName}`, `Người đang trò chuyện: ${profile.displayName}`];
+  const profileLines = await buildProfileLines(context, profile);
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), history: history.turns, current });
   const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: describeCurrentRequest(current) } };
+}
+
+async function buildProfileLines({ dependencies, sender }: IntakeContext, profile: ChatProfile): Promise<string[]> {
+  const offerLines = await listOfferMadeProfileLines(dependencies.database, sender.workspaceId, profile.documentSetupOfferedAt, dependencies.clock.now());
+  return [`Nhóm: ${profile.workspaceName}`, `Người đang trò chuyện: ${profile.displayName}`, ...offerLines];
 }
 
 async function loadMemory({ dependencies, sender }: IntakeContext): Promise<string> {
@@ -156,12 +165,22 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   const { sender } = context;
   if (!(await isCurrentMember(transaction, sender.membershipId, answer.role))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
-  const text = joinAnswerParts(answer, summaries);
+  const offer = await offerDocumentSetup(transaction, context, answer);
+  const text = joinAnswerParts(answer, summaries, offer);
   await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards.map((card) => card.text)].join('\n\n'), kind: 'answer', holdsOtherText: answer.holdsOtherText });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
   await enqueueAnswerMessages(transaction, context, answer, text);
+}
+
+async function offerDocumentSetup(transaction: Transaction, { sender, dependencies }: IntakeContext, answer: Answer): Promise<string[]> {
+  if (!isRealAdminAnswer(answer)) return [];
+  return (await claimDocumentSetupOffer(transaction, sender, dependencies.clock.now())) ? [DOCUMENT_SETUP_OFFER_TEXT] : [];
+}
+
+function isRealAdminAnswer({ role, outcome, text, refusedTools }: Answer): boolean {
+  return role === 'admin' && outcome === 'answered' && text.trim() !== '' && refusedTools.length === 0;
 }
 
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
@@ -172,7 +191,7 @@ async function enqueueAnswerMessages(transaction: Transaction, context: IntakeCo
   await enqueueReplyPhotos(transaction, context, answer.photos, adminMembershipId);
 }
 
-function joinAnswerParts(answer: Answer, summaries: string[]): string {
+function joinAnswerParts(answer: Answer, summaries: string[], offer: string[]): string {
   const notice = answer.refusedTools.length > 0 ? [buildChangeRefusedNotice(answer.refusedTools)] : [];
-  return [answer.text, ...summaries, ...notice].join('\n\n');
+  return [answer.text, ...summaries, ...notice, ...offer].join('\n\n');
 }
