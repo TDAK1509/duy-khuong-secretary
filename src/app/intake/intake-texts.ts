@@ -9,6 +9,9 @@ export const PHOTO_CUT_OFF_TEXT =
 export const PHOTO_NOT_WORK_TEXT =
   'Ảnh này không phải giấy tờ hay việc công việc nên Trợ lý chưa lưu. Nếu đây là việc cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
 
+export const PHOTO_SEVERAL_PAPERS_TEXT =
+  'Ảnh này có nhiều giấy tờ nên Trợ lý chưa lưu. Bạn chụp và gửi mỗi giấy tờ một ảnh nhé.';
+
 export const PHOTO_NOTHING_TO_SAVE_TEXT =
   'Trợ lý chưa thấy thông tin công việc cần lưu trong ảnh này nên chưa lưu. Nếu cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
 
