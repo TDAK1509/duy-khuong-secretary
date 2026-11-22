@@ -1,10 +1,12 @@
 export type PairingTimes = { dayMs: number; preciseMs: number | null };
 
-export type PairingRow = { id: string; plate: string; date: string; preciseAt: string | null; times: PairingTimes; weightKg: number | null; isEligible: boolean; isPossibleDuplicate: boolean };
+export type DropOffConstraint = { key: string; resolved: boolean; picks: string[] };
 
-export type PairingCandidate = { id: string; plate: string; times: PairingTimes; weightKg: number | null };
+export type PairingRow = { id: string; plate: string; date: string; preciseAt: string | null; times: PairingTimes; weightKg: number | null; isPossibleDuplicate: boolean; dropOff: DropOffConstraint | null };
 
-export type RulePairing = { pairs: Map<string, string>; taken: Set<string> };
+export type PairingCandidate = { id: string; plate: string; times: PairingTimes; weightKg: number | null; receiverOrgIds: string[]; receiverKeys: string[] };
+
+export type RulePairing = { pairs: Map<string, string> };
 
 const MAX_WEIGHT_GAP = 0.03;
 const MAX_PRECISE_GAP_MS = 24 * 60 * 60 * 1000;
@@ -12,20 +14,15 @@ const DAY_MS = 86_400_000;
 
 export function pairDropOffsByRule(rows: PairingRow[], candidates: PairingCandidate[]): RulePairing {
   const byPlate = groupByPlate(candidates);
-  const edges = rows.map((row) => ({ row, matches: (byPlate.get(row.plate) ?? []).filter((candidate) => isInWindow(row, candidate) && haveSimilarWeights(row, candidate)) }));
+  const edges = rows.map((row) => ({ row, matches: (byPlate.get(row.plate) ?? []).filter((candidate) => canPair(row, candidate) && haveSimilarWeights(row, candidate)) }));
   const edgeCounts = countCandidateEdges(edges.flatMap((edge) => edge.matches));
   const pairs = new Map<string, string>();
-  const taken = new Set<string>();
   for (const { row, matches } of edges) {
     const [only] = matches;
-    if (matches.length !== 1 || only === undefined || edgeCounts.get(only.id) !== 1) continue;
-    if (!row.isEligible) taken.add(only.id);
-    if (row.isEligible && !row.isPossibleDuplicate) {
-      taken.add(only.id);
-      pairs.set(row.id, only.id);
-    }
+    if (row.isPossibleDuplicate || matches.length !== 1 || only === undefined || edgeCounts.get(only.id) !== 1) continue;
+    pairs.set(row.id, only.id);
   }
-  return { pairs, taken };
+  return { pairs };
 }
 
 export function groupByPlate<Candidate extends { plate: string }>(candidates: Candidate[]): Map<string, Candidate[]> {
@@ -34,7 +31,16 @@ export function groupByPlate<Candidate extends { plate: string }>(candidates: Ca
   return groups;
 }
 
-export function isInWindow(row: PairingRow, candidate: PairingCandidate): boolean {
+export function canPair(row: PairingRow, candidate: PairingCandidate): boolean {
+  return isInWindow(row, candidate) && isNamedDropOff(row.dropOff, candidate);
+}
+
+function isNamedDropOff(dropOff: DropOffConstraint | null, candidate: PairingCandidate): boolean {
+  if (dropOff === null) return true;
+  return dropOff.resolved ? dropOff.picks.some((pick) => candidate.receiverOrgIds.includes(pick)) : candidate.receiverKeys.includes(dropOff.key);
+}
+
+function isInWindow(row: PairingRow, candidate: PairingCandidate): boolean {
   if (row.plate !== candidate.plate) return false;
   if (row.times.preciseMs !== null && candidate.times.preciseMs !== null) {
     const gap = candidate.times.preciseMs - row.times.preciseMs;

@@ -10,7 +10,7 @@ const DRIVER_SENT_A_SOURCE = `EXISTS (
 
 const IS_ROUTE_FACT = '(fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)';
 
-const IS_TRIP_TICKET = `(
+export const IS_TRIP_TICKET = `(
   document.status = 'accepted'
   AND (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${buildAccentFreeKey('document.kind')}, 'phieucan') > 0))
   AND ${buildAccentFreeKey('document.kind')} <> 'tinnhan'
