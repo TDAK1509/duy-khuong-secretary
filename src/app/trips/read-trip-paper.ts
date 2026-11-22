@@ -1,11 +1,11 @@
 import type { TripPaper } from './list-trip-papers.ts';
 
-export function readDispatchIssuer(paper: TripPaper): string | null {
-  return paper.stage === 'dispatch' ? paper.issuer_name : null;
-}
-
 export function readPickupPlace(paper: TripPaper): string | null {
   return paper.route_pickup ?? readDispatchIssuer(paper);
+}
+
+export function readDispatchIssuer(paper: TripPaper): string | null {
+  return paper.stage === 'dispatch' ? paper.issuer_name : null;
 }
 
 export function groupPossibleDuplicates(papers: TripPaper[]): TripPaper[][] {

@@ -9,8 +9,10 @@ const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
 const MAX_UNPAIRED_ROWS = 300;
 
 export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: TripPairing): NoteBlock[] {
-  const paired = trips.filter((trip) => trip.pickup !== null && trip.dropOff !== null);
-  const unpaired = trips.filter((trip) => trip.pickup === null || trip.dropOff === null);
+  return [...describeCounts(counts, pairing), ...describePairings(trips), ...describeUnpaired(trips)];
+}
+
+function describeCounts(counts: TripCounts, pairing: TripPairing): NoteBlock[] {
   return [
     { kind: 'blank' },
     { kind: 'label', label: 'Số chuyến', value: String(counts.trips) },
@@ -18,9 +20,12 @@ export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: Tr
     { kind: 'label', label: 'Chuyến chỉ có giấy tờ lấy hàng', value: String(counts.pickupOnly) },
     { kind: 'label', label: 'Chuyến chỉ có giấy tờ đổ hàng', value: String(counts.dropOffOnly) },
     { kind: 'label', label: 'Bước AI', value: describeModelStep(pairing) },
-    ...(paired.length === 0 ? [] : [{ kind: 'table' as const, header: ['Biển số', 'Ngày', 'Số phiếu lấy hàng', 'Số phiếu nhận hàng', 'Cách ghép'], rows: paired.map(describePairing) }]),
-    ...(unpaired.length === 0 ? [] : describeUnpaired(unpaired)),
   ];
+}
+
+function describePairings(trips: Trip[]): NoteBlock[] {
+  const rows = trips.filter((trip) => trip.pickup !== null && trip.dropOff !== null).map(describePairing);
+  return rows.length === 0 ? [] : [{ kind: 'table', header: ['Biển số', 'Ngày', 'Số phiếu lấy hàng', 'Số phiếu nhận hàng', 'Cách ghép'], rows }];
 }
 
 function describePairing(trip: Trip): string[] {
@@ -28,18 +33,20 @@ function describePairing(trip: Trip): string[] {
   return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, method];
 }
 
-function describeUnpaired(unpaired: Trip[]): NoteBlock[] {
-  const rows = unpaired.slice(0, MAX_UNPAIRED_ROWS).map((trip) => [
-    readTripPlate(trip) ?? '',
-    formatDate(readTripDate(trip)),
-    trip.pickup === null ? 'chỉ có phiếu đổ hàng' : 'chỉ có phiếu lấy hàng',
-    (trip.pickup ?? trip.dropOff)?.document_number ?? NO_NUMBER,
-  ]);
+function describeUnpaired(trips: Trip[]): NoteBlock[] {
+  const unpaired = trips.filter((trip) => trip.pickup === null || trip.dropOff === null);
+  if (unpaired.length === 0) return [];
+  const shown = unpaired.length > MAX_UNPAIRED_ROWS ? `${unpaired.length} (liệt kê ${MAX_UNPAIRED_ROWS} chuyến đầu)` : String(unpaired.length);
   return [
     { kind: 'blank' },
-    { kind: 'label', label: 'Chuyến chưa ghép được hai phiếu', value: unpaired.length > MAX_UNPAIRED_ROWS ? `${unpaired.length} (liệt kê ${MAX_UNPAIRED_ROWS} chuyến đầu)` : String(unpaired.length) },
-    { kind: 'table', header: ['Biển số', 'Ngày', 'Giấy tờ', 'Số phiếu'], rows },
+    { kind: 'label', label: 'Chuyến chưa ghép được hai phiếu', value: shown },
+    { kind: 'table', header: ['Biển số', 'Ngày', 'Giấy tờ', 'Số phiếu'], rows: unpaired.slice(0, MAX_UNPAIRED_ROWS).map(describeUnpairedTrip) },
   ];
+}
+
+function describeUnpairedTrip(trip: Trip): string[] {
+  const kind = trip.pickup === null ? 'chỉ có phiếu đổ hàng' : 'chỉ có phiếu lấy hàng';
+  return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), kind, (trip.pickup ?? trip.dropOff)?.document_number ?? NO_NUMBER];
 }
 
 function describeModelStep({ modelCalls, modelSkippedRows }: TripPairing): string {

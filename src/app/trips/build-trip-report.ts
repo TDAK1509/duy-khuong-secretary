@@ -4,7 +4,7 @@ import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
 import { INFERRED_MARK, type ColumnUnit } from '../documents/format-workbook-sheet.ts';
-import { readTripDate, readTripPlate, type Trip } from './build-trips.ts';
+import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import { describeTripNotes } from './describe-trip-notes.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 import type { TripPairing } from './pair-trips.ts';
@@ -53,38 +53,56 @@ export function buildTripReport({ title, createdAt, columns, trips, pickups, win
   const rows = trips.map((trip) => columns.map((column) => readCell(column, trip, index)));
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
-  const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isDated(paper, dateFrom, dateTo))).map(describeDuplicate);
-  const missingWeight = countPapers(trips).filter((paper) => paper.weight_kg === null).length;
+  const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
+  const missingWeight = listTripPapers(trips).filter((paper) => paper.weight_kg === null).length;
   const counts = countTrips(trips);
   const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeTripNotes(trips, counts, pairing)];
   const table = { title, createdAt, columns: columns.map((column) => describeColumn(column, trips, index)), rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
   return { table, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, counts };
 }
 
-function isDated(paper: TripPaper, dateFrom: string, dateTo: string): boolean {
-  return paper.document_date !== null && paper.document_date >= dateFrom && paper.document_date <= dateTo;
-}
-
-function countPapers(trips: Trip[]): TripPaper[] {
-  return trips.flatMap((trip) => [...(trip.pickup === null ? [] : [trip.pickup]), ...(trip.dropOff === null ? [] : [trip.dropOff])]);
-}
-
-function countTrips(trips: Trip[]): TripCounts {
-  const both = trips.filter((trip) => trip.pickup !== null && trip.dropOff !== null).length;
-  const byAi = trips.filter((trip) => trip.method === 'ai').length;
-  return { trips: trips.length, both, pickupOnly: trips.filter((trip) => trip.dropOff === null).length, dropOffOnly: trips.filter((trip) => trip.pickup === null).length, byRule: both - byAi, byAi };
-}
-
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex): ReportCell {
   if (column.source === 'none') return null;
-  if (column.source === 'field') return readField(column.field, trip, index);
+  if (column.source === 'field') return FIELD_READERS[column.field](trip, index);
   const winner = findWinner(index, trip, column.matchKey);
   if (column.source === 'fact_value') return readWinner(winner);
   return calculateAmount(winner, readWinnerWeight(trip, winner));
 }
 
+type FieldReader = (trip: Trip, index: WinnerIndex) => ReportCell;
+
+const FIELD_READERS: Record<TripField, FieldReader> = {
+  date: (trip) => readTripDate(trip),
+  pickup_date: ({ pickup }) => pickup?.document_date ?? null,
+  dropoff_date: ({ dropOff }) => dropOff?.document_date ?? null,
+  plate: (trip) => readTripPlate(trip),
+  route: (trip) => describeRoute(trip),
+  pickup_place: ({ pickup }) => (pickup === null ? null : readPickupPlace(pickup)),
+  dropoff_place: (trip) => describeDropOffPlace(trip),
+  customer: (trip) => readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party),
+  goods: (trip, index) => readGoods(trip, index),
+  weight_kg: ({ pickup, dropOff }) => readWeightKg(pickup) ?? readWeightKg(dropOff),
+  pickup_weight_kg: ({ pickup }) => readWeightKg(pickup),
+  dropoff_weight_kg: ({ dropOff }) => readWeightKg(dropOff),
+  document_number: ({ pickup, dropOff }) => joinNumbers(pickup, dropOff),
+  pickup_document_number: ({ pickup }) => pickup?.document_number ?? null,
+  dropoff_document_number: ({ dropOff }) => dropOff?.document_number ?? null,
+  document_kind: (trip) => readFirst(trip, (paper) => paper.kind),
+  sender: (trip) => readFirst(trip, (paper) => paper.sender_name),
+};
+
 function findWinner(index: WinnerIndex, trip: Trip, matchKey: string): WinningValue | undefined {
   return [trip.pickup, trip.dropOff].flatMap((paper) => (paper === null ? [] : (index.get(`${paper.id}:${matchKey}`) ?? []))).at(0);
+}
+
+function readWinner(winner: WinningValue | undefined): ReportCell {
+  if (winner === undefined) return null;
+  return winner.number === null ? winner.text : Number(winner.number);
+}
+
+function calculateAmount(winner: WinningValue | undefined, weightKg: number | null): number | null {
+  if (winner?.number == null || winner.unit !== PER_TON_UNIT || weightKg === null) return null;
+  return Math.round((Number(winner.number) * weightKg) / 1000);
 }
 
 function readWinnerWeight(trip: Trip, winner: WinningValue | undefined): number | null {
@@ -96,29 +114,6 @@ function readFirst(trip: Trip, read: (paper: TripPaper) => string | null): strin
   return [trip.pickup, trip.dropOff].flatMap((paper) => (paper === null ? [] : (read(paper) ?? []))).at(0) ?? null;
 }
 
-function readField(field: TripField, trip: Trip, index: WinnerIndex): ReportCell {
-  const { pickup, dropOff } = trip;
-  switch (field) {
-    case 'date': return readTripDate(trip);
-    case 'pickup_date': return pickup?.document_date ?? null;
-    case 'dropoff_date': return dropOff?.document_date ?? null;
-    case 'plate': return readTripPlate(trip);
-    case 'route': return describeRoute(trip);
-    case 'pickup_place': return pickup === null ? null : readPickupPlace(pickup);
-    case 'dropoff_place': return describeDropOffPlace(trip);
-    case 'customer': return readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party);
-    case 'goods': return readGoods(trip, index);
-    case 'weight_kg': return readWeightKg(pickup) ?? readWeightKg(dropOff);
-    case 'pickup_weight_kg': return readWeightKg(pickup);
-    case 'dropoff_weight_kg': return readWeightKg(dropOff);
-    case 'document_number': return joinNumbers(pickup, dropOff);
-    case 'pickup_document_number': return pickup?.document_number ?? null;
-    case 'dropoff_document_number': return dropOff?.document_number ?? null;
-    case 'document_kind': return readFirst(trip, (paper) => paper.kind);
-    case 'sender': return readFirst(trip, (paper) => paper.sender_name);
-  }
-}
-
 function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): string | null {
   const numbers = [pickup, dropOff].flatMap((paper) => paper?.document_number ?? []);
   return numbers.length === 0 ? null : numbers.join(' / ');
@@ -126,6 +121,23 @@ function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): strin
 
 function readGoods(trip: Trip, index: WinnerIndex): string | null {
   return describeWinnerText(findWinner(index, trip, GOODS_VALUE_KEY)) ?? readFirst(trip, (paper) => paper.goods_line);
+}
+
+function describeWinnerText(winner: WinningValue | undefined): string | null {
+  if (winner === undefined) return null;
+  return winner.text ?? `${winner.number}${winner.unit ?? ''}`;
+}
+
+function describeRoute(trip: Trip): string | null {
+  const pickup = trip.pickup === null ? null : readPickupPlace(trip.pickup);
+  const dropOff = findDropOffPlace(trip);
+  if (pickup === null && dropOff === null) return null;
+  return `${pickup ?? '?'} → ${dropOff === null ? '?' : markInferred(dropOff)}`;
+}
+
+function describeDropOffPlace(trip: Trip): string | null {
+  const place = findDropOffPlace(trip);
+  return place === null ? null : markInferred(place);
 }
 
 type DropOffPlace = { name: string; isInferred: boolean };
@@ -137,62 +149,8 @@ function findDropOffPlace(trip: Trip): DropOffPlace | null {
   return receiver === null ? null : { name: receiver, isInferred: trip.method === 'ai' };
 }
 
-function describeDropOffPlace(trip: Trip): string | null {
-  const place = findDropOffPlace(trip);
-  return place === null ? null : markInferred(place);
-}
-
 function markInferred({ name, isInferred }: DropOffPlace): string {
   return isInferred ? `${name} ${INFERRED_MARK}` : name;
-}
-
-function describeRoute(trip: Trip): string | null {
-  const pickup = trip.pickup === null ? null : readPickupPlace(trip.pickup);
-  const dropOff = findDropOffPlace(trip);
-  if (pickup === null && dropOff === null) return null;
-  return `${pickup ?? '?'} → ${dropOff === null ? '?' : markInferred(dropOff)}`;
-}
-
-function readWinner(winner: WinningValue | undefined): ReportCell {
-  if (winner === undefined) return null;
-  return winner.number === null ? winner.text : Number(winner.number);
-}
-
-function describeWinnerText(winner: WinningValue | undefined): string | null {
-  if (winner === undefined) return null;
-  return winner.text ?? `${winner.number}${winner.unit ?? ''}`;
-}
-
-function calculateAmount(winner: WinningValue | undefined, weightKg: number | null): number | null {
-  if (winner?.number == null || winner.unit !== PER_TON_UNIT || weightKg === null) return null;
-  return Math.round((Number(winner.number) * weightKg) / 1000);
-}
-
-const DATE_FIELDS: TripField[] = ['date', 'pickup_date', 'dropoff_date'];
-const KG_FIELDS: TripField[] = ['weight_kg', 'pickup_weight_kg', 'dropoff_weight_kg'];
-
-function describeColumn(column: TripColumn, trips: Trip[], index: WinnerIndex): ReportColumn {
-  const type = chooseColumnType(column, trips, index);
-  return { name: column.name, type, unit: type === 'number' ? chooseColumnUnit(column, trips, index) : null };
-}
-
-function listWinners(column: TripColumn & { matchKey: string }, trips: Trip[], index: WinnerIndex): WinningValue[] {
-  return trips.flatMap((trip) => findWinner(index, trip, column.matchKey) ?? []);
-}
-
-function chooseColumnUnit(column: TripColumn, trips: Trip[], index: WinnerIndex): ColumnUnit | null {
-  if (column.source === 'fact_amount') return 'vnd';
-  if (column.source === 'field' && KG_FIELDS.includes(column.field)) return 'kg';
-  if (column.source !== 'fact_value') return null;
-  return chooseValueUnit(listWinners(column, trips, index));
-}
-
-function chooseColumnType(column: TripColumn, trips: Trip[], index: WinnerIndex): ReportColumn['type'] {
-  if (column.source === 'fact_amount') return 'number';
-  if (column.source === 'fact_value') return listWinners(column, trips, index).some((winner) => winner.number != null) ? 'number' : 'text';
-  if (column.source !== 'field') return 'text';
-  if (DATE_FIELDS.includes(column.field)) return 'date';
-  return KG_FIELDS.includes(column.field) ? 'number' : 'text';
 }
 
 function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
@@ -205,13 +163,14 @@ function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
   };
 }
 
-function countRowsPerPlate(trips: Trip[]): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const trip of trips) {
-    const plate = readTripPlate(trip) ?? NO_PLATE;
-    counts[plate] = (counts[plate] ?? 0) + 1;
-  }
-  return counts;
+function listTripPapers(trips: Trip[]): TripPaper[] {
+  return trips.flatMap((trip) => [...(trip.pickup === null ? [] : [trip.pickup]), ...(trip.dropOff === null ? [] : [trip.dropOff])]);
+}
+
+function countTrips(trips: Trip[]): TripCounts {
+  const both = trips.filter((trip) => trip.pickup !== null && trip.dropOff !== null).length;
+  const byAi = trips.filter((trip) => trip.method === 'ai').length;
+  return { trips: trips.length, both, pickupOnly: trips.filter((trip) => trip.dropOff === null).length, dropOffOnly: trips.filter((trip) => trip.pickup === null).length, byRule: both - byAi, byAi };
 }
 
 type NoteFacts = { noSourceColumns: string[]; emptyColumns: string[]; reviewPapers: number; missingWeight: number; duplicates: PossibleDuplicate[] };
@@ -235,4 +194,40 @@ function listNames(names: string[]): string {
 function describeDuplicateRow({ plate, date, pickup, documentNumbers }: PossibleDuplicate): string[] {
   const [year, month, day] = date.split('-');
   return [plate, `${day}/${month}/${year}`, pickup, documentNumbers.join(', ')];
+}
+
+const DATE_FIELDS: TripField[] = ['date', 'pickup_date', 'dropoff_date'];
+const KG_FIELDS: TripField[] = ['weight_kg', 'pickup_weight_kg', 'dropoff_weight_kg'];
+
+function describeColumn(column: TripColumn, trips: Trip[], index: WinnerIndex): ReportColumn {
+  const type = chooseColumnType(column, trips, index);
+  return { name: column.name, type, unit: type === 'number' ? chooseColumnUnit(column, trips, index) : null };
+}
+
+function chooseColumnType(column: TripColumn, trips: Trip[], index: WinnerIndex): ReportColumn['type'] {
+  if (column.source === 'fact_amount') return 'number';
+  if (column.source === 'fact_value') return listWinners(column, trips, index).some((winner) => winner.number != null) ? 'number' : 'text';
+  if (column.source !== 'field') return 'text';
+  if (DATE_FIELDS.includes(column.field)) return 'date';
+  return KG_FIELDS.includes(column.field) ? 'number' : 'text';
+}
+
+function chooseColumnUnit(column: TripColumn, trips: Trip[], index: WinnerIndex): ColumnUnit | null {
+  if (column.source === 'fact_amount') return 'vnd';
+  if (column.source === 'field' && KG_FIELDS.includes(column.field)) return 'kg';
+  if (column.source !== 'fact_value') return null;
+  return chooseValueUnit(listWinners(column, trips, index));
+}
+
+function listWinners(column: TripColumn & { matchKey: string }, trips: Trip[], index: WinnerIndex): WinningValue[] {
+  return trips.flatMap((trip) => findWinner(index, trip, column.matchKey) ?? []);
+}
+
+function countRowsPerPlate(trips: Trip[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const trip of trips) {
+    const plate = readTripPlate(trip) ?? NO_PLATE;
+    counts[plate] = (counts[plate] ?? 0) + 1;
+  }
+  return counts;
 }

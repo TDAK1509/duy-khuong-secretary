@@ -100,7 +100,7 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(request.date_from, -1) });
   const allReceipts = await listReceiptPapers(database, { ...query, dateTo: addDays(request.date_to, 1) });
   if (pickups.length > MAX_ROWS || allReceipts.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
-  const receipts = keepReportReceipts(pickups, allReceipts);
+  const receipts = keepReportReceipts(pickups, allReceipts, request.date_from, request.date_to);
   const pairing = await pairTrips(dropOffReader, { pickups, receipts });
   const trips = buildTrips({ pickups, receipts, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
@@ -123,21 +123,26 @@ function listValueKeys(columns: TripColumn[]): string[] {
 }
 
 function summarizeReport(report: TripReport, pairing: TripPairing) {
-  const { counts } = report;
   return {
-    rows: counts.trips,
-    trips_with_both_papers: counts.both,
-    trips_pickup_only: counts.pickupOnly,
-    trips_drop_off_only: counts.dropOffOnly,
-    paired_by_rule: counts.byRule,
-    paired_by_ai: counts.byAi,
-    ai_calls_ran: pairing.modelCalls.filter((call) => call.kind === 'ran').length,
-    ai_calls_failed: pairing.modelCalls.filter((call) => call.kind === 'failed').length,
-    ai_rows_skipped: pairing.modelSkippedRows,
+    rows: report.counts.trips,
+    ...summarizeTrips(report.counts),
+    ...summarizeModelStep(pairing),
     rows_per_plate: report.rowsPerPlate,
     needs_review: report.reviewPapers,
     missing_weight: report.missingWeight,
     possible_duplicates: report.duplicates.length,
     empty_columns: [...report.noSourceColumns, ...report.emptyColumns],
+  };
+}
+
+function summarizeTrips({ both, pickupOnly, dropOffOnly, byRule, byAi }: TripReport['counts']) {
+  return { trips_with_both_papers: both, trips_pickup_only: pickupOnly, trips_drop_off_only: dropOffOnly, paired_by_rule: byRule, paired_by_ai: byAi };
+}
+
+function summarizeModelStep({ modelCalls, modelSkippedRows }: TripPairing) {
+  return {
+    ai_calls_ran: modelCalls.filter((call) => call.kind === 'ran').length,
+    ai_calls_failed: modelCalls.filter((call) => call.kind === 'failed').length,
+    ai_rows_skipped: modelSkippedRows,
   };
 }
