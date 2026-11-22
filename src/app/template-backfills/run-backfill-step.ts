@@ -24,15 +24,21 @@ export async function runBackfillStep(dependencies: BackfillStepDependencies): P
   if (claim === null) return 'idle';
   dependencies.held.add(claim);
   try {
-    await settleClaim(dependencies, claim);
-  } catch (error) {
-    if (error instanceof BackfillClaimLostError) return 'processed';
-    console.error(`[template-backfill] step failed backfill=${claim.backfillId} error=${error instanceof Error ? error.name : 'unknown'}`);
-    await releaseBackfillForRetry(dependencies.database, claim, dependencies.clock.now());
+    await settleClaimOrRetryLater(dependencies, claim);
   } finally {
     dependencies.held.remove(claim.backfillId);
   }
   return 'processed';
+}
+
+async function settleClaimOrRetryLater(dependencies: BackfillStepDependencies, claim: BackfillClaim): Promise<void> {
+  try {
+    await settleClaim(dependencies, claim);
+  } catch (error) {
+    if (error instanceof BackfillClaimLostError) return;
+    console.error(`[template-backfill] step failed backfill=${claim.backfillId} error=${error instanceof Error ? error.name : 'unknown'}`);
+    await releaseBackfillForRetry(dependencies.database, claim, dependencies.clock.now());
+  }
 }
 
 async function settleClaim(dependencies: BackfillStepDependencies, claim: BackfillClaim): Promise<void> {
@@ -41,23 +47,6 @@ async function settleClaim(dependencies: BackfillStepDependencies, claim: Backfi
   const target = { workspaceId: claim.workspaceId, paperId: claim.paperId };
   const read: PaperRead = claim.attempts > MAX_ATTEMPTS ? { kind: 'failed' } : await readBackfillPaper(dependencies, target);
   await recordPaper(dependencies, claim, claim.paperId, read);
-}
-
-async function recordPaper(dependencies: BackfillStepDependencies, claim: BackfillClaim, paperId: string, read: PaperRead): Promise<void> {
-  await writeFenced(dependencies.database, claim, { locksRecords: true }, async (transaction, run) => {
-    const outcome = await settlePaper(transaction, { workspaceId: claim.workspaceId, paperId, templateId: run.templateId }, read);
-    await advanceRun(transaction, claim.backfillId, outcome);
-  });
-}
-
-async function advanceRun(transaction: Transaction, backfillId: string, outcome: PaperOutcome): Promise<void> {
-  const column = COUNT_COLUMNS[outcome];
-  await transaction.query(
-    `UPDATE template_backfills
-     SET next_index = next_index + 1, ${column} = ${column} + 1, claim_token = NULL, locked_until = NULL, attempts = 0
-     WHERE id = $1`,
-    [backfillId],
-  );
 }
 
 async function finishRun(dependencies: BackfillStepDependencies, claim: BackfillClaim, ending: BackfillEnding): Promise<void> {
@@ -69,4 +58,21 @@ async function finishRun(dependencies: BackfillStepDependencies, claim: Backfill
     );
     await enqueueBackfillResult(transaction, { workspaceId: claim.workspaceId, requestedByUserId: claim.requestedByUserId, run, ending, now, maxTextLength: dependencies.maxTextLength });
   });
+}
+
+async function recordPaper(dependencies: BackfillStepDependencies, claim: BackfillClaim, paperId: string, read: PaperRead): Promise<void> {
+  await writeFenced(dependencies.database, claim, { locksRecords: true }, async (transaction, run) => {
+    const outcome = await settlePaper(transaction, { workspaceId: claim.workspaceId, paperId, templateId: run.templateId }, read);
+    await advanceRun(transaction, claim.backfillId, outcome, dependencies.clock.now());
+  });
+}
+
+async function advanceRun(transaction: Transaction, backfillId: string, outcome: PaperOutcome, now: Date): Promise<void> {
+  const column = COUNT_COLUMNS[outcome];
+  await transaction.query(
+    `UPDATE template_backfills
+     SET next_index = next_index + 1, ${column} = ${column} + 1, claim_token = NULL, locked_until = $2, attempts = 0
+     WHERE id = $1`,
+    [backfillId, now],
+  );
 }

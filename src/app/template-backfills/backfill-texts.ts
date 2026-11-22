@@ -14,5 +14,5 @@ export function formatBackfillStopped(summary: BackfillSummary, stopReason: stri
 }
 
 function describeCounts({ updated, unmatched, skipped, failed }: BackfillCounts): string {
-  return `${updated} cập nhật, ${unmatched} không khớp mẫu, ${skipped} thiếu ảnh, ${failed} lỗi`;
+  return `${updated} cập nhật, ${unmatched} không khớp mẫu, ${skipped} bỏ qua (thiếu ảnh hoặc giấy tờ không còn), ${failed} lỗi`;
 }

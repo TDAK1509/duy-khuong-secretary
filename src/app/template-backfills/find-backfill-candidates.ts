@@ -10,6 +10,7 @@ const FIND_CANDIDATES_SQL = `
   SELECT document.id
   FROM documents document
   WHERE document.workspace_id = $1 AND document.status = 'accepted' AND document.sheet_signature IS NULL
+    AND document.issuer_key IS NOT NULL AND document.document_number IS NOT NULL
     AND NOT EXISTS (
       SELECT 1 FROM document_sources source
       JOIN message_files file ON file.message_id = source.message_id

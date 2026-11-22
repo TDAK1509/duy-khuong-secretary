@@ -68,8 +68,8 @@ export async function claimBackfill(database: Database, now: Date): Promise<Back
   return runInTransaction(database, async (transaction) => {
     const [candidate] = await transaction.query<{ id: string; workspace_id: string }>(
       `SELECT id, workspace_id FROM template_backfills
-       WHERE status = 'pending' AND (locked_until IS NULL OR locked_until < $1)
-       ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`,
+       WHERE status = 'pending' AND (locked_until IS NULL OR locked_until <= $1)
+       ORDER BY locked_until NULLS FIRST, created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`,
       [now],
     );
     if (candidate === undefined) return null;

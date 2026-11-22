@@ -7,7 +7,7 @@ import { linkDocumentToMatchingFacts } from '../facts/link-facts.ts';
 export type PaperSource = { workspaceId: string; paperId: string; messageId: string };
 
 const UPDATE_PAPER_SQL = `
-  UPDATE documents SET kind = $3, stage = $4, template_id = $5, summary = $6, details = $7::jsonb
+  UPDATE documents SET kind = $3, stage = coalesce($4, stage), template_id = $5, summary = $6, details = $7::jsonb
   WHERE id = $1 AND workspace_id = $2`;
 
 export async function updatePaperFromDraft(transaction: Transaction, { workspaceId, paperId, messageId }: PaperSource, draft: DocumentDraft): Promise<void> {
