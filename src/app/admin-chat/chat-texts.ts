@@ -20,6 +20,8 @@ const CHANGE_TOOL_LABELS: Record<ChangeTool, string> = {
   save_fact: 'lưu thông tin cố định về chuyến',
   update_fact: 'sửa thông tin cố định về chuyến',
   delete_fact: 'xóa thông tin cố định về chuyến',
+  save_document_template: 'lưu mẫu giấy tờ',
+  delete_document_template: 'xóa mẫu giấy tờ',
 };
 
 export function buildChangeRefusedNotice(refusedTools: ChangeTool[]): string {

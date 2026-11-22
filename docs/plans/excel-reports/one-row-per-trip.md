@@ -21,7 +21,7 @@ paired with the same truck's drop-off paper when the server can tell which
 one it is. Pickup-only and drop-off-only trips still get a row. New fixed
 fields give each end its own date, weight, place and paper number.
 
-Before: Duy asked on 20/11 for a report from 28/10 to 20/11 with 13 columns.
+Before: An admin asked on 20/11 for a report from 28/10 to 20/11 with 13 columns.
 The file had 247 rows, one per paper. Six columns were empty in every row:
 ngày nhận hàng, ngày đổ hàng, khối lượng lấy hàng, khối lượng đổ hàng, nơi lấy
 hàng, nơi đổ hàng. Even the date and weight were missing, because the bot had
@@ -36,7 +36,7 @@ the text cells and listed in "Ghi chú".
 
 Steps, for the owner (after deploy):
 
-- In Zalo, as an admin, send Duy's request again: "xuất file excel báo cáo số
+- In Zalo, as an admin, send that request again: "xuất file excel báo cáo số
   liệu vận chuyển tất cả số xe từ ngày 28/10/2026 đến 20/11/2026; thông tin
   bao gồm ngày tháng nhận hàng, ngày tháng đổ hàng, số xe, số phiếu cân (nếu
   có), khối lượng lấy hàng, khối lượng đổ hàng, tên hàng, nơi lấy hàng, nơi đổ

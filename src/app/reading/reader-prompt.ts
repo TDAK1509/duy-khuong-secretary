@@ -1,7 +1,8 @@
 import { formatVietnamDate } from '../time/format-vietnam-date.ts';
 import type { ReaderPart } from '../../services/reading/reader-service.ts';
-import { buildDocumentDataParts, buildDocumentRules, type ReaderCatalog } from './document-rules.ts';
+import { buildDocumentDataParts, buildDocumentRules, buildTemplateDataParts, buildTemplateRules, type ReaderCatalog } from './document-rules.ts';
 import { buildMemberFactsParts, buildMemberFactsRules } from './member-facts-rule.ts';
+import type { ListedTemplate } from './reader-template.ts';
 import { buildRetrievedPart, RETRIEVED_DATA_RULE } from './retrieved-data.ts';
 
 export const SHARED_NUMBER_RULE =
@@ -42,20 +43,21 @@ const NAMED_DRIVER_RULE =
 const STANDING_FACT_RULE =
   '- Thông tin cố định của quản lý: người gửi là quản lý. Nếu tin nhắn không kèm ảnh nêu một thông tin về một xe, một tài xế hoặc một tuyến và nói rõ thông tin đó đúng cho mọi chuyến (ví dụ có cụm "luôn là", "lúc nào cũng", "mỗi chuyến", "từ nay", "cố định", "thông tin này luôn là như vậy"), thì đây không phải dữ liệu công việc cần lưu: has_work_data là false, needs_explanation là false, items là danh sách rỗng. Chữ "luôn" một mình thường nghĩa là ngay hoặc cũng, ví dụ "lưu luôn", "chuyển khoản luôn rồi", nên không phải dấu hiệu đúng cho mọi chuyến. Tin nhắn không có cụm nói đúng cho mọi chuyến ở trên, ví dụ ghi một khoản chi đã trả hoặc một việc đã làm một lần (đổ dầu, phí cầu đường, sửa chữa, lấy hàng, giao hàng, thanh toán), hoặc nói về một chuyến cụ thể (có ngày, có trọng lượng, có chữ "hôm nay"), thì đọc như bình thường. Lương, cước, chi phí bồi dưỡng, khách hàng hay tuyến lấy và đổ hàng đi kèm một cụm nói đúng cho mọi chuyến là thông tin cố định, không phải dữ liệu công việc.';
 
-export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], fromAdmin = false): string {
+export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], fromAdmin = false, picked: ListedTemplate | null = null): string {
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: labels.length === 0 ? '' : WORKSPACE_LABELS_LINE,
     retrievedDataRule: RETRIEVED_DATA_RULE,
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, STANDING_FACT_RULE] : [])].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, STANDING_FACT_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules|retrievedDataRule)\}/g, (_, name: string) => fills[name] ?? '');
 }
 
-export function buildReaderDataParts(labels: string[], catalog: ReaderCatalog, facts: string[]): ReaderPart[] {
+export function buildReaderDataParts(labels: string[], catalog: ReaderCatalog, facts: string[], picked: ListedTemplate | null = null): ReaderPart[] {
   return [
     ...(labels.length === 0 ? [] : [buildRetrievedPart('Các nhãn nhóm này đã dùng, dùng nhiều nhất trước:', 'labels', JSON.stringify(labels))]),
     ...buildDocumentDataParts(catalog),
+    ...buildTemplateDataParts(picked),
     ...buildMemberFactsParts(facts),
   ];
 }

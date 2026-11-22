@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { Photo } from '../../services/storage/photo-storage.ts';
-import type { ReaderRequest, ReaderResult, ReaderService } from '../../services/reading/reader-service.ts';
+import type { ReaderPart, ReaderRequest, ReaderResult, ReaderService } from '../../services/reading/reader-service.ts';
 import { readTokenUsage } from '../../services/usage/read-token-usage.ts';
 
 export type OpenAiCompatibleReaderSettings = {
@@ -68,7 +68,12 @@ function parseReply(completion: OpenAI.Chat.ChatCompletion): ReaderResult {
 }
 
 function buildUserContent(request: ReaderRequest): OpenAI.Chat.ChatCompletionContentPart[] {
-  return request.userParts.map((part): OpenAI.Chat.ChatCompletionContentPart => (part.kind === 'text' ? { type: 'text', text: part.text } : { type: 'image_url', image_url: { url: toDataUrl(part.photo) } }));
+  return request.userParts.map((part) => toContentPart(part, request.imageDetail));
+}
+
+function toContentPart(part: ReaderPart, imageDetail: ReaderRequest['imageDetail']): OpenAI.Chat.ChatCompletionContentPart {
+  if (part.kind === 'text') return { type: 'text', text: part.text };
+  return { type: 'image_url', image_url: { url: toDataUrl(part.photo), detail: imageDetail } };
 }
 
 function toDataUrl(photo: Photo): string {

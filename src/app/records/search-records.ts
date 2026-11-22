@@ -1,5 +1,6 @@
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Database } from '../db/transaction.ts';
+import { buildMatchKey } from '../documents/build-match-key.ts';
 import { normalizeCode, toAccentFreeForm } from '../reading/normalize.ts';
 import { addOwnerCondition } from './add-owner-condition.ts';
 import { addDateConditions, addDocumentDateConditions } from './add-date-conditions.ts';
@@ -13,6 +14,7 @@ export type RecordFilters = {
   category: string | null;
   member: string | null;
   plate: string | null;
+  template: string | null;
   addedFrom: string | null;
   addedTo: string | null;
   occurredFrom: string | null;
@@ -71,9 +73,19 @@ export function buildWhere(scope: AccessScope, filters: RecordFilters): WhereCla
   if (filters.member !== null) where.require(buildAccentFreeEquals(where, 'record.sender_name', filters.member));
   if (filters.plate !== null) where.require(`record.vehicle_plate = ${where.bind(normalizeCode(filters.plate))}`);
   if (filters.category !== null) where.require(buildAccentFreeEquals(where, 'record.category', filters.category));
+  if (filters.template !== null) where.require(buildTemplateCondition(where, filters.template));
   addDateConditions(where, filters);
   addDocumentDateConditions(where, filters);
   return where;
+}
+
+function buildTemplateCondition(where: WhereClause, template: string): string {
+  const nameKey = where.bind(buildMatchKey(template));
+  return `EXISTS (
+    SELECT 1 FROM document_sources source
+    JOIN documents document ON document.id = source.document_id AND document.workspace_id = source.workspace_id
+    JOIN document_templates template ON template.id = document.template_id AND template.workspace_id = document.workspace_id
+    WHERE source.message_id = record.message_id AND source.item_index = record.item_index AND template.name_key = ${nameKey})`;
 }
 
 function buildTextCondition(where: WhereClause, text: string): string {

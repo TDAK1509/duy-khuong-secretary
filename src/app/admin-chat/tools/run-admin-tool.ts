@@ -30,6 +30,10 @@ import { runSaveFact } from './save-fact-tool.ts';
 import { runListFacts } from './list-facts-tool.ts';
 import { runUpdateFact } from './update-fact-tool.ts';
 import { runDeleteFact } from './delete-fact-tool.ts';
+import { runDeleteDocumentTemplate } from './delete-document-template-tool.ts';
+import { runListDocumentTemplates } from './list-document-templates-tool.ts';
+import { runProposeDocumentTemplates } from './propose-document-templates-tool.ts';
+import { runSaveDocumentTemplate } from './save-document-template-tool.ts';
 import { runTotalFactValues } from './total-fact-values-tool.ts';
 import { runExportReportXlsx } from './export-report-xlsx-tool.ts';
 import { runExportTripReportXlsx } from './export-trip-report-xlsx-tool.ts';
@@ -90,6 +94,10 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),
   delete_fact: ({ database }, scope, args) => runDeleteFact(database, scope, args),
   total_fact_values: ({ database }, scope, args) => runTotalFactValues(database, scope, args),
+  propose_document_templates: ({ database }, scope, args) => runProposeDocumentTemplates(database, scope, args),
+  save_document_template: ({ database }, scope, args) => runSaveDocumentTemplate(database, scope, args),
+  list_document_templates: ({ database }, scope, args) => runListDocumentTemplates(database, scope, args),
+  delete_document_template: ({ database }, scope, args) => runDeleteDocumentTemplate(database, scope, args),
   maintenance_status: runMaintenanceStatus,
   attach_photos: runAttachPhotos,
   list_sources: runListSources,

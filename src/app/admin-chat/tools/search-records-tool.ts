@@ -10,7 +10,7 @@ const argumentsSchema = z.object({ ...FILTER_ARGUMENTS, cursor: z.string().nulla
 
 export async function runSearchRecords(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const args = argumentsSchema.parse(parsedArguments);
-  if (scope.role === 'member' && args.member !== null) return failTool(REFUSAL_ERROR);
+  if (scope.role === 'member' && (args.member !== null || args.template !== null)) return failTool(REFUSAL_ERROR);
   if (hasUnrealDate(args)) return failTool(INVALID_DATE_ERROR);
   const decodedCursor = args.cursor === null ? null : decodeSearchCursor(args.cursor);
   if (args.cursor !== null && decodedCursor === null) return failTool(INVALID_CURSOR_ERROR);

@@ -24,6 +24,10 @@ export const FILTER_PROPERTIES = {
     description: 'Loại giấy tờ đã lưu, ví dụ "phiếu cân xe". null để lấy mọi loại.',
   },
   plate: PLATE,
+  template: {
+    type: ['string', 'null'],
+    description: 'Tên mẫu giấy tờ đã lưu, chép đúng từ list_document_templates: chỉ lấy giấy tờ đã được đọc theo mẫu đó. null nếu không lọc theo mẫu.',
+  },
   date_meaning: {
     type: ['string', 'null'],
     description: 'Ý nghĩa ngày dùng để lọc và chia nhóm, chép từ list_document_numbers. null để dùng ngày trên giấy tờ.',

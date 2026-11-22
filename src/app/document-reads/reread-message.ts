@@ -2,6 +2,7 @@ import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Photo, PhotoStorage } from '../../services/storage/photo-storage.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
+import { listReaderTemplates } from '../documents/list-reader-templates.ts';
 import { storeDocuments } from '../documents/store-documents.ts';
 import { wrapRecentMessages } from '../intake/intake-texts.ts';
 import { planReply, type ReplyPlan } from '../intake/plan-reply.ts';
@@ -34,12 +35,13 @@ async function readAndStore(scoped: Database, reader: ReaderService, message: Me
 }
 
 async function readAgain(scoped: Database, reader: ReaderService, message: MessageToReread, photo: Photo | null): Promise<ReadAttempt> {
-  const { labels, catalog } = await runInTransaction(scoped, async (transaction) => ({
+  const { labels, catalog, templates } = await runInTransaction(scoped, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, message.workspaceId),
     catalog: await listReaderCatalog(transaction, message.workspaceId),
+    templates: await listReaderTemplates(transaction, message.workspaceId),
   }));
   const text = wrapWithContextTexts(message, await findContextTexts(scoped, message));
-  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog, []);
+  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog, [], templates);
 }
 
 function wrapWithContextTexts(message: MessageToReread, contextTexts: string[]): string | null {

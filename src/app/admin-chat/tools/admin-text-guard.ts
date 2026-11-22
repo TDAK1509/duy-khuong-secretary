@@ -1,10 +1,10 @@
-export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate', 'save_fact', 'update_fact', 'delete_fact'] as const;
+export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate', 'save_fact', 'update_fact', 'delete_fact', 'save_document_template', 'delete_document_template'] as const;
 
 export type ChangeTool = (typeof CHANGE_TOOLS)[number];
 
-export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'total_fact_values', 'export_trip_report_xlsx'];
+export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'total_fact_values', 'export_trip_report_xlsx', 'propose_document_templates'];
 
-export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx', 'list_facts', 'export_report_xlsx'];
+export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx', 'list_facts', 'export_report_xlsx', 'list_document_templates'];
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;

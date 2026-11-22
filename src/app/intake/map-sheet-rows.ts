@@ -116,7 +116,7 @@ function buildReadingItem(kind: string, inputs: DraftInputs, fields: RowFields):
   return {
     category: kind, document_title: inputs.title, maintenance_item: null, occurred_on: inputs.documentDate,
     amount_vnd: null, identifiers: [], vehicle_plate: fields.plate, document_number: fields.documentNumber,
-    document_kind: kind, stage: null, parties: [], details: lines,
+    document_kind: kind, stage: null, parties: [], details: lines, template: null,
   };
 }
 
