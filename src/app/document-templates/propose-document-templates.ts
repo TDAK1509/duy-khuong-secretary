@@ -4,6 +4,7 @@ import { MAX_FIELDS_PER_TEMPLATE } from './document-template.ts';
 export type ProposedField = { name: string; valueType: string; unit: string | null; paperCount: number };
 
 export type TemplateProposal = {
+  issuerId: string | null;
   issuerName: string | null;
   kind: string;
   paperCount: number;
@@ -47,7 +48,7 @@ const FIND_GROUP_FIELDS_SQL = `
   ORDER BY wanted.ordinal, count(DISTINCT line.document_id) DESC, COALESCE(meaning.name, line.label) COLLATE "C"`;
 
 const FIND_PAPER_SQL = `
-  SELECT document.id, document.kind, document.stage, organization.name AS issuer_name
+  SELECT document.id, document.kind, document.stage, organization.id AS issuer_id, organization.name AS issuer_name
   FROM documents document
   LEFT JOIN LATERAL (
     SELECT party.organization_id FROM document_parties party
@@ -78,7 +79,7 @@ type GroupRow = { issuer_name: string | null; issuer_id: string | null; kind: st
 
 type FieldRow = { ordinal: number; name: string; value_type: string; unit: string | null; paper_count: number };
 
-type PaperRow = { id: string; kind: string; stage: string | null; issuer_name: string | null };
+type PaperRow = { id: string; kind: string; stage: string | null; issuer_id: string | null; issuer_name: string | null };
 
 export async function proposeTemplatesFromPapers(database: Database, workspaceId: string): Promise<TemplateProposal[]> {
   const { rows: groups } = await database.query<GroupRow>(FIND_GROUPS_SQL, [workspaceId]);
@@ -96,12 +97,12 @@ export async function proposeTemplateFromPaper(database: Database, workspaceId: 
 
 function toGroupProposal(group: GroupRow, fields: FieldRow[]): TemplateProposal {
   const stageCounts = { dispatch: group.dispatch_count, receipt: group.receipt_count, none: group.none_count };
-  return { issuerName: group.issuer_name, kind: group.kind, paperCount: group.paper_count, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
+  return { issuerId: group.issuer_id, issuerName: group.issuer_name, kind: group.kind, paperCount: group.paper_count, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
 }
 
 function toPaperProposal(paper: PaperRow, fields: FieldRow[]): TemplateProposal {
   const stageCounts = { dispatch: paper.stage === 'dispatch' ? 1 : 0, receipt: paper.stage === 'receipt' ? 1 : 0, none: paper.stage === null ? 1 : 0 };
-  return { issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
+  return { issuerId: paper.issuer_id, issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
 }
 
 function toProposedField(row: FieldRow): ProposedField {

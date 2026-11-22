@@ -34,7 +34,7 @@ async function readAndStore(scoped: Database, reader: ReaderService, message: Me
   return plan.saved === null ? recordEmptyRead(scoped, message) : storeDocumentsAndRead(scoped, message, plan);
 }
 
-async function readAgain(scoped: Database, reader: ReaderService, message: MessageToReread, photo: Photo | null): Promise<ReadAttempt> {
+export async function readAgain(scoped: Database, reader: ReaderService, message: MessageToReread, photo: Photo | null): Promise<ReadAttempt> {
   const { labels, catalog, templates } = await runInTransaction(scoped, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, message.workspaceId),
     catalog: await listReaderCatalog(transaction, message.workspaceId),

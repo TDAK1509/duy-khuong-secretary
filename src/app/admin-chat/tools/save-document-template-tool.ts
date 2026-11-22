@@ -3,7 +3,9 @@ import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { MAX_TEMPLATES_PER_WORKSPACE, type TemplateField } from '../../document-templates/document-template.ts';
 import { saveDocumentTemplate, type NewDocumentTemplate, type SaveTemplateResult } from '../../document-templates/save-document-template.ts';
+import { MAX_BACKFILL_PAPERS } from '../../template-backfills/find-backfill-candidates.ts';
 import { fieldArgumentSchema, readTemplateDescription, readTemplateFields, readTemplateKind, readTemplateName } from './document-template-arguments.ts';
+import type { QueuedBackfill } from '../../template-backfills/queue-template-backfill.ts';
 import { resolveTemplateIssuer, type TemplateIssuer } from './document-template-issuer.ts';
 import { failTool } from './tool-result.ts';
 
@@ -48,10 +50,16 @@ function describeSaveResult(result: SaveTemplateResult, template: NewDocumentTem
     ok: true,
     action: result.action,
     revision: result.revision,
+    ...describeBackfill(result.backfill),
     template: { name: template.name, kind: template.kind, stage: template.stage, description: template.description, fields: template.fields.map(describeField) },
     issuer_company_matched: issuer.matchedName,
     ...(unmatchedIssuer ? { note: ISSUER_NOT_MATCHED_NOTE } : {}),
   });
+}
+
+function describeBackfill({ isStarted, paperCount, isCapped }: QueuedBackfill): Record<string, unknown> {
+  if (!isStarted) return { reread_started: false };
+  return { reread_started: true, papers_to_reread: paperCount, ...(isCapped ? { reread_note: `Chỉ đọc lại ${MAX_BACKFILL_PAPERS} giấy tờ mới nhất. Nói rõ điều này với quản lý.` } : {}) };
 }
 
 function describeField({ name, valueType, unit, required }: TemplateField): Record<string, unknown> {

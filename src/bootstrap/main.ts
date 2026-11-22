@@ -2,12 +2,14 @@ import { extendEventLocks, handBackEvents } from '../app/processing/hand-back-ev
 import { pauseBeforeNextPoll, startQueueWorker } from '../app/processing/queue-worker.ts';
 import { handBackTasks } from '../app/scheduled-runs/hand-back-tasks.ts';
 import { extendFileLease, handBackFile } from '../app/sheet-files/file-claims.ts';
+import { extendBackfillLease, handBackBackfill } from '../app/template-backfills/backfill-claims.ts';
 import { assembleService } from './assemble-service.ts';
 
 const TICK_INTERVAL_MS = 60_000;
 const INBOUND_CONCURRENCY = 4;
 const OUTBOUND_CONCURRENCY = 1;
 const FILE_CONCURRENCY = 1;
+const BACKFILL_CONCURRENCY = 1;
 const SHUTDOWN_WINDOW_MS = 270_000;
 const LOCK_MARGIN_MS = 30_000;
 
@@ -33,6 +35,7 @@ const fileWorkers = [
   service.runParseFilesStep && startQueueWorker({ name: 'files-parse', runStep: service.runParseFilesStep, concurrency: FILE_CONCURRENCY, pause: pauseBeforeNextPoll }),
   service.runProcessFilesStep && startQueueWorker({ name: 'files-process', runStep: service.runProcessFilesStep, concurrency: FILE_CONCURRENCY, pause: pauseBeforeNextPoll }),
 ].filter((worker) => worker !== null);
+const backfillWorker = service.runBackfillStep && startQueueWorker({ name: 'template-backfill', runStep: service.runBackfillStep, concurrency: BACKFILL_CONCURRENCY, pause: pauseBeforeNextPoll });
 
 process.once('SIGTERM', () => void shutDown());
 
@@ -58,11 +61,11 @@ async function shutDown(): Promise<void> {
   shutdownSignal.abort();
   clearInterval(ticker);
   const closingServer = service.server.close();
-  const workIdle = Promise.all([inboundWorker.stop(), outboundWorker.stop(), ...fileWorkers.map((worker) => worker.stop()), runningTick]);
-  console.log(`[shutdown] started in_progress=${service.heldEvents.list().length + service.heldFiles.list().length}`);
+  const workIdle = Promise.all([inboundWorker.stop(), outboundWorker.stop(), ...fileWorkers.map((worker) => worker.stop()), backfillWorker?.stop(), runningTick]);
+  console.log(`[shutdown] started in_progress=${service.heldEvents.list().length + service.heldFiles.list().length + service.heldBackfills.list().length}`);
   await extendHeldLocks(new Date(deadline + LOCK_MARGIN_MS));
   await Promise.race([workIdle, waitUntil(deadline)]);
-  const handedBack = (await handBackHeldEvents()) + (await handBackHeldTasks()) + (await handBackHeldFiles());
+  const handedBack = (await handBackHeldEvents()) + (await handBackHeldTasks()) + (await handBackHeldFiles()) + (await handBackHeldBackfills());
   await Promise.race([closingServer, waitUntil(deadline)]);
   await service.pool.end();
   console.log(`[shutdown] finished handed_back=${handedBack}`);
@@ -73,6 +76,7 @@ async function extendHeldLocks(lockedUntil: Date): Promise<void> {
   try {
     await extendEventLocks(service.pool, service.heldEvents.list(), lockedUntil);
     for (const file of service.heldFiles.list()) await extendFileLease(service.pool, file, lockedUntil);
+    for (const backfill of service.heldBackfills.list()) await extendBackfillLease(service.pool, backfill, lockedUntil);
   } catch (error) {
     console.error('[shutdown] extending locks failed:', error instanceof Error ? error.name : 'unknown error');
   }
@@ -109,6 +113,20 @@ async function handBackHeldFiles(): Promise<number> {
       handedBack += 1;
     } catch (error) {
       console.error('[shutdown] handing back a file failed:', error instanceof Error ? error.name : 'unknown error');
+    }
+  }
+  return handedBack;
+}
+
+async function handBackHeldBackfills(): Promise<number> {
+  let handedBack = 0;
+  for (const backfill of service.heldBackfills.list()) {
+    try {
+      if (!(await handBackBackfill(service.pool, backfill))) continue;
+      console.log(`[shutdown] handed back template backfill=${backfill.backfillId}`);
+      handedBack += 1;
+    } catch (error) {
+      console.error('[shutdown] handing back a template backfill failed:', error instanceof Error ? error.name : 'unknown error');
     }
   }
   return handedBack;
