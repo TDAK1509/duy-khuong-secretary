@@ -7,10 +7,11 @@ import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
-import { countReviewTripPapers, listKnownValues, listTripPapers, listWinningValues, type KnownValue, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import { buildTrips, keepReportReceipts } from '../../trips/build-trips.ts';
+import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
+import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
-import { inferDropOffs, type DropOffInference } from '../../trips/infer-drop-offs.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { EXPORT_EXPIRES_HOURS, EXPORT_NOT_CONFIGURED_ERROR, storeExcelExport } from './store-excel-export.ts';
 import { failTool, INVALID_DATE_ERROR, REFUSAL_ERROR } from './tool-result.ts';
@@ -96,20 +97,24 @@ type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOf
 
 async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport): Promise<string> {
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
-  const papers = await listTripPapers(database, query);
-  if (papers.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
-  if (papers.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
-  const winners = await listWinningValues(database, scope.workspaceId, papers.map((paper) => paper.id), listValueKeys(columns));
-  const dropOffs = hasRouteColumn(columns) ? await inferDropOffs(database, dropOffReader, { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, papers }) : null;
-  const report = buildTripReport({ title: request.title, createdAt, columns, papers, winners, reviewPapers: await countReviewTripPapers(database, query), dropOffs });
+  const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(request.date_from, -1) });
+  const allReceipts = await listReceiptPapers(database, { ...query, dateTo: addDays(request.date_to, 1) });
+  if (pickups.length > MAX_ROWS || allReceipts.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
+  const receipts = keepReportReceipts(pickups, allReceipts, request.date_from, request.date_to);
+  const pairing = await pairTrips(dropOffReader, { pickups, receipts });
+  const trips = buildTrips({ pickups, receipts, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
+  if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
+  const documentIds = trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
+  const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns));
+  const report = buildTripReport({ title: request.title, createdAt, columns, trips, pickups, winners, reviewPapers: await countReviewTripPapers(database, query), pairing, dateFrom: request.date_from, dateTo: request.date_to });
   const choice = readReportLayout(request.layout, report.table.columns);
   const table = { ...report.table, layout: choice.layout };
   const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
-  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
+  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
-function hasRouteColumn(columns: TripColumn[]): boolean {
-  return columns.some((column) => column.source === 'field' && column.field === 'route');
+function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
 function listValueKeys(columns: TripColumn[]): string[] {
@@ -117,23 +122,27 @@ function listValueKeys(columns: TripColumn[]): string[] {
   return [...new Set([...keys, GOODS_VALUE_KEY])];
 }
 
-function summarizeReport(report: TripReport) {
+function summarizeReport(report: TripReport, pairing: TripPairing) {
   return {
-    rows: report.table.rows.length,
+    rows: report.counts.trips,
+    ...summarizeTrips(report.counts),
+    ...summarizeModelStep(pairing),
     rows_per_plate: report.rowsPerPlate,
     needs_review: report.reviewPapers,
     missing_weight: report.missingWeight,
     possible_duplicates: report.duplicates.length,
     empty_columns: [...report.noSourceColumns, ...report.emptyColumns],
-    ...(report.dropOffs === null ? {} : summarizeDropOffs(report.dropOffs)),
   };
 }
 
-function summarizeDropOffs({ inferred, stillUnknown }: DropOffInference) {
-  const pairs = [...inferred.values()];
+function summarizeTrips({ both, pickupOnly, dropOffOnly, byRule, byAi }: TripReport['counts']) {
+  return { trips_with_both_papers: both, trips_pickup_only: pickupOnly, trips_drop_off_only: dropOffOnly, paired_by_rule: byRule, paired_by_ai: byAi };
+}
+
+function summarizeModelStep({ modelCalls, modelSkippedRows }: TripPairing) {
   return {
-    inferred_rule: pairs.filter((pair) => pair.method === 'rule').length,
-    inferred_ai: pairs.filter((pair) => pair.method === 'ai').length,
-    still_unknown: stillUnknown,
+    ai_calls_ran: modelCalls.filter((call) => call.kind === 'ran').length,
+    ai_calls_failed: modelCalls.filter((call) => call.kind === 'failed').length,
+    ai_rows_skipped: modelSkippedRows,
   };
 }

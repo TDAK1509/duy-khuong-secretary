@@ -5,7 +5,7 @@ import { TRIP_FIELDS } from '../../trips/build-trip-report.ts';
 export const EXPORT_TRIP_REPORT_XLSX_SPEC: ToolSpec = {
   name: 'export_trip_report_xlsx',
   description:
-    'Máy chủ tự lập báo cáo chuyến hoặc chi phí chuyến ra file Excel (.xlsx), mỗi dòng một giấy tờ chuyến: giấy tờ gắn với thông tin chuyến có nơi lấy hoặc nơi giao, và giấy tờ giao hàng khác. Mọi số lấy từ giấy tờ và thông tin chuyến đã lưu. Bạn chỉ chọn khoảng ngày, xe và các cột. Trả về đường dẫn có hiệu lực 24 giờ và các con số tóm tắt.',
+    'Máy chủ tự lập báo cáo chuyến hoặc chi phí chuyến ra file Excel (.xlsx), mỗi dòng một chuyến: máy chủ ghép phiếu lấy hàng với phiếu nhận hàng của cùng một chuyến, mỗi đầu có ngày, khối lượng, nơi và số phiếu riêng; chuyến chỉ có một phiếu vẫn có một dòng. Tiền lương, cước, bồi dưỡng tính một lần cho mỗi chuyến. Mọi số lấy từ giấy tờ và thông tin chuyến đã lưu. Bạn chỉ chọn khoảng ngày, xe và các cột. Trả về đường dẫn có hiệu lực 24 giờ và các con số tóm tắt.',
   parameters: {
     type: 'object',
     properties: {
@@ -24,12 +24,12 @@ export const EXPORT_TRIP_REPORT_XLSX_SPEC: ToolSpec = {
             source: {
               type: 'string',
               enum: ['field', 'fact_value', 'fact_amount', 'none'],
-              description: 'field: một trường cố định của giấy tờ. fact_value: một giá trị trong thông tin chuyến (tên từ list_facts). fact_amount: tiền = giá trị đ/tấn × trọng lượng (kg) / 1000. none: chưa có dữ liệu đã lưu cho cột này.',
+              description: 'field: một trường cố định của giấy tờ. fact_value: một giá trị trong thông tin chuyến (tên từ list_facts). fact_amount: tiền = giá trị đ/tấn × trọng lượng (kg) / 1000. none: không trường cố định và không giá trị đã lưu nào hợp với cột này.',
             },
             field: {
               type: ['string', 'null'],
               enum: [...TRIP_FIELDS, null],
-              description: 'Khi source là field: date (ngày giấy tờ), plate (biển số), route (tuyến "nơi lấy → nơi giao"), customer (khách hàng), goods (hàng hóa), weight_kg (trọng lượng hàng, kg), document_number, document_kind, sender (người gửi). Nếu không thì null.',
+              description: 'Khi source là field: date (ngày của chuyến), pickup_date (ngày nhận hàng hoặc lấy hàng), dropoff_date (ngày đổ hàng hoặc giao hàng), plate (biển số), route (tuyến "nơi lấy → nơi đổ"), pickup_place (nơi lấy hàng), dropoff_place (nơi đổ hàng), customer (khách hàng), goods (hàng hóa), pickup_weight_kg (khối lượng lấy hàng, kg), dropoff_weight_kg (khối lượng đổ hàng, kg), weight_kg (trọng lượng chuyến: lấy hàng, không có thì đổ hàng), pickup_document_number (số phiếu lấy hàng), dropoff_document_number (số phiếu cân hoặc phiếu nhận hàng ở nơi đổ), document_number (cả hai số), document_kind, sender (người gửi). Nếu không thì null.',
             },
             value_name: { type: ['string', 'null'], description: 'Khi source là fact_value hoặc fact_amount: tên giá trị chép đúng từ list_facts, ví dụ "Lương tài xế". Nếu không thì null.' },
           },

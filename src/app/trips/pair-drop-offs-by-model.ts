@@ -40,6 +40,56 @@ const PAIRING_REQUEST = 'Pair the rows in the data above and answer in JSON.';
 
 const answerSchema = z.object({ pairs: z.array(z.object({ row: z.string(), candidate: z.string(), reason: z.string() })) });
 
+export type BatchedPairing = { pairs: Map<string, string>; calls: ModelPairing[]; skippedRows: number };
+
+const MAX_CALLS = 4;
+
+export async function pairDropOffsInBatches(reader: ReaderService | null, rows: ModelRow[], candidates: ModelCandidate[]): Promise<BatchedPairing> {
+  if (rows.length === 0) return { pairs: new Map(), calls: [], skippedRows: 0 };
+  if (reader === null) return { pairs: new Map(), calls: [{ kind: 'skipped', reason: 'not_configured' }], skippedRows: rows.length };
+  const plan = planCalls(rows, candidates);
+  const calls = await Promise.all(plan.batches.map((batch) => pairDropOffsByModel(reader, batch, candidates)));
+  return { pairs: keepUniqueChoices(calls), calls, skippedRows: countSkippedRows(rows.length, plan.batches, calls) };
+}
+
+function countSkippedRows(rowCount: number, batches: ModelRow[][], calls: ModelPairing[]): number {
+  const unplanned = rowCount - batches.reduce((sum, batch) => sum + batch.length, 0);
+  return unplanned + batches.reduce((sum, batch, index) => sum + countUnsentRows(batch.length, calls[index]), 0);
+}
+
+function countUnsentRows(batchSize: number, call: ModelPairing | undefined): number {
+  if (call?.kind === 'ran') return batchSize - call.rows;
+  return call?.kind === 'skipped' ? batchSize : 0;
+}
+
+function planCalls(rows: ModelRow[], candidates: ModelCandidate[]): { batches: ModelRow[][] } {
+  const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+  const batches: ModelRow[][] = [];
+  for (const group of groupRowsByPlate(rows)) {
+    const open = batches.find((batch) => fitsInOneCall([...batch, ...group], byId));
+    if (open !== undefined) open.push(...group);
+    else if (batches.length < MAX_CALLS) batches.push([...group]);
+  }
+  return { batches };
+}
+
+function groupRowsByPlate(rows: ModelRow[]): ModelRow[][] {
+  const groups = new Map<string, ModelRow[]>();
+  for (const row of rows) groups.set(row.plate, [...(groups.get(row.plate) ?? []), row]);
+  return [...groups.values()];
+}
+
+function fitsInOneCall(rows: ModelRow[], byId: Map<string, ModelCandidate>): boolean {
+  return rows.length <= MAX_ROWS && Buffer.byteLength(describeInput(rows, byId).text) <= MAX_INPUT_BYTES;
+}
+
+function keepUniqueChoices(calls: ModelPairing[]): Map<string, string> {
+  const chosen = calls.flatMap((call) => (call.kind === 'ran' ? [...call.pairs] : []));
+  const uses = new Map<string, number>();
+  for (const [, candidateId] of chosen) uses.set(candidateId, (uses.get(candidateId) ?? 0) + 1);
+  return new Map(chosen.filter(([, candidateId]) => uses.get(candidateId) === 1));
+}
+
 type OfferedRow = { rowId: string; candidates: Map<string, string> };
 type ModelInput = { text: string; offered: Map<string, OfferedRow>; candidateCount: number };
 
