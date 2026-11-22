@@ -1,8 +1,8 @@
 import { extendEventLocks, handBackEvents } from '../app/processing/hand-back-events.ts';
 import { pauseBeforeNextPoll, startQueueWorker } from '../app/processing/queue-worker.ts';
-import { handBackTasks } from '../app/scheduled-runs/hand-back-tasks.ts';
+import { handBackTasks } from '../app/schedules/runs/hand-back-tasks.ts';
 import { extendFileLease, handBackFile } from '../app/sheet-files/file-claims.ts';
-import { extendBackfillLease, handBackBackfill } from '../app/template-backfills/backfill-claims.ts';
+import { extendBackfillLease, handBackBackfill } from '../app/documents/templates/backfills/backfill-claims.ts';
 import { assembleService } from './assemble-service.ts';
 
 const TICK_INTERVAL_MS = 60_000;

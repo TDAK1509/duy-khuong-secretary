@@ -1,8 +1,8 @@
 import type { Clock } from '../../services/clock/clock.ts';
 import type { McpEndpoint, McpExchange } from '../../services/mcp/mcp-endpoint.ts';
 import type { Database } from '../db/transaction.ts';
-import { authenticateMcpRequest } from '../internal-mcp/authenticate-mcp-request.ts';
-import { describeInternalMcpServer } from '../internal-mcp/describe-internal-mcp-server.ts';
+import { authenticateMcpRequest } from '../internal/mcp/authenticate-mcp-request.ts';
+import { describeInternalMcpServer } from '../internal/mcp/describe-internal-mcp-server.ts';
 import { respondWithText, type HttpResponse } from './http-response.ts';
 
 export type InternalMcpDependencies = {

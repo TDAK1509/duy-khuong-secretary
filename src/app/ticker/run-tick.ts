@@ -1,6 +1,6 @@
 import { renewDueConnections, type RenewalDependencies } from '../channel-auth/renew-connections.ts';
 import { cleanupOldPhotos, type CleanupDependencies } from '../intake/cleanup-old-photos.ts';
-import { runDueTasks, type ScheduledRunDependencies } from '../scheduled-runs/run-due-tasks.ts';
+import { runDueTasks, type ScheduledRunDependencies } from '../schedules/runs/run-due-tasks.ts';
 
 export type TickDependencies = {
   renewal: RenewalDependencies | null;
