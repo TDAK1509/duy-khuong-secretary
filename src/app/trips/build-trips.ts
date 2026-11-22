@@ -6,6 +6,11 @@ export type Trip = { pickup: TripPaper | null; dropOff: TripPaper | null; method
 
 export type TripPapers = { pickups: TripPaper[]; receipts: TripPaper[]; dateFrom: string; dateTo: string };
 
+export function keepReportReceipts(pickups: TripPaper[], receipts: TripPaper[]): TripPaper[] {
+  const plates = new Set(pickups.flatMap((paper) => paper.vehicle_plate ?? []));
+  return receipts.filter((paper) => paper.route_fact_id !== null || (paper.vehicle_plate !== null && plates.has(paper.vehicle_plate)));
+}
+
 export function buildTrips({ pickups, receipts, dateFrom, dateTo }: TripPapers, pairing: TripPairing): Trip[] {
   const receiptsById = new Map(receipts.map((paper) => [paper.id, paper]));
   const duplicateIds = new Set(groupPossibleDuplicates(pickups).flat().map((paper) => paper.id));
