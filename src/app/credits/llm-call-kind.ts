@@ -4,5 +4,6 @@ export type LlmCallKind =
   | 'chat_answer'
   | 'scheduled_run'
   | 'chatgpt_text_save'
+  | 'template_backfill'
   | 'operator_reread'
   | 'operator_backfill';

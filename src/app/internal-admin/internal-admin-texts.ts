@@ -31,6 +31,7 @@ export const KIND_LABELS: Record<LlmCallKind, string> = {
   chat_answer: 'Trả lời chat',
   scheduled_run: 'Lịch',
   chatgpt_text_save: 'Lưu từ ChatGPT',
+  template_backfill: 'Đọc lại theo mẫu',
   operator_reread: 'Đọc lại (vận hành)',
   operator_backfill: 'Bổ sung số (vận hành)',
 };

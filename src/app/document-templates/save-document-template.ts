@@ -1,6 +1,7 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { insertRows } from '../documents/insert-row.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
+import { carryBackfillToRevision, NO_BACKFILL, queueTemplateBackfill, type QueuedBackfill } from '../template-backfills/queue-template-backfill.ts';
 import { MAX_TEMPLATES_PER_WORKSPACE, type TemplateField, type TemplateStage } from './document-template.ts';
 
 export type NewDocumentTemplate = {
@@ -15,11 +16,24 @@ export type NewDocumentTemplate = {
   fields: TemplateField[];
 };
 
-export type SaveTemplateResult = { action: 'added' | 'updated'; templateId: string; revision: number } | { action: 'too_many_templates' };
+export type SaveTemplateResult = { action: 'added' | 'updated'; templateId: string; revision: number; backfill: QueuedBackfill } | { action: 'too_many_templates' };
 
-type StoredTemplate = { id: string; revision: number };
+type ReadableField = Pick<TemplateField, 'name' | 'valueType' | 'unit'>;
 
-const FIND_TEMPLATE_SQL = 'SELECT id, revision FROM document_templates WHERE workspace_id = $1 AND name_key = $2';
+type StoredTemplate = { id: string; revision: number; kind: string; stage: TemplateStage | null; issuerOrganizationId: string | null; fields: ReadableField[] };
+
+type StoredRow = { id: string; revision: number; kind: string; stage: TemplateStage | null; issuer_organization_id: string | null; fields: ReadableField[] };
+
+const FIND_TEMPLATE_SQL = `
+  SELECT template.id, template.revision, template.kind, template.stage, template.issuer_organization_id,
+    COALESCE(
+      (SELECT json_agg(json_build_object('name', field.name, 'valueType', field.value_type, 'unit', field.unit) ORDER BY field.position)
+       FROM document_template_fields field WHERE field.template_id = template.id),
+      '[]'
+    ) AS fields
+  FROM document_templates template
+  WHERE template.workspace_id = $1 AND template.name_key = $2`;
+
 const COUNT_TEMPLATES_SQL = 'SELECT count(*)::int AS count FROM document_templates WHERE workspace_id = $1';
 
 const INSERT_TEMPLATE_SQL = `
@@ -36,9 +50,13 @@ const UPDATE_TEMPLATE_SQL = `
 export function saveDocumentTemplate(database: Database, template: NewDocumentTemplate): Promise<SaveTemplateResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, template.workspaceId);
-    const [stored] = await transaction.query<StoredTemplate>(FIND_TEMPLATE_SQL, [template.workspaceId, template.nameKey]);
-    return stored === undefined ? addTemplate(transaction, template) : updateTemplate(transaction, template, stored);
+    const [row] = await transaction.query<StoredRow>(FIND_TEMPLATE_SQL, [template.workspaceId, template.nameKey]);
+    return row === undefined ? addTemplate(transaction, template) : updateTemplate(transaction, template, toStoredTemplate(row));
   });
+}
+
+function toStoredTemplate(row: StoredRow): StoredTemplate {
+  return { id: row.id, revision: row.revision, kind: row.kind, stage: row.stage, issuerOrganizationId: row.issuer_organization_id, fields: row.fields };
 }
 
 async function addTemplate(transaction: Transaction, template: NewDocumentTemplate): Promise<SaveTemplateResult> {
@@ -49,7 +67,8 @@ async function addTemplate(transaction: Transaction, template: NewDocumentTempla
   ]);
   if (inserted === undefined) throw new Error('A document template was not inserted');
   await insertFields(transaction, template, inserted.id);
-  return { action: 'added', templateId: inserted.id, revision: 1 };
+  const backfill = await queueBackfill(transaction, template, { templateId: inserted.id, revision: 1 });
+  return { action: 'added', templateId: inserted.id, revision: 1, backfill };
 }
 
 async function updateTemplate(transaction: Transaction, template: NewDocumentTemplate, stored: StoredTemplate): Promise<SaveTemplateResult> {
@@ -59,7 +78,28 @@ async function updateTemplate(transaction: Transaction, template: NewDocumentTem
   if (updated === undefined) throw new Error('A document template was not updated');
   await transaction.query('DELETE FROM document_template_fields WHERE template_id = $1 AND workspace_id = $2', [stored.id, template.workspaceId]);
   await insertFields(transaction, template, stored.id);
-  return { action: 'updated', templateId: stored.id, revision: updated.revision };
+  const backfill = await requeueBackfill(transaction, template, stored, updated.revision);
+  return { action: 'updated', templateId: stored.id, revision: updated.revision, backfill };
+}
+
+async function requeueBackfill(transaction: Transaction, template: NewDocumentTemplate, stored: StoredTemplate, revision: number): Promise<QueuedBackfill> {
+  if (changesReading(template, stored)) return queueBackfill(transaction, template, { templateId: stored.id, revision });
+  await carryBackfillToRevision(transaction, template.workspaceId, stored.id, revision);
+  return NO_BACKFILL;
+}
+
+function changesReading(template: NewDocumentTemplate, stored: StoredTemplate): boolean {
+  const sameFields = template.fields.length === stored.fields.length && template.fields.every((field, index) => isSameReadableField(field, stored.fields[index]));
+  return template.kind !== stored.kind || template.stage !== stored.stage || template.issuerOrganizationId !== stored.issuerOrganizationId || !sameFields;
+}
+
+function isSameReadableField(field: TemplateField, stored: ReadableField | undefined): boolean {
+  return stored !== undefined && field.name === stored.name && field.valueType === stored.valueType && field.unit === stored.unit;
+}
+
+function queueBackfill(transaction: Transaction, template: NewDocumentTemplate, saved: { templateId: string; revision: number }): Promise<QueuedBackfill> {
+  const rule = { templateId: saved.templateId, issuerOrganizationId: template.issuerOrganizationId, kind: template.kind };
+  return queueTemplateBackfill(transaction, { workspaceId: template.workspaceId, requestedByUserId: template.createdByUserId, rule, ...saved });
 }
 
 async function insertFields(transaction: Transaction, template: NewDocumentTemplate, templateId: string): Promise<void> {
