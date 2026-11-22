@@ -1,3 +1,4 @@
+import { findMissingRequiredFields } from './find-missing-required-fields.ts';
 import type { ReadAttempt, ReadingItem } from './reading.ts';
 
 export type ReaderTemplateField = { name: string; valueType: 'text' | 'number' | 'date'; unit: string | null; required: boolean };
@@ -44,7 +45,8 @@ export function applyPickedTemplate(attempt: ReadAttempt, picked: ListedTemplate
 function applyTemplateToItem(item: ReadingItem, picked: ListedTemplate | null): ReadingItem {
   if (picked === null || item.template !== picked.shortId) return { ...item, template: null };
   const { template } = picked;
-  return { ...item, template: template.id, document_kind: template.kind, stage: template.stage ?? item.stage };
+  const missingTemplateFields = findMissingRequiredFields(template, item.details);
+  return { ...item, template: template.id, document_kind: template.kind, stage: template.stage ?? item.stage, missing_template_fields: missingTemplateFields };
 }
 
 function removeControlCharacters(text: string): string {

@@ -70,7 +70,7 @@ const readingSchema = z.strictObject({
   items: z.array(itemSchema),
 });
 
-export type ReadingItem = z.infer<typeof itemSchema>;
+export type ReadingItem = z.infer<typeof itemSchema> & { missing_template_fields?: string[] };
 export type Reading = z.infer<typeof readingSchema>;
 export type ReadingDetail = ReadingItem['details'][number];
 export type ReadingParty = ReadingItem['parties'][number];

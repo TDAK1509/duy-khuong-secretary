@@ -1,4 +1,5 @@
 import type { ReadAttempt, Reading, ReadingItem } from '../reading/reading.ts';
+import { formatMissingDetails } from './format-missing-details.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
 import { buildNewRecords, type NewRecord } from '../records/new-record.ts';
 import {
@@ -69,7 +70,7 @@ function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean, named
   const records = buildNewRecords(readItems);
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
   return {
-    replyText: formatSavedReply(records),
+    replyText: formatSavedReply(records) + formatMissingDetails(readItems),
     replyKind: 'saved',
     status: 'accepted',
     saved: records,
