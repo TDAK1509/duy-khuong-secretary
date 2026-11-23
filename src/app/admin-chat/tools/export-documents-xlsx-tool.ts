@@ -28,8 +28,9 @@ type ExportRequest = { filters: DocumentFilters; describedFilter: string };
 async function executeExport(storage: FileStorage, { database, clock }: AdminToolDependencies, scope: AccessScope, { filters, describedFilter }: ExportRequest): Promise<string> {
   const rows = await queryExportRows(database, scope, filters);
   if (rows.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches', described_filter: describedFilter });
-  const bytes = await buildDocumentsWorkbook({ title: describedFilter, createdAt: clock.now(), rows });
-  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, bytes, 'giay-to');
+  const createdAt = clock.now();
+  const bytes = await buildDocumentsWorkbook({ title: describedFilter, createdAt, rows });
+  const { url, filename } = await storeExcelExport(storage, scope, createdAt, bytes, 'giay-to');
   return JSON.stringify({ ok: true, url, filename, count: rows.length, described_filter: describedFilter, expires_hours: EXPORT_EXPIRES_HOURS });
 }
 

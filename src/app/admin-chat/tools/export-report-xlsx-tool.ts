@@ -26,7 +26,7 @@ export async function runExportReportXlsx(dependencies: AdminToolDependencies, s
   if (problem !== null) return failTool(problem);
   const choice = readReportLayout(request.layout, request.columns);
   const table = { title: request.title, columns: request.columns, createdAt: dependencies.clock.now(), rows: request.rows.map((cells) => readCells(request.columns, cells)), layout: choice.layout };
-  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao');
+  const { url, filename } = await storeExcelExport(storage, scope, table.createdAt, await buildReportWorkbook(table), 'bao-cao');
   return JSON.stringify({ ok: true, url, filename, rows: table.rows.length, layout: describeEffectiveLayout(choice, request.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 

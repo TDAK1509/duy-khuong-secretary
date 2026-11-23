@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { detectImageType, type DetectedImage } from './detect-image-type.ts';
+import { readSentAt } from '../processing/claimed-event.ts';
+import { buildObjectKey } from '../storage/build-object-key.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import type { IntakePart } from './intake-parts.ts';
@@ -46,7 +48,13 @@ export async function downloadImage(context: IntakeContext, url: string): Promis
 
 export async function storeMessageAndPhoto(context: IntakeContext, part: PhotoPart, image: DetectedImage): Promise<string> {
   const id = randomUUID();
-  const imageKey = `${context.sender.workspaceId}/${id}.${image.extension}`;
+  const imageKey = buildObjectKey({
+    workspaceId: context.sender.workspaceId,
+    userId: context.sender.userId,
+    at: readSentAt(context.event),
+    objectId: id,
+    extension: image.extension,
+  });
   const stored = await runStoreStage(context, { id, text: part.text, imageKey, partIndex: part.index });
   await requirePhotoStorage(context).put(stored.imageKey ?? imageKey, image.photo);
   return stored.id;

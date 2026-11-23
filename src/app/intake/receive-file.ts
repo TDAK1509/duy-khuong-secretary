@@ -6,9 +6,10 @@ import { toDatabaseScope } from '../access/to-database-scope.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import type { Database, Transaction } from '../db/transaction.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
-import type { ClaimedEvent } from '../processing/claimed-event.ts';
+import { readSentAt, type ClaimedEvent } from '../processing/claimed-event.ts';
 import type { Finished, NotConfigured, Stages } from '../processing/stages.ts';
 import { recordSenderIdentity } from '../processing/record-sender-identity.ts';
+import { buildObjectKey } from '../storage/build-object-key.ts';
 import { detectSheetType } from './detect-sheet-type.ts';
 import { findFileCaption } from './link-caption.ts';
 import type { IntakeDependencies } from './intake-context.ts';
@@ -122,7 +123,8 @@ async function chooseFileTarget(database: Database, event: ClaimedEvent, sender:
   const { rows: [stored] } = await database.query<{ message_id: string; file_key: string }>(FIND_STORED_FILE_SQL, [event.id]);
   if (stored !== undefined) return { messageId: stored.message_id, fileKey: stored.file_key };
   const messageId = randomUUID();
-  return { messageId, fileKey: `${sender.workspaceId}/${messageId}.${extension}` };
+  const fileKey = buildObjectKey({ workspaceId: sender.workspaceId, userId: sender.userId, at: readSentAt(event), objectId: event.id, extension });
+  return { messageId, fileKey };
 }
 
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
