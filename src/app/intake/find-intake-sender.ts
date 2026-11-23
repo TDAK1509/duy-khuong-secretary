@@ -1,5 +1,6 @@
 import { isInternalLoginCommand } from '../internal/admin/answer-internal-login-command.ts';
 import { isMcpTokenCommand } from '../internal/mcp/answer-mcp-token-command.ts';
+import { isRevokeMcpTokenCommand } from '../internal/mcp/answer-revoke-mcp-token-command.ts';
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { isBareNumber } from '../identities/pending-choice.ts';
 import type { ClaimedEvent } from '../processing/claimed-event.ts';
@@ -45,6 +46,7 @@ function isIntakeText(text: string): boolean {
     !isBareNumber(text) &&
     !isSwitchCommand(text) &&
     !isInternalLoginCommand(text) &&
-    !isMcpTokenCommand(text)
+    !isMcpTokenCommand(text) &&
+    !isRevokeMcpTokenCommand(text)
   );
 }
