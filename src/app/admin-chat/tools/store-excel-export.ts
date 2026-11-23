@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import type { AccessScope } from '../../access/access-scope.ts';
+import { buildObjectKey } from '../../storage/build-object-key.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -8,9 +10,9 @@ export const EXPORT_NOT_CONFIGURED_ERROR = 'Tính năng xuất Excel chưa đư�
 
 export type StoredExport = { url: string; filename: string };
 
-export async function storeExcelExport(storage: FileStorage, workspaceId: string, bytes: Uint8Array, filePrefix: string): Promise<StoredExport> {
+export async function storeExcelExport(storage: FileStorage, scope: AccessScope, now: Date, bytes: Uint8Array, filePrefix: string): Promise<StoredExport> {
   const id = randomUUID();
-  const key = `workspace_${workspaceId}/exports/${id}.xlsx`;
+  const key = buildObjectKey({ workspaceId: scope.workspaceId, userId: scope.userId, at: now, objectId: id, extension: 'xlsx' });
   await storage.put(key, bytes, XLSX_CONTENT_TYPE);
   const url = await storage.presignedUrl(key, PRESIGN_EXPIRES_SECONDS);
   return { url, filename: `${filePrefix}-${id.slice(0, 8)}.xlsx` };

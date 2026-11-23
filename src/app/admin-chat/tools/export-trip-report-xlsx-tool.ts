@@ -109,7 +109,7 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const report = buildTripReport({ title: request.title, createdAt, columns, trips, pickups, winners, reviewPapers: await countReviewTripPapers(database, query), pairing, dateFrom: request.date_from, dateTo: request.date_to });
   const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.table.columns));
   const table = { ...report.table, layout: choice.layout };
-  const { url, filename } = await storeExcelExport(storage, scope.workspaceId, await buildReportWorkbook(table), 'bao-cao-chuyen');
+  const { url, filename } = await storeExcelExport(storage, scope, createdAt, await buildReportWorkbook(table), 'bao-cao-chuyen');
   return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
