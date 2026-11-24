@@ -6,9 +6,8 @@ import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { ModelPairing } from './pair-drop-offs-by-model.ts';
 import type { TripPairing } from './pair-trips.ts';
 import { readWeightKg } from './read-trip-paper.ts';
-import { NO_NUMBER } from './trip-report-texts.ts';
+import { describePairingMethod, NO_NUMBER } from './trip-report-texts.ts';
 
-const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
 const SIDE_NAMES = { pickup: 'lấy hàng', dropOff: 'đổ hàng' } as const;
 const MAX_UNPAIRED_ROWS = 300;
 
@@ -33,8 +32,7 @@ function describePairings(trips: Trip[]): NoteBlock[] {
 }
 
 function describePairing(trip: Trip): string[] {
-  const method = trip.method === null ? '' : METHOD_NAMES[trip.method];
-  return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, method];
+  return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, describePairingMethod(trip.method)];
 }
 
 function describeDropOffMatching(matching: DropOffMatching): NoteBlock[] {
@@ -50,7 +48,7 @@ function describeUnpaired(trips: Trip[]): NoteBlock[] {
   const shown = unpaired.length > MAX_UNPAIRED_ROWS ? `${unpaired.length} (liệt kê ${MAX_UNPAIRED_ROWS} chuyến đầu)` : String(unpaired.length);
   return [
     { kind: 'blank' },
-    { kind: 'label', label: 'Chuyến chưa ghép được hai phiếu', value: shown },
+    { kind: 'label', label: 'Chuyến không ghép được đơn', value: shown },
     { kind: 'table', header: ['Biển số', 'Ngày', 'Giấy tờ', 'Số phiếu'], rows: unpaired.slice(0, MAX_UNPAIRED_ROWS).map(describeUnpairedTrip) },
   ];
 }
@@ -62,10 +60,10 @@ function describeUnpairedTrip(trip: Trip): string[] {
 
 function describeModelStep({ modelCalls, modelSkippedRows }: TripPairing): string {
   if (modelCalls.length === 0 && modelSkippedRows === 0) return 'không có xe cần AI ghép';
-  if (modelCalls.some((call) => call.kind === 'skipped' && call.reason === 'not_configured')) return 'bỏ qua, chưa cấu hình (ghép theo quy tắc)';
+  if (modelCalls.some((call) => call.kind === 'skipped' && call.reason === 'not_configured')) return 'bỏ qua, chưa cấu hình (ghép theo trọng lượng)';
   const ran = modelCalls.filter((call): call is Extract<ModelPairing, { kind: 'ran' }> => call.kind === 'ran');
   const failed = modelCalls.filter((call) => call.kind === 'failed');
-  return [`${ran.length} lần chạy cho ${ran.reduce((sum, call) => sum + call.rows, 0)} phiếu lấy hàng`, `${failed.length} lần lỗi (các xe đó ghép theo quy tắc)`, `${modelSkippedRows} phiếu lấy hàng chưa gửi AI (ghép theo quy tắc)`].join(', ');
+  return [`${ran.length} lần chạy cho ${ran.reduce((sum, call) => sum + call.rows, 0)} phiếu lấy hàng`, `${failed.length} lần lỗi (các xe đó ghép theo trọng lượng)`, `${modelSkippedRows} phiếu lấy hàng chưa gửi AI (ghép theo trọng lượng)`].join(', ');
 }
 
 export function describeRepeatedPapers(repeats: RepeatedPaper[]): NoteBlock[] {
