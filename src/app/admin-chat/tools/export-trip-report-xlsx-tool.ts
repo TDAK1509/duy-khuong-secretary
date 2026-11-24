@@ -125,10 +125,10 @@ async function buildReport(database: Database, scope: AccessScope, { request, co
 }
 
 async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
-  const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.table.columns));
+  const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.namedColumns));
   const table = { ...report.table, layout: choice.layout };
   const { url, filename } = await storeExcelExport(storage, scope, createdAt, await buildReportWorkbook(table), 'bao-cao-chuyen');
-  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, table.columns), expires_hours: EXPORT_EXPIRES_HOURS });
+  return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, report.namedColumns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
 function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {

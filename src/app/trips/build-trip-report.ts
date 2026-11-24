@@ -3,7 +3,7 @@ import { GOODS_VALUE_KEY } from '../facts/fact.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
-import { INFERRED_MARK, type ColumnUnit } from '../documents/format-workbook-sheet.ts';
+import { INFERRED_TEXT, type ColumnUnit } from '../documents/format-workbook-sheet.ts';
 import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import { describeTripNotes } from './describe-trip-notes.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
@@ -30,6 +30,7 @@ export type PossibleDuplicate = { plate: string; date: string; pickup: string; d
 
 export type TripReport = {
   table: ReportTable;
+  namedColumns: ReportColumn[];
   rowsPerPlate: Record<string, number>;
   reviewPapers: number;
   missingWeight: number;
@@ -45,21 +46,29 @@ export { GOODS_VALUE_KEY };
 
 const NO_PLATE = '(không biển số)';
 
+const PAIRING_METHOD_COLUMN: ReportColumn = { name: 'Cách ghép phiếu', type: 'text', unit: null };
+const PAIRING_METHOD_TEXTS = { ai: INFERRED_TEXT, rule: 'Quy tắc', unpaired: 'Chưa ghép' } as const;
+
 type WinnerIndex = Map<string, WinningValue>;
 
 export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; dateFrom: string; dateTo: string };
 
 export function buildTripReport({ title, createdAt, columns, trips, pickups, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
   const index: WinnerIndex = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
-  const rows = trips.map((trip) => columns.map((column) => readCell(column, trip, index)));
+  const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index)), describePairingMethod(trip)]);
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
   const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
   const missingWeight = listTripPapers(trips).filter((paper) => paper.weight_kg === null).length;
   const counts = countTrips(trips);
   const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeTripNotes(trips, counts, pairing, matching)];
-  const table = { title, createdAt, columns: columns.map((column) => describeColumn(column, trips, index)), rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
-  return { table, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, counts };
+  const namedColumns = columns.map((column) => describeColumn(column, trips, index));
+  const table = { title, createdAt, columns: [...namedColumns, PAIRING_METHOD_COLUMN], rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
+  return { table, namedColumns, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, counts };
+}
+
+function describePairingMethod({ method }: Trip): string {
+  return method === null ? PAIRING_METHOD_TEXTS.unpaired : PAIRING_METHOD_TEXTS[method];
 }
 
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex): ReportCell {
@@ -79,7 +88,7 @@ const FIELD_READERS: Record<TripField, FieldReader> = {
   plate: (trip) => readTripPlate(trip),
   route: (trip) => describeRoute(trip),
   pickup_place: ({ pickup }) => (pickup === null ? null : readPickupPlace(pickup)),
-  dropoff_place: (trip) => describeDropOffPlace(trip),
+  dropoff_place: (trip) => findDropOffPlace(trip),
   customer: (trip) => readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party),
   goods: (trip, index) => readGoods(trip, index),
   weight_kg: ({ pickup, dropOff }) => readWeightKg(pickup) ?? readWeightKg(dropOff),
@@ -133,25 +142,11 @@ function describeRoute(trip: Trip): string | null {
   const pickup = trip.pickup === null ? null : readPickupPlace(trip.pickup);
   const dropOff = findDropOffPlace(trip);
   if (pickup === null && dropOff === null) return null;
-  return `${pickup ?? '?'} → ${dropOff === null ? '?' : markInferred(dropOff)}`;
+  return `${pickup ?? '?'} → ${dropOff ?? '?'}`;
 }
 
-function describeDropOffPlace(trip: Trip): string | null {
-  const place = findDropOffPlace(trip);
-  return place === null ? null : markInferred(place);
-}
-
-type DropOffPlace = { name: string; isInferred: boolean };
-
-function findDropOffPlace(trip: Trip): DropOffPlace | null {
-  const receiver = trip.dropOff?.receiver_name ?? null;
-  if (receiver !== null) return { name: receiver, isInferred: trip.method === 'ai' };
-  const named = readFirst(trip, (paper) => paper.route_dropoff);
-  return named === null ? null : { name: named, isInferred: false };
-}
-
-function markInferred({ name, isInferred }: DropOffPlace): string {
-  return isInferred ? `${name} ${INFERRED_MARK}` : name;
+function findDropOffPlace(trip: Trip): string | null {
+  return trip.dropOff?.receiver_name ?? readFirst(trip, (paper) => paper.route_dropoff);
 }
 
 function describeDuplicate(group: TripPaper[]): PossibleDuplicate {

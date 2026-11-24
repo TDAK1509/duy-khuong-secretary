@@ -13,7 +13,7 @@ const INTEGER_FORMAT = '#,##0';
 const DECIMAL_FORMAT = '#,##0.00';
 const DATE_FORMAT = 'dd/mm/yyyy';
 const TOTAL_LABEL = 'Tổng cộng';
-export const INFERRED_MARK = '(AI suy luận ra)';
+export const INFERRED_TEXT = 'AI suy luận ra';
 
 export const HOUSE_COLORS = { darkBlue: 'FF1F3864', white: 'FFFFFFFF', bandFill: 'FFF2F5FA', rowLine: 'FFD0D7E2', totalFill: 'FFDCE6F2', infoGrey: 'FF595959', inferredAmber: 'FF7F6000' } as const;
 
@@ -152,7 +152,7 @@ function styleBodyCell(cell: ExcelJS.Cell, isBanded: boolean): void {
   cell.border = { bottom: { style: 'hair', color: { argb: HOUSE_COLORS.rowLine } } };
   if (isBanded) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HOUSE_COLORS.bandFill } };
   cell.alignment = chooseBodyAlignment(cell.value);
-  if (typeof cell.value === 'string' && cell.value.includes(INFERRED_MARK)) cell.font = { color: { argb: HOUSE_COLORS.inferredAmber } };
+  if (cell.value === INFERRED_TEXT) cell.font = { color: { argb: HOUSE_COLORS.inferredAmber } };
 }
 
 function chooseBodyAlignment(value: ExcelJS.CellValue): Partial<ExcelJS.Alignment> {
