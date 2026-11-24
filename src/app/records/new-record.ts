@@ -3,6 +3,7 @@ import { readNumberPair, type NumberPair, type ReadingDetail, type ReadingItem }
 import { summarizeRecord } from './summarize-record.ts';
 
 const FALLBACK_CATEGORY = 'khác';
+const NONZERO_DIGIT = /[1-9]/;
 
 export type NewRecord = {
   itemIndex: number;
@@ -30,7 +31,7 @@ function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
     documentTitle: item.document_title?.trim() === '' ? null : item.document_title,
     maintenanceItem: normalizeMaintenanceItem(item.maintenance_item),
     vehiclePlate: normalizeCode(item.vehicle_plate),
-    documentNumber: normalizeCode(item.document_number),
+    documentNumber: normalizeDocumentNumber(item.document_number),
     identifiers: normalizeCodeSet(item.identifiers),
   };
   return {
@@ -41,6 +42,11 @@ function buildNewRecord(item: ReadingItem, itemIndex: number): NewRecord {
     summary: summarizeRecord(fields),
     details: item.details.map(toRecordDetail),
   };
+}
+
+function normalizeDocumentNumber(text: string | null): string | null {
+  const code = normalizeCode(text);
+  return code !== null && NONZERO_DIGIT.test(code) ? code : null;
 }
 
 function toRecordDetail(detail: ReadingDetail): RecordDetail {

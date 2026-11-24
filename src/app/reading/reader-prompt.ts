@@ -25,7 +25,7 @@ Trả về đúng cấu trúc JSON được yêu cầu.
 8b. vehicle_plate: biển số xe ghi trên giấy tờ, trong tin nhắn hoặc thấy rõ trong ảnh, chép đúng từng ký tự, ví dụ "29C-123.45". Không dùng biển số của xe giao hàng hoặc xe khác làm biển số xe được bảo dưỡng. null nếu không thấy rõ.
 10. details: các thông tin quan trọng khác của giấy tờ này, mỗi thông tin một phần tử, dạng nhãn và giá trị. Tự chọn thông tin theo loại giấy tờ; các ví dụ không giới hạn thông tin được lưu. Dùng đúng một trong các nhãn sau nếu phù hợp: "Ngày cấp", "Ngày hết hạn", "Đơn vị kiểm định", "Số tem", "Số khung", "Số máy", "Người nhận", "Nơi nhận", "Nơi giao", "Hàng hóa", "Số lượng", "Người bán", "Mặt hàng", "Đơn giá". Nếu không phù hợp, ghi một nhãn ngắn khác bằng tiếng Việt. Giá trị chép đúng như trên giấy tờ; ngày ghi dạng dd/MM/yyyy. Không bỏ ngày hết hạn. Không lặp lại thông tin đã ghi ở các trường khác, trừ số tiền và ngày giờ: mọi số tiền và mọi ngày giờ in trên giấy tờ đều ghi thành chi tiết, kể cả khi đã ghi vào amount_vnd hoặc occurred_on.
 10b. number và unit trong mỗi chi tiết: ${SHARED_NUMBER_RULE} Giữ nguyên label và value.
-{workspaceLabelsLine}11. document_number: số hóa đơn, số biên lai hoặc số phiếu in trên giấy tờ, chép đúng từng ký tự. Không dùng biển số xe, số điện thoại, mã số thuế hoặc số tiền. null nếu không có hoặc không đọc rõ.{documentRules}
+{workspaceLabelsLine}11. document_number: số hóa đơn, số biên lai hoặc số phiếu in trên giấy tờ, chép đúng từng ký tự. Không dùng biển số xe, số điện thoại, mã số thuế hoặc số tiền. Không có chữ số nào từ 1 đến 9 thì không phải số: null. null nếu không có hoặc không đọc rõ.{documentRules}
 
 Quy tắc:
 - Chỉ ghi những gì đọc được rõ ràng. Không đoán. Không chắc thì để null.
