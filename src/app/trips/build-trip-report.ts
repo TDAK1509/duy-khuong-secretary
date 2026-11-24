@@ -7,6 +7,7 @@ import { INFERRED_MARK, type ColumnUnit } from '../documents/format-workbook-she
 import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import { describeTripNotes } from './describe-trip-notes.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
+import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { TripPairing } from './pair-trips.ts';
 import { groupPossibleDuplicates, readPickupIssuer, readPickupPlace, readWeightKg } from './read-trip-paper.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
@@ -46,9 +47,9 @@ const NO_PLATE = '(không biển số)';
 
 type WinnerIndex = Map<string, WinningValue>;
 
-export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; dateFrom: string; dateTo: string };
+export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; dateFrom: string; dateTo: string };
 
-export function buildTripReport({ title, createdAt, columns, trips, pickups, winners, reviewPapers, pairing, dateFrom, dateTo }: TripReportInput): TripReport {
+export function buildTripReport({ title, createdAt, columns, trips, pickups, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
   const index: WinnerIndex = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
   const rows = trips.map((trip) => columns.map((column) => readCell(column, trip, index)));
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
@@ -56,7 +57,7 @@ export function buildTripReport({ title, createdAt, columns, trips, pickups, win
   const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
   const missingWeight = listTripPapers(trips).filter((paper) => paper.weight_kg === null).length;
   const counts = countTrips(trips);
-  const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeTripNotes(trips, counts, pairing)];
+  const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeTripNotes(trips, counts, pairing, matching)];
   const table = { title, createdAt, columns: columns.map((column) => describeColumn(column, trips, index)), rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
   return { table, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, counts };
 }
@@ -143,10 +144,10 @@ function describeDropOffPlace(trip: Trip): string | null {
 type DropOffPlace = { name: string; isInferred: boolean };
 
 function findDropOffPlace(trip: Trip): DropOffPlace | null {
-  const named = readFirst(trip, (paper) => paper.route_dropoff);
-  if (named !== null) return { name: named, isInferred: false };
   const receiver = trip.dropOff?.receiver_name ?? null;
-  return receiver === null ? null : { name: receiver, isInferred: trip.method === 'ai' };
+  if (receiver !== null) return { name: receiver, isInferred: trip.method === 'ai' };
+  const named = readFirst(trip, (paper) => paper.route_dropoff);
+  return named === null ? null : { name: named, isInferred: false };
 }
 
 function markInferred({ name, isInferred }: DropOffPlace): string {
