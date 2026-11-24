@@ -50,13 +50,11 @@ function describeUnpairedTrip(trip: Trip): string[] {
 }
 
 function describeModelStep({ modelCalls, modelSkippedRows }: TripPairing): string {
-  if (modelCalls.length === 0) return 'không có dòng cần AI';
+  if (modelCalls.length === 0 && modelSkippedRows === 0) return 'không có xe cần AI ghép';
+  if (modelCalls.some((call) => call.kind === 'skipped' && call.reason === 'not_configured')) return 'bỏ qua, chưa cấu hình (ghép theo quy tắc)';
   const ran = modelCalls.filter((call): call is Extract<ModelPairing, { kind: 'ran' }> => call.kind === 'ran');
   const failed = modelCalls.filter((call) => call.kind === 'failed');
-  const notConfigured = modelCalls.some((call) => call.kind === 'skipped' && call.reason === 'not_configured');
-  if (notConfigured) return 'bỏ qua, chưa cấu hình';
-  const parts = [`${ran.length} lần chạy cho ${ran.reduce((sum, call) => sum + call.rows, 0)} dòng`, `${failed.length} lần lỗi (các dòng đó chưa ghép)`, `${modelSkippedRows} dòng bỏ qua`];
-  return parts.join(', ');
+  return [`${ran.length} lần chạy cho ${ran.reduce((sum, call) => sum + call.rows, 0)} phiếu lấy hàng`, `${failed.length} lần lỗi (các xe đó ghép theo quy tắc)`, `${modelSkippedRows} phiếu lấy hàng chưa gửi AI (ghép theo quy tắc)`].join(', ');
 }
 
 function formatDate(date: string | null): string {

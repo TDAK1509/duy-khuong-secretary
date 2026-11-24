@@ -5,7 +5,7 @@ import { TRIP_FIELDS } from '../../trips/build-trip-report.ts';
 export const EXPORT_TRIP_REPORT_XLSX_SPEC: ToolSpec = {
   name: 'export_trip_report_xlsx',
   description:
-    'Máy chủ tự lập báo cáo chuyến hoặc chi phí chuyến ra file Excel (.xlsx), mỗi dòng một chuyến: máy chủ ghép phiếu lấy hàng với phiếu nhận hàng của cùng một chuyến, mỗi đầu có ngày, khối lượng, nơi và số phiếu riêng; chuyến chỉ có một phiếu vẫn có một dòng. Tiền lương, cước, bồi dưỡng tính một lần cho mỗi chuyến. Mọi số lấy từ giấy tờ và thông tin chuyến đã lưu. Bạn chỉ chọn khoảng ngày, xe và các cột. Trả về đường dẫn có hiệu lực 24 giờ và các con số tóm tắt.',
+    'Máy chủ tự lập báo cáo chuyến hoặc chi phí chuyến ra file Excel (.xlsx), mỗi dòng một chuyến: máy chủ ghép phiếu lấy hàng với phiếu nhận hàng của cùng một chuyến bằng AI đọc chính các phiếu của từng xe (thông tin chuyến đã lưu không ảnh hưởng việc ghép và không quyết định phiếu nào có trong báo cáo), mỗi đầu có ngày, khối lượng, nơi và số phiếu riêng; chuyến chỉ có một phiếu vẫn có một dòng. Tiền lương, cước, bồi dưỡng tính một lần cho mỗi chuyến. Mọi số lấy từ giấy tờ và thông tin chuyến đã lưu. Bạn chỉ chọn khoảng ngày, xe và các cột. Trả về đường dẫn có hiệu lực 24 giờ và các con số tóm tắt.',
   parameters: {
     type: 'object',
     properties: {

@@ -1,11 +1,11 @@
 import type { TripPaper } from './list-trip-papers.ts';
 
 export function readPickupPlace(paper: TripPaper): string | null {
-  return paper.route_pickup ?? readDispatchIssuer(paper);
+  return paper.route_pickup ?? readPickupIssuer(paper);
 }
 
-export function readDispatchIssuer(paper: TripPaper): string | null {
-  return paper.stage === 'dispatch' ? paper.issuer_name : null;
+export function readPickupIssuer(paper: TripPaper): string | null {
+  return paper.stage === 'receipt' ? null : paper.issuer_name;
 }
 
 export function groupPossibleDuplicates(papers: TripPaper[]): TripPaper[][] {
@@ -21,7 +21,7 @@ export function groupPossibleDuplicates(papers: TripPaper[]): TripPaper[][] {
 
 function readPickupKey(paper: TripPaper): string | null {
   if (paper.route_pickup_key !== null) return `name:${paper.route_pickup_key}`;
-  if (paper.route_dropoff !== null || paper.stage !== 'dispatch') return null;
+  if (paper.route_dropoff !== null || paper.stage === 'receipt') return null;
   return paper.issuer_company_id === null ? null : `company:${paper.issuer_company_id}`;
 }
 

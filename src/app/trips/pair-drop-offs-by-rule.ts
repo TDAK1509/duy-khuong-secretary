@@ -1,10 +1,8 @@
 export type PairingTimes = { dayMs: number; preciseMs: number | null };
 
-export type DropOffConstraint = { key: string; resolved: boolean; picks: string[] };
+export type PairingPaper = { id: string; plate: string; times: PairingTimes; weightKg: number | null };
 
-export type PairingRow = { id: string; plate: string; date: string; preciseAt: string | null; times: PairingTimes; weightKg: number | null; isPossibleDuplicate: boolean; dropOff: DropOffConstraint | null };
-
-export type PairingCandidate = { id: string; plate: string; times: PairingTimes; weightKg: number | null; receiverOrgIds: string[]; receiverKeys: string[] };
+export type PairingRow = PairingPaper & { isPossibleDuplicate: boolean };
 
 export type RulePairing = { pairs: Map<string, string> };
 
@@ -14,7 +12,7 @@ const DAY_MS = 86_400_000;
 
 type Edge = { rowId: string; candidateId: string; gapKg: number };
 
-export function pairDropOffsByRule(rows: PairingRow[], candidates: PairingCandidate[]): RulePairing {
+export function pairDropOffsByRule(rows: PairingRow[], candidates: PairingPaper[]): RulePairing {
   const edges = listEdges(rows, candidates);
   const closestCandidates = mapSingleClosest(edges, (edge) => edge.rowId, (edge) => edge.candidateId);
   const closestRows = mapSingleClosest(edges, (edge) => edge.candidateId, (edge) => edge.rowId);
@@ -26,10 +24,10 @@ export function pairDropOffsByRule(rows: PairingRow[], candidates: PairingCandid
   return { pairs };
 }
 
-function listEdges(rows: PairingRow[], candidates: PairingCandidate[]): Edge[] {
+function listEdges(rows: PairingRow[], candidates: PairingPaper[]): Edge[] {
   const byPlate = groupByPlate(candidates);
   return rows.flatMap((row) => (byPlate.get(row.plate) ?? []).flatMap((candidate) => {
-    const gapKg = canPair(row, candidate) ? readSimilarWeightGap(row, candidate) : null;
+    const gapKg = isInWindow(row, candidate) ? readSimilarWeightGap(row, candidate) : null;
     return gapKg === null ? [] : [{ rowId: row.id, candidateId: candidate.id, gapKg }];
   }));
 }
@@ -50,16 +48,7 @@ export function groupByPlate<Candidate extends { plate: string }>(candidates: Ca
   return groups;
 }
 
-export function canPair(row: PairingRow, candidate: PairingCandidate): boolean {
-  return isInWindow(row, candidate) && isNamedDropOff(row.dropOff, candidate);
-}
-
-function isNamedDropOff(dropOff: DropOffConstraint | null, candidate: PairingCandidate): boolean {
-  if (dropOff === null) return true;
-  return dropOff.resolved ? dropOff.picks.some((pick) => candidate.receiverOrgIds.includes(pick)) : candidate.receiverKeys.includes(dropOff.key);
-}
-
-function isInWindow(row: PairingRow, candidate: PairingCandidate): boolean {
+export function isInWindow(row: PairingPaper, candidate: PairingPaper): boolean {
   if (row.plate !== candidate.plate) return false;
   if (row.times.preciseMs !== null && candidate.times.preciseMs !== null) {
     const gap = candidate.times.preciseMs - row.times.preciseMs;
@@ -73,9 +62,13 @@ export function readPairingTimes(date: string, preciseAt: string | null): Pairin
   return { dayMs: Date.parse(`${date}T00:00Z`), preciseMs: preciseAt === null ? null : Date.parse(`${preciseAt}Z`) };
 }
 
-function readSimilarWeightGap(row: PairingRow, candidate: PairingCandidate): number | null {
-  if (row.weightKg === null || candidate.weightKg === null) return null;
-  const larger = Math.max(row.weightKg, candidate.weightKg);
-  const gapKg = Math.abs(row.weightKg - candidate.weightKg);
-  return larger > 0 && gapKg / larger <= MAX_WEIGHT_GAP ? gapKg : null;
+function readSimilarWeightGap(row: PairingPaper, candidate: PairingPaper): number | null {
+  if (row.weightKg === null || candidate.weightKg === null || !isWeightCompatible(row.weightKg, candidate.weightKg)) return null;
+  return Math.abs(row.weightKg - candidate.weightKg);
+}
+
+export function isWeightCompatible(first: number | null, second: number | null): boolean {
+  if (first === null || second === null) return true;
+  const larger = Math.max(first, second);
+  return larger > 0 && Math.abs(first - second) / larger <= MAX_WEIGHT_GAP;
 }

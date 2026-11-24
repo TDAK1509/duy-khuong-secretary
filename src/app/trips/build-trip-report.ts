@@ -8,7 +8,7 @@ import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips
 import { describeTripNotes } from './describe-trip-notes.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 import type { TripPairing } from './pair-trips.ts';
-import { groupPossibleDuplicates, readDispatchIssuer, readPickupPlace, readWeightKg } from './read-trip-paper.ts';
+import { groupPossibleDuplicates, readPickupIssuer, readPickupPlace, readWeightKg } from './read-trip-paper.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
 
 export const TRIP_FIELDS = [
@@ -158,7 +158,7 @@ function describeDuplicate(group: TripPaper[]): PossibleDuplicate {
   return {
     plate: first.vehicle_plate ?? NO_PLATE,
     date: first.document_date ?? '',
-    pickup: readPickupPlace(first) ?? readDispatchIssuer(first) ?? '',
+    pickup: readPickupPlace(first) ?? readPickupIssuer(first) ?? '',
     documentNumbers: group.map((paper) => paper.document_number ?? NO_NUMBER),
   };
 }
