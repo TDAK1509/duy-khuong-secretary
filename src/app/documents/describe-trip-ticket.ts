@@ -26,6 +26,10 @@ export function describeTripTicket(draft: DocumentDraft): TripTicket | null {
   return { plate, date, isReceipt: draft.items[0]?.item.stage === 'receipt', netKilograms, printedTimes: listPrintedTimes(details) };
 }
 
+export function sharePrintedTime(first: string[], second: string[]): boolean {
+  return first.length === 0 || second.length === 0 || first.some((time) => second.includes(time));
+}
+
 function listPrintedTimes(details: ReadingDetail[]): string[] {
   return [...new Set(details.filter(hasMeaning).flatMap(readPrintedTime))].sort();
 }

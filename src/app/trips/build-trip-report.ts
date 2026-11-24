@@ -5,7 +5,8 @@ import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
 import { INFERRED_TEXT, type ColumnUnit } from '../documents/format-workbook-sheet.ts';
 import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips.ts';
-import { describeTripNotes } from './describe-trip-notes.ts';
+import { describeRepeatedPapers, describeTripNotes } from './describe-trip-notes.ts';
+import type { RepeatedPaper } from './drop-repeated-papers.ts';
 import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { TripPairing } from './pair-trips.ts';
@@ -34,6 +35,7 @@ export type TripReport = {
   rowsPerPlate: Record<string, number>;
   reviewPapers: number;
   missingWeight: number;
+  repeatedPapers: number;
   duplicates: PossibleDuplicate[];
   noSourceColumns: string[];
   emptyColumns: string[];
@@ -51,9 +53,9 @@ const PAIRING_METHOD_TEXTS = { ai: INFERRED_TEXT, rule: 'Quy tắc', unpaired: '
 
 type WinnerIndex = Map<string, WinningValue>;
 
-export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; dateFrom: string; dateTo: string };
+export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; repeats: RepeatedPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; dateFrom: string; dateTo: string };
 
-export function buildTripReport({ title, createdAt, columns, trips, pickups, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
+export function buildTripReport({ title, createdAt, columns, trips, pickups, repeats, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
   const index: WinnerIndex = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
   const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index)), describePairingMethod(trip)]);
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
@@ -61,10 +63,11 @@ export function buildTripReport({ title, createdAt, columns, trips, pickups, win
   const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
   const missingWeight = listTripPapers(trips).filter((paper) => paper.weight_kg === null).length;
   const counts = countTrips(trips);
-  const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeTripNotes(trips, counts, pairing, matching)];
+  const repeatsInPeriod = repeats.filter(({ paper }) => isInRange(paper, dateFrom, dateTo));
+  const notes = [...buildNoteRows({ noSourceColumns, emptyColumns, reviewPapers, missingWeight, duplicates }), ...describeRepeatedPapers(repeatsInPeriod), ...describeTripNotes(trips, counts, pairing, matching)];
   const namedColumns = columns.map((column) => describeColumn(column, trips, index));
   const table = { title, createdAt, columns: [...namedColumns, PAIRING_METHOD_COLUMN], rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
-  return { table, namedColumns, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, duplicates, noSourceColumns, emptyColumns, counts };
+  return { table, namedColumns, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, repeatedPapers: repeatsInPeriod.length, duplicates, noSourceColumns, emptyColumns, counts };
 }
 
 function describePairingMethod({ method }: Trip): string {

@@ -30,6 +30,7 @@ export type TripPaper = {
   weight_kg: string | null;
   sender_name: string | null;
   precise_at: string | null;
+  printed_times: string[];
 };
 
 export type WinningValue = { document_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
@@ -70,6 +71,7 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
        ${buildWeightSql(where)} AS weight_kg,
        ${buildSenderSubquery()} AS sender_name,
        ${buildPreciseTimeSql()} AS precise_at,
+       ${buildPrintedTimesSql()} AS printed_times,
        ${GOODS_LINE_SQL} AS goods_line,
        ${NOTE_LINE_SQL} AS note_line,
        ${withReceiver ? RECEIVER_COLUMNS : NO_RECEIVER_COLUMNS}
@@ -149,6 +151,11 @@ export async function listKnownValues(database: Database, workspaceId: string): 
 
 export function buildPreciseTimeSql(): string {
   return `(SELECT to_char(min(line.at), 'YYYY-MM-DD"T"HH24:MI') FROM document_lines line
+     WHERE line.document_id = document.id AND line.at IS NOT NULL AND line.at::time <> '00:00')`;
+}
+
+function buildPrintedTimesSql(): string {
+  return `ARRAY(SELECT DISTINCT to_char(line.at, 'YYYY-MM-DD"T"HH24:MI:SS') FROM document_lines line
      WHERE line.document_id = document.id AND line.at IS NOT NULL AND line.at::time <> '00:00')`;
 }
 

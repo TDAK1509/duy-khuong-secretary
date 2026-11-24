@@ -8,6 +8,7 @@ import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
+import { dropRepeatedPapers, type RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
 import { pairTrips, type PairingPapers, type TripPairing } from '../../trips/pair-trips.ts';
 import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import { matchTripFacts } from '../../trips/match-trip-facts.ts';
@@ -104,24 +105,29 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const pairing = await pairTrips(dropOffReader, papers);
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
-  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, trips, pairing });
+  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });
   return storeReport(storage, scope, planned, report, pairing);
 }
 
-async function loadTripPapers(database: Database, query: TripPaperQuery): Promise<PairingPapers | null> {
+type LoadedPapers = PairingPapers & { repeats: RepeatedPaper[] };
+
+async function loadTripPapers(database: Database, query: TripPaperQuery): Promise<LoadedPapers | null> {
   const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1) });
   const receipts = await listReceiptPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1), dateTo: addDays(query.dateTo, 1) });
-  return pickups.length > MAX_ROWS || receipts.length > MAX_ROWS ? null : { pickups, receipts };
+  if (pickups.length > MAX_ROWS || receipts.length > MAX_ROWS) return null;
+  const withoutRepeatedPickups = dropRepeatedPapers(pickups, 'pickup');
+  const withoutRepeatedReceipts = dropRepeatedPapers(receipts, 'dropOff');
+  return { pickups: withoutRepeatedPickups.papers, receipts: withoutRepeatedReceipts.papers, repeats: [...withoutRepeatedPickups.repeats, ...withoutRepeatedReceipts.repeats] };
 }
 
-type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; trips: Trip[]; pairing: TripPairing };
+type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing };
 
-async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, trips, pairing }: PairedTrips): Promise<TripReport> {
+async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing }: PairedTrips): Promise<TripReport> {
   const facts = await matchTripFacts(database, dropOffReader, scope.workspaceId, trips);
   const documentIds = facts.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
   const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), facts.excludedLinks);
   const reviewPapers = await countReviewTripPapers(database, query);
-  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, winners, reviewPapers, pairing, matching: facts.matching, dateFrom: request.date_from, dateTo: request.date_to });
+  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, repeats, winners, reviewPapers, pairing, matching: facts.matching, dateFrom: request.date_from, dateTo: request.date_to });
 }
 
 async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
@@ -152,6 +158,7 @@ function summarizeReport(report: TripReport, pairing: TripPairing) {
     rows_per_plate: report.rowsPerPlate,
     needs_review: report.reviewPapers,
     missing_weight: report.missingWeight,
+    repeated_papers_left_out: report.repeatedPapers,
     possible_duplicates: report.duplicates.length,
     empty_columns: [...report.noSourceColumns, ...report.emptyColumns],
   };
