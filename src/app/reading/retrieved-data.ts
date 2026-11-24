@@ -16,6 +16,7 @@ export type RetrievedDataSource =
   | 'sheet'
   | 'company-names'
   | 'trip-papers'
+  | 'drop-off-names'
   | 'record'
   | 'history'
   | 'profile'
