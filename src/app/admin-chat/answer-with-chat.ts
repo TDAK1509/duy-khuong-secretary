@@ -153,7 +153,7 @@ async function chooseToolLoop(context: IntakeContext, message: ChatMessage, role
   if (role !== 'admin') return { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
   const label = await labelAdminMessage(chats.adminChat, labelInput);
   console.log(`[admin-route] message=${message.id} label=${label}`);
-  return { chat: label === 'report' ? chats.adminReport : chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS };
+  return { chat: label === 'report' || label === 'fact' ? chats.adminReport : chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS };
 }
 
 async function hasAnswer(transaction: Transaction, messageId: string): Promise<boolean> {
