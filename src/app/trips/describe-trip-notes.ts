@@ -1,12 +1,15 @@
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import type { TripCounts } from './build-trip-report.ts';
+import type { RepeatedPaper } from './drop-repeated-papers.ts';
 import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { ModelPairing } from './pair-drop-offs-by-model.ts';
 import type { TripPairing } from './pair-trips.ts';
+import { readWeightKg } from './read-trip-paper.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
 
 const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
+const SIDE_NAMES = { pickup: 'lấy hàng', dropOff: 'đổ hàng' } as const;
 const MAX_UNPAIRED_ROWS = 300;
 
 export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: TripPairing, matching: DropOffMatching): NoteBlock[] {
@@ -63,6 +66,18 @@ function describeModelStep({ modelCalls, modelSkippedRows }: TripPairing): strin
   const ran = modelCalls.filter((call): call is Extract<ModelPairing, { kind: 'ran' }> => call.kind === 'ran');
   const failed = modelCalls.filter((call) => call.kind === 'failed');
   return [`${ran.length} lần chạy cho ${ran.reduce((sum, call) => sum + call.rows, 0)} phiếu lấy hàng`, `${failed.length} lần lỗi (các xe đó ghép theo quy tắc)`, `${modelSkippedRows} phiếu lấy hàng chưa gửi AI (ghép theo quy tắc)`].join(', ');
+}
+
+export function describeRepeatedPapers(repeats: RepeatedPaper[]): NoteBlock[] {
+  return [
+    { kind: 'blank' },
+    { kind: 'label', label: 'Phiếu gửi trùng, đã bỏ khỏi bảng', value: repeats.length === 0 ? 'Không có' : String(repeats.length) },
+    ...(repeats.length === 0 ? [] : [{ kind: 'table' as const, header: ['Biển số', 'Ngày', 'Loại phiếu', 'Trọng lượng hàng (kg)', 'Số phiếu bỏ', 'Số phiếu giữ'], rows: repeats.map(describeRepeat) }]),
+  ];
+}
+
+function describeRepeat({ side, paper, kept }: RepeatedPaper): string[] {
+  return [paper.vehicle_plate ?? '', formatDate(paper.document_date), SIDE_NAMES[side], String(readWeightKg(paper) ?? ''), paper.document_number ?? NO_NUMBER, kept.document_number ?? NO_NUMBER];
 }
 
 function formatDate(date: string | null): string {
