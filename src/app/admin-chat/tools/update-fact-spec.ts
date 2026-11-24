@@ -6,7 +6,7 @@ const SCOPE_FIELDS = ['vehicle_plate', 'driver'];
 export const UPDATE_FACT_SPEC: ToolSpec = {
   name: 'update_fact',
   description:
-    'Sửa một thông tin cố định về chuyến đã lưu, theo id lấy từ list_facts. Đặt hoặc thay từng giá trị, xóa từng giá trị, hoặc đổi hay bỏ biển số xe hoặc tài xế. Không đổi được nơi lấy hàng, nơi đổ hàng hay khách hàng: một tuyến khác là một thông tin riêng, lưu bằng save_fact. Giá trị không nêu giữ nguyên. Khi phạm vi đổi, hệ thống tính lại các giấy tờ áp dụng.',
+    'Sửa một thông tin cố định về chuyến đã lưu, theo id lấy từ list_facts. Thêm, đặt hoặc thay từng giá trị (kể cả Hàng hóa của một thông tin có tuyến), xóa từng giá trị, hoặc đổi hay bỏ biển số xe hoặc tài xế. Không đổi được nơi lấy hàng, nơi đổ hàng hay khách hàng: một tuyến khác là một thông tin riêng, lưu bằng save_fact. Giá trị không nêu giữ nguyên. Khi phạm vi đổi, hệ thống tính lại các giấy tờ áp dụng.',
   parameters: {
     type: 'object',
     properties: {
