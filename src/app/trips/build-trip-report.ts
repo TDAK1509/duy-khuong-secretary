@@ -3,7 +3,7 @@ import { GOODS_VALUE_KEY } from '../facts/fact.ts';
 import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
-import { INFERRED_TEXT, type ColumnUnit } from '../documents/format-workbook-sheet.ts';
+import type { ColumnUnit } from '../documents/format-workbook-sheet.ts';
 import { isInRange, readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import { describeRepeatedPapers, describeTripNotes } from './describe-trip-notes.ts';
 import type { RepeatedPaper } from './drop-repeated-papers.ts';
@@ -11,7 +11,7 @@ import type { TripPaper, WinningValue } from './list-trip-papers.ts';
 import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { TripPairing } from './pair-trips.ts';
 import { groupPossibleDuplicates, readPickupIssuer, readPickupPlace, readWeightKg } from './read-trip-paper.ts';
-import { NO_NUMBER } from './trip-report-texts.ts';
+import { describePairingMethod, NO_NUMBER } from './trip-report-texts.ts';
 
 export const TRIP_FIELDS = [
   'date', 'pickup_date', 'dropoff_date', 'plate', 'route', 'pickup_place', 'dropoff_place', 'customer', 'goods',
@@ -49,7 +49,6 @@ export { GOODS_VALUE_KEY };
 const NO_PLATE = '(không biển số)';
 
 const PAIRING_METHOD_COLUMN: ReportColumn = { name: 'Cách ghép phiếu', type: 'text', unit: null };
-const PAIRING_METHOD_TEXTS = { ai: INFERRED_TEXT, rule: 'Quy tắc', unpaired: 'Chưa ghép' } as const;
 
 type WinnerIndex = Map<string, WinningValue>;
 
@@ -57,7 +56,7 @@ export type TripReportInput = { title: string; createdAt: Date; columns: TripCol
 
 export function buildTripReport({ title, createdAt, columns, trips, pickups, repeats, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
   const index: WinnerIndex = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
-  const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index)), describePairingMethod(trip)]);
+  const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index)), describePairingMethod(trip.method)]);
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
   const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
@@ -68,10 +67,6 @@ export function buildTripReport({ title, createdAt, columns, trips, pickups, rep
   const namedColumns = columns.map((column) => describeColumn(column, trips, index));
   const table = { title, createdAt, columns: [...namedColumns, PAIRING_METHOD_COLUMN], rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
   return { table, namedColumns, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, repeatedPapers: repeatsInPeriod.length, duplicates, noSourceColumns, emptyColumns, counts };
-}
-
-function describePairingMethod({ method }: Trip): string {
-  return method === null ? PAIRING_METHOD_TEXTS.unpaired : PAIRING_METHOD_TEXTS[method];
 }
 
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex): ReportCell {
