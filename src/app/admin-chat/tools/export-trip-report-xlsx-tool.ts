@@ -7,9 +7,10 @@ import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
-import { buildTrips } from '../../trips/build-trips.ts';
-import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
-import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import { buildTrips, type Trip } from '../../trips/build-trips.ts';
+import { pairTrips, type PairingPapers, type TripPairing } from '../../trips/pair-trips.ts';
+import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import { matchTripFacts } from '../../trips/match-trip-facts.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -95,17 +96,35 @@ function listNames(values: KnownValue[]): string {
 
 type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOffReader: ReaderService | null; createdAt: Date };
 
-async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport): Promise<string> {
+async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, planned: PlannedReport): Promise<string> {
+  const { request, dropOffReader } = planned;
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
-  const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(request.date_from, -1) });
-  const receipts = await listReceiptPapers(database, { ...query, dateFrom: addDays(request.date_from, -1), dateTo: addDays(request.date_to, 1) });
-  if (pickups.length > MAX_ROWS || receipts.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
-  const pairing = await pairTrips(dropOffReader, { pickups, receipts });
-  const trips = buildTrips({ pickups, receipts, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
+  const papers = await loadTripPapers(database, query);
+  if (papers === null) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
+  const pairing = await pairTrips(dropOffReader, papers);
+  const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
-  const documentIds = trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
-  const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns));
-  const report = buildTripReport({ title: request.title, createdAt, columns, trips, pickups, winners, reviewPapers: await countReviewTripPapers(database, query), pairing, dateFrom: request.date_from, dateTo: request.date_to });
+  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, trips, pairing });
+  return storeReport(storage, scope, planned, report, pairing);
+}
+
+async function loadTripPapers(database: Database, query: TripPaperQuery): Promise<PairingPapers | null> {
+  const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1) });
+  const receipts = await listReceiptPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1), dateTo: addDays(query.dateTo, 1) });
+  return pickups.length > MAX_ROWS || receipts.length > MAX_ROWS ? null : { pickups, receipts };
+}
+
+type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; trips: Trip[]; pairing: TripPairing };
+
+async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, trips, pairing }: PairedTrips): Promise<TripReport> {
+  const facts = await matchTripFacts(database, dropOffReader, scope.workspaceId, trips);
+  const documentIds = facts.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
+  const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), facts.excludedLinks);
+  const reviewPapers = await countReviewTripPapers(database, query);
+  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, winners, reviewPapers, pairing, matching: facts.matching, dateFrom: request.date_from, dateTo: request.date_to });
+}
+
+async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
   const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.table.columns));
   const table = { ...report.table, layout: choice.layout };
   const { url, filename } = await storeExcelExport(storage, scope, createdAt, await buildReportWorkbook(table), 'bao-cao-chuyen');

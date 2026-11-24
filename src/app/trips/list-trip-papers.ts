@@ -22,6 +22,7 @@ export type TripPaper = {
   route_pickup_key: string | null;
   goods_line: string | null;
   note_line: string | null;
+  receiver_id: string | null;
   receiver_name: string | null;
   issuer_name: string | null;
   issuer_company_id: string | null;
@@ -97,7 +98,7 @@ function buildLabelledLineSql(labelKey: string): string {
 }
 
 const RECEIVER_JOIN = `LEFT JOIN LATERAL (
-    SELECT organization.name FROM (
+    SELECT organization.id, organization.name FROM (
       SELECT
         (SELECT array_agg(DISTINCT party.organization_id) FROM document_parties party WHERE party.document_id = document.id AND party.role = 'issuer') AS issuers,
         (SELECT party.organization_id FROM document_parties party WHERE party.document_id = document.id AND party.role = 'place' ORDER BY party.created_at, party.id LIMIT 1) AS place
@@ -106,9 +107,9 @@ const RECEIVER_JOIN = `LEFT JOIN LATERAL (
       AND organization.id = CASE WHEN parties.issuers IS NULL THEN parties.place WHEN cardinality(parties.issuers) = 1 THEN parties.issuers[1] END
   ) receiver ON true`;
 
-const RECEIVER_COLUMNS = `receiver.name AS receiver_name`;
+const RECEIVER_COLUMNS = `receiver.id AS receiver_id, receiver.name AS receiver_name`;
 
-const NO_RECEIVER_COLUMNS = `NULL::text AS receiver_name`;
+const NO_RECEIVER_COLUMNS = `NULL::text AS receiver_id, NULL::text AS receiver_name`;
 
 export async function countReviewTripPapers(database: Database, query: TripPaperQuery): Promise<number> {
   const where = buildTripWhere(query, { status: 'needs_review' });
@@ -119,18 +120,21 @@ export async function countReviewTripPapers(database: Database, query: TripPaper
   return rows[0]?.count ?? 0;
 }
 
-export async function listWinningValues(database: Database, workspaceId: string, documentIds: string[], matchKeys: string[]): Promise<WinningValue[]> {
+export type ExcludedLinks = { documentIds: string[]; factIds: string[] };
+
+const WINNING_VALUES_SQL = `
+  SELECT DISTINCT ON (link.document_id, value.match_key)
+    link.document_id, value.match_key, value.number::text AS number, value.unit, value.text_value AS text
+  FROM document_facts link
+  JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
+  JOIN fact_values value ON value.fact_id = fact.id
+  WHERE link.workspace_id = $1 AND link.document_id = ANY($2::uuid[]) AND value.match_key = ANY($3::text[])
+    AND NOT EXISTS (SELECT 1 FROM unnest($4::uuid[], $5::uuid[]) AS excluded(document_id, fact_id) WHERE excluded.document_id = link.document_id AND excluded.fact_id = link.fact_id)
+  ORDER BY link.document_id, value.match_key, fact.updated_at DESC, fact.id`;
+
+export async function listWinningValues(database: Database, workspaceId: string, documentIds: string[], matchKeys: string[], excluded: ExcludedLinks): Promise<WinningValue[]> {
   if (documentIds.length === 0 || matchKeys.length === 0) return [];
-  const { rows } = await database.query<WinningValue>(
-    `SELECT DISTINCT ON (link.document_id, value.match_key)
-       link.document_id, value.match_key, value.number::text AS number, value.unit, value.text_value AS text
-     FROM document_facts link
-     JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
-     JOIN fact_values value ON value.fact_id = fact.id
-     WHERE link.workspace_id = $1 AND link.document_id = ANY($2::uuid[]) AND value.match_key = ANY($3::text[])
-     ORDER BY link.document_id, value.match_key, fact.updated_at DESC, fact.id`,
-    [workspaceId, documentIds, matchKeys],
-  );
+  const { rows } = await database.query<WinningValue>(WINNING_VALUES_SQL, [workspaceId, documentIds, matchKeys, excluded.documentIds, excluded.factIds]);
   return rows;
 }
 

@@ -1,6 +1,7 @@
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { readTripDate, readTripPlate, type Trip } from './build-trips.ts';
 import type { TripCounts } from './build-trip-report.ts';
+import type { DropOffMatching } from './match-drop-off-names.ts';
 import type { ModelPairing } from './pair-drop-offs-by-model.ts';
 import type { TripPairing } from './pair-trips.ts';
 import { NO_NUMBER } from './trip-report-texts.ts';
@@ -8,8 +9,8 @@ import { NO_NUMBER } from './trip-report-texts.ts';
 const METHOD_NAMES = { rule: 'quy tắc', ai: 'AI' } as const;
 const MAX_UNPAIRED_ROWS = 300;
 
-export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: TripPairing): NoteBlock[] {
-  return [...describeCounts(counts, pairing), ...describePairings(trips), ...describeUnpaired(trips)];
+export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: TripPairing, matching: DropOffMatching): NoteBlock[] {
+  return [...describeCounts(counts, pairing), ...describePairings(trips), ...describeDropOffMatching(matching), ...describeUnpaired(trips)];
 }
 
 function describeCounts(counts: TripCounts, pairing: TripPairing): NoteBlock[] {
@@ -31,6 +32,13 @@ function describePairings(trips: Trip[]): NoteBlock[] {
 function describePairing(trip: Trip): string[] {
   const method = trip.method === null ? '' : METHOD_NAMES[trip.method];
   return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, method];
+}
+
+function describeDropOffMatching(matching: DropOffMatching): NoteBlock[] {
+  if (matching.kind === 'skipped') return [];
+  if (matching.kind === 'failed') return [{ kind: 'blank' }, { kind: 'label', label: 'Bước AI khớp nơi đổ hàng', value: `lỗi (${matching.reason}), chuyến chỉ dùng thông tin không ghi nơi đổ hàng hoặc ghi chung một nơi đổ hàng` }];
+  const rows = matching.matches.map(({ name, receiverNames }) => [name, receiverNames.length === 0 ? 'không khớp' : receiverNames.join(', ')]);
+  return [{ kind: 'blank' }, { kind: 'table', header: ['Nơi đổ hàng ghi trong thông tin chuyến', 'Công ty nhận hàng đã khớp'], rows }];
 }
 
 function describeUnpaired(trips: Trip[]): NoteBlock[] {
