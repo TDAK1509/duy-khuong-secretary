@@ -98,7 +98,7 @@ type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOf
 async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport): Promise<string> {
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
   const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(request.date_from, -1) });
-  const allReceipts = await listReceiptPapers(database, { ...query, dateTo: addDays(request.date_to, 1) });
+  const allReceipts = await listReceiptPapers(database, { ...query, dateFrom: addDays(request.date_from, -1), dateTo: addDays(request.date_to, 1) });
   if (pickups.length > MAX_ROWS || allReceipts.length > MAX_ROWS) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
   const receipts = keepReportReceipts(pickups, allReceipts, request.date_from, request.date_to);
   const pairing = await pairTrips(dropOffReader, { pickups, receipts });

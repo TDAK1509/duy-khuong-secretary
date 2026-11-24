@@ -7,7 +7,11 @@ export type TripPapers = { pickups: TripPaper[]; receipts: TripPaper[]; dateFrom
 
 export function keepReportReceipts(pickups: TripPaper[], receipts: TripPaper[], dateFrom: string, dateTo: string): TripPaper[] {
   const plates = new Set(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo)).flatMap((paper) => paper.vehicle_plate ?? []));
-  return receipts.filter((paper) => paper.route_fact_id !== null || (paper.vehicle_plate !== null && plates.has(paper.vehicle_plate)));
+  return receipts.filter((paper) => isBeforeRange(paper, dateFrom) || paper.route_fact_id !== null || (paper.vehicle_plate !== null && plates.has(paper.vehicle_plate)));
+}
+
+function isBeforeRange(paper: TripPaper, dateFrom: string): boolean {
+  return paper.document_date !== null && paper.document_date < dateFrom;
 }
 
 export function buildTrips({ pickups, receipts, dateFrom, dateTo }: TripPapers, pairing: TripPairing): Trip[] {
