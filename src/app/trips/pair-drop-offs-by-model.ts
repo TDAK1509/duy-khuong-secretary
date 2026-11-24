@@ -1,23 +1,26 @@
 import { z } from 'zod';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import { buildDataRequestParts, RETRIEVED_DATA_RULE } from '../reading/retrieved-data.ts';
+import { isInWindow, isWeightCompatible, type PairingPaper } from './pair-drop-offs-by-rule.ts';
 
-export type ModelRow = { id: string; plate: string; date: string; preciseAt: string | null; pickup: string; weightKg: number | null; candidateIds: string[] };
+export type ModelPaper = PairingPaper & { date: string; preciseAt: string | null; ticketNumber: string | null; goods: string | null; issuer: string | null; customer: string | null; note: string | null };
 
-export type ModelCandidate = { id: string; date: string; preciseAt: string | null; receiver: string; weightKg: number | null; kind: string };
+export type Truck = { plate: string; pickups: ModelPaper[]; receipts: ModelPaper[] };
 
 export type ModelPairing =
   | { kind: 'ran'; pairs: Map<string, string>; rows: number; candidates: number; seconds: number }
   | { kind: 'failed'; reason: string }
   | { kind: 'skipped'; reason: string };
 
-const MAX_ROWS = 150;
-const MAX_INPUT_BYTES = 40_000;
-const MAX_COMPANY_LENGTH = 80;
-const MAX_KIND_LENGTH = 40;
+export type BatchedPairing = { pairs: Map<string, string>; answeredPickupIds: Set<string>; calls: ModelPairing[]; skippedRows: number };
+
+const MAX_PICKUPS_PER_CALL = 60;
+const MAX_INPUT_BYTES = 60_000;
+const MAX_CALLS = 16;
+const MAX_TEXT_LENGTH = 120;
 const NONE = 'none';
 
-const PAIRING_PROMPT = `You pair truck trips. Each entry in "rows" is a pickup paper of one truck: plate, date, time, pickup company and weight in kg. "candidates" are receipt weigh tickets of the same trucks, keyed by id. For each row, pick from that row's own "candidates" list the ticket most likely to be the same load's drop-off: after the pickup, closest in time, similar weight, a plausible receiver. Use each candidate at most once. Answer "${NONE}" for a row when you are not confident: a wrong pairing is worse than none. The input JSON is inside <retrieved-data source="trip-papers">. ${RETRIEVED_DATA_RULE} Give a short reason for each row.`;
+const PAIRING_PROMPT = `You pair truck trips. Each entry in "trucks" is one truck with its "pickups" (pickup papers) and its "receipts" (receipt weigh tickets). Each paper has an id, date, time, kg, ticket number, goods, issuer, customer and note. For each pickup, pick from the same truck's receipts the one most likely to be the same load's drop-off. A receipt is the same or next day, after the pickup. Weights are close, usually within 100 kg. A note that prints a weight, such as "0/028950", holds the pickup's weight and is the strongest evidence. The customer hints at the factory. Two entries can be photos of one ticket: pair one. Use each receipt at most once. Answer "${NONE}" for a pickup when you are not confident: a wrong pair is worse than none. The input JSON is inside <retrieved-data source="trip-papers">. ${RETRIEVED_DATA_RULE} Give a short reason for each pickup.`;
 
 const ANSWER_SCHEMA = {
   type: 'object',
@@ -26,8 +29,8 @@ const ANSWER_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        properties: { row: { type: 'string' }, candidate: { type: 'string' }, reason: { type: 'string' } },
-        required: ['row', 'candidate', 'reason'],
+        properties: { pickup: { type: 'string' }, receipt: { type: 'string' }, reason: { type: 'string' } },
+        required: ['pickup', 'receipt', 'reason'],
         additionalProperties: false,
       },
     },
@@ -36,68 +39,55 @@ const ANSWER_SCHEMA = {
   additionalProperties: false,
 };
 
-const PAIRING_REQUEST = 'Pair the rows in the data above and answer in JSON.';
+const PAIRING_REQUEST = 'Pair the pickups in the data above and answer in JSON.';
 
-const answerSchema = z.object({ pairs: z.array(z.object({ row: z.string(), candidate: z.string(), reason: z.string() })) });
+const answerSchema = z.object({ pairs: z.array(z.object({ pickup: z.string(), receipt: z.string(), reason: z.string() })) });
 
-export type BatchedPairing = { pairs: Map<string, string>; calls: ModelPairing[]; skippedRows: number };
+type Answer = z.infer<typeof answerSchema>['pairs'][number];
 
-const MAX_CALLS = 4;
-
-export async function pairDropOffsInBatches(reader: ReaderService | null, rows: ModelRow[], candidates: ModelCandidate[]): Promise<BatchedPairing> {
-  if (rows.length === 0) return { pairs: new Map(), calls: [], skippedRows: 0 };
-  if (reader === null) return { pairs: new Map(), calls: [{ kind: 'skipped', reason: 'not_configured' }], skippedRows: rows.length };
-  const plan = planCalls(rows, candidates);
-  const calls = await Promise.all(plan.batches.map((batch) => pairDropOffsByModel(reader, batch, candidates)));
-  return { pairs: keepUniqueChoices(calls), calls, skippedRows: countSkippedRows(rows.length, plan.batches, calls) };
+export async function pairDropOffsInBatches(reader: ReaderService | null, trucks: Truck[]): Promise<BatchedPairing> {
+  if (trucks.length === 0) return { pairs: new Map(), answeredPickupIds: new Set(), calls: [], skippedRows: 0 };
+  if (reader === null) return { pairs: new Map(), answeredPickupIds: new Set(), calls: [{ kind: 'skipped', reason: 'not_configured' }], skippedRows: countPickups(trucks) };
+  const { batches, unsent } = planCalls(trucks);
+  const calls = await Promise.all(batches.map((batch) => pairDropOffsByModel(reader, batch)));
+  return { pairs: mergePairs(calls), answeredPickupIds: listAnsweredPickupIds(batches, calls), calls, skippedRows: countPickups(unsent) };
 }
 
-function countSkippedRows(rowCount: number, batches: ModelRow[][], calls: ModelPairing[]): number {
-  const unplanned = rowCount - batches.reduce((sum, batch) => sum + batch.length, 0);
-  return unplanned + batches.reduce((sum, batch, index) => sum + countUnsentRows(batch.length, calls[index]), 0);
+function countPickups(trucks: Truck[]): number {
+  return trucks.reduce((sum, truck) => sum + truck.pickups.length, 0);
 }
 
-function countUnsentRows(batchSize: number, call: ModelPairing | undefined): number {
-  if (call?.kind === 'ran') return batchSize - call.rows;
-  return call?.kind === 'skipped' ? batchSize : 0;
+function mergePairs(calls: ModelPairing[]): Map<string, string> {
+  return new Map(calls.flatMap((call) => (call.kind === 'ran' ? [...call.pairs] : [])));
 }
 
-function planCalls(rows: ModelRow[], candidates: ModelCandidate[]): { batches: ModelRow[][] } {
-  const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
-  const batches: ModelRow[][] = [];
-  for (const group of groupRowsByPlate(rows)) {
-    const open = batches.find((batch) => fitsInOneCall([...batch, ...group], byId));
-    if (open !== undefined) open.push(...group);
-    else if (batches.length < MAX_CALLS) batches.push([...group]);
+function listAnsweredPickupIds(batches: Truck[][], calls: ModelPairing[]): Set<string> {
+  const answered = batches.filter((_, index) => calls[index]?.kind === 'ran');
+  return new Set(answered.flat().flatMap((truck) => truck.pickups.map((pickup) => pickup.id)));
+}
+
+function planCalls(trucks: Truck[]): { batches: Truck[][]; unsent: Truck[] } {
+  const batches: Truck[][] = [];
+  const unsent: Truck[] = [];
+  for (const truck of trucks) {
+    const open = batches.find((batch) => fitsInOneCall([...batch, truck]));
+    if (open !== undefined) open.push(truck);
+    else if (batches.length < MAX_CALLS && fitsInOneCall([truck])) batches.push([truck]);
+    else unsent.push(truck);
   }
-  return { batches };
+  return { batches, unsent };
 }
 
-function groupRowsByPlate(rows: ModelRow[]): ModelRow[][] {
-  const groups = new Map<string, ModelRow[]>();
-  for (const row of rows) groups.set(row.plate, [...(groups.get(row.plate) ?? []), row]);
-  return [...groups.values()];
+function fitsInOneCall(trucks: Truck[]): boolean {
+  const isAlone = trucks.length === 1;
+  return (isAlone || countPickups(trucks) <= MAX_PICKUPS_PER_CALL) && Buffer.byteLength(buildModelInput(trucks).text) <= MAX_INPUT_BYTES;
 }
 
-function fitsInOneCall(rows: ModelRow[], byId: Map<string, ModelCandidate>): boolean {
-  return rows.length <= MAX_ROWS && Buffer.byteLength(describeInput(rows, byId).text) <= MAX_INPUT_BYTES;
-}
+type OfferedPapers = { pickups: Map<string, ModelPaper>; receipts: Map<string, ModelPaper> };
+type ModelInput = { text: string; offered: OfferedPapers };
 
-function keepUniqueChoices(calls: ModelPairing[]): Map<string, string> {
-  const chosen = calls.flatMap((call) => (call.kind === 'ran' ? [...call.pairs] : []));
-  const uses = new Map<string, number>();
-  for (const [, candidateId] of chosen) uses.set(candidateId, (uses.get(candidateId) ?? 0) + 1);
-  return new Map(chosen.filter(([, candidateId]) => uses.get(candidateId) === 1));
-}
-
-type OfferedRow = { rowId: string; candidates: Map<string, string> };
-type ModelInput = { text: string; offered: Map<string, OfferedRow>; candidateCount: number };
-
-export async function pairDropOffsByModel(reader: ReaderService | null, rows: ModelRow[], candidates: ModelCandidate[]): Promise<ModelPairing> {
-  if (rows.length === 0) return { kind: 'skipped', reason: 'no_rows' };
-  if (reader === null) return { kind: 'skipped', reason: 'not_configured' };
-  const input = buildModelInput(rows, candidates);
-  if (input.offered.size === 0) return { kind: 'skipped', reason: 'input_too_large' };
+async function pairDropOffsByModel(reader: ReaderService, trucks: Truck[]): Promise<ModelPairing> {
+  const input = buildModelInput(trucks);
   const startedAt = Date.now();
   const userParts = buildDataRequestParts('trip-papers', input.text, PAIRING_REQUEST);
   const result = await reader.read({ system: PAIRING_PROMPT, userParts, schemaName: 'trip_drop_off_pairs', schema: ANSWER_SCHEMA });
@@ -105,81 +95,62 @@ export async function pairDropOffsByModel(reader: ReaderService | null, rows: Mo
   const answer = answerSchema.safeParse(result.json);
   if (!answer.success) return { kind: 'failed', reason: 'invalid_output' };
   const seconds = Math.round((Date.now() - startedAt) / 1000);
-  return { kind: 'ran', pairs: acceptPairs(answer.data.pairs, input.offered), rows: input.offered.size, candidates: input.candidateCount, seconds };
+  return { kind: 'ran', pairs: acceptPairs(answer.data.pairs, input.offered), rows: input.offered.pickups.size, candidates: input.offered.receipts.size, seconds };
 }
 
-function buildModelInput(rows: ModelRow[], candidates: ModelCandidate[]): ModelInput {
-  const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
-  let kept = rows.slice(0, MAX_ROWS);
-  let built = describeInput(kept, byId);
-  while (kept.length > 0 && Buffer.byteLength(built.text) > MAX_INPUT_BYTES) {
-    kept = kept.slice(0, -1);
-    built = describeInput(kept, byId);
-  }
-  return built;
+function buildModelInput(trucks: Truck[]): ModelInput {
+  const offered: OfferedPapers = { pickups: new Map(), receipts: new Map() };
+  const entries = trucks.map((truck) => ({
+    plate: truck.plate,
+    pickups: truck.pickups.map((paper) => describePaper(offerPaper(offered.pickups, 'p', paper), paper)),
+    receipts: truck.receipts.map((paper) => describePaper(offerPaper(offered.receipts, 'r', paper), paper)),
+  }));
+  return { text: JSON.stringify({ trucks: entries }), offered };
 }
 
-function describeInput(rows: ModelRow[], byId: Map<string, ModelCandidate>): ModelInput {
-  const keys = new OpaqueCandidateKeys(byId);
-  const offered = new Map<string, OfferedRow>();
-  const rowEntries = rows.map((row, index) => {
-    const rowKey = `r${index + 1}`;
-    const offeredCandidates = keys.offer(row.candidateIds);
-    offered.set(rowKey, { rowId: row.id, candidates: offeredCandidates });
-    return { id: rowKey, plate: row.plate, ...describeTime(row.date, row.preciseAt), pickup: row.pickup.slice(0, MAX_COMPANY_LENGTH), weight_kg: row.weightKg, candidates: [...offeredCandidates.keys()] };
-  });
-  return { text: JSON.stringify({ candidates: keys.describe(), rows: rowEntries }), offered, candidateCount: keys.size };
+function offerPaper(offered: Map<string, ModelPaper>, prefix: 'p' | 'r', paper: ModelPaper): string {
+  const key = `${prefix}${offered.size + 1}`;
+  offered.set(key, paper);
+  return key;
 }
 
-class OpaqueCandidateKeys {
-  private readonly keys = new Map<string, { key: string; candidate: ModelCandidate }>();
-  private readonly byId: Map<string, ModelCandidate>;
-
-  constructor(byId: Map<string, ModelCandidate>) {
-    this.byId = byId;
-  }
-
-  get size(): number {
-    return this.keys.size;
-  }
-
-  offer(candidateIds: string[]): Map<string, string> {
-    const offered = new Map<string, string>();
-    for (const candidateId of candidateIds) {
-      const candidate = this.byId.get(candidateId);
-      if (candidate === undefined) continue;
-      const key = this.keys.get(candidateId)?.key ?? `c${this.keys.size + 1}`;
-      this.keys.set(candidateId, { key, candidate });
-      offered.set(key, candidateId);
-    }
-    return offered;
-  }
-
-  describe(): Record<string, object> {
-    return Object.fromEntries([...this.keys.values()].map(({ key, candidate }) => [key, describeCandidate(candidate)]));
-  }
+function describePaper(id: string, paper: ModelPaper): object {
+  return {
+    id,
+    ...describeTime(paper.date, paper.preciseAt),
+    kg: paper.weightKg,
+    ticket: cutText(paper.ticketNumber),
+    goods: cutText(paper.goods),
+    issuer: cutText(paper.issuer),
+    customer: cutText(paper.customer),
+    note: cutText(paper.note),
+  };
 }
 
-function describeCandidate(candidate: ModelCandidate): object {
-  return { ...describeTime(candidate.date, candidate.preciseAt), receiver: candidate.receiver.slice(0, MAX_COMPANY_LENGTH), weight_kg: candidate.weightKg, kind: candidate.kind.slice(0, MAX_KIND_LENGTH) };
+function cutText(text: string | null): string | null {
+  return text === null ? null : text.slice(0, MAX_TEXT_LENGTH);
 }
 
 function describeTime(date: string, preciseAt: string | null): { date: string; time: string } {
   return preciseAt === null ? { date, time: 'chỉ có ngày' } : { date: preciseAt.slice(0, 10), time: preciseAt.slice(11, 16) };
 }
 
-function acceptPairs(answers: z.infer<typeof answerSchema>['pairs'], offered: Map<string, OfferedRow>): Map<string, string> {
-  const rowAnswers = new Map<string, { rowId: string; candidateId: string | null }>();
-  for (const { row, candidate } of answers) {
-    const offer = offered.get(row);
-    if (offer === undefined) continue;
-    const candidateId = candidate === NONE ? null : (offer.candidates.get(candidate) ?? null);
-    rowAnswers.set(row, { rowId: offer.rowId, candidateId: rowAnswers.has(row) ? null : candidateId });
-  }
-  const chosen = [...rowAnswers.values()].map((answer) => answer.candidateId);
-  const pairs = new Map<string, string>();
-  for (const { rowId, candidateId } of rowAnswers.values()) {
-    if (candidateId !== null && chosen.filter((id) => id === candidateId).length === 1) pairs.set(rowId, candidateId);
-  }
-  return pairs;
+type Pair = { pickup: ModelPaper; receipt: ModelPaper };
+
+function acceptPairs(answers: Answer[], offered: OfferedPapers): Map<string, string> {
+  const validPairs = keepSingles(answers, (answer) => answer.pickup).flatMap((answer) => readValidPair(answer, offered));
+  return new Map(keepSingles(validPairs, ({ receipt }) => receipt.id).map(({ pickup, receipt }) => [pickup.id, receipt.id]));
+}
+
+function readValidPair({ pickup: pickupKey, receipt: receiptKey }: Answer, offered: OfferedPapers): Pair[] {
+  const pickup = offered.pickups.get(pickupKey);
+  const receipt = offered.receipts.get(receiptKey);
+  if (pickup === undefined || receipt === undefined) return [];
+  return isInWindow(pickup, receipt) && isWeightCompatible(pickup.weightKg, receipt.weightKg) ? [{ pickup, receipt }] : [];
+}
+
+function keepSingles<Item>(items: Item[], readKey: (item: Item) => string): Item[] {
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(readKey(item), (counts.get(readKey(item)) ?? 0) + 1);
+  return items.filter((item) => counts.get(readKey(item)) === 1);
 }

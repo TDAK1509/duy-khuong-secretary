@@ -1,8 +1,8 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { TripPaper } from './list-trip-papers.ts';
-import { pairDropOffsInBatches, type ModelCandidate, type ModelPairing, type ModelRow } from './pair-drop-offs-by-model.ts';
-import { canPair, groupByPlate, pairDropOffsByRule, readPairingTimes, type PairingCandidate, type PairingRow } from './pair-drop-offs-by-rule.ts';
-import { groupPossibleDuplicates, readPickupPlace, readWeightKg } from './read-trip-paper.ts';
+import { pairDropOffsInBatches, type BatchedPairing, type ModelPaper, type ModelPairing, type Truck } from './pair-drop-offs-by-model.ts';
+import { groupByPlate, pairDropOffsByRule, readPairingTimes, type PairingPaper, type PairingRow } from './pair-drop-offs-by-rule.ts';
+import { groupPossibleDuplicates, readWeightKg } from './read-trip-paper.ts';
 
 export type PairMethod = 'rule' | 'ai';
 
@@ -16,17 +16,13 @@ type DatedPaper = TripPaper & { vehicle_plate: string; document_date: string };
 
 export async function pairTrips(reader: ReaderService | null, { pickups, receipts }: PairingPapers): Promise<TripPairing> {
   const duplicateIds = new Set(groupPossibleDuplicates(pickups).flat().map((paper) => paper.id));
-  const rows = pickups.filter(isDated).map((paper) => toPairingRow(paper, duplicateIds));
-  const candidates = receipts.filter(isDated).filter((paper) => paper.receiver_name !== null);
-  const pairingCandidates = candidates.map(toPairingCandidate);
-  const rule = pairDropOffsByRule(rows, pairingCandidates);
-  const modelRows = listModelRows(rows, pickups, pairingCandidates, rule.pairs);
-  const batched = await pairDropOffsInBatches(reader, modelRows, candidates.map(toModelCandidate));
-  const pairs = new Map<string, PairedReceipt>();
-  for (const [pickupId, receiptId] of rule.pairs) pairs.set(pickupId, { receiptId, method: 'rule' });
-  for (const [pickupId, receiptId] of batched.pairs) pairs.set(pickupId, { receiptId, method: 'ai' });
-  logPairing(pairs, batched.calls);
-  return { pairs, modelCalls: batched.calls, modelSkippedRows: batched.skippedRows };
+  const datedPickups = pickups.filter(isDated);
+  const datedReceipts = receipts.filter(isDated);
+  const rule = pairDropOffsByRule(datedPickups.map((paper) => toPairingRow(paper, duplicateIds)), datedReceipts.map(toPairingPaper));
+  const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts));
+  const pairs = choosePairs(rule.pairs, model);
+  logPairing(pairs, model.calls);
+  return { pairs, modelCalls: model.calls, modelSkippedRows: model.skippedRows };
 }
 
 function isDated(paper: TripPaper): paper is DatedPaper {
@@ -34,42 +30,41 @@ function isDated(paper: TripPaper): paper is DatedPaper {
 }
 
 function toPairingRow(paper: DatedPaper, duplicateIds: Set<string>): PairingRow {
+  return { ...toPairingPaper(paper), isPossibleDuplicate: duplicateIds.has(paper.id) };
+}
+
+function listTrucksWithReceipts(pickups: DatedPaper[], receipts: DatedPaper[]): Truck[] {
+  const receiptsByPlate = groupByPlate(receipts.map(toModelPaper));
+  const trucks = [...groupByPlate(pickups.map(toModelPaper))].map(([plate, truckPickups]) => ({ plate, pickups: truckPickups, receipts: receiptsByPlate.get(plate) ?? [] }));
+  return trucks.filter((truck) => truck.receipts.length > 0);
+}
+
+function toModelPaper(paper: DatedPaper): ModelPaper {
   return {
-    id: paper.id,
-    plate: paper.vehicle_plate,
+    ...toPairingPaper(paper),
     date: paper.document_date,
     preciseAt: paper.precise_at,
-    times: readPairingTimes(paper.document_date, paper.precise_at),
-    weightKg: readWeightKg(paper),
-    isPossibleDuplicate: duplicateIds.has(paper.id),
-    dropOff: readDropOffConstraint(paper),
+    ticketNumber: paper.document_number,
+    goods: paper.goods_line,
+    issuer: paper.issuer_name,
+    customer: paper.customer_party,
+    note: paper.note_line,
   };
 }
 
-function readDropOffConstraint(paper: TripPaper): PairingRow['dropOff'] {
-  if (paper.route_dropoff_key === null) return null;
-  return { key: paper.route_dropoff_key, resolved: paper.route_dropoff_resolved === true, picks: paper.route_dropoff_picks ?? [] };
+function toPairingPaper(paper: DatedPaper): PairingPaper {
+  return { id: paper.id, plate: paper.vehicle_plate, times: readPairingTimes(paper.document_date, paper.precise_at), weightKg: readWeightKg(paper) };
 }
 
-function toPairingCandidate(paper: DatedPaper): PairingCandidate {
-  return { id: paper.id, plate: paper.vehicle_plate, times: readPairingTimes(paper.document_date, paper.precise_at), weightKg: readWeightKg(paper), receiverOrgIds: paper.receiver_org_ids, receiverKeys: paper.receiver_keys };
-}
-
-function toModelCandidate(paper: DatedPaper): ModelCandidate {
-  return { id: paper.id, date: paper.document_date, preciseAt: paper.precise_at, receiver: paper.receiver_name ?? '', weightKg: readWeightKg(paper), kind: paper.kind };
-}
-
-function listModelRows(rows: PairingRow[], pickups: TripPaper[], candidates: PairingCandidate[], rulePairs: Map<string, string>): ModelRow[] {
-  const byId = new Map(pickups.map((paper) => [paper.id, paper]));
-  const taken = new Set(rulePairs.values());
-  const byPlate = groupByPlate(candidates);
-  return rows.flatMap((row) => {
-    if (rulePairs.has(row.id)) return [];
-    const candidateIds = (byPlate.get(row.plate) ?? []).filter((candidate) => !taken.has(candidate.id) && canPair(row, candidate)).map((candidate) => candidate.id);
-    const paper = byId.get(row.id);
-    if (candidateIds.length === 0 || paper === undefined) return [];
-    return [{ id: row.id, plate: row.plate, date: row.date, preciseAt: row.preciseAt, pickup: readPickupPlace(paper) ?? '', weightKg: row.weightKg, candidateIds }];
-  });
+function choosePairs(rulePairs: Map<string, string>, model: BatchedPairing): Map<string, PairedReceipt> {
+  const pairs = new Map<string, PairedReceipt>();
+  for (const [pickupId, receiptId] of rulePairs) {
+    if (!model.answeredPickupIds.has(pickupId)) pairs.set(pickupId, { receiptId, method: 'rule' });
+  }
+  for (const [pickupId, receiptId] of model.pairs) {
+    pairs.set(pickupId, { receiptId, method: rulePairs.get(pickupId) === receiptId ? 'rule' : 'ai' });
+  }
+  return pairs;
 }
 
 function logPairing(pairs: Map<string, PairedReceipt>, calls: ModelPairing[]): void {

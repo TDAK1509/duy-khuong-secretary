@@ -10,13 +10,14 @@ const DRIVER_SENT_A_SOURCE = `EXISTS (
 
 const IS_ROUTE_FACT = '(fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)';
 
-export const IS_TRIP_TICKET = `(
-  document.status = 'accepted'
-  AND (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${buildAccentFreeKey('document.kind')}, 'phieucan') > 0))
+export const IS_TRIP_TICKET_SHAPE = `(
+  (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${buildAccentFreeKey('document.kind')}, 'phieucan') > 0))
   AND ${buildAccentFreeKey('document.kind')} <> 'tinnhan'
   AND document.sheet_signature IS NULL
   AND NOT EXISTS (SELECT 1 FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL)
 )`;
+
+export const IS_TRIP_TICKET = `(document.status = 'accepted' AND ${IS_TRIP_TICKET_SHAPE})`;
 
 const NO_ROLES = 'ARRAY[]::text[]';
 const PICKUP_ROLES = `(CASE WHEN document.stage = 'receipt' THEN ${NO_ROLES} WHEN document.stage IS NULL THEN ARRAY['issuer'] ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
