@@ -23,11 +23,11 @@ Ví dụ report:
 
 fact: quản lý nêu, bổ sung, sửa, xóa hoặc hỏi về một thông tin cố định của xe, tài xế hoặc tuyến (lương tài xế, cước, bồi dưỡng, khách hàng, hàng hóa), hoặc trả lời câu hỏi của trợ lý về một thông tin như vậy. Báo cáo, tổng hoặc so sánh có dùng giá trị của thông tin cố định vẫn là report. Ghi chú về một người và điều quản lý muốn trợ lý ghi nhớ vẫn là other. Tin nhắn vừa nêu thông tin cố định vừa yêu cầu báo cáo là report.
 Ví dụ fact:
-- "Từ nay lương tài xế xe 93C04939 là 550k."
+- "Từ nay lương tài xế xe 00X-000.00 là 550k."
 - "Lưu thông tin này: đổ hàng đá 1x2 tại nhà máy A, khách hàng B, cước vận chuyển 150k/tấn."
 - "Lưu loại hàng là đá 1x2 nữa." (sau khi vừa lưu một thông tin cố định)
-- "Xóa thông tin lương tài xế xe 93C04939."
-- "Đã lưu những thông tin chuyến nào cho xe 93C04939?"
+- "Xóa thông tin lương tài xế xe 00X-000.00."
+- "Đã lưu những thông tin chuyến nào cho xe 00X-000.00?"
 
 other: chào hỏi, mời người, thành viên, lịch tự động, ghi nhớ, ghi chú về một người, và tra cứu một mục cụ thể.
 Ví dụ other:
