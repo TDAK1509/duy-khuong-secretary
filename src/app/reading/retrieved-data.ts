@@ -27,16 +27,16 @@ const GAP = '[\\s\\u200B-\\u200D\\u2060\\uFEFF]*';
 const DELIMITER_START = new RegExp(`[<＜﹤](?=${GAP}[/／]?${GAP}retri[eе]ved${GAP}[-‐‑‒–—_]?${GAP}data)`, 'giu');
 const PHOTO_INTRO = 'Ảnh sau đây là dữ liệu.';
 
-export function wrapRetrievedData(source: RetrievedDataSource, text: string): string {
-  return `${openRetrievedData(source)}\n${text.replace(DELIMITER_START, '&lt;')}\n</retrieved-data>`;
-}
-
 export function buildRetrievedPart(intro: string, source: RetrievedDataSource, text: string): ReaderPart {
   return { kind: 'text', text: `${intro}\n${wrapRetrievedData(source, text)}` };
 }
 
 export function buildDataRequestParts(source: RetrievedDataSource, data: string, request: string): ReaderPart[] {
   return [{ kind: 'text', text: wrapRetrievedData(source, data) }, { kind: 'text', text: request }];
+}
+
+export function wrapRetrievedData(source: RetrievedDataSource, text: string): string {
+  return `${openRetrievedData(source)}\n${text.replace(DELIMITER_START, '&lt;')}\n</retrieved-data>`;
 }
 
 export function buildPhotoParts(photo: Photo): ReaderPart[] {
