@@ -1,8 +1,8 @@
 import type { PrintedValue } from '../../documents/corrections/paper-correction.ts';
-import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { readKilogramsPerUnit } from '../../documents/corrections/weight-units.ts';
 import { WEIGHT_MEANING } from '../../facts/total-fact-values.ts';
 import { toAccentFreeForm } from '../../reading/normalize.ts';
+import { applyLoadWeightRules, isLoadWeightPrinted, isLoadWeightText } from './load-weight-rules.ts';
 import { ToolRefusal } from './tool-result.ts';
 
 export type PrintedArguments = {
@@ -15,13 +15,11 @@ export type PrintedArguments = {
 
 type StoredNumber = Pick<PrintedValue, 'number' | 'unit'>;
 
-const MAX_LOAD_WEIGHT_KG = 100_000;
 const OTHER_UNITS: Record<string, string> = { l: 'l', lit: 'l', km: 'km', vnd: 'vnd', d: 'vnd', dong: 'vnd' };
 
 const INCOMPLETE_PRINTED_ERROR = 'Giá trị in trên giấy cần cả printed_label (tên mục in trên giấy) và printed_value (giá trị mới). Gửi lại với đủ cả hai theo đúng lời quản lý.';
 const NUMBER_AND_UNIT_ERROR = 'Con số của giá trị cần cả printed_number và printed_unit (đơn vị quản lý gõ). Gửi lại với đủ cả hai, hoặc hỏi quản lý đơn vị nếu quản lý chưa nêu.';
 const NUMBER_WITHOUT_MEANING_ERROR = 'Giá trị có con số cần printed_meaning (ý nghĩa của con số, ví dụ "Trọng lượng hàng"). Gửi lại với đủ.';
-const WEIGHT_NEEDS_NUMBER_ERROR = 'Trọng lượng hàng cần một con số và đơn vị kg hoặc tấn quản lý đã gõ. Chưa đổi gì. Hỏi quản lý trọng lượng và đơn vị đúng rồi gọi lại.';
 
 export function readPrintedValue(args: PrintedArguments): PrintedValue | null {
   const label = args.printed_label?.trim() || null;
@@ -31,8 +29,7 @@ export function readPrintedValue(args: PrintedArguments): PrintedValue | null {
   const meaning = args.printed_meaning?.trim() || (isLoadWeightText(label) ? WEIGHT_MEANING : null);
   const printed = { label, value, meaning, ...readStoredNumber(args), typedNumber: args.printed_number };
   if (printed.number !== null && meaning === null) throw new ToolRefusal(NUMBER_WITHOUT_MEANING_ERROR);
-  refuseBadLoadWeight(printed);
-  return printed;
+  return isLoadWeightPrinted(printed) ? applyLoadWeightRules(printed) : printed;
 }
 
 function readStoredNumber({ printed_number: number, printed_unit }: PrintedArguments): StoredNumber {
@@ -48,14 +45,4 @@ function readOtherUnit(unit: string): string {
   const standardUnit = OTHER_UNITS[toAccentFreeForm(unit) ?? ''];
   if (standardUnit === undefined) throw new ToolRefusal(`Đơn vị "${unit}" không dùng được. Dùng kg, tấn, l, km hoặc vnd theo đúng chữ quản lý gõ.`);
   return standardUnit;
-}
-
-function isLoadWeightText(text: string | null): boolean {
-  return buildMatchKey(text ?? '') === buildMatchKey(WEIGHT_MEANING);
-}
-
-function refuseBadLoadWeight({ label, meaning, number, unit }: PrintedValue): void {
-  if (!isLoadWeightText(label) && !isLoadWeightText(meaning)) return;
-  if (number === null || unit !== 'kg') throw new ToolRefusal(WEIGHT_NEEDS_NUMBER_ERROR);
-  if (number > MAX_LOAD_WEIGHT_KG) throw new ToolRefusal(`Chưa đổi gì: trọng lượng hàng ${number} kg lớn hơn 100 tấn, không thể là tải trọng thật của một chuyến. Hỏi quản lý trọng lượng đúng rồi gọi lại.`);
 }

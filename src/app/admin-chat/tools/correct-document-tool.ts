@@ -7,7 +7,7 @@ import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from 
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { parseCorrectionRequest, type CorrectionRequest } from './correct-document-arguments.ts';
 import { describeCorrectedPaper, describeFoundPaper } from './describe-correction.ts';
-import { refuseErasedNumber } from './refuse-erased-number.ts';
+import { settlePrintedValue } from './settle-printed-value.ts';
 import { collectAdminTypedTexts, refuseUntypedValues } from './refuse-untyped-values.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
@@ -34,10 +34,10 @@ async function correctInTransaction(transaction: Transaction, dependencies: Admi
   const found = await findRequestedPapers(transaction, dependencies, scope, request);
   const decision = decideCorrection(found, request);
   if (decision !== 'apply') return describeNotDone(decision, found);
-  for (const paper of found.papers) await refuseErasedNumber(transaction, scope.workspaceId, paper, request.values.printed);
+  const values = { ...request.values, printed: await settlePrintedValue(transaction, scope.workspaceId, found.papers, request.values.printed) };
   const corrector = { transaction, workspaceId: scope.workspaceId, now: dependencies.clock.now() };
-  const corrected = await correctEachPaper(corrector, found.papers, request.values);
-  return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, request.values)) };
+  const corrected = await correctEachPaper(corrector, found.papers, values);
+  return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, values)) };
 }
 
 async function correctEachPaper(corrector: PaperCorrector, papers: FoundPaper[], values: NewPaperValues): Promise<CorrectedPaper[]> {
