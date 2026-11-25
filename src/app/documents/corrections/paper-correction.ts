@@ -1,4 +1,5 @@
 import type { Transaction } from '../../db/transaction.ts';
+import type { CompanySlot } from '../../facts/pick-fact-companies.ts';
 
 export type PaperCorrector = { transaction: Transaction; workspaceId: string; now: Date };
 
@@ -10,7 +11,14 @@ export type NewPaperValues = {
   documentDate: string | null;
   stage: PaperStage | null;
   printed: PrintedValue | null;
+  company: PaperCompany | null;
 };
+
+export type CompanyClaim = { slot: CompanySlot; name: string };
+
+export type CompanyRoles = { assigned: 'issuer' | 'customer'; replaced: string[] };
+
+export type PaperCompany = CompanyClaim & { organizationId: string | null; roles: CompanyRoles };
 
 export type PrintedValue = {
   label: string;
@@ -40,7 +48,7 @@ export type FoundPaper = {
   sent_at: string;
 };
 
-export type ChangedField = 'plate' | 'number' | 'date' | 'stage' | 'printed_value';
+export type ChangedField = 'plate' | 'number' | 'date' | 'stage' | 'printed_value' | 'company';
 
 export type PaperChange = { field: ChangedField; label: string | null; before: string | null; after: string };
 

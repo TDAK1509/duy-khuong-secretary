@@ -7,37 +7,57 @@ import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from 
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { parseCorrectionRequest, type CorrectionRequest } from './correct-document-arguments.ts';
 import { describeCorrectedPaper, describeFoundPaper } from './describe-correction.ts';
+import { chooseOrganizationId } from './choose-paper-company.ts';
+import { requireCompanyRoles, settleCompany, type PickedCompany } from './settle-company.ts';
 import { settlePrintedValue } from './settle-printed-value.ts';
 import { collectAdminTypedTexts, refuseUntypedValues } from './refuse-untyped-values.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
 const LIST_LIMIT = 20;
 
-type Decision = 'no_match' | 'several' | 'number_on_several' | 'printed_on_several' | 'apply';
+type Decision = 'no_match' | 'several' | 'number_on_several' | 'printed_on_several' | 'company_on_several' | 'apply';
 
 const NOT_DONE_NOTES: Record<Exclude<Decision, 'apply'>, string> = {
   no_match: 'Không có giấy tờ đã lưu nào khớp. Chưa đổi gì.',
   several: 'Có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào. Nếu quản lý muốn sửa tất cả, gọi lại với all_matching true.',
   number_on_several: 'Số giấy tờ mới chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
   printed_on_several: 'Giá trị in trên giấy chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
+  company_on_several: 'Công ty chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
 };
 
 export async function runCorrectDocument(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const request = parseCorrectionRequest(parsedArguments);
-  refuseUntypedValues(request.values, collectAdminTypedTexts(dependencies));
-  const result = await runInTransaction(dependencies.database, (transaction) => correctInTransaction(transaction, dependencies, scope, request));
+  refuseUntypedValues(request, collectAdminTypedTexts(dependencies));
+  const picked = await pickCompanyBeforeTransaction(dependencies, scope, request);
+  const result = await runInTransaction(dependencies.database, (transaction) => correctInTransaction(transaction, dependencies, scope, { request, picked }));
   return JSON.stringify(result);
 }
 
-async function correctInTransaction(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<Record<string, unknown>> {
+type Correction = { request: CorrectionRequest; picked: PickedCompany | null };
+
+async function pickCompanyBeforeTransaction(dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<PickedCompany | null> {
+  if (request.company === null) return null;
+  const found = await runInTransaction(dependencies.database, (transaction) => findRequestedPapers(transaction, dependencies, scope, request));
+  const [paper] = found.papers;
+  if (decideCorrection(found, request) !== 'apply' || paper === undefined) return null;
+  requireCompanyRoles(paper, request.values.stage, request.company);
+  return { organizationId: await chooseOrganizationId(dependencies, scope.workspaceId, request.company) };
+}
+
+async function correctInTransaction(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, correction: Correction): Promise<Record<string, unknown>> {
   await lockWorkspaceRecords(transaction, scope.workspaceId);
-  const found = await findRequestedPapers(transaction, dependencies, scope, request);
-  const decision = decideCorrection(found, request);
+  const found = await findRequestedPapers(transaction, dependencies, scope, correction.request);
+  const decision = decideCorrection(found, correction.request);
   if (decision !== 'apply') return describeNotDone(decision, found);
-  const values = { ...request.values, printed: await settlePrintedValue(transaction, scope.workspaceId, found.papers, request.values.printed) };
+  const values = await settleValues(transaction, scope.workspaceId, found.papers, correction);
   const corrector = { transaction, workspaceId: scope.workspaceId, now: dependencies.clock.now() };
   const corrected = await correctEachPaper(corrector, found.papers, values);
   return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, values)) };
+}
+
+async function settleValues(transaction: Transaction, workspaceId: string, papers: FoundPaper[], { request, picked }: Correction): Promise<NewPaperValues> {
+  const printed = await settlePrintedValue(transaction, workspaceId, papers, request.values.printed);
+  return { ...request.values, printed, company: settleCompany(papers[0], request.values.stage, request.company, picked) };
 }
 
 async function correctEachPaper(corrector: PaperCorrector, papers: FoundPaper[], values: NewPaperValues): Promise<CorrectedPaper[]> {
@@ -57,11 +77,12 @@ async function findLastPhoto(transaction: Transaction, { currentMessageId }: Adm
   return findLastPhotoMessage(transaction, { workspaceId: scope.workspaceId, userId: scope.userId, currentMessageId });
 }
 
-function decideCorrection({ total }: FoundPapers, { values, allMatching }: CorrectionRequest): Decision {
+function decideCorrection({ total }: FoundPapers, { values, company, allMatching }: CorrectionRequest): Decision {
   if (total === 0) return 'no_match';
   if (total === 1) return 'apply';
   if (values.documentNumber !== null) return 'number_on_several';
   if (values.printed !== null) return 'printed_on_several';
+  if (company !== null) return 'company_on_several';
   return allMatching ? 'apply' : 'several';
 }
 
