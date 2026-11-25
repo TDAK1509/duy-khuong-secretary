@@ -93,7 +93,7 @@ async function insertSheetLines(transaction: Transaction, message: DocumentMessa
   const linesByDocument = entries.map(({ documentId, draft }) => ({ documentId, details: listLineDetails(draft) }));
   const meaningIds = await findOrInsertMeanings(transaction, message.workspaceId, linesByDocument.flatMap((entry) => entry.details));
   const rows = linesByDocument.flatMap(({ documentId, details }) =>
-    details.map((detail, lineNo) => buildLineRow(message, documentId, lineNo, detail, meaningIds.get(describeMeaning(detail)) ?? null)),
+    details.map((detail, lineNo) => buildLineRow(message.workspaceId, documentId, lineNo, detail, meaningIds.get(describeMeaning(detail)) ?? null)),
   );
   await insertRows(transaction, 'document_lines', rows);
 }

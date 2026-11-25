@@ -7,17 +7,19 @@ import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from 
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { parseCorrectionRequest, type CorrectionRequest } from './correct-document-arguments.ts';
 import { describeCorrectedPaper, describeFoundPaper } from './describe-correction.ts';
+import { settlePrintedValue } from './settle-printed-value.ts';
 import { collectAdminTypedTexts, refuseUntypedValues } from './refuse-untyped-values.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
 const LIST_LIMIT = 20;
 
-type Decision = 'no_match' | 'several' | 'number_on_several' | 'apply';
+type Decision = 'no_match' | 'several' | 'number_on_several' | 'printed_on_several' | 'apply';
 
 const NOT_DONE_NOTES: Record<Exclude<Decision, 'apply'>, string> = {
   no_match: 'Không có giấy tờ đã lưu nào khớp. Chưa đổi gì.',
   several: 'Có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào. Nếu quản lý muốn sửa tất cả, gọi lại với all_matching true.',
   number_on_several: 'Số giấy tờ mới chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
+  printed_on_several: 'Giá trị in trên giấy chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
 };
 
 export async function runCorrectDocument(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
@@ -32,9 +34,10 @@ async function correctInTransaction(transaction: Transaction, dependencies: Admi
   const found = await findRequestedPapers(transaction, dependencies, scope, request);
   const decision = decideCorrection(found, request);
   if (decision !== 'apply') return describeNotDone(decision, found);
+  const values = { ...request.values, printed: await settlePrintedValue(transaction, scope.workspaceId, found.papers, request.values.printed) };
   const corrector = { transaction, workspaceId: scope.workspaceId, now: dependencies.clock.now() };
-  const corrected = await correctEachPaper(corrector, found.papers, request.values);
-  return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, request.values)) };
+  const corrected = await correctEachPaper(corrector, found.papers, values);
+  return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, values)) };
 }
 
 async function correctEachPaper(corrector: PaperCorrector, papers: FoundPaper[], values: NewPaperValues): Promise<CorrectedPaper[]> {
@@ -58,6 +61,7 @@ function decideCorrection({ total }: FoundPapers, { values, allMatching }: Corre
   if (total === 0) return 'no_match';
   if (total === 1) return 'apply';
   if (values.documentNumber !== null) return 'number_on_several';
+  if (values.printed !== null) return 'printed_on_several';
   return allMatching ? 'apply' : 'several';
 }
 

@@ -9,7 +9,7 @@ import type { DocumentMessage } from './store-documents.ts';
 export async function insertLines(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<void> {
   for (const [lineNo, detail] of listLineDetails(draft).entries()) {
     const meaningId = await findOrInsertMeaning(transaction, message.workspaceId, detail);
-    await insertRow(transaction, 'document_lines', buildLineRow(message, documentId, lineNo, detail, meaningId));
+    await insertRow(transaction, 'document_lines', buildLineRow(message.workspaceId, documentId, lineNo, detail, meaningId));
   }
 }
 
@@ -18,7 +18,7 @@ export function listLineDetails(draft: DocumentDraft): ReadingDetail[] {
 }
 
 export function buildLineRow(
-  { workspaceId }: DocumentMessage,
+  workspaceId: string,
   documentId: string,
   lineNo: number,
   detail: ReadingDetail,

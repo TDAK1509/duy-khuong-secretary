@@ -3,11 +3,12 @@ import type { NewPaperValues, PaperPointer } from '../../documents/corrections/p
 import { normalizeCode } from '../../reading/normalize.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { ToolRefusal } from './tool-result.ts';
+import { readPrintedValue } from './read-printed-value.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
 const NONZERO_DIGIT = /[1-9]/;
 
-const NO_NEW_VALUE_ERROR = 'Chưa chọn giá trị nào để sửa. Cần ít nhất một trong new_plate, new_number, new_date, new_stage. Gửi lại với giá trị quản lý nêu.';
+const NO_NEW_VALUE_ERROR = 'Chưa chọn giá trị nào để sửa. Cần ít nhất một trong new_plate, new_number, new_date, new_stage, printed_label cùng printed_value. Gửi lại với giá trị quản lý nêu.';
 const NO_POINTER_ERROR = 'Chưa nói giấy tờ nào cần sửa. Cần last_photo true hoặc ít nhất một trong current_plate, current_number, current_date. Gửi lại với điều quản lý nêu.';
 const INVALID_NUMBER_ERROR = 'Số giấy tờ mới phải có ít nhất một chữ số khác 0. Sửa số theo đúng tin nhắn của quản lý rồi gọi lại.';
 const INVALID_DATE_ERROR = 'Ngày đã gửi không đúng. Ngày phải có dạng YYYY-MM-DD và có thật trong lịch, ví dụ 2026-10-31. Sửa ngày theo đúng dạng rồi gọi lại.';
@@ -17,6 +18,11 @@ const argumentsSchema = z.strictObject({
   new_number: z.string().nullable(),
   new_date: z.string().nullable(),
   new_stage: z.enum(['dispatch', 'receipt']).nullable(),
+  printed_label: z.string().nullable(),
+  printed_value: z.string().nullable(),
+  printed_meaning: z.string().nullable(),
+  printed_number: z.number().nonnegative().nullable(),
+  printed_unit: z.string().nullable(),
   last_photo: z.boolean(),
   current_plate: z.string().nullable(),
   current_number: z.string().nullable(),
@@ -33,7 +39,7 @@ export type CorrectionRequest = {
 
 export function parseCorrectionRequest(parsedArguments: unknown): CorrectionRequest {
   const args = argumentsSchema.parse(parsedArguments);
-  const values = { plate: readPlateArgument(args.new_plate), documentNumber: readNewNumber(args.new_number), documentDate: readDate(args.new_date), stage: args.new_stage };
+  const values = { plate: readPlateArgument(args.new_plate), documentNumber: readNewNumber(args.new_number), documentDate: readDate(args.new_date), stage: args.new_stage, printed: readPrintedValue(args) };
   const pointer = { plate: normalizeCode(args.current_plate), documentNumber: normalizeCode(args.current_number), documentDate: readDate(args.current_date) };
   if (Object.values(values).every((value) => value === null)) throw new ToolRefusal(NO_NEW_VALUE_ERROR);
   if (!args.last_photo && Object.values(pointer).every((value) => value === null)) throw new ToolRefusal(NO_POINTER_ERROR);
