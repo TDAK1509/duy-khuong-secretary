@@ -2,7 +2,7 @@ import type { ChangeTool } from './tools/admin-text-guard.ts';
 
 export const CHAT_FAILURE_TEXT = 'Xin lỗi, hệ thống đang bận. Bạn gửi lại sau ít phút nhé.';
 
-export const TOOL_LOOP_TEXT = 'Xin lỗi, tôi chưa xử lý được. Bạn thử lại nhé.';
+export const TOOL_LOOP_TEXT = 'Xin lỗi, yêu cầu này cần tra cứu quá nhiều lần nên tôi chưa làm xong việc nào. Bạn chia nhỏ giúp tôi theo từng xe, từng tuần hoặc từng công ty, rồi gửi lại từng phần nhé.';
 
 const CHANGE_TOOL_LABELS: Record<ChangeTool, string> = {
   create_scheduled_task: 'đặt lịch',
