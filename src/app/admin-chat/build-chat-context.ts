@@ -28,12 +28,12 @@ export function buildChatContextTurn({ profileLines, memory, history, current }:
   return { role: 'user', text };
 }
 
-export function describeCurrentRequest({ text, savedNote }: CurrentRequest): string {
+function describeCurrentRequest({ text, savedNote }: CurrentRequest): string {
   const note = savedNote === null ? [] : [`Ghi chú của hệ thống về tin nhắn này:\n${wrapRetrievedData('saved-note', `Hệ thống đã lưu:\n${savedNote}`)}`];
   return [text ?? '', ...note].join('\n\n');
 }
 
-export function describeHistoryLines(history: ChatTurn[]): string[] {
+function describeHistoryLines(history: ChatTurn[]): string[] {
   return history.flatMap((turn) => {
     if (turn.role === 'user') return turn.text === null ? [] : [`Người dùng: ${turn.text}`];
     return turn.role === 'assistant' ? [`Trợ lý: ${turn.text}`] : [];

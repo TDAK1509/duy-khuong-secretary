@@ -1,5 +1,4 @@
 import type { ChatRequest, ChatService, ToolSpec } from '../../services/chat/chat-service.ts';
-import { labelAdminMessage, type LabelInput } from './label-admin-message.ts';
 import { isCurrentMember } from '../access/is-current-member.ts';
 import type { AccessScope } from '../access/access-scope.ts';
 import type { Transaction } from '../db/transaction.ts';
@@ -13,7 +12,7 @@ import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
 import { buildMemberPrompt } from './member-prompt.ts';
 import { buildAbilitySection } from './ability-section.ts';
-import { buildChatContextTurn, describeCurrentRequest } from './build-chat-context.ts';
+import { buildChatContextTurn } from './build-chat-context.ts';
 import { buildCurrentRequest } from './build-user-turn.ts';
 import type { ChatMessage } from './chat-message.ts';
 import { hasNoteFromPhoto } from './has-note-from-photo.ts';
@@ -58,7 +57,7 @@ type Answer = {
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
   const firstRequest = await buildChatRequest(context, message, profile, false);
-  const loop = await chooseToolLoop(context, message, profile.role, firstRequest.labelInput);
+  const loop = chooseToolLoop(context, profile.role);
   const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote, loop }, firstRequest);
   const isRefusedOnlyByHistory = first.answer.refusedTools.length > 0 && first.hasFlaggedAnswer && !hasNote;
   if (!isRefusedOnlyByHistory) return first.answer;
@@ -68,7 +67,7 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
 
 type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean; loop: ToolLoopChoice };
 
-type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean; labelInput: LabelInput };
+type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean };
 
 async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView, built: BuiltRequest): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
@@ -127,7 +126,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const profileLines = await buildProfileLines(context, profile);
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), history: history.turns, current });
   const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: describeCurrentRequest(current) } };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
 }
 
 async function buildProfileLines({ dependencies, sender }: IntakeContext, profile: ChatProfile): Promise<string[]> {
@@ -147,13 +146,10 @@ function buildPrompt(role: ChatProfile['role'], now: Date, tools: ToolSpec[]): s
 
 type ToolLoopChoice = { chat: ChatService; maxRounds: number };
 
-async function chooseToolLoop(context: IntakeContext, message: ChatMessage, role: ChatProfile['role'], labelInput: LabelInput): Promise<ToolLoopChoice> {
+function chooseToolLoop(context: IntakeContext, role: ChatProfile['role']): ToolLoopChoice {
   const { chats } = context.dependencies;
   if (chats === null) throw new Error('the chat service is not configured');
-  if (role !== 'admin') return { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
-  const label = await labelAdminMessage(chats.adminChat, labelInput);
-  console.log(`[admin-route] message=${message.id} label=${label}`);
-  return { chat: label === 'report' || label === 'fact' ? chats.adminReport : chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS };
+  return role === 'admin' ? { chat: chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS } : { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
 }
 
 async function hasAnswer(transaction: Transaction, messageId: string): Promise<boolean> {
