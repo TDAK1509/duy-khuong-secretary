@@ -9,12 +9,12 @@ export const checkMemberRemoval: RiskyChecker = async ({ database }, scope, pars
   const member = await findMember(database, scope.workspaceId, memberId);
   if (member.userId === scope.userId) throw new ToolRefusal(CANNOT_REMOVE_SELF_ERROR);
   const question = `Xóa ${member.displayName} khỏi nhóm. Thông tin đã lưu về người này cũng bị xóa.`;
-  return { targets: [member.displayName], writeQuestion: () => question };
+  return { targets: [{ kind: 'name', text: member.displayName }], writeQuestion: () => question };
 };
 
 export const checkMemberFactsErasure: RiskyChecker = async ({ database }, scope, parsedArguments) => {
   const { member_id: memberId } = memberArgumentsSchema.parse(parsedArguments);
   const member = await findMember(database, scope.workspaceId, memberId);
   const question = `Xóa mọi thông tin đã lưu về ${member.displayName}.`;
-  return { targets: [member.displayName], writeQuestion: () => question };
+  return { targets: [{ kind: 'name', text: member.displayName }], writeQuestion: () => question };
 };

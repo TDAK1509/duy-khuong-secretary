@@ -9,7 +9,7 @@ const NO_PLATE_LABEL = 'chưa có biển số';
 export const checkPlateRewrite: RiskyChecker = async ({ database }, scope, parsedArguments) => {
   const request = readPlateRequest(parsedArguments, scope.workspaceId);
   const member = await findMember(database, scope.workspaceId, request.ref.membershipId);
-  return { targets: [member.displayName, request.plate], writeQuestion: () => describePlateRewrite(database, request, member.displayName) };
+  return { targets: [{ kind: 'name', text: member.displayName }, { kind: 'plate', text: request.plate }], writeQuestion: () => describePlateRewrite(database, request, member.displayName) };
 };
 
 async function describePlateRewrite(database: Database, request: PlateRequest, memberName: string): Promise<string> {

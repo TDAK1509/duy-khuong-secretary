@@ -15,11 +15,11 @@ export class WaitingChanges {
   }
 }
 
-function describeCall({ name, arguments: callArguments }: StoredCall): string {
-  return `${name} ${JSON.stringify(callArguments)}`;
-}
-
 export function buildConfirmationQuestion(changes: WaitingChange[]): string {
   const lines = changes.map(({ question }) => `- ${question}`);
   return ['Cần bạn xác nhận trước khi làm:', ...lines, 'Trả lời Có để làm, Không để bỏ.'].join('\n');
+}
+
+function describeCall({ name, arguments: callArguments }: StoredCall): string {
+  return `${name} ${JSON.stringify(callArguments)}`;
 }

@@ -1,8 +1,10 @@
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { AdminToolDependencies } from '../tools/tool-dependencies.ts';
 
+export type RiskyTarget = { kind: 'name' | 'plate'; text: string };
+
 export type RiskyCheck = {
-  targets: string[] | null;
+  targets: RiskyTarget[] | null;
   writeQuestion: () => string | Promise<string>;
 };
 
