@@ -12,6 +12,7 @@ import { dropRepeatedPapers, type RepeatedPaper } from '../../trips/drop-repeate
 import { pairTrips, type PairingPapers, type TripPairing } from '../../trips/pair-trips.ts';
 import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import { matchTripFacts } from '../../trips/match-trip-facts.ts';
+import { loadShownGoodsNames, type ShownGoodsNames } from '../../goods-names/show-goods-name.ts';
 import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
@@ -104,10 +105,11 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const papers = await loadTripPapers(database, query);
   if (papers === null) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
   const rules = await listWorkspaceRules(database, scope.workspaceId);
-  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
+  const goodsNames = await loadShownGoodsNames(database, scope.workspaceId);
+  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule), goodsNames);
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
-  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });
+  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing, goodsNames });
   return storeReport(storage, scope, planned, report, pairing);
 }
 
@@ -122,14 +124,14 @@ async function loadTripPapers(database: Database, query: TripPaperQuery): Promis
   return { pickups: withoutRepeatedPickups.papers, receipts: withoutRepeatedReceipts.papers, repeats: [...withoutRepeatedPickups.repeats, ...withoutRepeatedReceipts.repeats] };
 }
 
-type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing };
+type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing; goodsNames: ShownGoodsNames };
 
-async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing }: PairedTrips): Promise<TripReport> {
+async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing, goodsNames }: PairedTrips): Promise<TripReport> {
   const facts = await matchTripFacts(database, dropOffReader, scope.workspaceId, trips);
   const documentIds = facts.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
   const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), facts.excludedLinks);
   const reviewPapers = await countReviewTripPapers(database, query);
-  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, repeats, winners, reviewPapers, pairing, matching: facts.matching, dateFrom: request.date_from, dateTo: request.date_to });
+  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, repeats, winners, reviewPapers, pairing, matching: facts.matching, goodsNames, dateFrom: request.date_from, dateTo: request.date_to });
 }
 
 async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {

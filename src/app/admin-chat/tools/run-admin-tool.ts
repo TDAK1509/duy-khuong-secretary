@@ -36,6 +36,7 @@ import { runProposeDocumentTemplates } from './propose-document-templates-tool.t
 import { runSaveDocumentTemplate } from './save-document-template-tool.ts';
 import { runTotalFactValues } from './total-fact-values-tool.ts';
 import { runDeleteRule, runListRules, runSaveRule } from './workspace-rule-tools.ts';
+import { runJoinGoodsNames, runListGoodsNames, runRemoveGoodsName } from './goods-name-tools.ts';
 import { runExportReportXlsx } from './export-report-xlsx-tool.ts';
 import { runExportTripReportXlsx } from './export-trip-report-xlsx-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
@@ -98,6 +99,9 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   save_rule: runSaveRule,
   list_rules: ({ database }, scope, args) => runListRules(database, scope, args),
   delete_rule: ({ database }, scope, args) => runDeleteRule(database, scope, args),
+  join_goods_names: ({ database }, scope, args) => runJoinGoodsNames(database, scope, args),
+  list_goods_names: ({ database }, scope, args) => runListGoodsNames(database, scope, args),
+  remove_goods_name: ({ database }, scope, args) => runRemoveGoodsName(database, scope, args),
   propose_document_templates: ({ database }, scope, args) => runProposeDocumentTemplates(database, scope, args),
   save_document_template: ({ database }, scope, args) => runSaveDocumentTemplate(database, scope, args),
   list_document_templates: ({ database }, scope, args) => runListDocumentTemplates(database, scope, args),
