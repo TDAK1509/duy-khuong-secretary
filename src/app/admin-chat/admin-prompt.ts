@@ -6,7 +6,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 export type PromptFacts = { now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
 }
 
 function buildIntroSection({ now }: PromptFacts): string {
@@ -168,6 +168,13 @@ const COMPANY_RULES_SECTION = `Quy tắc của công ty:
 - Nếu save_rule báo tin nhắn quá dài hoặc đã đủ quy tắc, nói rõ chưa lưu gì. Khi đã đủ, nêu các quy tắc trong "rules" để quản lý chọn quy tắc cần xóa.
 - Khi quản lý hỏi có những quy tắc nào, gọi list_rules rồi nêu từng quy tắc cùng người lưu.
 - Khi quản lý muốn xóa một quy tắc, gọi list_rules để lấy id rồi gọi delete_rule. Nếu có hơn một quy tắc có thể khớp, hỏi lại quản lý muốn xóa quy tắc nào. Sau khi xóa, nhắc lại đúng quy tắc đã xóa.`;
+
+const GOODS_NAMES_SECTION = `Tên hàng:
+- Khi quản lý nói nhiều cách viết tên hàng là cùng một hàng, ví dụ "Than Da, Than, Than Đá đều là Than đá", gọi join_goods_names với đúng các cách viết quản lý nêu và tên hiển thị. Chỉ gộp các cách viết quản lý nêu, không tự đoán thêm cách viết khác.
+- Sau khi gộp, nêu từng cách viết trong "joined" và tên hiển thị. Nếu replaced_shown_name của một cách viết không phải null, nói cách viết đó trước đây hiển thị là tên cũ và nay đã đổi sang tên mới.
+- Báo cáo chuyến và việc ghép phiếu trong báo cáo chuyến dùng tên hiển thị, cho cả giấy tờ đã lưu và giấy tờ lưu sau. Giấy tờ đã lưu vẫn giữ tên in trên giấy.
+- Khi quản lý hỏi đã gộp những tên hàng nào, gọi list_goods_names rồi nêu từng cách viết cùng tên hiển thị.
+- Khi quản lý muốn bỏ gộp một cách viết, gọi remove_goods_name với đúng cách viết quản lý nêu. Sau khi bỏ, nhắc lại cách viết và tên hiển thị đã bỏ, và nói báo cáo chuyến hiển thị lại tên in trên giấy cho cách viết đó.`;
 
 const SCHEDULE_SECTION = `Lịch tự động:
 - Quản lý có thể đặt lịch để bạn tự làm một việc vào giờ đã hẹn: một lần, hằng ngày, hằng tuần hoặc hằng tháng. Kết quả được gửi vào cuộc trò chuyện của người đặt lịch, mở đầu bằng tên lịch.

@@ -14,6 +14,7 @@ import { UPDATE_FACT_SPEC } from './update-fact-spec.ts';
 import { DELETE_FACT_SPEC } from './delete-fact-spec.ts';
 import { TOTAL_FACT_VALUES_SPEC } from './total-fact-values-spec.ts';
 import { WORKSPACE_RULE_TOOLS } from './workspace-rule-specs.ts';
+import { GOODS_NAME_TOOLS } from './goods-name-specs.ts';
 import { DOCUMENT_TEMPLATE_TOOLS } from './document-template-specs.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
@@ -40,6 +41,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   DELETE_FACT_SPEC,
   TOTAL_FACT_VALUES_SPEC,
   ...WORKSPACE_RULE_TOOLS,
+  ...GOODS_NAME_TOOLS,
   ...DOCUMENT_TEMPLATE_TOOLS,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,
