@@ -3,6 +3,7 @@ import type { ReaderService } from '../../../services/reading/reader-service.ts'
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { Database } from '../../db/transaction.ts';
 import type { AdminTextGuard } from './admin-text-guard.ts';
+import type { WaitingChanges } from '../changes/waiting-changes.ts';
 import type { CreatedInvites } from '../created-invites.ts';
 import type { CreatedTasks } from '../created-tasks.ts';
 import type { PhotoAttachments } from '../photo-attachments.ts';
@@ -16,6 +17,7 @@ export type AdminToolDependencies = {
   created: CreatedTasks;
   invites: CreatedInvites;
   guard: AdminTextGuard;
+  waiting: WaitingChanges;
   fileStorage?: FileStorage | null;
   companyReader?: ReaderService | null;
   dropOffReader?: ReaderService | null;

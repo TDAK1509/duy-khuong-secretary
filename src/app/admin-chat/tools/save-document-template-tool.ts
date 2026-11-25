@@ -21,24 +21,27 @@ const argumentsSchema = z.strictObject({
   fields: z.array(fieldArgumentSchema),
 });
 
-type SaveArguments = z.infer<typeof argumentsSchema>;
+export type SaveArguments = z.infer<typeof argumentsSchema>;
 
 export async function runSaveDocumentTemplate(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  const request = argumentsSchema.parse(parsedArguments);
-  const checked = checkArguments(request);
+  const { request, checked } = checkTemplateArguments(parsedArguments);
   const issuer = await resolveTemplateIssuer(database, scope.workspaceId, request.issuer_company);
   const template = { workspaceId: scope.workspaceId, createdByUserId: scope.userId, ...checked, issuerOrganizationId: issuer.organizationId, stage: request.stage };
   const result = await saveDocumentTemplate(database, template);
   return describeSaveResult(result, template, { issuer, wasIssuerNamed: request.issuer_company !== null });
 }
 
-function checkArguments(request: SaveArguments): Pick<NewDocumentTemplate, 'name' | 'nameKey' | 'kind' | 'description' | 'fields'> {
-  return {
+type CheckedTemplate = Pick<NewDocumentTemplate, 'name' | 'nameKey' | 'kind' | 'description' | 'fields'>;
+
+export function checkTemplateArguments(parsedArguments: unknown): { request: SaveArguments; checked: CheckedTemplate } {
+  const request = argumentsSchema.parse(parsedArguments);
+  const checked = {
     ...readTemplateName(request.name),
     kind: readTemplateKind(request.kind),
     description: readTemplateDescription(request.description),
     fields: readTemplateFields(request.fields),
   };
+  return { request, checked };
 }
 
 type IssuerOutcome = { issuer: TemplateIssuer; wasIssuerNamed: boolean };

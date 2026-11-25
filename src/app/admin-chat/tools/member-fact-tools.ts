@@ -12,7 +12,7 @@ const MEMBER_FACTS_FULL_ERROR = 'Thông tin về người này đã đủ 2000 k
 const FACT_NOT_FOUND_ERROR = 'Không tìm thấy thông tin này trong các thông tin đã lưu về người này.';
 
 const uuidSchema = z.uuid();
-const memberArgumentsSchema = z.strictObject({ member_id: z.string() });
+export const memberArgumentsSchema = z.strictObject({ member_id: z.string() });
 const forgetArgumentsSchema = z.strictObject({ member_id: z.string(), fact: z.string() });
 const addArgumentsSchema = z.strictObject({ member_id: z.string(), fact: z.string(), readers: z.enum(FACT_READERS) });
 

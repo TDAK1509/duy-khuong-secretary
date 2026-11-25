@@ -4,7 +4,7 @@ import { runInTransaction, type Database, type Transaction } from '../../db/tran
 import { setDriverPlateFact } from '../../facts/set-driver-plate-fact.ts';
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { addMemberFactInTransaction, type MemberRef } from '../../memory/member-facts.ts';
-import { failTool, MEMBER_NOT_FOUND_ERROR } from './tool-result.ts';
+import { failTool, MEMBER_NOT_FOUND_ERROR, ToolRefusal } from './tool-result.ts';
 import { isVehiclePlate, normalizePlate, refuseInvalidPlate } from './vehicle-plate.ts';
 
 const PLATE_FACT_FULL_ERROR = 'Không thể lưu biển số vì thông tin đã đủ 2000 ký tự.';
@@ -16,10 +16,9 @@ const argumentsSchema = z.strictObject({
 
 const uuidSchema = z.uuid();
 
-const UPDATE_MEMBER_DOCUMENTS_SQL = `
+const MEMBER_DOCUMENTS_WITH_ANOTHER_PLATE_SQL = `
   WITH member_user AS (SELECT user_id FROM memberships WHERE id = $1 AND workspace_id = $2)
-  UPDATE documents
-  SET vehicle_plate = $3
+  SELECT id, vehicle_plate FROM documents
   WHERE workspace_id = $2
     AND vehicle_plate IS DISTINCT FROM $3
     AND id IN (
@@ -29,12 +28,17 @@ const UPDATE_MEMBER_DOCUMENTS_SQL = `
           SELECT id FROM messages WHERE workspace_id = $2 AND user_id = (SELECT user_id FROM member_user)
         )
     )
-  RETURNING id
 `;
 
+const UPDATE_MEMBER_DOCUMENTS_SQL = `
+  WITH documents_to_change AS (${MEMBER_DOCUMENTS_WITH_ANOTHER_PLATE_SQL})
+  UPDATE documents SET vehicle_plate = $3 WHERE id IN (SELECT id FROM documents_to_change) RETURNING id
+`;
+
+export type PlateCount = { plate: string | null; count: number };
+
 export async function runRewriteMemberPlate(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  const request = parsePlateRequest(parsedArguments, scope.workspaceId);
-  if (typeof request === 'string') return request;
+  const request = readPlateRequest(parsedArguments, scope.workspaceId);
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, scope.workspaceId);
     const updated = await updateMemberDocumentsInTransaction(transaction, request.ref, request.plate);
@@ -45,14 +49,23 @@ export async function runRewriteMemberPlate(database: Database, scope: AccessSco
   });
 }
 
-type PlateRequest = { ref: MemberRef; plate: string };
+export type PlateRequest = { ref: MemberRef; plate: string };
 
-function parsePlateRequest(parsedArguments: unknown, workspaceId: string): PlateRequest | string {
+export function readPlateRequest(parsedArguments: unknown, workspaceId: string): PlateRequest {
   const { member_id: memberId, vehicle_plate: rawPlate } = argumentsSchema.parse(parsedArguments);
   const plate = normalizePlate(rawPlate);
   if (!isVehiclePlate(plate)) refuseInvalidPlate(rawPlate);
-  if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
+  if (!uuidSchema.safeParse(memberId).success) throw new ToolRefusal(MEMBER_NOT_FOUND_ERROR);
   return { ref: { workspaceId, membershipId: memberId }, plate };
+}
+
+export async function countPapersToRewrite(database: Database, { ref, plate }: PlateRequest): Promise<PlateCount[]> {
+  const { rows } = await database.query<{ vehicle_plate: string | null; count: number }>(
+    `SELECT vehicle_plate, count(*)::int AS count FROM (${MEMBER_DOCUMENTS_WITH_ANOTHER_PLATE_SQL}) papers
+     GROUP BY vehicle_plate ORDER BY count DESC, vehicle_plate`,
+    [ref.membershipId, ref.workspaceId, plate],
+  );
+  return rows.map((row) => ({ plate: row.vehicle_plate, count: row.count }));
 }
 
 async function updateMemberDocumentsInTransaction(
