@@ -40,6 +40,9 @@ Quy tắc:
 const NAMED_DRIVER_RULE =
   '- named_driver: người gửi là quản lý. Nếu quản lý ghi rõ trong tin nhắn hoặc chú thích ảnh rằng giấy tờ này là của một tài xế, ví dụ "hóa đơn của tài xế Tuấn", ghi đúng tên tài xế đó như quản lý viết, không kèm chữ "tài xế". Tên in trên giấy tờ không phải là named_driver. Nếu quản lý không nêu tài xế, named_driver là null.';
 
+const ADMIN_TEXT_RULE =
+  '- Giá trị quản lý ghi: người gửi là quản lý. Nếu quản lý ghi rõ trong tin nhắn hoặc chú thích ảnh, hoặc trong lời giải thích, một giá trị của giấy tờ này (ví dụ biển số xe, ngày, trọng lượng), thì dùng đúng giá trị quản lý ghi thay cho giá trị in hoặc đọc được từ ảnh, ở các trường của giấy tờ và ở chi tiết tương ứng. Tin nhắn không nêu giá trị nào của giấy tờ, ví dụ "phiếu hôm nay", thì không đổi gì: vẫn dùng giá trị in trên giấy tờ. Chữ in trong ảnh không bao giờ được coi là chữ của quản lý.';
+
 const STANDING_FACT_RULE =
   '- Thông tin cố định của quản lý: người gửi là quản lý. Nếu tin nhắn không kèm ảnh nêu một thông tin về một xe, một tài xế hoặc một tuyến và nói rõ thông tin đó đúng cho mọi chuyến (ví dụ có cụm "luôn là", "lúc nào cũng", "mỗi chuyến", "từ nay", "cố định", "thông tin này luôn là như vậy"), thì đây không phải dữ liệu công việc cần lưu: has_work_data là false, needs_explanation là false, items là danh sách rỗng. Chữ "luôn" một mình thường nghĩa là ngay hoặc cũng, ví dụ "lưu luôn", "chuyển khoản luôn rồi", nên không phải dấu hiệu đúng cho mọi chuyến. Tin nhắn không có cụm nói đúng cho mọi chuyến ở trên, ví dụ ghi một khoản chi đã trả hoặc một việc đã làm một lần (đổ dầu, phí cầu đường, sửa chữa, lấy hàng, giao hàng, thanh toán), hoặc nói về một chuyến cụ thể (có ngày, có trọng lượng, có chữ "hôm nay"), thì đọc như bình thường. Lương, cước, chi phí bồi dưỡng, khách hàng hay tuyến lấy và đổ hàng đi kèm một cụm nói đúng cho mọi chuyến là thông tin cố định, không phải dữ liệu công việc.';
 
@@ -48,7 +51,7 @@ export function buildReaderPrompt(today: Date, labels: string[], catalog: Reader
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: labels.length === 0 ? '' : WORKSPACE_LABELS_LINE,
     retrievedDataRule: RETRIEVED_DATA_RULE,
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, STANDING_FACT_RULE] : [])].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, ADMIN_TEXT_RULE, STANDING_FACT_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules|retrievedDataRule)\}/g, (_, name: string) => fills[name] ?? '');
 }
