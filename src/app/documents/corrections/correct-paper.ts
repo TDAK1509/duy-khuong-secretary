@@ -1,8 +1,10 @@
 import type { Transaction } from '../../db/transaction.ts';
 import { linkDocumentToMatchingFacts } from '../../facts/link-facts.ts';
+import { findPrintedLine, type PrintedLine } from './find-printed-line.ts';
 import { listPaperChanges, resolveFinalValues } from './list-paper-changes.ts';
 import { mergeIntoExistingPaper } from './merge-into-existing-paper.ts';
 import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from './paper-correction.ts';
+import { setPrintedValue } from './set-printed-value.ts';
 import { updateSourceRecords } from './update-source-records.ts';
 
 const FIND_SAME_PAPER_SQL = `
@@ -22,13 +24,23 @@ const UPDATE_PAPER_SQL = `
 export async function correctPaper(corrector: PaperCorrector, paper: FoundPaper, values: NewPaperValues): Promise<CorrectedPaper> {
   const { transaction, workspaceId } = corrector;
   await updateSourceRecords(transaction, workspaceId, paper.id, values);
-  const changes = listPaperChanges(paper, values);
+  const changes = listPaperChanges(paper, values, await findPrintedLineBefore(transaction, workspaceId, paper.id, values));
   if (changes.length === 0) return { paper, changes, mergedIntoId: null };
+  const existingId = await storeCorrection(corrector, paper, values);
+  await relinkPaperFacts(transaction, workspaceId, existingId ?? paper.id);
+  return { paper, changes, mergedIntoId: existingId };
+}
+
+async function storeCorrection(corrector: PaperCorrector, paper: FoundPaper, values: NewPaperValues): Promise<string | null> {
   const existingId = await findSamePaper(corrector, paper, values);
   if (existingId === null) await updatePaper(corrector, paper.id, values);
   else await mergeIntoExistingPaper(corrector, { paperId: paper.id, existingId }, values);
-  await relinkPaperFacts(transaction, workspaceId, existingId ?? paper.id);
-  return { paper, changes, mergedIntoId: existingId };
+  if (values.printed !== null) await setPrintedValue(corrector, existingId ?? paper.id, values.printed);
+  return existingId;
+}
+
+async function findPrintedLineBefore(transaction: Transaction, workspaceId: string, paperId: string, { printed }: NewPaperValues): Promise<PrintedLine | null> {
+  return printed === null ? null : findPrintedLine(transaction, workspaceId, paperId, printed.label);
 }
 
 async function findSamePaper({ transaction, workspaceId }: PaperCorrector, paper: FoundPaper, values: NewPaperValues): Promise<string | null> {

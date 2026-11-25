@@ -12,12 +12,13 @@ import type { AdminToolDependencies } from './tool-dependencies.ts';
 
 const LIST_LIMIT = 20;
 
-type Decision = 'no_match' | 'several' | 'number_on_several' | 'apply';
+type Decision = 'no_match' | 'several' | 'number_on_several' | 'printed_on_several' | 'apply';
 
 const NOT_DONE_NOTES: Record<Exclude<Decision, 'apply'>, string> = {
   no_match: 'Không có giấy tờ đã lưu nào khớp. Chưa đổi gì.',
   several: 'Có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào. Nếu quản lý muốn sửa tất cả, gọi lại với all_matching true.',
   number_on_several: 'Số giấy tờ mới chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
+  printed_on_several: 'Giá trị in trên giấy chỉ đặt được cho một giấy tờ, mà có nhiều giấy tờ khớp. Chưa đổi gì. Hỏi quản lý muốn sửa giấy tờ nào.',
 };
 
 export async function runCorrectDocument(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
@@ -58,6 +59,7 @@ function decideCorrection({ total }: FoundPapers, { values, allMatching }: Corre
   if (total === 0) return 'no_match';
   if (total === 1) return 'apply';
   if (values.documentNumber !== null) return 'number_on_several';
+  if (values.printed !== null) return 'printed_on_several';
   return allMatching ? 'apply' : 'several';
 }
 

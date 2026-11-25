@@ -15,7 +15,7 @@ export function describeCorrectedPaper({ paper, changes, mergedIntoId }: Correct
     number: final.documentNumber,
     date: final.documentDate,
     outcome: pickOutcome(changes.length, mergedIntoId),
-    changes: changes.map(({ field, before, after }) => ({ field, before, after })),
+    changes: changes.map(({ field, label, before, after }) => ({ field, label, before, after })),
   };
 }
 

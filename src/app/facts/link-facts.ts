@@ -99,7 +99,7 @@ function buildPartyMatch(matchKeyColumn: `${CompanySlot}_match_key`, roles: stri
   )`;
 }
 
-function buildAccentFreeKey(column: string): string {
+export function buildAccentFreeKey(column: string): string {
   return `regexp_replace(lower(unaccent(${column})), '[^a-z0-9]', '', 'g')`;
 }
 
