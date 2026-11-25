@@ -18,6 +18,7 @@ import { runScheduledTool, SCHEDULED_RUN_TOOLS } from './scheduled-tools.ts';
 import { describeFailedRun, describeSkippedRun, labelAnswer } from './scheduled-run-texts.ts';
 import { turnOffTask } from './turn-off-task.ts';
 import { buildScheduledRunPrompt, buildScheduledRunTurn } from './scheduled-run-prompt.ts';
+import { WaitingChanges } from '../../admin-chat/changes/waiting-changes.ts';
 import { AdminTextGuard } from '../../admin-chat/tools/admin-text-guard.ts';
 
 const MAX_TASKS_PER_TICK = 5;
@@ -70,7 +71,7 @@ async function runModel(
   creator: TaskCreator,
 ): Promise<string> {
   const caller: AccessScope = { workspaceId: task.workspaceId, userId: task.createdBy, role: 'admin' };
-  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true) };
+  const toolDependencies = { database, clock, attachments: new PhotoAttachments(), sources: new SourceCards(), created: new CreatedTasks(null), invites: new CreatedInvites(), guard: new AdminTextGuard(true), waiting: new WaitingChanges() };
   const meteredChat = meterChat(chat, { database, workspaceId: task.workspaceId, charged: { clock, maxTextLength: channel.maxTextLength } }, 'scheduled_run');
   const result = await runToolLoop(meteredChat, buildRunRequest(task, creator, clock.now()), (call) =>
     runScheduledTool(toolDependencies, caller, call),

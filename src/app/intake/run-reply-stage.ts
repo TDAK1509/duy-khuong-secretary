@@ -44,7 +44,7 @@ async function saveReply(
   if (plan.saved) await insertRecords(transaction, message, plan.saved);
   await storeDocuments(transaction, message, plannedReply, plan.saved !== null, sender, readTaggedDriver(driverTag));
   const text = formatReplyWithReadData(plan);
-  await storeBotReply(transaction, messageId, { text, kind: plan.replyKind, holdsOtherText: photo !== null && plan.saved !== null });
+  await storeBotReply(transaction, messageId, { text, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, text);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);

@@ -4,10 +4,10 @@ import type { Database } from '../../db/transaction.ts';
 import { clearPrivateMemory } from '../../memory/private-memory.ts';
 import { failTool, REFUSAL_ERROR } from './tool-result.ts';
 
-const argumentsSchema = z.strictObject({});
+export const forgetAllArgumentsSchema = z.strictObject({});
 
 export async function runForgetAll(database: Database, scope: AccessScope, parsedArguments: unknown): Promise<string> {
-  argumentsSchema.parse(parsedArguments);
+  forgetAllArgumentsSchema.parse(parsedArguments);
   const markdown = await clearPrivateMemory(database, scope);
   return markdown === null ? failTool(REFUSAL_ERROR) : JSON.stringify({ ok: true, markdown });
 }
