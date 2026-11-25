@@ -19,7 +19,7 @@ import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
 import { readPrivateMemory } from '../memory/private-memory.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
-import { loadHistoryTurns } from './load-history-turns.ts';
+import { listTypedTexts, loadHistoryTurns } from './load-history-turns.ts';
 import { loadCompanyRules } from './load-company-rules.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
@@ -68,14 +68,14 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
 
 type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean; loop: ToolLoopChoice };
 
-type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean };
+type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean; typedHistoryTexts: string[] };
 
 async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView, built: BuiltRequest): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
   const { database, clock } = context.dependencies;
-  const { request, hasFlaggedAnswer } = built;
+  const { request, hasFlaggedAnswer, typedHistoryTexts } = built;
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, currentMessageText: message.text, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
+  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, currentMessageText: message.text, currentMessageId: message.id, typedHistoryTexts, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(view.loop, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result, profile.role, dependencies), hasFlaggedAnswer };
 }
@@ -128,7 +128,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const rules = profile.role === 'admin' ? await loadCompanyRules(context) : null;
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history: history.turns, current });
   const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
+  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, typedHistoryTexts: listTypedTexts(history.turns) };
 }
 
 async function buildProfileLines({ dependencies, sender }: IntakeContext, profile: ChatProfile): Promise<string[]> {

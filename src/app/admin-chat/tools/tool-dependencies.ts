@@ -20,4 +20,6 @@ export type AdminToolDependencies = {
   companyReader?: ReaderService | null;
   dropOffReader?: ReaderService | null;
   currentMessageText?: string | null;
+  currentMessageId?: string | null;
+  typedHistoryTexts?: string[];
 };

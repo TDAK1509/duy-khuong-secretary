@@ -12,7 +12,7 @@ type PaperRow = { issuer_key: string | null; document_number: string | null; doc
 const LOCK_PAPER_SQL = `
   SELECT issuer_key, document_number, document_date::text AS document_date, vehicle_plate
   FROM documents
-  WHERE id = $1 AND workspace_id = $2 AND status = 'accepted'
+  WHERE id = $1 AND workspace_id = $2 AND status = 'accepted' AND admin_corrected_at IS NULL
   FOR UPDATE`;
 
 export async function settlePaper(transaction: Transaction, target: PaperTarget, read: PaperRead): Promise<PaperOutcome> {

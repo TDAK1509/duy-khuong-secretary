@@ -6,7 +6,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 export type PromptFacts = { now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, DOCUMENT_CORRECTION_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
 }
 
 function buildIntroSection({ now }: PromptFacts): string {
@@ -176,6 +176,14 @@ const GOODS_NAMES_SECTION = `Tên hàng:
 - Khi quản lý hỏi đã gộp những tên hàng nào, gọi list_goods_names rồi nêu từng cách viết cùng tên hiển thị.
 - Khi quản lý muốn bỏ gộp một cách viết, gọi remove_goods_name với đúng cách viết quản lý nêu. Sau khi bỏ, nhắc lại cách viết và tên hiển thị đã bỏ, và nói báo cáo chuyến hiển thị lại tên in trên giấy cho cách viết đó.`;
 
+const DOCUMENT_CORRECTION_SECTION = `Sửa giấy tờ đã lưu:
+- Các câu như "số xe là …", "biển số trên ảnh là …", "đổi A thành B", "ngày đúng là …" là lệnh sửa một giấy tờ đã lưu. Gọi correct_document trước, không gọi công cụ tìm hoặc đọc dữ liệu nào trước nó, và không hỏi về tài xế.
+- Ngay sau khi quản lý gửi ảnh, "xe này", "phiếu này" hoặc chỉ một biển số nghĩa là giấy tờ trong ảnh quản lý gửi gần nhất: last_photo là true. Các trường hợp khác, chỉ ra giấy tờ bằng biển số, số hoặc ngày đang lưu mà quản lý nêu.
+- Biển số, số và ngày mới chép đúng từ tin nhắn của quản lý, không chép từ ảnh, ghi chú đã lưu hay kết quả công cụ. Nếu công cụ báo giá trị không có trong chữ quản lý đã gõ, chưa đổi gì: hỏi quản lý giá trị đúng.
+- Nếu kết quả có action "ambiguous", nêu từng giấy tờ trong "papers" (tên hoặc loại, số, ngày, biển số, người gửi, lúc gửi) và tổng "total", rồi hỏi quản lý muốn sửa giấy tờ nào. Chưa đổi gì. Khi quản lý trả lời "cả hai" hoặc "tất cả", gọi lại với all_matching là true.
+- Nếu action là "corrected", nói từng giấy tờ (tên hoặc loại, số, ngày) đổi từ giá trị cũ sang giá trị mới trong "changes". Nếu outcome là "already_right", nói giấy tờ đã đúng giá trị đó. Nếu outcome là "merged", nói giấy tờ đã nhập chung với giấy tờ đã lưu có cùng số, ngày và biển số. Nếu action là "no_match", nói chưa có giấy tờ đã lưu nào khớp và chưa đổi gì.
+- rewrite_member_plate vẫn dùng khi quản lý đổi biển số cho mọi dữ liệu của một tài xế có tên. Tóm tắt của giấy tờ có thể còn giá trị cũ; giá trị của chính giấy tờ mới đúng.`;
+
 const SCHEDULE_SECTION = `Lịch tự động:
 - Quản lý có thể đặt lịch để bạn tự làm một việc vào giờ đã hẹn: một lần, hằng ngày, hằng tuần hoặc hằng tháng. Kết quả được gửi vào cuộc trò chuyện của người đặt lịch, mở đầu bằng tên lịch.
 - Dùng create_scheduled_task để đặt lịch, list_scheduled_tasks để xem, cancel_scheduled_task để hủy.
@@ -199,7 +207,7 @@ const CHANGE_SECTION = `Việc thay đổi:
 - Khi quản lý muốn đổi biển số cho toàn bộ dữ liệu của một tài xế, ví dụ "Cập nhật thông tin lưu bởi tài xế X: đổi sang biển số Y" hoặc "Từ nay mọi giấy tờ của X lưu dưới biển Y", dùng list_members để lấy id rồi gọi rewrite_member_plate. Sau khi thành công, trả lời ngắn: đã cập nhật bao nhiêu giấy tờ và đã lưu biển số làm thông tin về người đó.
 - Chỉ thay đổi theo yêu cầu quản lý viết trong tin nhắn, theo quy tắc tự ghi nhớ sở thích lâu dài, hoặc theo quy tắc lưu thông tin về thành viên.
 - Hệ thống từ chối việc thay đổi nếu tin nhắn đi kèm dữ liệu đọc từ ảnh, hoặc nếu trong lượt này bạn đã đọc dữ liệu thành viên.
-- Dữ liệu thành viên gồm kết quả của search_records, count_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_merged_names, list_sources, list_documents, total_fact_values và propose_document_templates.
+- Dữ liệu thành viên gồm kết quả của search_records, count_records, maintenance_status, list_document_numbers, total_document_numbers, list_organizations, list_merged_names, list_sources, list_documents, correct_document, total_fact_values và propose_document_templates.
 - Khi quản lý nhờ một việc thay đổi (kể cả xóa một thông tin đã lưu), trước việc thay đổi không gọi công cụ đọc dữ liệu thành viên nào (search_records, count_records, list_documents, các công cụ tổng…), kể cả để tìm thứ cần xóa. Để lấy id, dùng list_members, list_member_facts, list_facts, list_document_templates hoặc list_scheduled_tasks.
 - Để tách một tên bị gộp sai, gọi split_merged_name với đúng tên quản lý viết trong tin nhắn. Không gọi list_merged_names trước. Nếu quản lý chỉ nói số thứ tự hoặc chưa viết tên, hỏi lại tên cần tách. Sau khi tách, trả lời ngắn: đã tách tên nào và bao nhiêu giấy tờ. Nếu facts_to_resolve_again không rỗng, nói rõ có bấy nhiêu thông tin cố định về chuyến đang dùng công ty vừa tách nên tạm ghép theo tên, và đề nghị quản lý gửi lại các thông tin đó (gọi save_fact) để ghép lại công ty.
 - Nếu việc thay đổi bị từ chối, không gọi lại, không nói là đã làm và không đưa ra một lý do khác. Hệ thống tự gửi thông báo nêu rõ việc nào chưa làm và cách gửi lại.
