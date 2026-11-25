@@ -5,6 +5,7 @@ import { MEMBER_FACT_TOOLS } from './member-fact-specs.ts';
 import { ADMIN_SEARCH_RECORDS_SPEC } from './admin-search-records-spec.ts';
 import { ADMIN_ATTACH_PHOTOS_SPEC, ADMIN_LIST_SOURCES_SPEC } from './admin-source-specs.ts';
 import { REWRITE_MEMBER_PLATE_SPEC } from './rewrite-member-plate-spec.ts';
+import { CORRECT_DOCUMENT_SPEC } from './correct-document-spec.ts';
 import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { EXPORT_REPORT_XLSX_SPEC } from './export-report-xlsx-spec.ts';
 import { EXPORT_TRIP_REPORT_XLSX_SPEC } from './export-trip-report-xlsx-spec.ts';
@@ -35,6 +36,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   REMOVE_MEMBER_SPEC,
   ...MEMBER_FACT_TOOLS,
   REWRITE_MEMBER_PLATE_SPEC,
+  CORRECT_DOCUMENT_SPEC,
   SAVE_FACT_SPEC,
   LIST_FACTS_SPEC,
   UPDATE_FACT_SPEC,
