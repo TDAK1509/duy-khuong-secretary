@@ -93,9 +93,9 @@ async function readFactScope(database: Database, workspaceId: string, request: S
   const factScope = {
     vehiclePlate: readPlateArgument(request.vehicle_plate),
     driverUserId: driver?.userId ?? null,
-    pickup: await readCompanyArgument(database, workspaceId, request.pickup_company, 'pickup_company', picks.pickup),
-    dropoff: await readCompanyArgument(database, workspaceId, request.dropoff_company, 'dropoff_company', picks.dropoff),
-    customer: await readCompanyArgument(database, workspaceId, request.customer_company, 'customer_company', picks.customer),
+    pickup: await readCompanyArgument(database, workspaceId, request.pickup_company, picks.pickup),
+    dropoff: await readCompanyArgument(database, workspaceId, request.dropoff_company, picks.dropoff),
+    customer: await readCompanyArgument(database, workspaceId, request.customer_company, picks.customer),
   };
   const isEmpty = [factScope.vehiclePlate, factScope.driverUserId, factScope.pickup, factScope.dropoff].every((part) => part === null);
   if (isEmpty) throw new ToolRefusal(SCOPE_MISSING_ERROR);

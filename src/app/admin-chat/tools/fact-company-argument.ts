@@ -3,20 +3,24 @@ import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { FactCompany } from '../../facts/fact.ts';
 import type { PickedCompanies, SlotNames } from '../../facts/pick-fact-companies.ts';
 import { resolveFactCompany } from '../../facts/resolve-fact-company.ts';
-import { refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
+import { ToolRefusal } from './tool-result.ts';
 
 export type ResolvedCompany = FactCompany & { matchedOrganization: string | null };
 
-export async function readCompanyArgument(database: Database, workspaceId: string, raw: string | null, field: string, pick?: PickedCompanies): Promise<ResolvedCompany | null> {
+export async function readCompanyArgument(database: Database, workspaceId: string, raw: string | null, pick?: PickedCompanies): Promise<ResolvedCompany | null> {
   if (raw === null) return null;
   const name = raw.trim();
   const matchKey = buildMatchKey(name);
-  if (matchKey === '') refuseInvalidArgument(field);
+  if (matchKey === '') refuseInvalidCompany(raw);
   const resolution = await resolveFactCompany(database, workspaceId, matchKey);
   if (pick !== undefined) return readPickedCompany(name, resolution.kind === 'known' ? resolution.matchKey : matchKey, pick);
   if (resolution.kind === 'ambiguous') throw new ToolRefusal(describeAmbiguousCompany(name, resolution.organizationNames));
   if (resolution.kind === 'unknown') return { name, matchKey, organizationIds: null, matchedOrganization: null };
   return { name, matchKey: resolution.matchKey, organizationIds: null, matchedOrganization: resolution.organizationName };
+}
+
+export function refuseInvalidCompany(received: string): never {
+  throw new ToolRefusal(`Tên công ty "${received}" không có chữ nào. Cần tên công ty đúng như quản lý nêu, ví dụ "Công ty ABC". Sửa tên rồi gọi lại.`);
 }
 
 function readPickedCompany(name: string, matchKey: string, pick: PickedCompanies): ResolvedCompany {

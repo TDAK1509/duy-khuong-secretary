@@ -4,8 +4,8 @@ import { runInTransaction, type Database, type Transaction } from '../../db/tran
 import { setDriverPlateFact } from '../../facts/set-driver-plate-fact.ts';
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { addMemberFactInTransaction, type MemberRef } from '../../memory/member-facts.ts';
-import { failTool, MEMBER_NOT_FOUND_ERROR, refuseInvalidArgument } from './tool-result.ts';
-import { isVehiclePlate, normalizePlate } from './vehicle-plate.ts';
+import { failTool, MEMBER_NOT_FOUND_ERROR } from './tool-result.ts';
+import { isVehiclePlate, normalizePlate, refuseInvalidPlate } from './vehicle-plate.ts';
 
 const PLATE_FACT_FULL_ERROR = 'Không thể lưu biển số vì thông tin đã đủ 2000 ký tự.';
 
@@ -50,7 +50,7 @@ type PlateRequest = { ref: MemberRef; plate: string };
 function parsePlateRequest(parsedArguments: unknown, workspaceId: string): PlateRequest | string {
   const { member_id: memberId, vehicle_plate: rawPlate } = argumentsSchema.parse(parsedArguments);
   const plate = normalizePlate(rawPlate);
-  if (!isVehiclePlate(plate)) refuseInvalidArgument('vehicle_plate');
+  if (!isVehiclePlate(plate)) refuseInvalidPlate(rawPlate);
   if (!uuidSchema.safeParse(memberId).success) return failTool(MEMBER_NOT_FOUND_ERROR);
   return { ref: { workspaceId, membershipId: memberId }, plate };
 }

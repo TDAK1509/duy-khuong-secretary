@@ -6,7 +6,7 @@ import { listFacts, type ListedFact, type ListedFactValue } from '../../facts/li
 import { formatVietnamDate } from '../../time/format-vietnam-date.ts';
 import { formatVietnamTime } from '../../time/format-vietnam-time.ts';
 import { findFactDriver } from './find-fact-driver.ts';
-import { refuseInvalidArgument } from './tool-result.ts';
+import { refuseInvalidCompany } from './fact-company-argument.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
 const argumentsSchema = z.strictObject({
@@ -26,7 +26,7 @@ export async function runListFacts(database: Database, scope: AccessScope, parse
 function readCompanyFilter(raw: string | null): string | null {
   if (raw === null) return null;
   const matchKey = buildMatchKey(raw);
-  if (matchKey === '') refuseInvalidArgument('company');
+  if (matchKey === '') refuseInvalidCompany(raw);
   return matchKey;
 }
 
