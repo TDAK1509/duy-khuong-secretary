@@ -1,5 +1,6 @@
 import { isCodeTyped, isDateTyped, isNumberTyped, isTextTyped, isWeightTyped } from '../../documents/corrections/is-value-typed.ts';
-import type { NewPaperValues, PrintedValue } from '../../documents/corrections/paper-correction.ts';
+import type { PrintedValue } from '../../documents/corrections/paper-correction.ts';
+import type { CorrectionRequest } from './correct-document-arguments.ts';
 import { ToolRefusal } from './tool-result.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
@@ -9,11 +10,12 @@ export function collectAdminTypedTexts({ typedHistoryTexts, currentMessageText }
   return [...(typedHistoryTexts ?? []), ...(currentMessageText ? [currentMessageText] : [])];
 }
 
-export function refuseUntypedValues(values: NewPaperValues, typedTexts: string[]): void {
+export function refuseUntypedValues({ values, company }: Pick<CorrectionRequest, 'values' | 'company'>, typedTexts: string[]): void {
   const checks: ValueCheck[] = [
     { label: 'Biển số', value: values.plate, isTyped: isCodeTyped },
     { label: 'Số giấy tờ', value: values.documentNumber, isTyped: isCodeTyped },
     { label: 'Ngày', value: values.documentDate, isTyped: isDateTyped },
+    { label: 'Tên công ty', value: company?.name ?? null, isTyped: isTextTyped },
     ...buildPrintedChecks(values.printed),
   ];
   const untyped = checks.find(({ value, isTyped }) => value !== null && !isTyped(typedTexts, value));
