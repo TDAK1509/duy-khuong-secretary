@@ -5,21 +5,17 @@ import type { IntakeSender } from '../intake/find-intake-sender.ts';
 const HISTORY_LIMIT = 20;
 const PHOTO_MARK = '[ảnh]';
 const CAPTION_MARK = '[ghi chú kèm file, đã dùng để đọc file]';
-const HIDDEN_ANSWER_TEXT = '(Câu trả lời cũ đã được ẩn.)';
 
-export type History = { turns: ChatTurn[]; hasFlaggedAnswer: boolean };
-
-type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null; holds_other_text: boolean; is_caption: boolean };
+type HistoryRow = { author: 'user' | 'bot'; text: string | null; image_key: string | null; is_caption: boolean };
 
 export async function loadHistoryTurns(
   database: Database,
   sender: IntakeSender,
   joinedAt: Date,
   currentMessageId: string,
-  hideFlaggedAnswers: boolean,
-): Promise<History> {
+): Promise<ChatTurn[]> {
   const { rows } = await database.query<HistoryRow>(
-    `SELECT author, text, image_key, holds_other_text,
+    `SELECT author, text, image_key,
        EXISTS (SELECT 1 FROM inbound_events event WHERE event.id = messages.inbound_event_id AND event.caption_for_event_id IS NOT NULL) AS is_caption
      FROM messages
      WHERE workspace_id = $1 AND user_id = $2 AND created_at >= $3 AND source <> 'mcp'
@@ -28,20 +24,13 @@ export async function loadHistoryTurns(
      LIMIT $5`,
     [sender.workspaceId, sender.userId, joinedAt, currentMessageId, HISTORY_LIMIT],
   );
-  return {
-    turns: rows.reverse().map((row) => toTurn(row, hideFlaggedAnswers)),
-    hasFlaggedAnswer: rows.some((row) => row.author === 'bot' && row.holds_other_text),
-  };
+  return rows.reverse().map(toTurn);
 }
 
-function toTurn(row: HistoryRow, hideFlaggedAnswers: boolean): ChatTurn {
-  if (row.author === 'bot') return { role: 'assistant', text: describeAnswer(row, hideFlaggedAnswers) };
+function toTurn(row: HistoryRow): ChatTurn {
+  if (row.author === 'bot') return { role: 'assistant', text: row.text ?? '' };
   if (row.is_caption) return { role: 'user', text: `${CAPTION_MARK} ${row.text ?? ''}` };
   return { role: 'user', text: row.image_key === null ? row.text : describePhotoMessage(row.text) };
-}
-
-function describeAnswer({ text, holds_other_text: holdsOtherText }: HistoryRow, hideFlaggedAnswers: boolean): string {
-  return text === null || (hideFlaggedAnswers && holdsOtherText) ? HIDDEN_ANSWER_TEXT : text;
 }
 
 function describePhotoMessage(text: string | null): string {

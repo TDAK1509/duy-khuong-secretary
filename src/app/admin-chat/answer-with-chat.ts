@@ -26,9 +26,8 @@ import { PhotoAttachments } from './photo-attachments.ts';
 import { SourceCards, type Conversation, type SourceCard } from './source-cards.ts';
 import { CreatedInvites } from './created-invites.ts';
 import { CreatedTasks } from './created-tasks.ts';
-import { AdminTextGuard, type ChangeTool } from './tools/admin-text-guard.ts';
+import { AdminTextGuard, type GuardedTool } from './tools/admin-text-guard.ts';
 import type { AdminToolDependencies } from './tools/tool-dependencies.ts';
-import { buildChangeRefusedNotice } from './chat-texts.ts';
 import { loadTaskSummaries } from '../schedules/load-task-summaries.ts';
 import { claimDocumentSetupOffer, listOfferMadeProfileLines } from './document-setup-offer.ts';
 import { DOCUMENT_SETUP_OFFER_TEXT } from '../processing/conversation-texts.ts';
@@ -51,33 +50,25 @@ type Answer = {
   createdTaskIds: string[];
   inviteCodes: string[];
   sourceCards: SourceCard[];
-  refusedTools: ChangeTool[];
-  holdsOtherText: boolean;
+  stoppedTools: GuardedTool[];
 };
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
-  const firstRequest = await buildChatRequest(context, message, profile, false);
+  const request = await buildChatRequest(context, message, profile);
   const loop = chooseToolLoop(context, profile.role);
-  const first = await runChatTurn(context, message, profile, { hideFlaggedAnswers: false, hasNote, loop }, firstRequest);
-  const isRefusedOnlyByHistory = first.answer.refusedTools.length > 0 && first.hasFlaggedAnswer && !hasNote;
-  if (!isRefusedOnlyByHistory) return first.answer;
-  const retryRequest = await buildChatRequest(context, message, profile, true);
-  return (await runChatTurn(context, message, profile, { hideFlaggedAnswers: true, hasNote, loop }, retryRequest)).answer;
+  return runChatTurn(context, message, profile, { hasNote, loop }, request);
 }
 
-type ChatTurnView = { hideFlaggedAnswers: boolean; hasNote: boolean; loop: ToolLoopChoice };
+type ChatTurnView = { hasNote: boolean; loop: ToolLoopChoice };
 
-type BuiltRequest = { request: ChatRequest; hasFlaggedAnswer: boolean };
-
-async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView, built: BuiltRequest): Promise<{ answer: Answer; hasFlaggedAnswer: boolean }> {
+async function runChatTurn(context: IntakeContext, message: ChatMessage, profile: ChatProfile, view: ChatTurnView, request: ChatRequest): Promise<Answer> {
   const { database, clock } = context.dependencies;
-  const { request, hasFlaggedAnswer } = built;
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
-  const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
+  const guard = new AdminTextGuard(view.hasNote);
   const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, currentMessageText: message.text, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(view.loop, message, request, (call) => runChatTool(dependencies, caller, call));
-  return { answer: collectAnswer(result, profile.role, dependencies), hasFlaggedAnswer };
+  return collectAnswer(result, profile.role, dependencies);
 }
 
 function readConversation({ event }: IntakeContext): Conversation {
@@ -93,8 +84,7 @@ function collectAnswer({ outcome, text }: ToolLoopResult, role: ChatProfile['rol
     createdTaskIds: created.listTaskIds(),
     inviteCodes: invites.listCodes(),
     sourceCards: sources.list(),
-    refusedTools: guard.listRefusedTools(),
-    holdsOtherText: role === 'member' || guard.hasSeenOtherText(),
+    stoppedTools: guard.listStoppedTools(),
   };
 }
 
@@ -119,16 +109,15 @@ async function runLoggedToolLoop({ chat, maxRounds }: ToolLoopChoice, message: C
   }
 }
 
-async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, hideFlaggedAnswers: boolean): Promise<BuiltRequest> {
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile): Promise<ChatRequest> {
   const { database, clock } = context.dependencies;
-  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id, hideFlaggedAnswers);
+  const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
   const tools = listChatTools(profile.role);
   const current = await buildCurrentRequest(database, message);
   const profileLines = await buildProfileLines(context, profile);
   const rules = profile.role === 'admin' ? await loadCompanyRules(context) : null;
-  const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history: history.turns, current });
-  const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
-  return { request, hasFlaggedAnswer: history.hasFlaggedAnswer };
+  const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history, current });
+  return { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
 }
 
 async function buildProfileLines({ dependencies, sender }: IntakeContext, profile: ChatProfile): Promise<string[]> {
@@ -165,7 +154,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   const offer = await offerDocumentSetup(transaction, context, answer);
   const text = joinAnswerParts(answer, summaries, offer);
-  await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards.map((card) => card.text)].join('\n\n'), kind: 'answer', holdsOtherText: answer.holdsOtherText });
+  await storeBotReply(transaction, messageId, { text: [text, ...answer.sourceCards.map((card) => card.text)].join('\n\n'), kind: 'answer' });
   await storeReplyPhotos(transaction, messageId, answer.photos);
   await clearQuestionPending(transaction, messageId);
   await setSubmissionStatus(transaction, messageId, 'accepted');
@@ -177,8 +166,8 @@ async function offerDocumentSetup(transaction: Transaction, { sender, dependenci
   return (await claimDocumentSetupOffer(transaction, sender, dependencies.clock.now())) ? [DOCUMENT_SETUP_OFFER_TEXT] : [];
 }
 
-function isRealAdminAnswer({ role, outcome, text, refusedTools }: Answer): boolean {
-  return role === 'admin' && outcome === 'answered' && text.trim() !== '' && refusedTools.length === 0;
+function isRealAdminAnswer({ role, outcome, text, stoppedTools }: Answer): boolean {
+  return role === 'admin' && outcome === 'answered' && text.trim() !== '' && stoppedTools.length === 0;
 }
 
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
@@ -190,6 +179,5 @@ async function enqueueAnswerMessages(transaction: Transaction, context: IntakeCo
 }
 
 function joinAnswerParts(answer: Answer, summaries: string[], offer: string[]): string {
-  const notice = answer.refusedTools.length > 0 ? [buildChangeRefusedNotice(answer.refusedTools)] : [];
-  return [answer.text, ...summaries, ...notice, ...offer].join('\n\n');
+  return [answer.text, ...summaries, ...offer].join('\n\n');
 }

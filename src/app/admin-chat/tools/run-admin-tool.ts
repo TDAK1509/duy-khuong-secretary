@@ -42,7 +42,7 @@ import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
+import { buildConfirmationError, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
 
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
@@ -51,7 +51,8 @@ export async function runAdminTool(dependencies: AdminToolDependencies, caller: 
 }
 
 export async function runGuardedTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
-  if (dependencies.guard.refuses(call.name)) return failTool(CHANGE_REFUSED_ERROR);
+  const stoppedTool = dependencies.guard.stopCall(call.name);
+  if (stoppedTool !== null) return failTool(buildConfirmationError(stoppedTool));
   dependencies.guard.noteCall(call.name);
   return runToolInScope(dependencies, scope, call);
 }

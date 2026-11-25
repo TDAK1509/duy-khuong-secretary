@@ -1,6 +1,6 @@
-export const CHANGE_TOOLS = ['create_scheduled_task', 'cancel_scheduled_task', 'create_invite', 'remove_member', 'add_member_fact', 'forget_member_fact', 'forget_all_member_facts', 'remember', 'forget', 'forget_all', 'split_merged_name', 'rewrite_member_plate', 'save_fact', 'update_fact', 'delete_fact', 'save_document_template', 'delete_document_template'] as const;
+export const GUARDED_TOOLS = ['remove_member', 'create_invite', 'forget_all', 'forget_all_member_facts', 'rewrite_member_plate', 'save_document_template'] as const;
 
-export type ChangeTool = (typeof CHANGE_TOOLS)[number];
+export type GuardedTool = (typeof GUARDED_TOOLS)[number];
 
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'total_fact_values', 'export_trip_report_xlsx', 'propose_document_templates'];
 
@@ -8,7 +8,7 @@ export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;
-  private readonly refusedTools: ChangeTool[] = [];
+  private readonly stoppedTools: GuardedTool[] = [];
 
   constructor(otherTextAtStart: boolean) {
     this.otherTextSeen = otherTextAtStart;
@@ -18,21 +18,17 @@ export class AdminTextGuard {
     if (MEMBER_TEXT_TOOLS.includes(toolName)) this.otherTextSeen = true;
   }
 
-  refuses(toolName: string): boolean {
-    if (!isChangeTool(toolName) || !this.otherTextSeen) return false;
-    if (!this.refusedTools.includes(toolName)) this.refusedTools.push(toolName);
-    return true;
+  stopCall(toolName: string): GuardedTool | null {
+    if (!isGuardedTool(toolName) || !this.otherTextSeen) return null;
+    if (!this.stoppedTools.includes(toolName)) this.stoppedTools.push(toolName);
+    return toolName;
   }
 
-  hasSeenOtherText(): boolean {
-    return this.otherTextSeen;
-  }
-
-  listRefusedTools(): ChangeTool[] {
-    return [...this.refusedTools];
+  listStoppedTools(): GuardedTool[] {
+    return [...this.stoppedTools];
   }
 }
 
-function isChangeTool(toolName: string): toolName is ChangeTool {
-  return (CHANGE_TOOLS as readonly string[]).includes(toolName);
+function isGuardedTool(toolName: string): toolName is GuardedTool {
+  return (GUARDED_TOOLS as readonly string[]).includes(toolName);
 }
