@@ -12,6 +12,7 @@ import { dropRepeatedPapers, type RepeatedPaper } from '../../trips/drop-repeate
 import { pairTrips, type PairingPapers, type TripPairing } from '../../trips/pair-trips.ts';
 import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import { matchTripFacts } from '../../trips/match-trip-facts.ts';
+import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -102,7 +103,8 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
   const papers = await loadTripPapers(database, query);
   if (papers === null) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
-  const pairing = await pairTrips(dropOffReader, papers);
+  const rules = await listWorkspaceRules(database, scope.workspaceId);
+  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
   const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });

@@ -21,6 +21,7 @@ import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
 import { readPrivateMemory } from '../memory/private-memory.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
 import { loadHistoryTurns } from './load-history-turns.ts';
+import { loadCompanyRules } from './load-company-rules.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
 import { SourceCards, type Conversation, type SourceCard } from './source-cards.ts';
@@ -75,7 +76,7 @@ async function runChatTurn(context: IntakeContext, message: ChatMessage, profile
   const { request, hasFlaggedAnswer } = built;
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const guard = new AdminTextGuard(view.hasNote || (hasFlaggedAnswer && !view.hideFlaggedAnswers));
-  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
+  const dependencies = { database, clock, fileStorage: context.dependencies.fileStorage, companyReader: context.reader, dropOffReader: context.dependencies.dropOffReader, currentMessageText: message.text, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard };
   const result = await runLoggedToolLoop(view.loop, message, request, (call) => runChatTool(dependencies, caller, call));
   return { answer: collectAnswer(result, profile.role, dependencies), hasFlaggedAnswer };
 }
@@ -125,7 +126,8 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const tools = listChatTools(profile.role);
   const current = await buildCurrentRequest(database, message);
   const profileLines = await buildProfileLines(context, profile);
-  const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), history: history.turns, current });
+  const rules = profile.role === 'admin' ? await loadCompanyRules(context) : null;
+  const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history: history.turns, current });
   const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
   return { request, hasFlaggedAnswer: history.hasFlaggedAnswer, labelInput: { history: history.turns, currentText: describeCurrentRequest(current) } };
 }

@@ -14,12 +14,12 @@ export type PairingPapers = { pickups: TripPaper[]; receipts: TripPaper[] };
 
 type DatedPaper = TripPaper & { vehicle_plate: string; document_date: string };
 
-export async function pairTrips(reader: ReaderService | null, { pickups, receipts }: PairingPapers): Promise<TripPairing> {
+export async function pairTrips(reader: ReaderService | null, { pickups, receipts }: PairingPapers, rules: string[]): Promise<TripPairing> {
   const duplicateIds = new Set(groupPossibleDuplicates(pickups).flat().map((paper) => paper.id));
   const datedPickups = pickups.filter(isDated);
   const datedReceipts = receipts.filter(isDated);
   const rule = pairDropOffsByRule(datedPickups.map((paper) => toPairingRow(paper, duplicateIds)), datedReceipts.map(toPairingPaper));
-  const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts));
+  const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts), rules);
   const pairs = choosePairs(rule.pairs, model);
   logPairing(pairs, model.calls);
   return { pairs, modelCalls: model.calls, modelSkippedRows: model.skippedRows };

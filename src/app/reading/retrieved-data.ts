@@ -21,6 +21,7 @@ export type RetrievedDataSource =
   | 'history'
   | 'profile'
   | 'memory'
+  | 'company-rules'
   | 'saved-note'
   | `tool:${string}`;
 
