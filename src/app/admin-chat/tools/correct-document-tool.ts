@@ -7,7 +7,8 @@ import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from 
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { parseCorrectionRequest, type CorrectionRequest } from './correct-document-arguments.ts';
 import { describeCorrectedPaper, describeFoundPaper } from './describe-correction.ts';
-import { settleCompany } from './settle-company.ts';
+import { chooseOrganizationId } from './choose-paper-company.ts';
+import { requireCompanyRoles, settleCompany, type PickedCompany } from './settle-company.ts';
 import { settlePrintedValue } from './settle-printed-value.ts';
 import { collectAdminTypedTexts, refuseUntypedValues } from './refuse-untyped-values.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -27,24 +28,36 @@ const NOT_DONE_NOTES: Record<Exclude<Decision, 'apply'>, string> = {
 export async function runCorrectDocument(dependencies: AdminToolDependencies, scope: AccessScope, parsedArguments: unknown): Promise<string> {
   const request = parseCorrectionRequest(parsedArguments);
   refuseUntypedValues(request, collectAdminTypedTexts(dependencies));
-  const result = await runInTransaction(dependencies.database, (transaction) => correctInTransaction(transaction, dependencies, scope, request));
+  const picked = await pickCompanyBeforeTransaction(dependencies, scope, request);
+  const result = await runInTransaction(dependencies.database, (transaction) => correctInTransaction(transaction, dependencies, scope, { request, picked }));
   return JSON.stringify(result);
 }
 
-async function correctInTransaction(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<Record<string, unknown>> {
+type Correction = { request: CorrectionRequest; picked: PickedCompany | null };
+
+async function pickCompanyBeforeTransaction(dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<PickedCompany | null> {
+  if (request.company === null) return null;
+  const found = await runInTransaction(dependencies.database, (transaction) => findRequestedPapers(transaction, dependencies, scope, request));
+  const [paper] = found.papers;
+  if (decideCorrection(found, request) !== 'apply' || paper === undefined) return null;
+  requireCompanyRoles(paper, request.values.stage, request.company);
+  return { organizationId: await chooseOrganizationId(dependencies, scope.workspaceId, request.company) };
+}
+
+async function correctInTransaction(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, correction: Correction): Promise<Record<string, unknown>> {
   await lockWorkspaceRecords(transaction, scope.workspaceId);
-  const found = await findRequestedPapers(transaction, dependencies, scope, request);
-  const decision = decideCorrection(found, request);
+  const found = await findRequestedPapers(transaction, dependencies, scope, correction.request);
+  const decision = decideCorrection(found, correction.request);
   if (decision !== 'apply') return describeNotDone(decision, found);
-  const values = await settleValues(transaction, dependencies, scope, found.papers, request);
+  const values = await settleValues(transaction, scope.workspaceId, found.papers, correction);
   const corrector = { transaction, workspaceId: scope.workspaceId, now: dependencies.clock.now() };
   const corrected = await correctEachPaper(corrector, found.papers, values);
   return { ok: true, action: 'corrected', papers: corrected.map((result) => describeCorrectedPaper(result, values)) };
 }
 
-async function settleValues(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, papers: FoundPaper[], request: CorrectionRequest): Promise<NewPaperValues> {
-  const printed = await settlePrintedValue(transaction, scope.workspaceId, papers, request.values.printed);
-  return { ...request.values, printed, company: await settleCompany(dependencies, scope.workspaceId, papers[0], request.values.stage, request.company) };
+async function settleValues(transaction: Transaction, workspaceId: string, papers: FoundPaper[], { request, picked }: Correction): Promise<NewPaperValues> {
+  const printed = await settlePrintedValue(transaction, workspaceId, papers, request.values.printed);
+  return { ...request.values, printed, company: settleCompany(papers[0], request.values.stage, request.company, picked) };
 }
 
 async function correctEachPaper(corrector: PaperCorrector, papers: FoundPaper[], values: NewPaperValues): Promise<CorrectedPaper[]> {
