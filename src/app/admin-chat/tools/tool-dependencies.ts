@@ -19,4 +19,5 @@ export type AdminToolDependencies = {
   fileStorage?: FileStorage | null;
   companyReader?: ReaderService | null;
   dropOffReader?: ReaderService | null;
+  currentMessageText?: string | null;
 };
