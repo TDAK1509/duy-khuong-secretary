@@ -41,7 +41,7 @@ export async function readAgain(scoped: Database, reader: ReaderService, message
     templates: await listReaderTemplates(transaction, message.workspaceId),
   }));
   const text = wrapWithContextTexts(message, await findContextTexts(scoped, message));
-  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog, [], templates);
+  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog, [], templates, message.fromAdmin);
 }
 
 function wrapWithContextTexts(message: MessageToReread, contextTexts: string[]): string | null {
