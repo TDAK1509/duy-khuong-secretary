@@ -4,6 +4,9 @@ import type { MessagingChannel } from '../../services/messaging/messaging-channe
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../services/storage/file-storage.ts';
 import type { PhotoStorage } from '../../services/storage/photo-storage.ts';
+import { dropPendingChanges } from '../admin-chat/changes/pending-changes-store.ts';
+import { toDatabaseScope } from '../access/to-database-scope.ts';
+import { scopeDatabase } from '../db/scoped-database.ts';
 import { enqueueText } from '../delivery/enqueue-text.ts';
 import { releaseHeldMessages } from '../delivery/release-held-messages.ts';
 import type { Reply } from '../delivery/reply.ts';
@@ -78,6 +81,7 @@ async function handleFileEvent(
 ): Promise<Finished | NotConfigured | Postponed> {
   const sender = await findIntakeSender(dependencies.database, event, null);
   if (sender === null || sender.role !== 'admin') return refuseNonAdminFile(dependencies, event, stages);
+  await dropPendingChanges(scopeDatabase(dependencies.database, toDatabaseScope(sender)), sender);
   return receiveFile(dependencies, stages, event, sender, readFileFromPayload(event));
 }
 

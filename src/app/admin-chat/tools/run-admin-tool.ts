@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { ToolCall } from '../../../services/chat/chat-service.ts';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { toDatabaseScope } from '../../access/to-database-scope.ts';
@@ -43,8 +42,10 @@ import { runExportTripReportXlsx } from './export-trip-report-xlsx-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
+import { holdRiskyCall } from '../changes/hold-risky-call.ts';
+import { isGuardedTool } from './admin-text-guard.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-import { CHANGE_REFUSED_ERROR, failInvalidArgument, failTool, REFUSAL_ERROR, ToolRefusal } from './tool-result.ts';
+import { failFromError, failInvalidArgument, failTool, REFUSAL_ERROR } from './tool-result.ts';
 
 export async function runAdminTool(dependencies: AdminToolDependencies, caller: AccessScope, call: ToolCall): Promise<string> {
   const scope = await reloadAccessScope(dependencies.database, caller);
@@ -53,7 +54,8 @@ export async function runAdminTool(dependencies: AdminToolDependencies, caller: 
 }
 
 export async function runGuardedTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {
-  if (dependencies.guard.refuses(call.name)) return failTool(CHANGE_REFUSED_ERROR);
+  const held = isGuardedTool(call.name) ? await holdRiskyCall(dependencies, scope, { ...call, name: call.name }) : null;
+  if (held !== null) return held;
   dependencies.guard.noteCall(call.name);
   return runToolInScope(dependencies, scope, call);
 }
@@ -72,10 +74,7 @@ async function runToolByName(dependencies: AdminToolDependencies, scope: AccessS
   try {
     return await dispatchTool(dependencies, scope, call);
   } catch (error) {
-    if (error instanceof z.ZodError) return failInvalidArgument(String(error.issues[0]?.path[0] ?? 'arguments'));
-    if (error instanceof ToolRefusal) return failTool(error.message);
-    if (error instanceof SyntaxError) return failInvalidArgument('arguments');
-    throw error;
+    return failFromError(error);
   }
 }
 

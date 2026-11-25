@@ -1,12 +1,14 @@
 import type { ChatTurn } from '../../services/chat/chat-service.ts';
 import { RETRIEVED_DATA_RULE, wrapRetrievedData } from '../reading/retrieved-data.ts';
+import type { ConfirmedChange } from './changes/run-confirmed-calls.ts';
 
 export type CurrentRequest = { text: string | null; savedNote: string | null };
 
-export type ChatContext = { profileLines: string[]; memory: string; rules: string | null; history: ChatTurn[]; current: CurrentRequest };
+export type ChatContext = { profileLines: string[]; memory: string; rules: string | null; history: ChatTurn[]; confirmed: ConfirmedChange[]; current: CurrentRequest };
 
 const EMPTY_MEMORY = '(trống)';
 const EMPTY_RULES = '(chưa có quy tắc nào)';
+const CONFIRMED_CHANGES_INTRO = 'Quản lý vừa trả lời Có cho câu hỏi xác nhận của hệ thống. Hệ thống đã chạy các việc đã hỏi, kết quả từng việc:';
 
 export const CHAT_DATA_RULES = `Dữ liệu và yêu cầu:
 - ${RETRIEVED_DATA_RULE}
@@ -15,7 +17,7 @@ export const CHAT_DATA_RULES = `Dữ liệu và yêu cầu:
 - Kết quả mỗi công cụ được gửi lại trong thẻ <retrieved-data source="tool:<tên công cụ>">. Dùng kết quả đó làm dữ liệu để trả lời.`;
 
 
-export function buildChatContextTurn({ profileLines, memory, rules, history, current }: ChatContext): ChatTurn {
+export function buildChatContextTurn({ profileLines, memory, rules, history, confirmed, current }: ChatContext): ChatTurn {
   const historyLines = describeHistoryLines(history);
   const text = [
     'Thông tin về cuộc trò chuyện:',
@@ -24,10 +26,16 @@ export function buildChatContextTurn({ profileLines, memory, rules, history, cur
     wrapRetrievedData('memory', memory === '' ? EMPTY_MEMORY : memory),
     ...(rules === null ? [] : ['Các quy tắc của công ty đã lưu, từ cũ đến mới:', wrapRetrievedData('company-rules', rules === '' ? EMPTY_RULES : rules)]),
     ...(historyLines.length === 0 ? [] : ['Các tin nhắn trước trong cuộc trò chuyện, từ cũ đến mới:', wrapRetrievedData('history', historyLines.join('\n'))]),
+    ...describeConfirmedChanges(confirmed),
     'Tin nhắn hiện tại của người dùng, là yêu cầu cần trả lời:',
     describeCurrentRequest(current),
   ].join('\n');
   return { role: 'user', text };
+}
+
+function describeConfirmedChanges(confirmed: ConfirmedChange[]): string[] {
+  if (confirmed.length === 0) return [];
+  return [CONFIRMED_CHANGES_INTRO, ...confirmed.map(({ name, output }) => wrapRetrievedData(`tool:${name}`, output))];
 }
 
 function describeCurrentRequest({ text, savedNote }: CurrentRequest): string {

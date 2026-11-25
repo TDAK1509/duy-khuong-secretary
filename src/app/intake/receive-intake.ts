@@ -17,9 +17,14 @@ import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeChats, IntakeContext, IntakeDependencies } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { readIntakeParts, type IntakePart } from './intake-parts.ts';
+import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
+import { dropPendingChanges } from '../admin-chat/changes/pending-changes-store.ts';
+import { settlePendingChanges } from '../admin-chat/changes/settle-pending-changes.ts';
+import type { StoredCall } from '../admin-chat/changes/stored-call.ts';
 import { answerOwedQuestion } from './answer-owed-question.ts';
 import { answerPhotoExplanation } from './answer-photo-explanation.ts';
 import { OUT_OF_CREDIT_TEXT } from './intake-texts.ts';
+import { logIntake } from './log-intake.ts';
 import { receivePhoto } from './receive-photo.ts';
 import { replyToMessage, type MessageToRead } from './reply-to-message.ts';
 import { storeWithoutReading } from './store-without-reading.ts';
@@ -81,8 +86,10 @@ function readAnsweredText(event: ClaimedEvent, parts: IntakePart[]): string | nu
   return event.kind === 'text' ? (parts[0]?.text ?? null) : null;
 }
 
-function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
-  return part.imageUrl === null ? receiveText(context, part) : receivePhoto(context, { ...part, imageUrl: part.imageUrl });
+async function receivePart(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
+  if (part.imageUrl === null) return receiveText(context, part);
+  await dropPendingChanges(context.dependencies.database, context.sender);
+  return receivePhoto(context, { ...part, imageUrl: part.imageUrl });
 }
 
 async function receiveText(context: IntakeContext, part: IntakePart): Promise<IntakeOutcome> {
@@ -96,6 +103,8 @@ async function receiveText(context: IntakeContext, part: IntakePart): Promise<In
 }
 
 async function replyToStoredText(context: IntakeContext, message: MessageToRead): Promise<IntakeOutcome> {
+  const settlement = await settlePendingChanges(context, message.text);
+  if (settlement.kind === 'answered') return answerSettledChanges(context, message, settlement.confirmedCalls);
   const { dependencies, sender, stages } = context;
   await stages.runStage({
     isDone: async () => false,
@@ -104,6 +113,12 @@ async function replyToStoredText(context: IntakeContext, message: MessageToRead)
   const asked = await findAskedPhoto(dependencies.database, sender);
   if (asked === null || message.text === null) return replyToMessage(context, message);
   return answerPhotoExplanation(context, { id: message.id, text: message.text }, asked);
+}
+
+async function answerSettledChanges(context: IntakeContext, message: MessageToRead, confirmedCalls: StoredCall[]): Promise<IntakeOutcome> {
+  logIntake(context, message.id, { attempt: null, situation: 'no_work_data' }, 'admin_chat');
+  await answerWithChat(context, { id: message.id, text: message.text }, confirmedCalls);
+  return { kind: 'replied' };
 }
 
 async function finishIntake(

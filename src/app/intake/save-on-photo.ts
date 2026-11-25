@@ -51,6 +51,6 @@ async function saveRecordsAndReply(
 ): Promise<void> {
   const holder = { id: photo.id, workspaceId: sender.workspaceId, userId: sender.userId };
   if (reply.saved) await insertRecords(transaction, holder, reply.saved);
-  await storeBotReply(transaction, textId, { text: senderText, kind: reply.replyKind, holdsOtherText: reply.saved !== null });
+  await storeBotReply(transaction, textId, { text: senderText, kind: reply.replyKind });
   await setSubmissionStatus(transaction, textId, reply.status);
 }

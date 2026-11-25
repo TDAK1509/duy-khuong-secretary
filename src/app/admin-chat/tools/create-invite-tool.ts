@@ -6,7 +6,7 @@ import { formatVietnamDateTime } from '../../workspaces/format-expiry.ts';
 import { hasLengthBetween, INVITE_VALID_FOR_MS, MAX_DISPLAY_NAME_LENGTH } from '../../workspaces/invite-rules.ts';
 import { buildPlateNameHint } from '../../workspaces/plate-name-hint.ts';
 import { labelRole } from '../../workspaces/role-label.ts';
-import { failInvalidArgument } from './tool-result.ts';
+import { refuseInvalidArgument } from './tool-result.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 
 const argumentsSchema = z.object({ display_name: z.string(), role: z.enum(['member', 'admin']) });
@@ -16,13 +16,17 @@ export async function runCreateInvite(
   scope: AccessScope,
   parsedArguments: unknown,
 ): Promise<string> {
-  const args = argumentsSchema.parse(parsedArguments);
-  const displayName = args.display_name.trim();
-  if (!hasLengthBetween(displayName, MAX_DISPLAY_NAME_LENGTH)) return failInvalidArgument('display_name');
-  return storeInvite(dependencies, scope, { displayName, role: args.role });
+  return storeInvite(dependencies, scope, readInviteRequest(parsedArguments));
 }
 
-type InviteRequest = { displayName: string; role: 'admin' | 'member' };
+export type InviteRequest = { displayName: string; role: 'admin' | 'member' };
+
+export function readInviteRequest(parsedArguments: unknown): InviteRequest {
+  const args = argumentsSchema.parse(parsedArguments);
+  const displayName = args.display_name.trim();
+  if (!hasLengthBetween(displayName, MAX_DISPLAY_NAME_LENGTH)) refuseInvalidArgument('display_name');
+  return { displayName, role: args.role };
+}
 
 async function storeInvite(
   { database, clock, invites }: AdminToolDependencies,
