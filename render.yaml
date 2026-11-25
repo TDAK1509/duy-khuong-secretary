@@ -45,21 +45,17 @@ services:
       - key: LLM_BASE_URL
         value: https://api.openai.com/v1
       - key: LLM_MODEL
-        value: gpt-6-luna
-      - key: LLM_REASONING_EFFORT
-        value: none
-      - key: ADMIN_CHAT_MODEL
-        value: gpt-6-luna
-      - key: ADMIN_CHAT_REASONING_EFFORT
-        value: none
-      - key: ADMIN_REPORT_MODEL
         value: gpt-6.1-sol
-      - key: ADMIN_REPORT_REASONING_EFFORT
+      - key: LLM_REASONING_EFFORT
+        value: medium
+      - key: ADMIN_CHAT_MODEL
+        value: gpt-6.1-sol
+      - key: ADMIN_CHAT_REASONING_EFFORT
         value: medium
       - key: MEMBER_CHAT_MODEL
-        value: gpt-6-luna
+        value: gpt-6.1-sol
       - key: MEMBER_CHAT_REASONING_EFFORT
-        value: none
+        value: medium
       - key: SCHEDULED_RUN_MODEL
         value: gpt-6.1-sol
       - key: SCHEDULED_RUN_REASONING_EFFORT
@@ -73,9 +69,9 @@ services:
       - key: READER_PHOTO_REASONING_EFFORT
         value: medium
       - key: READER_TEXT_MODEL
-        value: gpt-6-luna
+        value: gpt-6.1-sol
       - key: READER_TEXT_REASONING_EFFORT
-        value: none
+        value: medium
 
 databases:
   - name: secretary-db
