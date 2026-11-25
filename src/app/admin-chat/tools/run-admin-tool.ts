@@ -25,6 +25,7 @@ import { runForget } from './forget-tool.ts';
 import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runRewriteMemberPlate } from './rewrite-member-plate-tool.ts';
+import { runCorrectDocument } from './correct-document-tool.ts';
 import { runSaveFact } from './save-fact-tool.ts';
 import { runListFacts } from './list-facts-tool.ts';
 import { runUpdateFact } from './update-fact-tool.ts';
@@ -90,6 +91,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   forget_all_member_facts: ({ database }, scope, args) => runForgetAllMemberFacts(database, scope, args),
   add_member_fact: ({ database }, scope, args) => runAddMemberFact(database, scope, args),
   rewrite_member_plate: ({ database }, scope, args) => runRewriteMemberPlate(database, scope, args),
+  correct_document: runCorrectDocument,
   save_fact: ({ database, companyReader }, scope, args) => runSaveFact(database, scope, args, companyReader ?? null),
   list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
   update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),

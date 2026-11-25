@@ -19,7 +19,7 @@ import { hasNoteFromPhoto } from './has-note-from-photo.ts';
 import { loadChatProfile, type ChatProfile } from './load-chat-profile.ts';
 import { readPrivateMemory } from '../memory/private-memory.ts';
 import { scopeDatabase } from '../db/scoped-database.ts';
-import { loadHistoryTurns } from './load-history-turns.ts';
+import { listTypedTexts, loadHistoryTurns } from './load-history-turns.ts';
 import { loadCompanyRules } from './load-company-rules.ts';
 import type { AttachablePhoto } from '../records/find-record-photos.ts';
 import { PhotoAttachments } from './photo-attachments.ts';
@@ -62,14 +62,15 @@ async function produceAnswer(context: IntakeContext, message: ChatMessage, profi
   const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
   const dependencies = buildToolDependencies(context, message, new AdminTextGuard(hasNote));
   const confirmed = await runConfirmedCalls(dependencies, caller, confirmedCalls);
-  const request = await buildChatRequest(context, message, profile, confirmed);
-  const result = await runLoggedToolLoop(chooseToolLoop(context, profile.role), message, request, (call) => runChatTool(dependencies, caller, call));
-  return collectAnswer(result, profile.role, dependencies);
+  const { request, typedHistoryTexts } = await buildChatRequest(context, message, profile, confirmed);
+  const toolDependencies = { ...dependencies, typedHistoryTexts };
+  const result = await runLoggedToolLoop(chooseToolLoop(context, profile.role), message, request, (call) => runChatTool(toolDependencies, caller, call));
+  return collectAnswer(result, profile.role, toolDependencies);
 }
 
 function buildToolDependencies(context: IntakeContext, message: ChatMessage, guard: AdminTextGuard): AdminToolDependencies {
   const { database, clock, fileStorage, dropOffReader } = context.dependencies;
-  return { database, clock, fileStorage, companyReader: context.reader, dropOffReader, currentMessageText: message.text, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard, waiting: new WaitingChanges() };
+  return { database, clock, fileStorage, companyReader: context.reader, dropOffReader, currentMessageText: message.text, currentMessageId: message.id, attachments: new PhotoAttachments(), sources: new SourceCards(readConversation(context)), created: new CreatedTasks(message.id), invites: new CreatedInvites(), guard, waiting: new WaitingChanges() };
 }
 
 function readConversation({ event }: IntakeContext): Conversation {
@@ -110,7 +111,9 @@ async function runLoggedToolLoop({ chat, maxRounds }: ToolLoopChoice, message: C
   }
 }
 
-async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, confirmed: ConfirmedChange[]): Promise<ChatRequest> {
+type BuiltRequest = { request: ChatRequest; typedHistoryTexts: string[] };
+
+async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, confirmed: ConfirmedChange[]): Promise<BuiltRequest> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
   const tools = listChatTools(profile.role);
@@ -118,7 +121,8 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const profileLines = await buildProfileLines(context, profile);
   const rules = profile.role === 'admin' ? await loadCompanyRules(context) : null;
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history, confirmed, current });
-  return { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
+  const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
+  return { request, typedHistoryTexts: listTypedTexts(history) };
 }
 
 async function buildProfileLines({ dependencies, sender }: IntakeContext, profile: ChatProfile): Promise<string[]> {

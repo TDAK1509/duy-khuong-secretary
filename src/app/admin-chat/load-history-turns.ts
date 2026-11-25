@@ -36,3 +36,7 @@ function toTurn(row: HistoryRow): ChatTurn {
 function describePhotoMessage(text: string | null): string {
   return text === null ? PHOTO_MARK : `${PHOTO_MARK} ${text}`;
 }
+
+export function listTypedTexts(turns: ChatTurn[]): string[] {
+  return turns.flatMap((turn) => (turn.role === 'user' && turn.text !== null ? [turn.text] : []));
+}

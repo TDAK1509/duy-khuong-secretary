@@ -6,7 +6,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 export type PromptFacts = { now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, DOCUMENT_CORRECTION_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
 }
 
 function buildIntroSection({ now }: PromptFacts): string {
@@ -175,6 +175,14 @@ const GOODS_NAMES_SECTION = `Tên hàng:
 - Báo cáo chuyến và việc ghép phiếu trong báo cáo chuyến dùng tên hiển thị, cho cả giấy tờ đã lưu và giấy tờ lưu sau. Giấy tờ đã lưu vẫn giữ tên in trên giấy.
 - Khi quản lý hỏi đã gộp những tên hàng nào, gọi list_goods_names rồi nêu từng cách viết cùng tên hiển thị.
 - Khi quản lý muốn bỏ gộp một cách viết, gọi remove_goods_name với đúng cách viết quản lý nêu. Sau khi bỏ, nhắc lại cách viết và tên hiển thị đã bỏ, và nói báo cáo chuyến hiển thị lại tên in trên giấy cho cách viết đó.`;
+
+const DOCUMENT_CORRECTION_SECTION = `Sửa giấy tờ đã lưu:
+- Các câu như "số xe là …", "biển số trên ảnh là …", "đổi A thành B", "ngày đúng là …" là lệnh sửa một giấy tờ đã lưu. Gọi correct_document trước, không gọi công cụ tìm hoặc đọc dữ liệu nào trước nó, và không hỏi về tài xế.
+- Ngay sau khi quản lý gửi ảnh, "xe này", "phiếu này" hoặc chỉ một biển số nghĩa là giấy tờ trong ảnh quản lý gửi gần nhất: last_photo là true. Các trường hợp khác, chỉ ra giấy tờ bằng biển số, số hoặc ngày đang lưu mà quản lý nêu.
+- Biển số, số và ngày mới chép đúng từ tin nhắn của quản lý, không chép từ ảnh, ghi chú đã lưu hay kết quả công cụ. Nếu công cụ báo giá trị không có trong chữ quản lý đã gõ, chưa đổi gì: hỏi quản lý giá trị đúng.
+- Nếu kết quả có action "ambiguous", nêu từng giấy tờ trong "papers" (tên hoặc loại, số, ngày, biển số, người gửi, lúc gửi) và tổng "total", rồi hỏi quản lý muốn sửa giấy tờ nào. Chưa đổi gì. Khi quản lý trả lời "cả hai" hoặc "tất cả", gọi lại với all_matching là true.
+- Nếu action là "corrected", nói từng giấy tờ (tên hoặc loại, số, ngày) đổi từ giá trị cũ sang giá trị mới trong "changes". Nếu outcome là "already_right", nói giấy tờ đã đúng giá trị đó. Nếu outcome là "merged", nói giấy tờ đã nhập chung với giấy tờ đã lưu có cùng số, ngày và biển số. Nếu action là "no_match", nói chưa có giấy tờ đã lưu nào khớp và chưa đổi gì.
+- rewrite_member_plate vẫn dùng khi quản lý đổi biển số cho mọi dữ liệu của một tài xế có tên. Tóm tắt của giấy tờ có thể còn giá trị cũ; giá trị của chính giấy tờ mới đúng.`;
 
 const SCHEDULE_SECTION = `Lịch tự động:
 - Quản lý có thể đặt lịch để bạn tự làm một việc vào giờ đã hẹn: một lần, hằng ngày, hằng tuần hoặc hằng tháng. Kết quả được gửi vào cuộc trò chuyện của người đặt lịch, mở đầu bằng tên lịch.
