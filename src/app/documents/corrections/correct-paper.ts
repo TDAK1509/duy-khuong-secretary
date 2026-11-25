@@ -31,16 +31,16 @@ export async function correctPaper(corrector: PaperCorrector, paper: FoundPaper,
   return { paper, changes, mergedIntoId: existingId };
 }
 
+async function findPrintedLineBefore(transaction: Transaction, workspaceId: string, paperId: string, { printed }: NewPaperValues): Promise<PrintedLine | null> {
+  return printed === null ? null : findPrintedLine(transaction, workspaceId, paperId, printed);
+}
+
 async function storeCorrection(corrector: PaperCorrector, paper: FoundPaper, values: NewPaperValues): Promise<string | null> {
   const existingId = await findSamePaper(corrector, paper, values);
   if (existingId === null) await updatePaper(corrector, paper.id, values);
   else await mergeIntoExistingPaper(corrector, { paperId: paper.id, existingId }, values);
   if (values.printed !== null) await setPrintedValue(corrector, existingId ?? paper.id, values.printed);
   return existingId;
-}
-
-async function findPrintedLineBefore(transaction: Transaction, workspaceId: string, paperId: string, { printed }: NewPaperValues): Promise<PrintedLine | null> {
-  return printed === null ? null : findPrintedLine(transaction, workspaceId, paperId, printed.label);
 }
 
 async function findSamePaper({ transaction, workspaceId }: PaperCorrector, paper: FoundPaper, values: NewPaperValues): Promise<string | null> {

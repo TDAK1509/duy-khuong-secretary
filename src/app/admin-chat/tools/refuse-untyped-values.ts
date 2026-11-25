@@ -1,4 +1,4 @@
-import { isCodeTyped, isDateTyped, isNumberTyped, isTextTyped } from '../../documents/corrections/is-value-typed.ts';
+import { isCodeTyped, isDateTyped, isNumberTyped, isTextTyped, isWeightTyped } from '../../documents/corrections/is-value-typed.ts';
 import type { NewPaperValues, PrintedValue } from '../../documents/corrections/paper-correction.ts';
 import { ToolRefusal } from './tool-result.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -22,6 +22,7 @@ export function refuseUntypedValues(values: NewPaperValues, typedTexts: string[]
 
 function buildPrintedChecks(printed: PrintedValue | null): ValueCheck[] {
   if (printed === null) return [];
+  if (printed.unit === 'kg' && printed.number !== null) return [{ label: 'Trọng lượng (kg)', value: String(printed.number), isTyped: (typedTexts, kilograms) => isWeightTyped(typedTexts, Number(kilograms)) }];
   if (printed.typedNumber !== null) return [{ label: 'Con số', value: String(printed.typedNumber), isTyped: isNumberTyped }];
   return [{ label: 'Giá trị', value: printed.value, isTyped: isTextTyped }];
 }

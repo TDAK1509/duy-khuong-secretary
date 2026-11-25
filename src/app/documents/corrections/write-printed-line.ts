@@ -14,12 +14,13 @@ const UPDATE_LINE_SQL = `
   UPDATE document_lines SET value = $3, number = $4, unit = $5, at = $6, meaning_id = $7
   WHERE id = $1 AND workspace_id = $2`;
 
-export async function writePrintedLine(transaction: Transaction, lines: PaperLines, printed: PrintedValue): Promise<void> {
+export async function writePrintedLine(transaction: Transaction, lines: PaperLines, printed: PrintedValue): Promise<string> {
   const detail = toReadingDetail(printed);
   const meaningId = await findOrInsertMeaning(transaction, lines.workspaceId, detail);
-  const line = await findPrintedLine(transaction, lines.workspaceId, lines.paperId, printed.label);
+  const line = await findPrintedLine(transaction, lines.workspaceId, lines.paperId, printed);
   if (line === null) await insertPrintedLine(transaction, lines, detail, meaningId);
   else await updatePrintedLine(transaction, lines, line.id, buildLineRow(lines.workspaceId, lines.paperId, line.line_no, detail, meaningId));
+  return line?.label ?? printed.label;
 }
 
 function toReadingDetail({ label, value, meaning, number, unit }: PrintedValue): ReadingDetail {

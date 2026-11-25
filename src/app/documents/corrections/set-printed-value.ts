@@ -3,6 +3,6 @@ import { updatePrintedDetails } from './update-printed-details.ts';
 import { writePrintedLine } from './write-printed-line.ts';
 
 export async function setPrintedValue({ transaction, workspaceId }: PaperCorrector, paperId: string, printed: PrintedValue): Promise<void> {
-  await writePrintedLine(transaction, { workspaceId, paperId }, printed);
-  await updatePrintedDetails(transaction, workspaceId, paperId, printed);
+  const label = await writePrintedLine(transaction, { workspaceId, paperId }, printed);
+  await updatePrintedDetails(transaction, { workspaceId, paperId }, label, printed);
 }

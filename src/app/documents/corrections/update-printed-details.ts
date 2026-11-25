@@ -23,8 +23,8 @@ const UPDATE_RECORD_DETAILS_SQL = `
       WHERE source.document_id = $1 AND source.workspace_id = $2
         AND source.message_id = record.message_id AND source.item_index = record.item_index)`;
 
-export async function updatePrintedDetails(transaction: Transaction, workspaceId: string, paperId: string, printed: PrintedValue): Promise<void> {
-  const values = [paperId, workspaceId, buildMatchKey(printed.label), JSON.stringify({ value: printed.value, ...readNumberPair(printed.number, printed.unit) })];
+export async function updatePrintedDetails(transaction: Transaction, { workspaceId, paperId }: { workspaceId: string; paperId: string }, label: string, printed: PrintedValue): Promise<void> {
+  const values = [paperId, workspaceId, buildMatchKey(label), JSON.stringify({ value: printed.value, ...readNumberPair(printed.number, printed.unit) })];
   await transaction.query(UPDATE_PAPER_DETAILS_SQL, values);
   await transaction.query(UPDATE_RECORD_DETAILS_SQL, values);
 }
