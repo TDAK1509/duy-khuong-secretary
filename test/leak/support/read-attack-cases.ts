@@ -1,6 +1,6 @@
 import type { AttackCase } from './attack-case.ts';
 import { SHARED_PLATE_FILTER } from './document-filter.ts';
-import { B_DOCUMENT_ID, B_MEMBER_ID, B_PHOTO_MESSAGE_ID, B_RECORD_ID, SHARED_PLATE } from './seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_MEMBER_ID, B_PHOTO_MESSAGE_ID, B_RECORD_ID, SHARED_PLATE } from './seed-ids.ts';
 
 const SHARED_MEANING = 'SHARED-MEANING';
 
@@ -8,7 +8,7 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'search_records', kind: 'read', arguments: { text: 'TARGET-B-WORKSPACE', category: null, member: null, plate: SHARED_PLATE, added_from: null, added_to: null, cursor: null } },
   { name: 'count_records', kind: 'read', arguments: { added_from: '2026-01-01', added_to: '2026-12-31' } },
   { name: 'list_members', kind: 'read', arguments: {} },
-  { name: 'list_member_facts', kind: 'read', arguments: { member_id: B_MEMBER_ID } },
+  { name: 'list_member_facts', kind: 'read', arguments: { member_id: A_DRIVER_MEMBER_ID }, alsoAimedAt: [{ member_id: B_MEMBER_ID }] },
   { name: 'list_facts', kind: 'read', arguments: { vehicle_plate: SHARED_PLATE, driver_member_id: null, company: null } },
   { name: 'total_fact_values', kind: 'read', arguments: { value_name: 'Lương', ...SHARED_PLATE_FILTER, group_by: 'none' } },
   { name: 'list_rules', kind: 'read', arguments: {} },
