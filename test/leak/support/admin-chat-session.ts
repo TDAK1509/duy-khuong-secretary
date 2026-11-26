@@ -71,6 +71,7 @@ export async function playAdminTurn(play: TurnPlay, answer: AnswerStep): Promise
   const rowsBefore = await snapshotWorkspace(play.owner, WORKSPACE_A_ID);
   const outboundBefore = await listAdminOutboundMessages(play.owner);
   await answer(session);
+  await session.context.stages.finishEvent(async () => undefined);
   const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(play.owner, WORKSPACE_A_ID));
   const newOutboundCount = (await listAdminOutboundMessages(play.owner)).length - outboundBefore.length;
   return { session, rowsWritten, newOutboundCount };

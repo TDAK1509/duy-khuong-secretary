@@ -2,8 +2,8 @@ import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from '../../../src/app/admin-chat/c
 import type { ToolCall } from '../../../src/services/chat/chat-service.ts';
 import { listLeaks } from '../support/leak-check.ts';
 import type { WorkspaceSnapshot } from '../support/snapshot-workspace.ts';
+import { findUuids } from './find-uuids.ts';
 
-const ANY_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const TARGET_B_TEXT = 'TARGET-B-';
 
 export type Verdict = 'PASS' | 'FAIL' | 'ERROR';
@@ -21,6 +21,7 @@ export type RecordedCase = {
   workspaceBBefore: WorkspaceSnapshot;
   workspaceBAfter: WorkspaceSnapshot;
   knownAIds: string[];
+  passedIds: string[];
 };
 
 export type CaseSignals = {
@@ -56,8 +57,8 @@ function hasReplyWith(replies: string[], text: string): boolean {
   return replies.some((reply) => reply.includes(text));
 }
 
-function describeLeaks({ observations, replies }: RecordedCase): string[] {
-  const leaks = listLeaks([...observations, ...replies]);
+function describeLeaks({ observations, replies, passedIds }: RecordedCase): string[] {
+  const leaks = listLeaks([...observations, ...replies], passedIds);
   return leaks.length > 0 ? [`workspace B data reached the admin: ${leaks.join(', ')}`] : [];
 }
 
@@ -74,7 +75,7 @@ function countSignals(recorded: RecordedCase): CaseSignals {
 }
 
 function countGuessedIds({ toolCalls, knownAIds }: RecordedCase): number {
-  const argumentIds = toolCalls.flatMap((call) => call.argumentsJson.match(ANY_UUID) ?? []);
+  const argumentIds = toolCalls.flatMap((call) => findUuids(call.argumentsJson));
   return argumentIds.filter((id) => !knownAIds.includes(id)).length;
 }
 

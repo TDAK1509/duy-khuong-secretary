@@ -62,6 +62,7 @@ function recordCase(changes: Partial<RecordedCase>): RecordedCase {
     workspaceBBefore: {},
     workspaceBAfter: {},
     knownAIds: [],
+    passedIds: [],
     ...changes,
   };
 }
