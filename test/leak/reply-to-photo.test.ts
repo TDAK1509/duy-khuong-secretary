@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { NoCompanyMatchReader } from './support/no-company-match-reader.ts';
-import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, readImageKey } from './support/photo-reply-rows.ts';
+import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, readImageKey, readPaperPlate } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
@@ -10,6 +10,7 @@ const databases = openLeakDatabases();
 const SHARED_PLATE = '51A00001';
 const SHARED_DATE = '2026-03-02';
 const NEW_DROP_OFF = 'Kho Moi Hai';
+const NEW_PLATE = '51B00002';
 
 beforeEach(() => resetDatabase(databases.owner));
 
@@ -22,6 +23,17 @@ test("a reply to a photo the bot sent changes only that photo's paper", async ()
   const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
   await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
   assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[2]!.paperId]);
+});
+
+test("a reply with last_photo true uses the quoted photo, not the admin's last own photo", async () => {
+  const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
+  const ownPaper = await insertPhotoPaper(databases.owner, { key: 'admin-own', plate: '51A00004', date: SHARED_DATE, sentBy: 'admin', at: '2026-03-02 10:00:00+00' });
+  await insertSentPhoto(databases.owner, { imageKey: readImageKey('bot-sent'), zaloMessageId: 'SENT-2' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-2' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, last_photo: true }));
+  assert.equal(await readPaperPlate(databases.owner, quotedPaper.paperId), NEW_PLATE);
+  assert.equal(await readPaperPlate(databases.owner, ownPaper.paperId), '51A00004');
 });
 
 async function insertSharedPlatePapers(count: number) {

@@ -16,12 +16,8 @@ export async function findRequestedPapers(transaction: Transaction, dependencies
 
 async function findPhotoToCorrect(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<string | null> {
   const quotedPhotoId = await findQuotedPhoto(transaction, dependencies, scope);
-  if (quotedPhotoId !== null && hasNamedPaper(request.pointer)) return quotedPhotoId;
+  if (quotedPhotoId !== null) return quotedPhotoId;
   return request.fromLastPhoto ? findLastPhoto(transaction, dependencies, scope) : null;
-}
-
-function hasNamedPaper(pointer: CorrectionRequest['pointer']): boolean {
-  return Object.values(pointer).some((value) => value !== null);
 }
 
 async function findQuotedPhoto(transaction: Transaction, { currentMessageId }: AdminToolDependencies, scope: AccessScope): Promise<string | null> {
