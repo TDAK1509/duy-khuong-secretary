@@ -33,7 +33,7 @@ async function runAimedCalls(harness: ToolHarness, attackCase: AttackCase, path:
   return outputs;
 }
 
-function assertReachedTool(name: string, toolArguments: object, output: string): void {
+export function assertReachedTool(name: string, toolArguments: object, output: string): void {
   const message = `the ${name} attack case was refused before it reached the tool: ${output} for ${JSON.stringify(toolArguments)}`;
   assert.ok(!output.includes(INVALID_ARGUMENT_PREFIX) && !output.includes(REFUSAL_ERROR), message);
 }
