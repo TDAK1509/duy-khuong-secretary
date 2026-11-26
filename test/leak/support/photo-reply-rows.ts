@@ -28,7 +28,7 @@ export async function insertPhotoPaper(owner: PostgresPool, spec: PhotoPaperSpec
   return { paperId, photoMessageId };
 }
 
-export function readImageKey(key: string): string {
+export function buildImageKey(key: string): string {
   return `photo-reply-test/${key}.jpg`;
 }
 
@@ -37,7 +37,7 @@ async function insertPhotoMessage(owner: PostgresPool, spec: PhotoPaperSpec, sen
   const { rows } = await owner.query<{ id: string }>(
     `INSERT INTO messages (workspace_id, user_id, author, text, image_key, inbound_event_id, event_part, submission_status, created_at)
      VALUES ($1, $2, 'user', $3, $4, $5, 0, 'accepted', $6) RETURNING id`,
-    [WORKSPACE_A_ID, sender.userId, `photo ${spec.key}`, readImageKey(spec.key), eventId, spec.at ?? '2026-03-02 08:00:00+00'],
+    [WORKSPACE_A_ID, sender.userId, `photo ${spec.key}`, buildImageKey(spec.key), eventId, spec.at ?? '2026-03-02 08:00:00+00'],
   );
   return rows[0]!.id;
 }

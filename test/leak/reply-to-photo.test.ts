@@ -3,7 +3,7 @@ import { after, beforeEach, test } from 'node:test';
 import { assertNoLeak } from './support/leak-check.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { NoCompanyMatchReader } from './support/no-company-match-reader.ts';
-import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, readImageKey, readPaperPlate } from './support/photo-reply-rows.ts';
+import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, buildImageKey, readPaperPlate } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { snapshotWorkspaceB } from './support/snapshot-workspace-b.ts';
 import { createToolHarness } from './support/tool-harness.ts';
@@ -21,7 +21,7 @@ after(() => databases.close());
 
 test("a reply to a photo the bot sent changes only that photo's paper", async () => {
   const papers = await insertSharedPlatePapers(7);
-  await insertSentPhoto(databases.owner, { imageKey: readImageKey('shared-3'), zaloMessageId: 'SENT-1' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-3'), zaloMessageId: 'SENT-1' });
   const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-1' });
   const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
   await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
@@ -31,7 +31,7 @@ test("a reply to a photo the bot sent changes only that photo's paper", async ()
 test("a reply with last_photo true uses the quoted photo, not the admin's last own photo", async () => {
   const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
   const ownPaper = await insertPhotoPaper(databases.owner, { key: 'admin-own', plate: '51A00004', date: SHARED_DATE, sentBy: 'admin', at: '2026-03-02 10:00:00+00' });
-  await insertSentPhoto(databases.owner, { imageKey: readImageKey('bot-sent'), zaloMessageId: 'SENT-2' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('bot-sent'), zaloMessageId: 'SENT-2' });
   const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-2' });
   const harness = createToolHarness(databases.runtime, { currentMessage: reply });
   await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, last_photo: true }));
@@ -51,7 +51,7 @@ test("a reply to the admin's own earlier photo changes that photo's paper", asyn
 test('a paper named by its number wins over the quoted photo', async () => {
   const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
   const namedPaper = await insertPhotoPaper(databases.owner, { key: 'named', plate: '51A00004', date: SHARED_DATE, number: 'NUMBER2' });
-  await insertSentPhoto(databases.owner, { imageKey: readImageKey('bot-sent'), zaloMessageId: 'SENT-3' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('bot-sent'), zaloMessageId: 'SENT-3' });
   const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-3' });
   const harness = createToolHarness(databases.runtime, { currentMessage: reply });
   await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, current_number: 'NUMBER-2' }));
