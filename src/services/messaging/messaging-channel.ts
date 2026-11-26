@@ -14,13 +14,13 @@ export type InboundFileEvent = {
 } & ({ tooMany: true } | { tooMany: false; fileUrl: string; fileName: string; fileSize: number });
 
 export type InboundEvent =
-  | { kind: 'text'; eventId: string; from: ChannelRecipient; text: string; sentAt: Date }
+  | { kind: 'text'; eventId: string; from: ChannelRecipient; text: string; quoteMessageId?: string; sentAt: Date }
   | { kind: 'images'; eventId: string; from: ChannelRecipient; imageUrls: string[]; caption: string | null; sentAt: Date }
   | InboundFileEvent
   | { kind: 'ignored' };
 
 export type SendResult =
-  | { ok: true }
+  | { ok: true; messageId?: string }
   | { ok: false; reason: 'rate_limited' | 'window_closed' | 'rejected' | 'unavailable' | 'no_answer' };
 
 export type DownloadResult =

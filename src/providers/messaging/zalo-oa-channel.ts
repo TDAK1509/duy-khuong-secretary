@@ -27,6 +27,7 @@ const RATE_LIMIT_ERROR = -32;
 const WINDOW_CLOSED_ERROR = -230;
 const SERVER_ERROR_STATUS = 500;
 const MAX_REDIRECTS = 3;
+const MAX_MESSAGE_ID_LENGTH = 255;
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
 const NON_PUBLIC_IPV4_RANGES: [string, number][] = [
   ['0.0.0.0', 8],
@@ -62,6 +63,8 @@ const REQUEST_NEVER_SENT_CODES = [
   'UND_ERR_CONNECT_TIMEOUT',
 ];
 
+const optionalId = z.string().min(1).max(MAX_MESSAGE_ID_LENGTH).regex(/^\P{Cc}+$/u).optional().catch(undefined);
+
 const attachmentSchema = z.object({
   type: z.string(),
   payload: z
@@ -78,14 +81,19 @@ const eventSchema = z.object({
   timestamp: z.coerce.number().refine(isDateTimestamp),
   sender: z.object({ id: z.string() }),
   recipient: z.object({ id: z.string() }),
+  quote_msg_id: optionalId,
   message: z.object({
     msg_id: z.string(),
     text: z.string().optional(),
+    quote_msg_id: optionalId,
     attachments: z.array(attachmentSchema).default([]),
   }),
 });
 
-const sendAnswerSchema = z.object({ error: z.number() });
+const sendAnswerSchema = z.object({
+  error: z.number(),
+  data: z.object({ message_id: optionalId }).optional().catch(undefined),
+});
 
 const uploadAnswerSchema = z.object({
   error: z.number(),
@@ -377,8 +385,9 @@ async function readSendResult(response: Response): Promise<SendResult> {
 }
 
 function toSendResult(answer: unknown): SendResult {
-  const { error } = sendAnswerSchema.parse(answer);
-  return error === 0 ? { ok: true } : toFailedSend(error);
+  const { error, data } = sendAnswerSchema.parse(answer);
+  if (error !== 0) return toFailedSend(error);
+  return data?.message_id === undefined ? { ok: true } : { ok: true, messageId: data.message_id };
 }
 
 async function readUploadResult(response: Response): Promise<UploadResult> {
@@ -472,7 +481,8 @@ function hasSheetExtension(fileName: string): boolean {
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {
   if (event.message.text === undefined) return IGNORED_EVENT;
-  return { kind: 'text', ...base, text: event.message.text };
+  const quoteMessageId = event.message.quote_msg_id ?? event.quote_msg_id;
+  return { kind: 'text', ...base, text: event.message.text, ...(quoteMessageId !== undefined && { quoteMessageId }) };
 }
 
 function toImagesEvent(base: EventBase, event: ZaloEvent): InboundEvent {
