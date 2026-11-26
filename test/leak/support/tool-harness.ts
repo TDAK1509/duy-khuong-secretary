@@ -19,6 +19,10 @@ const EARLIER_TYPED_TEXT = 'Sửa biển số thành 99Z54321 và ngày thành 0
 
 export type ToolPath = 'chat-gate' | 'confirmed';
 
+export type CurrentMessage = { id: string; text: string };
+
+export type ToolHarnessOptions = { currentMessage?: CurrentMessage; companyReader?: RecordingReader };
+
 export type ToolHarness = {
   dependencies: AdminToolDependencies;
   storage: FakeFileStorage;
@@ -27,17 +31,16 @@ export type ToolHarness = {
   runTool(path: ToolPath, name: string, toolArguments: object): Promise<string>;
 };
 
-export function createToolHarness(database: PostgresPool): ToolHarness {
+export function createToolHarness(database: PostgresPool, { currentMessage, companyReader = new RecordingReader() }: ToolHarnessOptions = {}): ToolHarness {
   const storage = new FakeFileStorage();
-  const companyReader = new RecordingReader();
   const dropOffReader = new RecordingReader();
-  const dependencies = buildToolDependencies({ database, storage, companyReader, dropOffReader });
+  const dependencies = buildToolDependencies({ database, storage, companyReader, dropOffReader, currentMessage });
   return { dependencies, storage, companyReader, dropOffReader, runTool: (path, name, toolArguments) => runTool(dependencies, path, name, toolArguments) };
 }
 
-type DependencyParts = Pick<ToolHarness, 'storage' | 'companyReader' | 'dropOffReader'> & { database: PostgresPool };
+type DependencyParts = Pick<ToolHarness, 'storage' | 'companyReader' | 'dropOffReader'> & { database: PostgresPool; currentMessage?: CurrentMessage };
 
-function buildToolDependencies({ database, storage, companyReader, dropOffReader }: DependencyParts): AdminToolDependencies {
+function buildToolDependencies({ database, storage, companyReader, dropOffReader, currentMessage }: DependencyParts): AdminToolDependencies {
   return {
     ...createSideLists(),
     database,
@@ -45,7 +48,8 @@ function buildToolDependencies({ database, storage, companyReader, dropOffReader
     fileStorage: storage,
     companyReader,
     dropOffReader,
-    currentMessageText: ATTACK_TEXT,
+    currentMessageText: currentMessage?.text ?? ATTACK_TEXT,
+    currentMessageId: currentMessage?.id ?? null,
     typedHistoryTexts: [EARLIER_TYPED_TEXT],
   };
 }
