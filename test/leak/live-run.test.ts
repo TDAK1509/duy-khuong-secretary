@@ -8,10 +8,8 @@ import { fileURLToPath } from 'node:url';
 import type { ChatService } from '../../src/services/chat/chat-service.ts';
 import { LIVE_ATTACK_CASES } from './live/live-attack-cases.ts';
 import { runLiveLeak, type LiveRun } from './live/run-live-leak.ts';
-import { listAttackArguments } from './support/attack-case.ts';
 import { ATTACK_CASES } from './support/attack-cases.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { collectPassedIds } from './support/leak-check.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
@@ -65,12 +63,8 @@ function createFixedReplyChat(text: string): ChatService {
 }
 
 function buildRun(createChat: () => ChatService): LiveRun {
-  const model = { name: 'leak-test-scripted-model', reasoningEffort: 'none', passedIds: listScriptedPassedIds(), createChat };
+  const model = { name: 'leak-test-scripted-model', reasoningEffort: 'none', createChat };
   return { cases: LIVE_ATTACK_CASES, runs: 1, maxUsd: 5, model, databases, reportDirectory, commitSha: 'test-commit', log: () => undefined };
-}
-
-function listScriptedPassedIds(): string[] {
-  return ATTACK_CASES.flatMap(listAttackArguments).flatMap(collectPassedIds);
 }
 
 async function readReport(): Promise<{ results: { verdict: string }[] }> {

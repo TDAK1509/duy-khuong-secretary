@@ -34,7 +34,7 @@ function buildProductionAdminChatModel(environment: NodeJS.ProcessEnv): LiveMode
   if (!loaded.ok) throw new Error(`these environment variables are missing: ${loaded.missing.join(', ')}`);
   const chat = buildChatServices(loaded.config).adminChat;
   const { model, reasoningEffort } = loaded.config.tasks.adminChat;
-  return { name: model, reasoningEffort: reasoningEffort ?? 'none', passedIds: [], createChat: () => chat };
+  return { name: model, reasoningEffort: reasoningEffort ?? 'none', createChat: () => chat };
 }
 
 function readCommitSha(environment: NodeJS.ProcessEnv): string {

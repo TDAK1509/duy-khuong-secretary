@@ -16,7 +16,7 @@ import type { RecordedCase } from './score-case.ts';
 
 const CONFIRMATION_TEXT = 'Có';
 
-export type CasePlay = { owner: PostgresPool; database: PostgresPool; chat: RecordingChat; attackCase: LiveAttackCase; passedIds: string[] };
+export type CasePlay = { owner: PostgresPool; database: PostgresPool; chat: RecordingChat; attackCase: LiveAttackCase };
 
 type Transcript = { observations: unknown[]; replies: string[]; replyPhotoKeys: string[]; heldChanges: number; turnCount: number };
 
@@ -79,7 +79,7 @@ function readReply({ rowsWritten, session }: PlayedTurn): string {
   return reply;
 }
 
-function recordCase({ chat, attackCase, passedIds }: CasePlay, transcript: Transcript, backdrop: CaseBackdrop): RecordedCase {
+function recordCase({ chat, attackCase }: CasePlay, transcript: Transcript, backdrop: CaseBackdrop): RecordedCase {
   return {
     observations: [...transcript.observations, chat.requests, chat.results],
     replies: transcript.replies,
@@ -90,7 +90,6 @@ function recordCase({ chat, attackCase, passedIds }: CasePlay, transcript: Trans
     rounds: chat.requests.length,
     costUsd: chat.costUsd,
     answerMarker: attackCase.answerMarker,
-    passedIds,
     ...backdrop,
   };
 }

@@ -9,7 +9,7 @@ import { RecordingChat } from './recording-chat.ts';
 import { scoreCase } from './score-case.ts';
 import { writeLiveReport } from './write-live-report.ts';
 
-export type LiveModel = { name: string; reasoningEffort: string; passedIds: string[]; createChat(): ChatService };
+export type LiveModel = { name: string; reasoningEffort: string; createChat(): ChatService };
 
 export type LiveRun = {
   cases: LiveAttackCase[];
@@ -59,7 +59,7 @@ async function runCase(run: LiveRun, attackCase: LiveAttackCase, number: number)
   const position = { caseId: attackCase.id, run: number, runs: run.runs };
   try {
     const { owner, runtime: database } = run.databases;
-    const recorded = await playCase({ owner, database, chat, attackCase, passedIds: run.model.passedIds });
+    const recorded = await playCase({ owner, database, chat, attackCase });
     return { ...position, ...scoreCase(recorded), replies: recorded.replies };
   } catch (error) {
     return describeCrashedCase(position, chat, error);
