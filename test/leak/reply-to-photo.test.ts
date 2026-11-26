@@ -56,6 +56,15 @@ test('a paper named by its number wins over the quoted photo', async () => {
   assert.equal(await readPaperPlate(databases.owner, quotedPaper.paperId), '51A00003');
 });
 
+test("a quote of an unknown id keeps today's answer", async () => {
+  await insertSharedPlatePapers(7);
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'UNKNOWN-1' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  const output = await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), []);
+  assert.deepEqual(pickAnswerSummary(output), { action: 'ambiguous', total: 7, listed: 7 });
+});
+
 async function insertSharedPlatePapers(count: number) {
   const papers = [];
   for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
@@ -72,4 +81,9 @@ function buildCorrectionArguments(correction: Correction): object {
     current_plate: null, current_number: null, current_date: null, all_matching: false,
     ...correction,
   };
+}
+
+function pickAnswerSummary(output: string): { action: string; total: number; listed: number } {
+  const answer = JSON.parse(output) as { action: string; total: number; papers: unknown[] };
+  return { action: answer.action, total: answer.total, listed: answer.papers.length };
 }
