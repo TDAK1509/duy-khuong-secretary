@@ -67,7 +67,9 @@ INSERT INTO document_lines (id, workspace_id, document_id, line_no, label, value
 
 INSERT INTO document_parties (id, workspace_id, document_id, role, type, printed_name, match_key, organization_id) VALUES
   ('aaaaaaaa-0013-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'customer', 'company', 'SAFE-A-PARTY', 'safeaparty', 'aaaaaaaa-0005-4000-8000-000000000002'),
-  ('bbbbbbbb-0013-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'customer', 'company', 'LEAK-B-PARTY', 'leakbparty', 'bbbbbbbb-0005-4000-8000-000000000002');
+  ('bbbbbbbb-0013-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'customer', 'company', 'LEAK-B-PARTY', 'leakbparty', 'bbbbbbbb-0005-4000-8000-000000000002'),
+  ('aaaaaaaa-0013-4000-8000-000000000002', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'issuer', 'company', 'SHARED-COMPANY', 'sharedcompany', 'aaaaaaaa-0005-4000-8000-000000000001'),
+  ('bbbbbbbb-0013-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'issuer', 'company', 'SHARED-COMPANY', 'sharedcompany', 'bbbbbbbb-0005-4000-8000-000000000001');
 
 INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, customer_name, customer_match_key) VALUES
   ('aaaaaaaa-0014-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-FACT Lương tài xế SAFE-A-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'SAFE-A-CUSTOMER', 'safeacustomer'),
@@ -76,6 +78,12 @@ INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, d
 INSERT INTO fact_values (id, workspace_id, fact_id, position, name, match_key, number, unit) VALUES
   ('aaaaaaaa-0015-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 0, 'Lương', 'luong', 500000, 'vnd'),
   ('bbbbbbbb-0015-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 0, 'Lương', 'luong', 777000111, 'vnd');
+
+INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, pickup_name, pickup_match_key) VALUES
+  ('bbbbbbbb-0014-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-ROUTE-FACT Lương xe 99Z12345 lấy hàng ở SHARED-COMPANY', '99Z12345', 'SHARED-COMPANY', 'sharedcompany');
+
+INSERT INTO fact_values (id, workspace_id, fact_id, position, name, match_key, number, unit) VALUES
+  ('bbbbbbbb-0015-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000002', 0, 'Lương', 'luong', 888000222, 'vnd');
 
 INSERT INTO fact_companies (id, workspace_id, fact_id, slot, organization_id) VALUES
   ('aaaaaaaa-0016-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 'customer', 'aaaaaaaa-0005-4000-8000-000000000001'),
@@ -176,7 +184,6 @@ INSERT INTO credit_additions (id, workspace_id, credits, source, note, balance_a
 INSERT INTO workspace_invites (id, workspace_id, code_hash, display_name, role, created_by, expires_at) VALUES
   ('aaaaaaaa-0035-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'safea-invite-hash', 'SAFE-A-INVITEE', 'member', 'aaaaaaaa-0001-4000-8000-000000000001', '2030-01-01 00:00:00+00'),
   ('bbbbbbbb-0035-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'leakb-invite-hash', 'LEAK-B-INVITEE', 'member', 'bbbbbbbb-0001-4000-8000-000000000001', '2030-01-01 00:00:00+00');
-
 
 INSERT INTO channel_connections (id, channel, account_id, access_token_encrypted, refresh_token_encrypted, access_expires_at, refresh_expires_at) VALUES
   ('aaaaaaaa-0036-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'seed-not-a-token', 'seed-not-a-token', '2030-01-01 00:00:00+00', '2030-01-01 00:00:00+00');
