@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:migrations": "node src/bootstrap/check-migrations.ts",
-    "test:leak": "node --test --test-concurrency=1 \"test/leak/*.test.ts\""
+    "test:leak": "node --test --test-concurrency=1 \"test/leak/*.test.ts\"",
+    "test:leak-live": "node test/leak/live/main-live-leak.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",
