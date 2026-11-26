@@ -42,3 +42,37 @@ jobs:
           esac
           npm run check:migrations -- "$base"
 
+
+  leak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    env:
+      OWNER_DATABASE_URL: postgres://app_owner:app_owner@localhost:5432/secretary
+      RUNTIME_DATABASE_URL: postgres://app_runtime:app_runtime@localhost:5432/secretary
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create the database roles
+        run: psql postgres://postgres:postgres@localhost:5432/postgres -v ON_ERROR_STOP=1 -f docker/postgres-init/01-owner-role.sql
+      - name: Migrate the database as the owner
+        env:
+          MIGRATION_DATABASE_URL: ${{ env.OWNER_DATABASE_URL }}
+        run: node src/bootstrap/migrate.ts
+      - name: Run the leak suite
+        run: npm run test:leak
