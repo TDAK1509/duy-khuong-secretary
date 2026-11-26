@@ -99,3 +99,13 @@ test('a quoted photo of workspace B changes no B paper', async () => {
   assert.deepEqual(await snapshotWorkspaceB(databases.owner), snapshotBefore);
   assertNoLeak([output], { label: 'a quote of a workspace B photo' });
 });
+
+test('a Zalo id repeated for two sends of the same photo still finds that photo', async () => {
+  const papers = await insertSharedPlatePapers(7);
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-4'), zaloMessageId: 'SENT-4' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-4'), zaloMessageId: 'SENT-4' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-4' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[3]!.paperId]);
+});

@@ -5,7 +5,7 @@ export type QuotingMessage = { workspaceId: string; currentMessageId: string };
 type PhotoRow = { id: string };
 
 const FIND_ADMIN_PHOTO_SQL = `
-  SELECT photo.id
+  SELECT DISTINCT photo.id
   FROM messages current
   JOIN inbound_events current_event ON current_event.id = current.inbound_event_id
   JOIN inbound_events quoted_event
@@ -17,7 +17,7 @@ const FIND_ADMIN_PHOTO_SQL = `
   LIMIT 2`;
 
 const FIND_SENT_PHOTO_SQL = `
-  SELECT photo.id
+  SELECT DISTINCT photo.id
   FROM messages current
   JOIN inbound_events current_event ON current_event.id = current.inbound_event_id
   JOIN outbound_messages sent
