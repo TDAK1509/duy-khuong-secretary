@@ -45,25 +45,29 @@ function buildPayload(message: DriverMessage): object {
   return { image_urls: ['https://files.leak-test.invalid/driver-photo.jpg'], caption: message.caption, sent_at: sentAt };
 }
 
-function buildInboundDependencies(database: PostgresPool, { chat, reader }: DriverStep) {
+function buildInboundDependencies(database: PostgresPool, step: DriverStep) {
   return {
     database,
     clock: CLOCK,
     alerts: new OperatorAlerts({ notify: async () => {} }, CLOCK),
     notices: new OffGroupNotices(CLOCK, () => {}),
     held: new HeldEvents(),
-    handler: createInboundHandler({
-      channel: new StubMessagingChannel(),
-      clock: CLOCK,
-      database,
-      encryptionKey: 'leak-test-encryption-key',
-      fileStorage: new FakeFileStorage(),
-      photoStorage: new MemoryPhotoStorage(),
-      reader,
-      dropOffReader: null,
-      chats: { adminChat: chat },
-    }),
+    handler: buildInboundHandler(database, step),
   };
+}
+
+function buildInboundHandler(database: PostgresPool, { chat, reader }: DriverStep) {
+  return createInboundHandler({
+    channel: new StubMessagingChannel(),
+    clock: CLOCK,
+    database,
+    encryptionKey: 'leak-test-encryption-key',
+    fileStorage: new FakeFileStorage(),
+    photoStorage: new MemoryPhotoStorage(),
+    reader,
+    dropOffReader: null,
+    chats: { adminChat: chat },
+  });
 }
 
 async function assertEventFinished(owner: PostgresPool): Promise<void> {
