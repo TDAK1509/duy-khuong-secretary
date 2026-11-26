@@ -1,0 +1,2 @@
+export const WORKSPACE_A_ID = 'aaaaaaaa-0002-4000-8000-000000000001';
+export const WORKSPACE_B_ID = 'bbbbbbbb-0002-4000-8000-000000000001';
