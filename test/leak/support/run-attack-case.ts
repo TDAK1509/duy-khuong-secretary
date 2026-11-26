@@ -5,7 +5,7 @@ import { listAttackArguments, type AttackCase } from './attack-case.ts';
 import { collectPassedIds } from './leak-check.ts';
 import { observeToolSideEffects } from './observe-tool-side-effects.ts';
 import { WORKSPACE_A_ID } from './seed-ids.ts';
-import { listAddedRows, snapshotWorkspace } from './snapshot-workspace.ts';
+import { listAddedOrChangedRows, snapshotWorkspace } from './snapshot-workspace.ts';
 import { createToolHarness, type ToolHarness, type ToolPath } from './tool-harness.ts';
 
 const INVALID_ARGUMENT_PREFIX = 'Dữ liệu không hợp lệ';
@@ -18,7 +18,7 @@ export async function runAttackCase({ owner, database, attackCase, path }: Attac
   const harness = createToolHarness(database);
   const rowsBefore = await snapshotWorkspace(owner, WORKSPACE_A_ID);
   const outputs = await runAimedCalls(harness, attackCase, path);
-  const rowsWritten = listAddedRows(rowsBefore, await snapshotWorkspace(owner, WORKSPACE_A_ID));
+  const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(owner, WORKSPACE_A_ID));
   const observations = [outputs, rowsWritten, ...(await observeToolSideEffects(harness))];
   return { outputs, observations, passedIds: listAttackArguments(attackCase).flatMap(collectPassedIds) };
 }

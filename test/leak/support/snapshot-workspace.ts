@@ -11,7 +11,7 @@ export async function snapshotWorkspace(owner: PostgresPool, workspaceId: string
   return snapshot;
 }
 
-export function listAddedRows(before: WorkspaceSnapshot, after: WorkspaceSnapshot): unknown[] {
+export function listAddedOrChangedRows(before: WorkspaceSnapshot, after: WorkspaceSnapshot): unknown[] {
   return Object.entries(after).flatMap(([table, rows]) => {
     const knownRows = new Set((before[table] ?? []).map((row) => JSON.stringify(row)));
     return rows.filter((row) => !knownRows.has(JSON.stringify(row)));
