@@ -10,6 +10,7 @@ import { runStoreStage } from '../../../src/app/intake/store-user-message.ts';
 import { claimInboundEvent } from '../../../src/app/processing/claim-inbound-event.ts';
 import { createStages } from '../../../src/app/processing/stages.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
+import type { ChatService } from '../../../src/services/chat/chat-service.ts';
 import { assertModelReachedEveryTool } from './assert-model-reached-tools.ts';
 import { assertReplyWasPublished } from './assert-reply-published.ts';
 import { FIXED_CLOCK } from './fixed-clock.ts';
@@ -18,75 +19,93 @@ import { listAdminOutboundMessages } from './list-admin-outbound-messages.ts';
 import { observeStoredFiles } from './observe-tool-side-effects.ts';
 import { FakeFileStorage } from './fake-file-storage.ts';
 import { RecordingReader } from './recording-reader.ts';
-import { A_ADMIN_SENDER, ADMIN_MESSAGE_ID } from './seed-chat-ids.ts';
+import { A_ADMIN_SENDER, buildAdminEventKey, buildAdminMessageId } from './seed-chat-ids.ts';
 import { FIXED_NOW, WORKSPACE_A_ID } from './seed-ids.ts';
 import type { ScriptedChatModel } from './scripted-chat-model.ts';
 import { listAddedOrChangedRows, snapshotWorkspace } from './snapshot-workspace.ts';
 import { STUB_CHANNEL } from './stub-channel.ts';
 
+const FIRST_TURN = 1;
+
 export type AdminTextRun = { owner: PostgresPool; database: PostgresPool; model: ScriptedChatModel; text: string; passedIds?: string[] };
 
 export type AdminChatTurn = { observations: unknown[]; passedIds: string[] };
 
-type Session = { context: IntakeContext; message: ChatMessage; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
+export type TurnPlay = { owner: PostgresPool; database: PostgresPool; chat: ChatService; text: string; turnNumber: number };
+
+export type AdminSession = { context: IntakeContext; message: ChatMessage; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
+
+export type PlayedTurn = { session: AdminSession; rowsWritten: unknown[]; newOutboundCount: number };
+
+export type AnswerStep = (session: AdminSession) => Promise<void>;
 
 export function sendAdminQuestion(run: AdminTextRun): Promise<AdminChatTurn> {
-  return runTurn(run, ({ context, message }) => answerWithChat(context, message));
+  return runTurn(run, answerAdminQuestion);
 }
 
 export function sendAdminReply(run: AdminTextRun): Promise<AdminChatTurn> {
   return runTurn(run, answerStoredChanges);
 }
 
-async function answerStoredChanges({ context, message }: Session): Promise<void> {
+export async function answerAdminQuestion({ context, message }: AdminSession): Promise<void> {
+  await answerWithChat(context, message);
+}
+
+export async function answerStoredChanges({ context, message }: AdminSession): Promise<void> {
   const settlement = await settlePendingChanges(context, message.text);
   if (settlement.kind !== 'answered') throw new Error('the admin reply settled no stored change');
   await answerWithChat(context, message, settlement.confirmedCalls);
 }
 
-async function runTurn(run: AdminTextRun, answer: (session: Session) => Promise<void>): Promise<AdminChatTurn> {
-  const session = await openSession(run);
-  const rowsBefore = await snapshotWorkspace(run.owner, WORKSPACE_A_ID);
-  const outboundBefore = await listAdminOutboundMessages(run.owner);
-  await answer(session);
-  assertModelReachedEveryTool(run.model);
-  const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(run.owner, WORKSPACE_A_ID));
-  const newOutboundCount = (await listAdminOutboundMessages(run.owner)).length - outboundBefore.length;
-  assertReplyWasPublished({ rowsWritten, messageId: session.message.id, newOutboundCount });
-  const passedIds = [...(run.passedIds ?? []), ...run.model.calls.flatMap((call) => collectPassedIds(call.argumentsJson))];
-  return { observations: await observeTurn(run, session, rowsWritten), passedIds };
+async function runTurn(run: AdminTextRun, answer: AnswerStep): Promise<AdminChatTurn> {
+  const { owner, database, model, text } = run;
+  const played = await playAdminTurn({ owner, database, chat: model, text, turnNumber: FIRST_TURN }, answer);
+  assertModelReachedEveryTool(model);
+  assertReplyWasPublished({ rowsWritten: played.rowsWritten, messageId: played.session.message.id, newOutboundCount: played.newOutboundCount });
+  const passedIds = [...(run.passedIds ?? []), ...model.calls.flatMap((call) => collectPassedIds(call.argumentsJson))];
+  return { observations: [model.requests, ...(await observeTurnEffects(owner, played))], passedIds };
 }
 
-async function openSession({ owner, database, model, text }: AdminTextRun): Promise<Session> {
-  await queueAdminEvent(owner, text);
+export async function playAdminTurn(play: TurnPlay, answer: AnswerStep): Promise<PlayedTurn> {
+  const session = await openSession(play);
+  const rowsBefore = await snapshotWorkspace(play.owner, WORKSPACE_A_ID);
+  const outboundBefore = await listAdminOutboundMessages(play.owner);
+  await answer(session);
+  const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(play.owner, WORKSPACE_A_ID));
+  const newOutboundCount = (await listAdminOutboundMessages(play.owner)).length - outboundBefore.length;
+  return { session, rowsWritten, newOutboundCount };
+}
+
+async function openSession({ owner, database, chat, text, turnNumber }: TurnPlay): Promise<AdminSession> {
+  await queueAdminEvent(owner, text, turnNumber);
   const event = await claimInboundEvent(database, FIXED_NOW);
   if (event === null) throw new Error('the queued admin event was not claimed');
   const sender = await findIntakeSender(database, event, text);
   if (sender === null) throw new Error('the queued admin event has no intake sender');
   const parts = { companyReader: new RecordingReader(), dropOffReader: new RecordingReader(), storage: new FakeFileStorage() };
   const scope = toDatabaseScope(sender);
-  const context = buildContext({ database: scopeDatabase(database, scope), model, ...parts }, { event, sender, stages: createStages(database, event, FIXED_CLOCK).forScope(scope) });
-  const stored = await runStoreStage(context, { id: ADMIN_MESSAGE_ID, text, imageKey: null, partIndex: 0 });
+  const context = buildContext({ database: scopeDatabase(database, scope), chat, ...parts }, { event, sender, stages: createStages(database, event, FIXED_CLOCK).forScope(scope) });
+  const stored = await runStoreStage(context, { id: buildAdminMessageId(turnNumber), text, imageKey: null, partIndex: 0 });
   return { context, message: { id: stored.id, text }, ...parts };
 }
 
-async function queueAdminEvent(owner: PostgresPool, text: string): Promise<void> {
+async function queueAdminEvent(owner: PostgresPool, text: string, turnNumber: number): Promise<void> {
   const payload = JSON.stringify({ text, sent_at: FIXED_NOW.toISOString() });
   await owner.query(
     `INSERT INTO inbound_events (channel, account_id, external_event_id, external_user_id, kind, payload, available_at, received_at)
-     VALUES ($1, $2, 'SAFE-A-ATTACK-EVENT', $3, 'text', $4, $5, $5)`,
-    [A_ADMIN_SENDER.channel, A_ADMIN_SENDER.accountId, A_ADMIN_SENDER.externalUserId, payload, FIXED_NOW],
+     VALUES ($1, $2, $3, $4, 'text', $5, $6, $6)`,
+    [A_ADMIN_SENDER.channel, A_ADMIN_SENDER.accountId, buildAdminEventKey(turnNumber), A_ADMIN_SENDER.externalUserId, payload, FIXED_NOW],
   );
 }
 
-type ContextParts = { database: Database; model: ScriptedChatModel; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
+type ContextParts = { database: Database; chat: ChatService; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
 
-function buildContext({ database, model, companyReader, dropOffReader, storage }: ContextParts, claimed: Pick<IntakeContext, 'event' | 'sender' | 'stages'>): IntakeContext {
-  const dependencies = { channel: STUB_CHANNEL, clock: FIXED_CLOCK, database, fileStorage: storage, photoStorage: null, reader: companyReader, dropOffReader, chats: { adminChat: model } };
+function buildContext({ database, chat, companyReader, dropOffReader, storage }: ContextParts, claimed: Pick<IntakeContext, 'event' | 'sender' | 'stages'>): IntakeContext {
+  const dependencies = { channel: STUB_CHANNEL, clock: FIXED_CLOCK, database, fileStorage: storage, photoStorage: null, reader: companyReader, dropOffReader, chats: { adminChat: chat } };
   return { dependencies, reader: companyReader, ...claimed };
 }
 
-async function observeTurn({ owner, model }: AdminTextRun, session: Session, rowsWritten: unknown[]): Promise<unknown[]> {
+export async function observeTurnEffects(owner: PostgresPool, { session, rowsWritten }: PlayedTurn): Promise<unknown[]> {
   const { companyReader, dropOffReader } = session;
-  return [model.requests, companyReader.requests, dropOffReader.requests, rowsWritten, await listAdminOutboundMessages(owner), ...(await observeStoredFiles(session))];
+  return [companyReader.requests, dropOffReader.requests, rowsWritten, await listAdminOutboundMessages(owner), ...(await observeStoredFiles(session))];
 }
