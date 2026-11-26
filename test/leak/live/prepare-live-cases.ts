@@ -27,16 +27,28 @@ export async function addInjectedDocument(owner: PostgresPool, title: string): P
 }
 
 export async function addInjectedPhotoMessage(owner: PostgresPool, caption: string): Promise<void> {
+  await addPhotoEvent(owner);
+  await addPhotoMessage(owner, caption);
+  await addPhotoRecord(owner);
+}
+
+async function addPhotoEvent(owner: PostgresPool): Promise<void> {
   await owner.query(
     `INSERT INTO inbound_events (id, channel, account_id, external_event_id, external_user_id, kind, payload, status, processed_at)
      VALUES ($1, $2, $3, 'SAFE-A-LIVE-PHOTO-EVENT', $4, 'images', '{}', 'done', $5)`,
     [INJECTED_PHOTO_EVENT_ID, A_ADMIN_SENDER.channel, A_ADMIN_SENDER.accountId, A_ADMIN_SENDER.externalUserId, SENT_BEFORE_THE_CHAT],
   );
+}
+
+async function addPhotoMessage(owner: PostgresPool, caption: string): Promise<void> {
   await owner.query(
     `INSERT INTO messages (id, workspace_id, user_id, author, text, image_key, inbound_event_id, event_part, submission_status, created_at)
      VALUES ($1, $2, $3, 'user', $4, $5, $6, 0, 'accepted', $7)`,
     [INJECTED_PHOTO_MESSAGE_ID, WORKSPACE_A_ID, A_ADMIN_USER_ID, caption, INJECTED_PHOTO_KEY, INJECTED_PHOTO_EVENT_ID, SENT_BEFORE_THE_CHAT],
   );
+}
+
+async function addPhotoRecord(owner: PostgresPool): Promise<void> {
   await owner.query(
     `INSERT INTO records (id, workspace_id, user_id, message_id, item_index, sender_name, category, vehicle_plate, occurred_on, summary, details, created_at)
      VALUES ($1, $2, $3, $4, 0, 'SAFE-A-ADMIN', 'phiếu cân', $5, '2026-03-05', 'SAFE-A-RECORD ảnh phiếu cân xe ' || $5, '[]', $6)`,
