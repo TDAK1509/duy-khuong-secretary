@@ -14,6 +14,8 @@ after(() => databases.close());
 
 test('read tools with B arguments return no B data under the runtime role', () => assertReadToolsKeepWorkspaceBOut(databases.runtime));
 
+test('read tools with B arguments return no B data under the owner role', () => assertReadToolsKeepWorkspaceBOut(databases.owner));
+
 async function assertReadToolsKeepWorkspaceBOut(database: PostgresPool): Promise<void> {
   for (const attackCase of READ_ATTACK_CASES) {
     const outcome = await runAttackCase({ owner: databases.owner, database, attackCase, path: 'chat-gate' });
