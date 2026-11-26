@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import { assertNoLeak } from './support/leak-check.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { NoCompanyMatchReader } from './support/no-company-match-reader.ts';
 import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, readImageKey, readPaperPlate } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { snapshotWorkspaceB } from './support/snapshot-workspace-b.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
@@ -11,6 +13,7 @@ const SHARED_PLATE = '51A00001';
 const SHARED_DATE = '2026-03-02';
 const NEW_DROP_OFF = 'Kho Moi Hai';
 const NEW_PLATE = '51B00002';
+const B_PHOTO_IMAGE_KEY = 'seed/LEAK-B-photo.jpg';
 
 beforeEach(() => resetDatabase(databases.owner));
 
@@ -63,6 +66,15 @@ test("a quote of an unknown id keeps today's answer", async () => {
   const output = await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
   assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), []);
   assert.deepEqual(pickAnswerSummary(output), { action: 'ambiguous', total: 7, listed: 7 });
+});
+
+test('a quoted photo of workspace B changes no B paper', async () => {
+  await insertSentPhoto(databases.owner, { imageKey: B_PHOTO_IMAGE_KEY, zaloMessageId: 'SENT-B' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-B' });
+  const snapshotBefore = await snapshotWorkspaceB(databases.owner);
+  const output = await createToolHarness(databases.runtime, { currentMessage: reply }).runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, last_photo: true }));
+  assert.deepEqual(await snapshotWorkspaceB(databases.owner), snapshotBefore);
+  assertNoLeak([output], { label: 'a quote of a workspace B photo' });
 });
 
 async function insertSharedPlatePapers(count: number) {
