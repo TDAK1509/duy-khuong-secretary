@@ -109,7 +109,6 @@ function buildModelReader(config: ReaderConfig, { model, reasoningEffort }: Read
 export function buildChatServices(config: ChatConfig): ChatServices {
   return {
     adminChat: buildChatService(config, 'adminChat'),
-    memberChat: buildChatService(config, 'memberChat'),
     scheduledRun: buildChatService(config, 'scheduledRun'),
   };
 }

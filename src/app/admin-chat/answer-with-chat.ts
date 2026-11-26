@@ -6,11 +6,10 @@ import { enqueueReply, enqueueReplyPhotos, enqueueSourceCard } from '../intake/e
 import type { IntakeContext } from '../intake/intake-context.ts';
 import { clearQuestionPending, setSubmissionStatus, storeBotReply, storeReplyPhotos } from '../intake/store-user-message.ts';
 import { listChatTools } from './tools/chat-tools.ts';
-import { ADMIN_TOOL_ROUNDS, DEFAULT_TOOL_ROUNDS, runToolLoop, type LoggedRound, type RunTool, type ToolLoopOutcome, type ToolLoopResult } from './run-tool-loop.ts';
+import { ADMIN_TOOL_ROUNDS, runToolLoop, type LoggedRound, type RunTool, type ToolLoopOutcome, type ToolLoopResult } from './run-tool-loop.ts';
 import { formatAdminChatLine } from './format-admin-chat-line.ts';
 import { runChatTool } from './tools/run-chat-tool.ts';
 import { buildAdminPrompt } from './admin-prompt.ts';
-import { buildMemberPrompt } from './member-prompt.ts';
 import { buildAbilitySection } from './ability-section.ts';
 import { buildChatContextTurn } from './build-chat-context.ts';
 import { buildCurrentRequest } from './build-user-turn.ts';
@@ -38,7 +37,7 @@ import { DOCUMENT_SETUP_OFFER_TEXT } from '../processing/conversation-texts.ts';
 
 export async function answerWithChat(context: IntakeContext, message: ChatMessage, confirmedCalls: StoredCall[] = []): Promise<void> {
   const profile = await loadChatProfile(context.dependencies.database, context.sender.membershipId);
-  if (profile === null) return;
+  if (profile === null || profile.role !== 'admin') return;
   const answer = await produceAnswer(context, message, profile, confirmedCalls);
   await context.stages.runStage({
     isDone: (transaction) => hasAnswer(transaction, message.id),
@@ -47,7 +46,6 @@ export async function answerWithChat(context: IntakeContext, message: ChatMessag
 }
 
 type Answer = {
-  role: ChatProfile['role'];
   outcome: ToolLoopOutcome;
   text: string;
   photos: AttachablePhoto[];
@@ -59,13 +57,13 @@ type Answer = {
 
 async function produceAnswer(context: IntakeContext, message: ChatMessage, profile: ChatProfile, confirmedCalls: StoredCall[]): Promise<Answer> {
   const hasNote = await hasNoteFromPhoto(context.dependencies.database, message.id);
-  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: profile.role };
+  const caller: AccessScope = { workspaceId: context.sender.workspaceId, userId: context.sender.userId, role: 'admin' };
   const dependencies = buildToolDependencies(context, message, new AdminTextGuard(hasNote));
   const confirmed = await runConfirmedCalls(dependencies, caller, confirmedCalls);
   const { request, typedHistoryTexts } = await buildChatRequest(context, message, profile, confirmed);
   const toolDependencies = { ...dependencies, typedHistoryTexts };
-  const result = await runLoggedToolLoop(chooseToolLoop(context, profile.role), message, request, (call) => runChatTool(toolDependencies, caller, call));
-  return collectAnswer(result, profile.role, toolDependencies);
+  const result = await runLoggedToolLoop(findAdminChat(context), message, request, (call) => runChatTool(toolDependencies, caller, call));
+  return collectAnswer(result, toolDependencies);
 }
 
 function buildToolDependencies(context: IntakeContext, message: ChatMessage, guard: AdminTextGuard): AdminToolDependencies {
@@ -77,9 +75,8 @@ function readConversation({ event }: IntakeContext): Conversation {
   return { channel: event.channel, accountId: event.accountId, externalUserId: event.externalUserId };
 }
 
-function collectAnswer({ outcome, text }: ToolLoopResult, role: ChatProfile['role'], { attachments, sources, created, invites, waiting }: AdminToolDependencies): Answer {
+function collectAnswer({ outcome, text }: ToolLoopResult, { attachments, sources, created, invites, waiting }: AdminToolDependencies): Answer {
   return {
-    role,
     outcome,
     text,
     photos: dropDeliveredPhotos(attachments.list(), sources.list()),
@@ -99,10 +96,10 @@ function hasPhotoDelivery(card: SourceCard): boolean {
   return card.quote !== undefined || card.albumPhotoKey !== undefined;
 }
 
-async function runLoggedToolLoop({ chat, maxRounds }: ToolLoopChoice, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
+async function runLoggedToolLoop(chat: ChatService, message: ChatMessage, request: ChatRequest, runTool: RunTool): Promise<ToolLoopResult> {
   const rounds: LoggedRound[] = [];
   try {
-    const result = await runToolLoop(chat, request, runTool, rounds, maxRounds);
+    const result = await runToolLoop(chat, request, runTool, rounds, ADMIN_TOOL_ROUNDS);
     console.log(formatAdminChatLine(message.id, result.outcome, rounds));
     return result;
   } catch (error) {
@@ -116,12 +113,12 @@ type BuiltRequest = { request: ChatRequest; typedHistoryTexts: string[] };
 async function buildChatRequest(context: IntakeContext, message: ChatMessage, profile: ChatProfile, confirmed: ConfirmedChange[]): Promise<BuiltRequest> {
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
-  const tools = listChatTools(profile.role);
+  const tools = listChatTools('admin');
   const current = await buildCurrentRequest(database, message);
   const profileLines = await buildProfileLines(context, profile);
-  const rules = profile.role === 'admin' ? await loadCompanyRules(context) : null;
+  const rules = await loadCompanyRules(context);
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history, confirmed, current });
-  const request = { system: buildPrompt(profile.role, clock.now(), tools), turns: [contextTurn], tools };
+  const request = { system: buildPrompt(clock.now(), tools), turns: [contextTurn], tools };
   return { request, typedHistoryTexts: listTypedTexts(history) };
 }
 
@@ -135,17 +132,14 @@ async function loadMemory({ dependencies, sender }: IntakeContext): Promise<stri
   return readPrivateMemory(scopeDatabase(dependencies.database, ownerScope), sender);
 }
 
-function buildPrompt(role: ChatProfile['role'], now: Date, tools: ToolSpec[]): string {
-  const build = role === 'admin' ? buildAdminPrompt : buildMemberPrompt;
-  return [build({ now }), buildAbilitySection(tools)].join('\n\n');
+function buildPrompt(now: Date, tools: ToolSpec[]): string {
+  return [buildAdminPrompt({ now }), buildAbilitySection(tools)].join('\n\n');
 }
 
-type ToolLoopChoice = { chat: ChatService; maxRounds: number };
-
-function chooseToolLoop(context: IntakeContext, role: ChatProfile['role']): ToolLoopChoice {
+function findAdminChat(context: IntakeContext): ChatService {
   const { chats } = context.dependencies;
   if (chats === null) throw new Error('the chat service is not configured');
-  return role === 'admin' ? { chat: chats.adminChat, maxRounds: ADMIN_TOOL_ROUNDS } : { chat: chats.memberChat, maxRounds: DEFAULT_TOOL_ROUNDS };
+  return chats.adminChat;
 }
 
 async function hasAnswer(transaction: Transaction, messageId: string): Promise<boolean> {
@@ -155,7 +149,7 @@ async function hasAnswer(transaction: Transaction, messageId: string): Promise<b
 
 async function publishAnswer(transaction: Transaction, context: IntakeContext, messageId: string, answer: Answer): Promise<void> {
   const { sender } = context;
-  if (!(await isCurrentMember(transaction, sender.membershipId, answer.role))) return;
+  if (!(await isCurrentMember(transaction, sender.membershipId, 'admin'))) return;
   const summaries = await loadTaskSummaries(transaction, answer.createdTaskIds, sender);
   await storeWaitingChanges(transaction, context, answer);
   const offer = await offerDocumentSetup(transaction, context, answer);
@@ -168,7 +162,7 @@ async function publishAnswer(transaction: Transaction, context: IntakeContext, m
 }
 
 async function offerDocumentSetup(transaction: Transaction, { sender, dependencies }: IntakeContext, answer: Answer): Promise<string[]> {
-  if (!isRealAdminAnswer(answer)) return [];
+  if (!isRealAnswer(answer)) return [];
   return (await claimDocumentSetupOffer(transaction, sender, dependencies.clock.now())) ? [DOCUMENT_SETUP_OFFER_TEXT] : [];
 }
 
@@ -177,12 +171,12 @@ async function storeWaitingChanges(transaction: Transaction, { sender, dependenc
   await replacePendingChanges(transaction, sender, waitingChanges.map(({ call }) => call), dependencies.clock.now());
 }
 
-function isRealAdminAnswer({ role, outcome, text, waitingChanges }: Answer): boolean {
-  return role === 'admin' && outcome === 'answered' && text.trim() !== '' && waitingChanges.length === 0;
+function isRealAnswer({ outcome, text, waitingChanges }: Answer): boolean {
+  return outcome === 'answered' && text.trim() !== '' && waitingChanges.length === 0;
 }
 
 async function enqueueAnswerMessages(transaction: Transaction, context: IntakeContext, answer: Answer, text: string): Promise<void> {
-  const adminMembershipId = answer.role === 'admin' ? context.sender.membershipId : undefined;
+  const adminMembershipId = context.sender.membershipId;
   await enqueueReply(transaction, context, text, { adminMembershipId });
   for (const inviteCode of answer.inviteCodes) await enqueueReply(transaction, context, inviteCode, { adminMembershipId });
   for (const card of answer.sourceCards) await enqueueSourceCard(transaction, context, card, adminMembershipId);

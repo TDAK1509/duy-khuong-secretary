@@ -9,7 +9,7 @@ import type { ClaimedEvent } from '../processing/claimed-event.ts';
 import type { Stages } from '../processing/stages.ts';
 import type { IntakeSender } from './find-intake-sender.ts';
 
-export type IntakeChats = Pick<ChatServices, 'adminChat' | 'memberChat'>;
+export type IntakeChats = Pick<ChatServices, 'adminChat'>;
 
 export type IntakeDependencies = {
   channel: MessagingChannel;

@@ -15,7 +15,7 @@ import {
   READ_FAILED_PHOTO_TEXT,
   READ_FAILED_TEXT,
   STILL_UNCLEAR_TEXT,
-  TEXT_NOTHING_TO_SAVE_TEXT,
+  UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
@@ -69,6 +69,10 @@ function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 
 export function planUnreadAnswer(): AnswerPlan {
   return { kind: 'reply', reply: planReadFailedReply(true), photoAfter: 'unchanged' };
+}
+
+export function planUploadOnlyAnswer(): AnswerPlan {
+  return { kind: 'reply', reply: planRefusal(UPLOAD_ONLY_TEXT), photoAfter: 'unchanged' };
 }
 
 function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean, namedDriver: string | null): ReplyPlan {
@@ -143,7 +147,7 @@ function planNoWorkDataReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 }
 
 function pickNoWorkDataText(photoProblem: Reading['photo_problem'], hasPhoto: boolean): string {
-  if (!hasPhoto) return TEXT_NOTHING_TO_SAVE_TEXT;
+  if (!hasPhoto) return UPLOAD_ONLY_TEXT;
   return photoProblem === null ? PHOTO_NOTHING_TO_SAVE_TEXT : PHOTO_PROBLEM_TEXTS[photoProblem];
 }
 

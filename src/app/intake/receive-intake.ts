@@ -78,7 +78,6 @@ function meterServices(
 function meterChats(chats: IntakeChats, meter: CallMeter): IntakeChats {
   return {
     adminChat: meterChat(chats.adminChat, meter, 'chat_answer'),
-    memberChat: meterChat(chats.memberChat, meter, 'chat_answer'),
   };
 }
 

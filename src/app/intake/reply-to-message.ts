@@ -1,6 +1,7 @@
 import type { Photo } from '../../services/storage/photo-storage.ts';
 import { answerWithChat } from '../admin-chat/answer-with-chat.ts';
 import { answerPendingQuestion } from './answer-pending-question.ts';
+import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import type { ReadAttempt } from '../reading/reading.ts';
@@ -24,7 +25,7 @@ export async function replyToMessage(context: IntakeContext, message: MessageToR
 }
 
 async function replyWithPlan(context: IntakeContext, message: MessageToRead, { attempt, plan }: FirstReading): Promise<IntakeOutcome> {
-  if (isSentToChat(plan, message)) {
+  if (isSentToChat(plan, message, context.sender)) {
     logIntake(context, message.id, toLoggedReading({ attempt, plan }), 'admin_chat');
     await answerWithChat(context, message);
     return { kind: 'replied' };
@@ -78,6 +79,6 @@ async function replyOnRereadPhoto(
   return { kind: 'replied' };
 }
 
-function isSentToChat({ situation }: ReplyPlan, { photo }: MessageToRead): boolean {
-  return photo === null && situation === 'no_work_data';
+function isSentToChat({ situation }: ReplyPlan, { photo }: MessageToRead, { role }: IntakeSender): boolean {
+  return role === 'admin' && photo === null && situation === 'no_work_data';
 }

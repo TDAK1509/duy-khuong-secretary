@@ -3,7 +3,7 @@ import { CHAT_DATA_RULES } from './build-chat-context.ts';
 import { MEMORY_SECTION } from './memory-section.ts';
 import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 
-export type PromptFacts = { now: Date };
+type PromptFacts = { now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
   return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, GOODS_NAMES_SECTION, DOCUMENT_CORRECTION_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');

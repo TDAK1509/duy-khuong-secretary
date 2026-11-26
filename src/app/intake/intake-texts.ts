@@ -15,8 +15,8 @@ export const PHOTO_SEVERAL_PAPERS_TEXT =
 export const PHOTO_NOTHING_TO_SAVE_TEXT =
   'Trợ lý chưa thấy thông tin công việc cần lưu trong ảnh này nên chưa lưu. Nếu cần lưu, bạn gửi lại ảnh kèm lời nhắn cho biết đây là việc gì nhé.';
 
-export const TEXT_NOTHING_TO_SAVE_TEXT =
-  'Trợ lý chưa thấy thông tin công việc cần lưu trong tin nhắn này. Nếu cần lưu, bạn nhắn rõ đây là việc gì, cho xe nào, bao nhiêu tiền nếu có nhé.';
+export const UPLOAD_ONLY_TEXT =
+  'Trợ lý chỉ nhận và lưu giấy tờ, tin nhắn công việc, không trả lời câu hỏi. Nếu cần lưu, bạn nhắn rõ đây là việc gì nhé. Câu hỏi khác, bạn hỏi quản lý nhé.';
 
 export const READ_FAILED_PHOTO_TEXT =
   'Trợ lý đã nhận ảnh nhưng đang gặp lỗi khi đọc nên chưa lưu thông tin trong ảnh. Bạn gửi lại ảnh sau ít phút nhé.';
