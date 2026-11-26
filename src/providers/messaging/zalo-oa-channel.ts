@@ -27,6 +27,7 @@ const RATE_LIMIT_ERROR = -32;
 const WINDOW_CLOSED_ERROR = -230;
 const SERVER_ERROR_STATUS = 500;
 const MAX_REDIRECTS = 3;
+const MAX_MESSAGE_ID_LENGTH = 255;
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
 const NON_PUBLIC_IPV4_RANGES: [string, number][] = [
   ['0.0.0.0', 8],
@@ -62,7 +63,7 @@ const REQUEST_NEVER_SENT_CODES = [
   'UND_ERR_CONNECT_TIMEOUT',
 ];
 
-const optionalId = z.string().optional().catch(undefined);
+const optionalId = z.string().min(1).max(MAX_MESSAGE_ID_LENGTH).regex(/^\P{Cc}+$/u).optional().catch(undefined);
 
 const attachmentSchema = z.object({
   type: z.string(),
@@ -91,7 +92,7 @@ const eventSchema = z.object({
 
 const sendAnswerSchema = z.object({
   error: z.number(),
-  data: z.object({ message_id: z.string().optional().catch(undefined) }).optional().catch(undefined),
+  data: z.object({ message_id: optionalId }).optional().catch(undefined),
 });
 
 const uploadAnswerSchema = z.object({
