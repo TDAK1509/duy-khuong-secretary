@@ -36,6 +36,15 @@ test("a reply with last_photo true uses the quoted photo, not the admin's last o
   assert.equal(await readPaperPlate(databases.owner, ownPaper.paperId), '51A00004');
 });
 
+test("a reply to the admin's own earlier photo changes that photo's paper", async () => {
+  await insertSharedPlatePapers(6);
+  const ownPaper = await insertPhotoPaper(databases.owner, { key: 'INBOUND-1', plate: SHARED_PLATE, date: SHARED_DATE, sentBy: 'admin' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'INBOUND-1' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [ownPaper.paperId]);
+});
+
 async function insertSharedPlatePapers(count: number) {
   const papers = [];
   for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
