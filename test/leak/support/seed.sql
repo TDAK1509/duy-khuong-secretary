@@ -49,7 +49,8 @@ INSERT INTO document_templates (id, workspace_id, name, name_key, kind, issuer_o
   ('aaaaaaaa-0009-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'SAFE-A-TEMPLATE', 'safeatemplate', 'weigh-ticket', 'aaaaaaaa-0005-4000-8000-000000000002', 'SAFE-A-TEMPLATE-DESCRIPTION', 'dispatch', 'aaaaaaaa-0001-4000-8000-000000000001'),
   ('bbbbbbbb-0009-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'LEAK-B-TEMPLATE', 'leakbtemplate', 'weigh-ticket', 'bbbbbbbb-0005-4000-8000-000000000002', 'LEAK-B-TEMPLATE-DESCRIPTION', 'dispatch', 'bbbbbbbb-0001-4000-8000-000000000001'),
   ('aaaaaaaa-0009-4000-8000-000000000002', 'aaaaaaaa-0002-4000-8000-000000000001', 'SHARED-TEMPLATE', 'sharedtemplate', 'weigh-ticket', 'aaaaaaaa-0005-4000-8000-000000000002', 'SAFE-A-SHARED-TEMPLATE-DESCRIPTION', 'dispatch', 'aaaaaaaa-0001-4000-8000-000000000001'),
-  ('bbbbbbbb-0009-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'SHARED-TEMPLATE', 'sharedtemplate', 'weigh-ticket', 'bbbbbbbb-0005-4000-8000-000000000002', 'LEAK-B-SHARED-TEMPLATE-DESCRIPTION', 'dispatch', 'bbbbbbbb-0001-4000-8000-000000000001');
+  ('bbbbbbbb-0009-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'SHARED-TEMPLATE', 'sharedtemplate', 'weigh-ticket', 'bbbbbbbb-0005-4000-8000-000000000002', 'LEAK-B-SHARED-TEMPLATE-DESCRIPTION', 'dispatch', 'bbbbbbbb-0001-4000-8000-000000000001'),
+  ('bbbbbbbb-0009-4000-8000-000000000003', 'bbbbbbbb-0002-4000-8000-000000000001', 'TARGET-B-TEMPLATE-ONLY', 'targetbtemplateonly', 'weigh-ticket', 'bbbbbbbb-0005-4000-8000-000000000002', 'LEAK-B-TEMPLATE-ONLY-DESCRIPTION', 'dispatch', 'bbbbbbbb-0001-4000-8000-000000000001');
 
 INSERT INTO document_template_fields (id, workspace_id, template_id, position, name, name_key, value_type, unit) VALUES
   ('aaaaaaaa-0010-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0009-4000-8000-000000000001', 1, 'SAFE-A-FIELD', 'safeafield', 'number', 'kg'),
@@ -97,7 +98,8 @@ INSERT INTO document_facts (workspace_id, document_id, fact_id) VALUES
 
 INSERT INTO goods_names (id, workspace_id, author_user_id, written_name, match_key, shown_name) VALUES
   ('aaaaaaaa-0018-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'SAFE-A-GOODS'),
-  ('bbbbbbbb-0018-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'LEAK-B-GOODS');
+  ('bbbbbbbb-0018-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'LEAK-B-GOODS'),
+  ('bbbbbbbb-0018-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'TARGET-B-GOODS-ONLY', 'targetbgoodsonly', 'LEAK-B-GOODS-ONLY-SHOWN');
 
 INSERT INTO inbound_events (id, channel, account_id, external_event_id, external_user_id, kind, payload, status, processed_at) VALUES
   ('aaaaaaaa-0019-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'SAFE-A-EVENT-1', 'seed-zalo-driver', 'text', '{}', 'done', now()),
@@ -170,6 +172,10 @@ INSERT INTO outbound_messages (id, channel, account_id, external_user_id, kind, 
 INSERT INTO workspace_rules (id, workspace_id, author_user_id, rule) VALUES
   ('aaaaaaaa-0031-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-RULE'),
   ('bbbbbbbb-0031-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-RULE');
+
+INSERT INTO workspace_rules (workspace_id, author_user_id, rule)
+SELECT 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-RULE-' || number
+FROM generate_series(1, 49) AS number;
 
 INSERT INTO template_backfills (id, workspace_id, template_id, template_revision, requested_by_user_id, status, document_ids, finished_at) VALUES
   ('aaaaaaaa-0032-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0009-4000-8000-000000000001', 1, 'aaaaaaaa-0001-4000-8000-000000000001', 'done', ARRAY['aaaaaaaa-0011-4000-8000-000000000001']::uuid[], now()),
