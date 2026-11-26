@@ -28,6 +28,24 @@ test("a reply to a photo the bot sent changes only that photo's paper", async ()
   assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[2]!.paperId]);
 });
 
+async function insertSharedPlatePapers(count: number) {
+  const papers = [];
+  for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
+  return papers;
+}
+
+type Correction = Partial<{ new_plate: string; new_number: string; company_name: string; company_slot: 'dropoff'; last_photo: boolean; current_plate: string; current_number: string; current_date: string }>;
+
+function buildCorrectionArguments(correction: Correction): object {
+  return {
+    new_plate: null, new_number: null, new_date: null, new_stage: null,
+    printed_label: null, printed_value: null, printed_meaning: null, printed_number: null, printed_unit: null,
+    company_slot: null, company_name: null, last_photo: false,
+    current_plate: null, current_number: null, current_date: null, all_matching: false,
+    ...correction,
+  };
+}
+
 test("a reply with last_photo true uses the quoted photo, not the admin's last own photo", async () => {
   const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
   const ownPaper = await insertPhotoPaper(databases.owner, { key: 'admin-own', plate: '51A00004', date: SHARED_DATE, sentBy: 'admin', at: '2026-03-02 10:00:00+00' });
@@ -68,6 +86,11 @@ test("a quote of an unknown id keeps today's answer", async () => {
   assert.deepEqual(pickAnswerSummary(output), { action: 'ambiguous', total: 7, listed: 7 });
 });
 
+function pickAnswerSummary(output: string): { action: string; total: number; listed: number } {
+  const answer = JSON.parse(output) as { action: string; total: number; papers: unknown[] };
+  return { action: answer.action, total: answer.total, listed: answer.papers.length };
+}
+
 test('a quoted photo of workspace B changes no B paper', async () => {
   await insertSentPhoto(databases.owner, { imageKey: B_PHOTO_IMAGE_KEY, zaloMessageId: 'SENT-B' });
   const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-B' });
@@ -76,26 +99,3 @@ test('a quoted photo of workspace B changes no B paper', async () => {
   assert.deepEqual(await snapshotWorkspaceB(databases.owner), snapshotBefore);
   assertNoLeak([output], { label: 'a quote of a workspace B photo' });
 });
-
-async function insertSharedPlatePapers(count: number) {
-  const papers = [];
-  for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
-  return papers;
-}
-
-type Correction = Partial<{ new_plate: string; new_number: string; company_name: string; company_slot: 'dropoff'; last_photo: boolean; current_plate: string; current_number: string; current_date: string }>;
-
-function buildCorrectionArguments(correction: Correction): object {
-  return {
-    new_plate: null, new_number: null, new_date: null, new_stage: null,
-    printed_label: null, printed_value: null, printed_meaning: null, printed_number: null, printed_unit: null,
-    company_slot: null, company_name: null, last_photo: false,
-    current_plate: null, current_number: null, current_date: null, all_matching: false,
-    ...correction,
-  };
-}
-
-function pickAnswerSummary(output: string): { action: string; total: number; listed: number } {
-  const answer = JSON.parse(output) as { action: string; total: number; papers: unknown[] };
-  return { action: answer.action, total: answer.total, listed: answer.papers.length };
-}
