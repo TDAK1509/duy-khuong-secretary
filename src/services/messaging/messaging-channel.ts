@@ -20,7 +20,7 @@ export type InboundEvent =
   | { kind: 'ignored' };
 
 export type SendResult =
-  | { ok: true }
+  | { ok: true; messageId?: string }
   | { ok: false; reason: 'rate_limited' | 'window_closed' | 'rejected' | 'unavailable' | 'no_answer' };
 
 export type DownloadResult =

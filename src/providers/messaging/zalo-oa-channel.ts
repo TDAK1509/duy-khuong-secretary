@@ -87,7 +87,10 @@ const eventSchema = z.object({
   }),
 });
 
-const sendAnswerSchema = z.object({ error: z.number() });
+const sendAnswerSchema = z.object({
+  error: z.number(),
+  data: z.object({ message_id: z.string().optional().catch(undefined) }).optional().catch(undefined),
+});
 
 const uploadAnswerSchema = z.object({
   error: z.number(),
@@ -379,8 +382,9 @@ async function readSendResult(response: Response): Promise<SendResult> {
 }
 
 function toSendResult(answer: unknown): SendResult {
-  const { error } = sendAnswerSchema.parse(answer);
-  return error === 0 ? { ok: true } : toFailedSend(error);
+  const { error, data } = sendAnswerSchema.parse(answer);
+  if (error !== 0) return toFailedSend(error);
+  return data?.message_id === undefined ? { ok: true } : { ok: true, messageId: data.message_id };
 }
 
 async function readUploadResult(response: Response): Promise<UploadResult> {
