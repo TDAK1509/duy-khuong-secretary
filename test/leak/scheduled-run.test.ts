@@ -21,6 +21,8 @@ after(() => databases.close());
 
 test('a scheduled run of an injected A task leaks nothing under the runtime role', () => assertInjectedRunLeaksNothing(databases.runtime));
 
+test('a scheduled run of an injected A task leaks nothing under the owner role', () => assertInjectedRunLeaksNothing(databases.owner));
+
 async function assertInjectedRunLeaksNothing(database: PostgresPool): Promise<void> {
   const snapshotBefore = await snapshotWorkspaceB(databases.owner);
   const model = new ScriptedChatModel(SCHEDULED_ATTACK_CASES);
