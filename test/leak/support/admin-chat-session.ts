@@ -11,7 +11,9 @@ import { claimInboundEvent } from '../../../src/app/processing/claim-inbound-eve
 import { createStages } from '../../../src/app/processing/stages.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
 import { assertModelReachedEveryTool } from './assert-model-reached-tools.ts';
+import { FIXED_CLOCK } from './fixed-clock.ts';
 import { collectPassedIds } from './leak-check.ts';
+import { listAdminOutboundMessages } from './list-admin-outbound-messages.ts';
 import { observeStoredFiles } from './observe-tool-side-effects.ts';
 import { FakeFileStorage } from './fake-file-storage.ts';
 import { RecordingReader } from './recording-reader.ts';
@@ -20,8 +22,6 @@ import { FIXED_NOW, WORKSPACE_A_ID } from './seed-ids.ts';
 import type { ScriptedChatModel } from './scripted-chat-model.ts';
 import { listAddedOrChangedRows, snapshotWorkspace } from './snapshot-workspace.ts';
 import { STUB_CHANNEL } from './stub-channel.ts';
-
-const FIXED_CLOCK = { now: () => FIXED_NOW };
 
 export type AdminTextRun = { owner: PostgresPool; database: PostgresPool; model: ScriptedChatModel; text: string; passedIds?: string[] };
 
@@ -56,11 +56,6 @@ async function runTurn(run: AdminTextRun, answer: (session: Session) => Promise<
 async function observeTurn({ owner, model }: AdminTextRun, session: Session, rowsWritten: unknown[]): Promise<unknown[]> {
   const { companyReader, dropOffReader } = session;
   return [model.requests, companyReader.requests, dropOffReader.requests, rowsWritten, await listAdminOutboundMessages(owner), ...(await observeStoredFiles(session))];
-}
-
-async function listAdminOutboundMessages(owner: PostgresPool): Promise<unknown[]> {
-  const { rows } = await owner.query<{ row: unknown }>('SELECT to_jsonb(message) AS row FROM outbound_messages message WHERE external_user_id = $1 ORDER BY id', [A_ADMIN_SENDER.externalUserId]);
-  return rows.map(({ row }) => row);
 }
 
 async function openSession({ owner, database, model, text }: AdminTextRun): Promise<Session> {
