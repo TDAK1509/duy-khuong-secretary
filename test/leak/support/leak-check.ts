@@ -6,8 +6,12 @@ const WORKSPACE_B_ID = /bbbbbbbb-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export type LeakCheckOptions = { passedIds?: string[]; label?: string };
 
 export function assertNoLeak(values: unknown[], options: LeakCheckOptions = {}): void {
-  const leaks = values.flatMap((value) => findLeaks(describeValue(value), options.passedIds ?? []));
+  const leaks = listLeaks(values, options.passedIds);
   assert.deepEqual(leaks, [], `workspace B data reached workspace A${options.label === undefined ? '' : ` in ${options.label}`}`);
+}
+
+export function listLeaks(values: unknown[], passedIds: string[] = []): string[] {
+  return values.flatMap((value) => findLeaks(describeValue(value), passedIds));
 }
 
 function findLeaks(text: string, passedIds: string[]): string[] {
