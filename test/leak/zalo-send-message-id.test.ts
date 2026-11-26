@@ -18,3 +18,16 @@ test('a successful Zalo image send returns the message id from the answer', asyn
     await zalo.close();
   }
 });
+
+test('a Zalo message id that Postgres cannot store is treated as missing', async () => {
+  const zalo = await startFakeZaloApi({
+    upload: { error: 0, data: { attachment_id: 'ATTACHMENT-1' } },
+    send: { error: 0, data: { message_id: '\u0000' } },
+  });
+  try {
+    const result = await buildZaloTestChannel(zalo.baseUrl).sendImage(RECIPIENT, PHOTO, 'made-up-token');
+    assert.deepEqual(result, { ok: true });
+  } finally {
+    await zalo.close();
+  }
+});
