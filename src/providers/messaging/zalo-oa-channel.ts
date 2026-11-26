@@ -81,6 +81,7 @@ const eventSchema = z.object({
   message: z.object({
     msg_id: z.string(),
     text: z.string().optional(),
+    quote_msg_id: z.string().optional(),
     attachments: z.array(attachmentSchema).default([]),
   }),
 });
@@ -472,7 +473,8 @@ function hasSheetExtension(fileName: string): boolean {
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {
   if (event.message.text === undefined) return IGNORED_EVENT;
-  return { kind: 'text', ...base, text: event.message.text };
+  const quoteMessageId = event.message.quote_msg_id;
+  return { kind: 'text', ...base, text: event.message.text, ...(quoteMessageId !== undefined && { quoteMessageId }) };
 }
 
 function toImagesEvent(base: EventBase, event: ZaloEvent): InboundEvent {
