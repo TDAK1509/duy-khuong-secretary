@@ -16,9 +16,14 @@ export async function storeInboundEvent(transaction: Transaction, event: Storabl
 
 function describePayload(event: StorableEvent): Record<string, unknown> {
   const sentAt = event.sentAt.toISOString();
-  if (event.kind === 'text') return { text: event.text, sent_at: sentAt };
+  if (event.kind === 'text') return describeTextPayload(event, sentAt);
   if (event.kind === 'images') return { image_urls: event.imageUrls, caption: event.caption, sent_at: sentAt };
   return describeFilePayload(event, sentAt);
+}
+
+function describeTextPayload(event: Extract<StorableEvent, { kind: 'text' }>, sentAt: string): Record<string, unknown> {
+  const quote = event.quoteMessageId === undefined ? {} : { quote_msg_id: event.quoteMessageId };
+  return { text: event.text, ...quote, sent_at: sentAt };
 }
 
 function describeFilePayload(event: Extract<StorableEvent, { kind: 'file' }>, sentAt: string): Record<string, unknown> {
