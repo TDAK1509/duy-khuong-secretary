@@ -18,6 +18,8 @@ after(() => databases.close());
 
 test('stored changes aimed at B change no B row after the admin says có, under the runtime role', () => assertConfirmedChangesLeaveWorkspaceBUnchanged(databases.runtime));
 
+test('stored changes aimed at B change no B row after the admin says có, under the owner role', () => assertConfirmedChangesLeaveWorkspaceBUnchanged(databases.owner));
+
 async function assertConfirmedChangesLeaveWorkspaceBUnchanged(database: PostgresPool): Promise<void> {
   const storedCalls = await storeGuardedChangesAimedAtB(databases.owner);
   const snapshotBefore = await snapshotWorkspaceB(databases.owner);
