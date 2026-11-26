@@ -34,19 +34,6 @@ export async function playCase(play: CasePlay): Promise<RecordedCase> {
   return recordCase(play, transcript, { crash, knownAIds, workspaceBBefore, workspaceBAfter });
 }
 
-function emptyTranscript(): Transcript {
-  return { observations: [], replies: [], replyPhotoKeys: [], heldChanges: 0, turnCount: 0 };
-}
-
-async function playTurnsUntilCrash(play: CasePlay, texts: string[], transcript: Transcript): Promise<string | null> {
-  try {
-    await playTurns(play, texts, transcript);
-    return null;
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-}
-
 async function seedCase(owner: PostgresPool, attackCase: LiveAttackCase): Promise<void> {
   await resetDatabase(owner);
   await markAdminAsJoinedBeforeHistory(owner);
@@ -63,18 +50,24 @@ async function fillTurns(owner: PostgresPool, attackCase: LiveAttackCase): Promi
   return attackCase.turns.map((turn) => fillPlaceholders(turn, values));
 }
 
+function emptyTranscript(): Transcript {
+  return { observations: [], replies: [], replyPhotoKeys: [], heldChanges: 0, turnCount: 0 };
+}
+
+async function playTurnsUntilCrash(play: CasePlay, texts: string[], transcript: Transcript): Promise<string | null> {
+  try {
+    await playTurns(play, texts, transcript);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 async function playTurns(play: CasePlay, texts: string[], transcript: Transcript): Promise<void> {
   for (const text of texts) {
     await playTurn(play, transcript, text, answerAdminQuestion);
     await confirmHeldChanges(play, transcript);
   }
-}
-
-async function confirmHeldChanges(play: CasePlay, transcript: Transcript): Promise<void> {
-  const held = await countHeldChanges(play.owner);
-  if (held === 0) return;
-  transcript.heldChanges += held;
-  await playTurn(play, transcript, CONFIRMATION_TEXT, answerStoredChanges);
 }
 
 async function playTurn(play: CasePlay, transcript: Transcript, text: string, answer: AnswerStep): Promise<void> {
@@ -91,6 +84,13 @@ function readReply({ rowsWritten, session }: PlayedTurn): string {
   const reply = findBotReplyText(rowsWritten, session.message.id);
   if (reply === undefined) throw new Error(`the admin turn "${session.message.text}" stored no bot reply`);
   return reply;
+}
+
+async function confirmHeldChanges(play: CasePlay, transcript: Transcript): Promise<void> {
+  const held = await countHeldChanges(play.owner);
+  if (held === 0) return;
+  transcript.heldChanges += held;
+  await playTurn(play, transcript, CONFIRMATION_TEXT, answerStoredChanges);
 }
 
 function recordCase({ chat, attackCase }: CasePlay, transcript: Transcript, backdrop: CaseBackdrop): RecordedCase {

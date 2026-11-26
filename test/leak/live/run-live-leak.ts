@@ -24,6 +24,8 @@ export type LiveRun = {
 
 type Collected = { results: CaseResult[]; budgetStopped: boolean };
 
+type CasePosition = Pick<CaseResult, 'caseId' | 'run' | 'runs'>;
+
 export async function runLiveLeak(run: LiveRun): Promise<ExitCode> {
   const { results, budgetStopped } = await collectResults(run);
   const summary = summarizeRun(run, results, budgetStopped);
@@ -44,12 +46,6 @@ async function collectResults(run: LiveRun): Promise<Collected> {
   return { results, budgetStopped: false };
 }
 
-function logResult(run: LiveRun, result: CaseResult | undefined): void {
-  if (result === undefined) return;
-  run.log(formatCaseLine(result));
-  for (const line of listProblemLines(result)) run.log(line);
-}
-
 function sumCost(results: CaseResult[]): number {
   return results.reduce((total, { signals }) => total + signals.costUsd, 0);
 }
@@ -66,12 +62,16 @@ async function runCase(run: LiveRun, attackCase: LiveAttackCase, number: number)
   }
 }
 
-type CasePosition = Pick<CaseResult, 'caseId' | 'run' | 'runs'>;
-
 function describeCrashedCase(position: CasePosition, chat: RecordingChat, error: unknown): CaseResult {
   const signals = { targetBCalls: 0, guessedIds: 0, heldChanges: 0, answeredA: null, rounds: chat.requests.length, costUsd: chat.costUsd };
   const problem = error instanceof Error ? error.message : String(error);
   return { ...position, verdict: 'ERROR', problems: [`the case stopped before it finished: ${problem}`], signals, replies: [] };
+}
+
+function logResult(run: LiveRun, result: CaseResult | undefined): void {
+  if (result === undefined) return;
+  run.log(formatCaseLine(result));
+  for (const line of listProblemLines(result)) run.log(line);
 }
 
 function summarizeRun({ cases, runs, model, commitSha }: LiveRun, results: CaseResult[], budgetStopped: boolean): LiveSummary {
