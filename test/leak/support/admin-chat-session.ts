@@ -53,11 +53,6 @@ async function runTurn(run: AdminTextRun, answer: (session: Session) => Promise<
   return { observations: await observeTurn(run, session, rowsWritten), passedIds };
 }
 
-async function observeTurn({ owner, model }: AdminTextRun, session: Session, rowsWritten: unknown[]): Promise<unknown[]> {
-  const { companyReader, dropOffReader } = session;
-  return [model.requests, companyReader.requests, dropOffReader.requests, rowsWritten, await listAdminOutboundMessages(owner), ...(await observeStoredFiles(session))];
-}
-
 async function openSession({ owner, database, model, text }: AdminTextRun): Promise<Session> {
   await queueAdminEvent(owner, text);
   const event = await claimInboundEvent(database, FIXED_NOW);
@@ -71,13 +66,6 @@ async function openSession({ owner, database, model, text }: AdminTextRun): Prom
   return { context, message: { id: stored.id, text }, ...parts };
 }
 
-type ContextParts = { database: Database; model: ScriptedChatModel; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
-
-function buildContext({ database, model, companyReader, dropOffReader, storage }: ContextParts, claimed: Pick<IntakeContext, 'event' | 'sender' | 'stages'>): IntakeContext {
-  const dependencies = { channel: STUB_CHANNEL, clock: FIXED_CLOCK, database, fileStorage: storage, photoStorage: null, reader: companyReader, dropOffReader, chats: { adminChat: model } };
-  return { dependencies, reader: companyReader, ...claimed };
-}
-
 async function queueAdminEvent(owner: PostgresPool, text: string): Promise<void> {
   const payload = JSON.stringify({ text, sent_at: FIXED_NOW.toISOString() });
   await owner.query(
@@ -85,4 +73,16 @@ async function queueAdminEvent(owner: PostgresPool, text: string): Promise<void>
      VALUES ($1, $2, 'SAFE-A-ATTACK-EVENT', $3, 'text', $4, $5, $5)`,
     [A_ADMIN_SENDER.channel, A_ADMIN_SENDER.accountId, A_ADMIN_SENDER.externalUserId, payload, FIXED_NOW],
   );
+}
+
+type ContextParts = { database: Database; model: ScriptedChatModel; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
+
+function buildContext({ database, model, companyReader, dropOffReader, storage }: ContextParts, claimed: Pick<IntakeContext, 'event' | 'sender' | 'stages'>): IntakeContext {
+  const dependencies = { channel: STUB_CHANNEL, clock: FIXED_CLOCK, database, fileStorage: storage, photoStorage: null, reader: companyReader, dropOffReader, chats: { adminChat: model } };
+  return { dependencies, reader: companyReader, ...claimed };
+}
+
+async function observeTurn({ owner, model }: AdminTextRun, session: Session, rowsWritten: unknown[]): Promise<unknown[]> {
+  const { companyReader, dropOffReader } = session;
+  return [model.requests, companyReader.requests, dropOffReader.requests, rowsWritten, await listAdminOutboundMessages(owner), ...(await observeStoredFiles(session))];
 }

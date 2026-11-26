@@ -2,12 +2,6 @@ import type { MessagingChannel } from '../../../src/services/messaging/messaging
 
 const STUB_MAX_TEXT_LENGTH = 2000;
 
-function refuseToUse(method: string): () => never {
-  return () => {
-    throw new Error(`the leak test channel stub does not implement ${method}`);
-  };
-}
-
 export const STUB_CHANNEL: MessagingChannel = {
   channel: 'leak-test-channel',
   maxTextLength: STUB_MAX_TEXT_LENGTH,
@@ -20,3 +14,9 @@ export const STUB_CHANNEL: MessagingChannel = {
   reactWithThumbsUp: refuseToUse('reactWithThumbsUp'),
   downloadAttachment: refuseToUse('downloadAttachment'),
 };
+
+function refuseToUse(method: string): () => never {
+  return () => {
+    throw new Error(`the leak test channel stub does not implement ${method}`);
+  };
+}
