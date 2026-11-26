@@ -11,6 +11,7 @@ import { claimInboundEvent } from '../../../src/app/processing/claim-inbound-eve
 import { createStages } from '../../../src/app/processing/stages.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
 import { assertModelReachedEveryTool } from './assert-model-reached-tools.ts';
+import { assertReplyWasPublished } from './assert-reply-published.ts';
 import { FIXED_CLOCK } from './fixed-clock.ts';
 import { collectPassedIds } from './leak-check.ts';
 import { listAdminOutboundMessages } from './list-admin-outbound-messages.ts';
@@ -46,9 +47,12 @@ async function answerStoredChanges({ context, message }: Session): Promise<void>
 async function runTurn(run: AdminTextRun, answer: (session: Session) => Promise<void>): Promise<AdminChatTurn> {
   const session = await openSession(run);
   const rowsBefore = await snapshotWorkspace(run.owner, WORKSPACE_A_ID);
+  const outboundBefore = await listAdminOutboundMessages(run.owner);
   await answer(session);
   assertModelReachedEveryTool(run.model);
   const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(run.owner, WORKSPACE_A_ID));
+  const newOutboundCount = (await listAdminOutboundMessages(run.owner)).length - outboundBefore.length;
+  assertReplyWasPublished({ rowsWritten, messageId: session.message.id, newOutboundCount });
   const passedIds = [...(run.passedIds ?? []), ...run.model.calls.flatMap((call) => collectPassedIds(call.argumentsJson))];
   return { observations: await observeTurn(run, session, rowsWritten), passedIds };
 }
