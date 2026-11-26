@@ -8,6 +8,7 @@ export type Settlement = {
   status: 'sent' | 'queued' | 'held' | 'failed' | 'unknown';
   availableAt?: Date;
   sentAt?: Date;
+  externalMessageId?: string;
   lastError?: string;
   rewrite?: Rewrite;
   recheck?: { lastInboundAt: Date | null };
@@ -27,7 +28,7 @@ const NO_CONNECTION_WAIT_MS = 60_000;
 const NO_CONNECTION_MAX_ATTEMPTS = 5;
 
 export function decideSendOutcome(message: ClaimedMessage, result: SendResult, now: Date): SendOutcome {
-  if (result.ok) return { settlement: { status: 'sent', sentAt: now } };
+  if (result.ok) return { settlement: { status: 'sent', sentAt: now, externalMessageId: result.messageId } };
   return decideFailureOutcome(message, result, now);
 }
 
