@@ -15,6 +15,7 @@ import { RecordingReader } from './recording-reader.ts';
 import { A_ADMIN_USER_ID, FIXED_NOW, WORKSPACE_A_ID } from './seed-ids.ts';
 
 const A_ADMIN: AccessScope = { workspaceId: WORKSPACE_A_ID, userId: A_ADMIN_USER_ID, role: 'admin' };
+const EARLIER_TYPED_TEXT = 'Sửa biển số thành 99Z54321 và ngày thành 02/03/2026';
 
 export type ToolPath = 'chat-gate' | 'confirmed';
 
@@ -50,6 +51,7 @@ function buildToolDependencies({ database, storage, companyReader, dropOffReader
     companyReader,
     dropOffReader,
     currentMessageText: ATTACK_TEXT,
+    typedHistoryTexts: [EARLIER_TYPED_TEXT],
   };
 }
 

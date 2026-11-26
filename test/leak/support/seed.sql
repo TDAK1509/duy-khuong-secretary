@@ -176,3 +176,7 @@ INSERT INTO credit_additions (id, workspace_id, credits, source, note, balance_a
 INSERT INTO workspace_invites (id, workspace_id, code_hash, display_name, role, created_by, expires_at) VALUES
   ('aaaaaaaa-0035-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'safea-invite-hash', 'SAFE-A-INVITEE', 'member', 'aaaaaaaa-0001-4000-8000-000000000001', '2030-01-01 00:00:00+00'),
   ('bbbbbbbb-0035-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'leakb-invite-hash', 'LEAK-B-INVITEE', 'member', 'bbbbbbbb-0001-4000-8000-000000000001', '2030-01-01 00:00:00+00');
+
+
+INSERT INTO channel_connections (id, channel, account_id, access_token_encrypted, refresh_token_encrypted, access_expires_at, refresh_expires_at) VALUES
+  ('aaaaaaaa-0036-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'seed-not-a-token', 'seed-not-a-token', '2030-01-01 00:00:00+00', '2030-01-01 00:00:00+00');

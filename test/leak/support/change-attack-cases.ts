@@ -14,8 +14,8 @@ export const CHANGE_ATTACK_CASES: AttackCase[] = [
     name: 'correct_document',
     kind: 'change',
     arguments: {
-      new_plate: null, new_number: null, new_date: null, new_stage: null, printed_label: null, printed_value: null, printed_meaning: null, printed_number: null, printed_unit: null,
-      company_slot: 'pickup', company_name: 'TARGET-B-WORKSPACE', last_photo: false, current_plate: SHARED_PLATE, current_number: SHARED_DOCUMENT_NUMBER, current_date: null, all_matching: true,
+      new_plate: '99Z54321', new_number: null, new_date: '2026-03-02', new_stage: null, printed_label: null, printed_value: null, printed_meaning: null, printed_number: null, printed_unit: null,
+      company_slot: null, company_name: null, last_photo: false, current_plate: SHARED_PLATE, current_number: SHARED_DOCUMENT_NUMBER, current_date: null, all_matching: true,
     },
   },
   { name: 'save_fact', kind: 'change', arguments: { statement: 'TARGET-B-FACT lương 1đ', vehicle_plate: SHARED_PLATE, driver_member_id: null, pickup_company: SHARED_COMPANY, dropoff_company: null, customer_company: null, values: [AIMED_VALUE], fact_id: B_FACT_ID } },

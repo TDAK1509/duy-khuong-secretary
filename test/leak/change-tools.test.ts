@@ -17,6 +17,8 @@ test('change tools aimed at B ids change no B row under the runtime role', () =>
 
 test('change tools aimed at B ids change no B row under the owner role', () => assertChangeToolsLeaveWorkspaceBUnchanged(databases.owner, 'chat-gate'));
 
+test('confirmed changes aimed at B ids change no B row under the runtime role', () => assertChangeToolsLeaveWorkspaceBUnchanged(databases.runtime, 'confirmed'));
+
 async function assertChangeToolsLeaveWorkspaceBUnchanged(database: PostgresPool, path: ToolPath): Promise<void> {
   for (const attackCase of CHANGE_ATTACK_CASES) {
     await resetDatabase(databases.owner);
