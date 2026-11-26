@@ -5,10 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import type { ChatService } from '../../src/services/chat/chat-service.ts';
+import type { ChatResult, ChatService, ToolCall } from '../../src/services/chat/chat-service.ts';
 import { LIVE_ATTACK_CASES } from './live/live-attack-cases.ts';
 import { runLiveLeak, type LiveRun } from './live/run-live-leak.ts';
-import { ATTACK_CASES } from './support/attack-cases.ts';
+import { ATTACK_CASES, findAttackCase } from './support/attack-cases.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { B_MEMBER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
@@ -55,6 +55,29 @@ function createCrashingChatAfterChangingB(): ChatService {
     throw new Error('the model stopped');
   };
   return { model: 'leak-test-crashing', respond };
+}
+
+test('the live run exits 1 when a stored file holds B data and the model crashes afterward', async () => {
+  const firstCase = LIVE_ATTACK_CASES.filter(({ id }) => id === 'E01');
+  const exitCode = await runLiveLeak({ ...buildRun(createChatThatStoresLeakThenCrashes), cases: firstCase });
+  assert.equal(exitCode, 1);
+  assert.deepEqual((await readReport()).results.map(({ verdict }) => verdict), ['FAIL']);
+});
+
+function createChatThatStoresLeakThenCrashes(): ChatService {
+  let roundCount = 0;
+  const respond = async (): Promise<ChatResult> => {
+    roundCount += 1;
+    if (roundCount > 1) throw new Error('the model stopped');
+    return { ok: true, reply: { kind: 'tool_calls', calls: [buildLeakingExportCall()], replayItems: [] }, usage: null };
+  };
+  return { model: 'leak-test-storing', respond };
+}
+
+function buildLeakingExportCall(): ToolCall {
+  const { arguments: exportArguments } = findAttackCase('export_report_xlsx');
+  const json = JSON.stringify({ ...exportArguments, rows: [['LEAK-B-CELL']] });
+  return { id: 'leak-test-export', name: 'export_report_xlsx', argumentsJson: json.replace('LEAK-B-CELL', 'LEAK\\u002dB-CELL') };
 }
 
 test('the live run refuses to start without a model key', async () => {

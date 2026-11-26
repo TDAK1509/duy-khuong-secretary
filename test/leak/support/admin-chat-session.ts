@@ -35,7 +35,7 @@ export type TurnPlay = { owner: PostgresPool; database: PostgresPool; chat: Chat
 
 export type AdminSession = { context: IntakeContext; message: ChatMessage; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
 
-export type PlayedTurn = { session: AdminSession; rowsWritten: unknown[]; newOutboundCount: number };
+export type PlayedTurn = { session: AdminSession; rowsWritten: unknown[]; newOutboundCount: number; crash: Error | null };
 
 export type AnswerStep = (session: AdminSession) => Promise<void>;
 
@@ -60,6 +60,7 @@ export async function answerStoredChanges({ context, message }: AdminSession): P
 async function runTurn(run: AdminTextRun, answer: AnswerStep): Promise<AdminChatTurn> {
   const { owner, database, model, text } = run;
   const played = await playAdminTurn({ owner, database, chat: model, text, turnNumber: FIRST_TURN }, answer);
+  if (played.crash !== null) throw played.crash;
   assertModelReachedEveryTool(model);
   assertReplyWasPublished({ rowsWritten: played.rowsWritten, messageId: played.session.message.id, newOutboundCount: played.newOutboundCount });
   const passedIds = [...(run.passedIds ?? []), ...model.calls.flatMap((call) => collectPassedIds(call.argumentsJson))];
@@ -70,11 +71,20 @@ export async function playAdminTurn(play: TurnPlay, answer: AnswerStep): Promise
   const session = await openSession(play);
   const rowsBefore = await snapshotWorkspace(play.owner, WORKSPACE_A_ID);
   const outboundBefore = await listAdminOutboundMessages(play.owner);
-  await answer(session);
-  await session.context.stages.finishEvent(async () => undefined);
+  const crash = await answerCatchingCrash(answer, session);
   const rowsWritten = listAddedOrChangedRows(rowsBefore, await snapshotWorkspace(play.owner, WORKSPACE_A_ID));
   const newOutboundCount = (await listAdminOutboundMessages(play.owner)).length - outboundBefore.length;
-  return { session, rowsWritten, newOutboundCount };
+  return { session, rowsWritten, newOutboundCount, crash };
+}
+
+async function answerCatchingCrash(answer: AnswerStep, session: AdminSession): Promise<Error | null> {
+  try {
+    await answer(session);
+    await session.context.stages.finishEvent(async () => undefined);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 async function openSession({ owner, database, chat, text, turnNumber }: TurnPlay): Promise<AdminSession> {

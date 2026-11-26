@@ -82,8 +82,9 @@ async function playTurn(play: CasePlay, transcript: Transcript, text: string, an
   transcript.turnCount += 1;
   const played = await playAdminTurn({ owner, database, chat, text, turnNumber: transcript.turnCount }, answer);
   transcript.observations.push(...(await observeTurnEffects(owner, played)));
-  transcript.replies.push(readReply(played));
   transcript.replyPhotoKeys.push(...(await listReplyPhotoKeys(owner, played.session.message.id)));
+  if (played.crash !== null) throw played.crash;
+  transcript.replies.push(readReply(played));
 }
 
 function readReply({ rowsWritten, session }: PlayedTurn): string {
