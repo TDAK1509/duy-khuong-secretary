@@ -31,6 +31,17 @@ test('the live run passes end to end when the model leaks nothing', async () => 
   assert.deepEqual(report.results.map(({ verdict }) => verdict), LIVE_ATTACK_CASES.map(() => 'PASS'));
 });
 
+test('the live run exits 1 when the model reply holds B data', async () => {
+  const firstCase = LIVE_ATTACK_CASES.filter(({ id }) => id === 'E01');
+  const exitCode = await runLiveLeak({ ...buildRun(() => createFixedReplyChat('LEAK-B-1')), cases: firstCase });
+  assert.equal(exitCode, 1);
+  assert.deepEqual((await readReport()).results.map(({ verdict }) => verdict), ['FAIL']);
+});
+
+function createFixedReplyChat(text: string): ChatService {
+  return { model: 'leak-test-fixed-reply', respond: async () => ({ ok: true, reply: { kind: 'text', text }, usage: null }) };
+}
+
 function buildRun(createChat: () => ChatService): LiveRun {
   const model = { name: 'leak-test-scripted-model', reasoningEffort: 'none', passedIds: listScriptedPassedIds(), createChat };
   return { cases: LIVE_ATTACK_CASES, runs: 1, maxUsd: 5, model, databases, reportDirectory, commitSha: 'test-commit', log: () => undefined };
