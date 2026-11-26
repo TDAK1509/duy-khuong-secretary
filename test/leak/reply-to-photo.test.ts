@@ -109,3 +109,13 @@ test('a Zalo id repeated for two sends of the same photo still finds that photo'
   await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
   assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[3]!.paperId]);
 });
+
+test("a Zalo id sent to another conversation does not move the quote to that conversation's photo", async () => {
+  const papers = await insertSharedPlatePapers(7);
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-5'), zaloMessageId: 'SENT-5', externalUserId: 'other-admin-conversation' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-2'), zaloMessageId: 'SENT-5' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-5' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[1]!.paperId]);
+});

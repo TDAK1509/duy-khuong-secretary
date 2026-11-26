@@ -62,11 +62,11 @@ async function insertInboundEvent(owner: PostgresPool, spec: InboundEventSpec): 
   return rows[0]!.id;
 }
 
-export async function insertSentPhoto(owner: PostgresPool, sent: { imageKey: string; zaloMessageId: string }): Promise<void> {
+export async function insertSentPhoto(owner: PostgresPool, sent: { imageKey: string; zaloMessageId: string; externalUserId?: string }): Promise<void> {
   await owner.query(
     `INSERT INTO outbound_messages (channel, account_id, external_user_id, kind, photo_key, status, sent_at, external_message_id)
      VALUES ($1, $2, $3, 'image', $4, 'sent', now(), $5)`,
-    [CHANNEL, ACCOUNT_ID, ADMIN_EXTERNAL_USER_ID, sent.imageKey, sent.zaloMessageId],
+    [CHANNEL, ACCOUNT_ID, sent.externalUserId ?? ADMIN_EXTERNAL_USER_ID, sent.imageKey, sent.zaloMessageId],
   );
 }
 
