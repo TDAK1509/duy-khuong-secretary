@@ -39,19 +39,25 @@ type DependencyParts = Pick<ToolHarness, 'storage' | 'companyReader' | 'dropOffR
 
 function buildToolDependencies({ database, storage, companyReader, dropOffReader }: DependencyParts): AdminToolDependencies {
   return {
+    ...createSideLists(),
     database,
     clock: { now: () => FIXED_NOW },
+    fileStorage: storage,
+    companyReader,
+    dropOffReader,
+    currentMessageText: ATTACK_TEXT,
+    typedHistoryTexts: [EARLIER_TYPED_TEXT],
+  };
+}
+
+function createSideLists(): Pick<AdminToolDependencies, 'attachments' | 'sources' | 'created' | 'invites' | 'guard' | 'waiting'> {
+  return {
     attachments: new PhotoAttachments(),
     sources: new SourceCards(),
     created: new CreatedTasks('leak-test-message'),
     invites: new CreatedInvites(),
     guard: new AdminTextGuard(false),
     waiting: new WaitingChanges(),
-    fileStorage: storage,
-    companyReader,
-    dropOffReader,
-    currentMessageText: ATTACK_TEXT,
-    typedHistoryTexts: [EARLIER_TYPED_TEXT],
   };
 }
 
