@@ -10,10 +10,6 @@ export function assertNoLeak(values: unknown[], options: LeakCheckOptions = {}):
   assert.deepEqual(leaks, [], `workspace B data reached workspace A${options.label === undefined ? '' : ` in ${options.label}`}`);
 }
 
-export function collectPassedIds(toolArguments: unknown): string[] {
-  return describeValue(toolArguments).match(WORKSPACE_B_ID) ?? [];
-}
-
 function findLeaks(text: string, passedIds: string[]): string[] {
   const secrets = text.match(SECRET_TEXT) ?? [];
   const ids = (text.match(WORKSPACE_B_ID) ?? []).filter((id) => !passedIds.includes(id));
@@ -22,4 +18,8 @@ function findLeaks(text: string, passedIds: string[]): string[] {
 
 function describeValue(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+export function collectPassedIds(toolArguments: unknown): string[] {
+  return describeValue(toolArguments).match(WORKSPACE_B_ID) ?? [];
 }
