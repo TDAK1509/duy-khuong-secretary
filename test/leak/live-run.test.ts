@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import type { ChatService } from '../../src/services/chat/chat-service.ts';
 import { LIVE_ATTACK_CASES } from './live/live-attack-cases.ts';
 import { runLiveLeak, type LiveRun } from './live/run-live-leak.ts';
@@ -10,7 +12,11 @@ import { listAttackArguments } from './support/attack-case.ts';
 import { ATTACK_CASES } from './support/attack-cases.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { collectPassedIds } from './support/leak-check.ts';
+import { resetDatabase } from './support/reset-database.ts';
+import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
+
+const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 const databases = openLeakDatabases();
 
@@ -37,6 +43,22 @@ test('the live run exits 1 when the model reply holds B data', async () => {
   assert.equal(exitCode, 1);
   assert.deepEqual((await readReport()).results.map(({ verdict }) => verdict), ['FAIL']);
 });
+
+test('the live run refuses to start without a model key', async () => {
+  await resetDatabase(databases.owner);
+  await databases.owner.query(`UPDATE workspaces SET name = 'SAFE-A-SENTINEL' WHERE id = $1`, [WORKSPACE_A_ID]);
+  const outcome = startLiveRunWithoutModelKey();
+  assert.equal(outcome.status, 2);
+  assert.match(outcome.stderr, /LLM_API_KEY/);
+  const { rows } = await databases.owner.query('SELECT name FROM workspaces WHERE id = $1', [WORKSPACE_A_ID]);
+  assert.deepEqual(rows, [{ name: 'SAFE-A-SENTINEL' }]);
+});
+
+function startLiveRunWithoutModelKey(): SpawnSyncReturns<string> {
+  const environment: NodeJS.ProcessEnv = { ...process.env, CHAT_PROVIDER: 'openai-compatible', LLM_BASE_URL: 'https://llm.invalid/v1', LLM_MODEL: 'gpt-6.1-sol' };
+  delete environment['LLM_API_KEY'];
+  return spawnSync(process.execPath, ['test/leak/live/main-live-leak.ts'], { cwd: REPOSITORY_ROOT, env: environment, encoding: 'utf8' });
+}
 
 function createFixedReplyChat(text: string): ChatService {
   return { model: 'leak-test-fixed-reply', respond: async () => ({ ok: true, reply: { kind: 'text', text }, usage: null }) };
