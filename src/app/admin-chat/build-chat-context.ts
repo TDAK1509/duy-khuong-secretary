@@ -4,7 +4,7 @@ import type { ConfirmedChange } from './changes/run-confirmed-calls.ts';
 
 export type CurrentRequest = { text: string | null; savedNote: string | null };
 
-export type ChatContext = { profileLines: string[]; memory: string; rules: string | null; history: ChatTurn[]; confirmed: ConfirmedChange[]; current: CurrentRequest };
+export type ChatContext = { profileLines: string[]; memory: string; rules: string; history: ChatTurn[]; confirmed: ConfirmedChange[]; current: CurrentRequest };
 
 const EMPTY_MEMORY = '(trống)';
 const EMPTY_RULES = '(chưa có quy tắc nào)';
@@ -24,7 +24,8 @@ export function buildChatContextTurn({ profileLines, memory, rules, history, con
     wrapRetrievedData('profile', profileLines.join('\n')),
     'Bản ghi nhớ riêng hiện tại về người đang trò chuyện:',
     wrapRetrievedData('memory', memory === '' ? EMPTY_MEMORY : memory),
-    ...(rules === null ? [] : ['Các quy tắc của công ty đã lưu, từ cũ đến mới:', wrapRetrievedData('company-rules', rules === '' ? EMPTY_RULES : rules)]),
+    'Các quy tắc của công ty đã lưu, từ cũ đến mới:',
+    wrapRetrievedData('company-rules', rules === '' ? EMPTY_RULES : rules),
     ...(historyLines.length === 0 ? [] : ['Các tin nhắn trước trong cuộc trò chuyện, từ cũ đến mới:', wrapRetrievedData('history', historyLines.join('\n'))]),
     ...describeConfirmedChanges(confirmed),
     'Tin nhắn hiện tại của người dùng, là yêu cầu cần trả lời:',

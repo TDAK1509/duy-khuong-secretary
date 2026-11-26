@@ -5,12 +5,13 @@ import { answerPendingQuestion } from './answer-pending-question.ts';
 import { askNextWaitingPhoto } from './ask-next-photo.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { findEarlierAnswers } from './find-earlier-answers.ts';
+import type { IntakeSender } from './find-intake-sender.ts';
 import type { IntakeContext } from './intake-context.ts';
 import type { IntakeOutcome } from './intake-outcome.ts';
 import { wrapExplanation } from './intake-texts.ts';
 import type { LoggedReading } from './log-intake.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
-import { planAnswer, planReply, planUnreadAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
+import { planAnswer, planReply, planUnreadAnswer, planUploadOnlyAnswer, type AnswerPlan, type ReplyAnswer, type ReplyPlan } from './plan-reply.ts';
 import { readMessage } from './read-message.ts';
 import { requirePhotoStorage } from './require-photo-storage.ts';
 import { isReplied } from './run-reply-stage.ts';
@@ -32,10 +33,16 @@ export async function answerPhotoExplanation(
   asked: AskedPhoto,
 ): Promise<IntakeOutcome> {
   const photo = await requirePhotoStorage(context).get(asked.imageKey);
-  const { answer, reading } = await readAnswer(context, explanation, asked, photo);
+  const read = await readAnswer(context, explanation, asked, photo);
+  const answer = answerOnlyAdminQuestions(read.answer, context.sender);
+  const { reading } = read;
   await runAnswerStage(context, { explanation, asked }, answer);
   await answerPendingQuestion(context, explanation, reading, answer.kind === 'question' ? 'admin_chat' : 'reply_then_admin_chat');
   return { kind: 'replied' };
+}
+
+function answerOnlyAdminQuestions(answer: AnswerPlan, { role }: IntakeSender): AnswerPlan {
+  return answer.kind === 'question' && role !== 'admin' ? planUploadOnlyAnswer() : answer;
 }
 
 async function runAnswerStage(context: IntakeContext, answered: Answered, answer: AnswerPlan): Promise<void> {
@@ -74,7 +81,7 @@ async function rereadWithEarlierAnswers(
 async function readAndPlanAnswer(context: IntakeContext, { asked, photo }: PhotoToRead, texts: string[]): Promise<ReadAnswer> {
   const attempt = await readMessage(context, { text: wrapExplanation(texts.join('\n')), photo });
   const reading = { attempt, situation: planReply(attempt, true).situation };
-  return { answer: planAnswer(attempt, asked, context.sender.role), reading };
+  return { answer: planAnswer(attempt, asked), reading };
 }
 
 function isWeakAnswer(answer: AnswerPlan): boolean {

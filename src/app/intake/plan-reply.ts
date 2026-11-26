@@ -17,7 +17,6 @@ import {
   STILL_UNCLEAR_TEXT,
   UPLOAD_ONLY_TEXT,
 } from './intake-texts.ts';
-import type { IntakeSender } from './find-intake-sender.ts';
 import type { SubmissionStatus } from './store-user-message.ts';
 import type { AskedPhoto } from './waiting-photos.ts';
 
@@ -41,18 +40,13 @@ export type ReplyAnswer = {
 
 export type AnswerPlan = { kind: 'question' } | ReplyAnswer;
 
-export function planAnswer(attempt: ReadAttempt, asked: AskedPhoto, role: IntakeSender['role']): AnswerPlan {
+export function planAnswer(attempt: ReadAttempt, asked: AskedPhoto): AnswerPlan {
   if (!attempt.ok) return planUnreadAnswer();
   const reply = planReply(attempt, true);
   if (reply.situation === 'saved' || isSeveralPapersRefusal(attempt.reading, reply)) return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
-  if (attempt.reading.has_question) return planQuestionAnswer(role);
+  if (attempt.reading.has_question) return { kind: 'question' };
   if (asked.status === 'asked_again') return { kind: 'reply', reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
-}
-
-function planQuestionAnswer(role: IntakeSender['role']): AnswerPlan {
-  if (role === 'admin') return { kind: 'question' };
-  return { kind: 'reply', reply: planRefusal(UPLOAD_ONLY_TEXT), photoAfter: 'unchanged' };
 }
 
 function isSeveralPapersRefusal(reading: Reading, reply: ReplyPlan): boolean {
@@ -75,6 +69,10 @@ function planReadingReply(reading: Reading, hasPhoto: boolean): ReplyPlan {
 
 export function planUnreadAnswer(): AnswerPlan {
   return { kind: 'reply', reply: planReadFailedReply(true), photoAfter: 'unchanged' };
+}
+
+export function planUploadOnlyAnswer(): AnswerPlan {
+  return { kind: 'reply', reply: planRefusal(UPLOAD_ONLY_TEXT), photoAfter: 'unchanged' };
 }
 
 function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean, namedDriver: string | null): ReplyPlan {
