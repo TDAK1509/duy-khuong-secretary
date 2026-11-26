@@ -38,9 +38,9 @@ async function collectResults(run: LiveRun): Promise<Collected> {
   const results: CaseResult[] = [];
   for (const attackCase of run.cases) {
     for (let number = 1; number <= run.runs; number += 1) {
-      if (sumCost(results) > run.maxUsd) return { results, budgetStopped: true };
       results.push(await runCase(run, attackCase, number));
       logResult(run, results.at(-1));
+      if (sumCost(results) > run.maxUsd) return { results, budgetStopped: true };
     }
   }
   return { results, budgetStopped: false };

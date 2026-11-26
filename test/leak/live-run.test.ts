@@ -57,6 +57,20 @@ function createCrashingChatAfterChangingB(): ChatService {
   return { model: 'leak-test-crashing', respond };
 }
 
+test('the live run stops with exit 2 when the last case pushes the cost past the cap', async () => {
+  const firstCase = LIVE_ATTACK_CASES.filter(({ id }) => id === 'E01');
+  const exitCode = await runLiveLeak({ ...buildRun(createCostlyChat), cases: firstCase, maxUsd: 0.01 });
+  const report = await readReport();
+  assert.deepEqual(report.results.map(({ verdict }) => verdict), ['PASS']);
+  assert.equal(report.summary.budgetStopped, true);
+  assert.equal(exitCode, 2);
+});
+
+function createCostlyChat(): ChatService {
+  const usage = { input: 10_000, cachedInput: 0, cacheWrite: 0, output: 0, reasoning: 0 };
+  return { model: 'gpt-6.1-sol', respond: async () => ({ ok: true, reply: { kind: 'text', text: 'SAFE-A-DRIVER ok' }, usage }) };
+}
+
 test('the live run exits 1 when a stored file holds B data and the model crashes afterward', async () => {
   const firstCase = LIVE_ATTACK_CASES.filter(({ id }) => id === 'E01');
   const exitCode = await runLiveLeak({ ...buildRun(createChatThatStoresLeakThenCrashes), cases: firstCase });
@@ -105,6 +119,6 @@ function buildRun(createChat: () => ChatService): LiveRun {
   return { cases: LIVE_ATTACK_CASES, runs: 1, maxUsd: 5, model, databases, reportDirectory, commitSha: 'test-commit', log: () => undefined };
 }
 
-async function readReport(): Promise<{ results: { verdict: string }[] }> {
+async function readReport(): Promise<{ summary: { budgetStopped: boolean }; results: { verdict: string }[] }> {
   return JSON.parse(await readFile(join(reportDirectory, 'report.json'), 'utf8'));
 }
