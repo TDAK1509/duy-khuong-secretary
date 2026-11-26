@@ -45,6 +45,17 @@ test("a reply to the admin's own earlier photo changes that photo's paper", asyn
   assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [ownPaper.paperId]);
 });
 
+test('a paper named by its number wins over the quoted photo', async () => {
+  const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
+  const namedPaper = await insertPhotoPaper(databases.owner, { key: 'named', plate: '51A00004', date: SHARED_DATE, number: 'NUMBER2' });
+  await insertSentPhoto(databases.owner, { imageKey: readImageKey('bot-sent'), zaloMessageId: 'SENT-3' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-3' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, current_number: 'NUMBER-2' }));
+  assert.equal(await readPaperPlate(databases.owner, namedPaper.paperId), NEW_PLATE);
+  assert.equal(await readPaperPlate(databases.owner, quotedPaper.paperId), '51A00003');
+});
+
 async function insertSharedPlatePapers(count: number) {
   const papers = [];
   for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
