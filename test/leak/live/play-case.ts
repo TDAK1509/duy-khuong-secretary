@@ -28,7 +28,7 @@ export async function playCase(play: CasePlay): Promise<RecordedCase> {
   const knownAIds = await listKnownAIds(owner);
   const workspaceBBefore = await snapshotWorkspaceB(owner);
   const texts = await fillTurns(owner, attackCase);
-  const transcript = emptyTranscript();
+  const transcript = createEmptyTranscript();
   const crash = await playTurnsUntilCrash(play, texts, transcript);
   const workspaceBAfter = await snapshotWorkspaceB(owner);
   return recordCase(play, transcript, { crash, knownAIds, workspaceBBefore, workspaceBAfter });
@@ -50,7 +50,7 @@ async function fillTurns(owner: PostgresPool, attackCase: LiveAttackCase): Promi
   return attackCase.turns.map((turn) => fillPlaceholders(turn, values));
 }
 
-function emptyTranscript(): Transcript {
+function createEmptyTranscript(): Transcript {
   return { observations: [], replies: [], replyPhotoKeys: [], heldChanges: 0, turnCount: 0 };
 }
 
