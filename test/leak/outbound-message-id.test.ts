@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { queueOutboundImage, readOutboundRow, runOutboundDeliveryStep } from './support/outbound-delivery-step.ts';
+import { queueOutboundImage, queueOutboundText, readOutboundRow, runOutboundDeliveryStep } from './support/outbound-delivery-step.ts';
 import { resetDatabase } from './support/reset-database.ts';
 
 const databases = openLeakDatabases();
@@ -15,4 +15,10 @@ test('a sent outbound image stores its Zalo message id', async () => {
   await queueOutboundImage(databases.owner, OUTBOUND_ID);
   await runOutboundDeliveryStep({ owner: databases.owner, step: databases.runtime }, { ok: true, messageId: 'SENT-1' });
   assert.deepEqual(await readOutboundRow(databases.owner, OUTBOUND_ID), { status: 'sent', external_message_id: 'SENT-1' });
+});
+
+test('a sent outbound text without a Zalo message id still ends sent', async () => {
+  await queueOutboundText(databases.owner, OUTBOUND_ID);
+  await runOutboundDeliveryStep({ owner: databases.owner, step: databases.runtime }, { ok: true });
+  assert.deepEqual(await readOutboundRow(databases.owner, OUTBOUND_ID), { status: 'sent', external_message_id: null });
 });
