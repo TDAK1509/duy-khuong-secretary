@@ -14,6 +14,8 @@ after(() => databases.close());
 
 test('counts and sums hold only A values under the runtime role', () => assertCountsAndSumsHoldOnlyAValues(databases.runtime));
 
+test('counts and sums hold only A values under the owner role', () => assertCountsAndSumsHoldOnlyAValues(databases.owner));
+
 async function assertCountsAndSumsHoldOnlyAValues(database: PostgresPool): Promise<void> {
   assert.deepEqual(await callAttackCase(database, 'count_records'), {
     members: [
