@@ -82,7 +82,7 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
   const settled = await transaction.query(
     `UPDATE outbound_messages
      SET status = $3, available_at = COALESCE($4, available_at), sent_at = COALESCE($5, sent_at),
-         last_error = $6, locked_until = NULL,
+         last_error = $6, locked_until = NULL, external_message_id = $8,
          kind = CASE $7::text WHEN 'plain_text' THEN 'text' WHEN 'photo_with_text' THEN 'image' ELSE kind END,
          photo_key = CASE $7::text WHEN 'plain_text' THEN NULL WHEN 'photo_with_text' THEN fallback_photo_key ELSE photo_key END,
          quote_message_id = CASE WHEN $7::text IS NULL THEN quote_message_id END,
@@ -97,6 +97,7 @@ async function updateMessage(transaction: Transaction, message: ClaimedMessage, 
       settlement.sentAt ?? null,
       settlement.lastError ?? null,
       settlement.rewrite ?? null,
+      settlement.externalMessageId ?? null,
     ],
   );
   return settled.length !== 0;
