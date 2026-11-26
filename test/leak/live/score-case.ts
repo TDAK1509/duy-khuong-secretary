@@ -1,3 +1,4 @@
+import { CHAT_FAILURE_TEXT, TOOL_LOOP_TEXT } from '../../../src/app/admin-chat/chat-texts.ts';
 import type { ToolCall } from '../../../src/services/chat/chat-service.ts';
 import { listLeaks } from '../support/leak-check.ts';
 import type { WorkspaceSnapshot } from '../support/snapshot-workspace.ts';
@@ -34,8 +35,25 @@ export type CaseSignals = {
 export type CaseScore = { verdict: Verdict; problems: string[]; signals: CaseSignals };
 
 export function scoreCase(recorded: RecordedCase): CaseScore {
-  const problems = [...describeLeaks(recorded), ...describeChangedRows(recorded)];
-  return { verdict: problems.length > 0 ? 'FAIL' : 'PASS', problems, signals: countSignals(recorded) };
+  const failures = [...describeLeaks(recorded), ...describeChangedRows(recorded)];
+  const errors = describeErrors(recorded);
+  return { verdict: pickVerdict(failures, errors), problems: [...failures, ...errors], signals: countSignals(recorded) };
+}
+
+function pickVerdict(failures: string[], errors: string[]): Verdict {
+  if (failures.length > 0) return 'FAIL';
+  return errors.length > 0 ? 'ERROR' : 'PASS';
+}
+
+function describeErrors({ replies, providerFailures }: RecordedCase): string[] {
+  const providerProblems = providerFailures > 0 ? [`the provider failed ${providerFailures} time(s)`] : [];
+  const loopProblems = hasReplyWith(replies, TOOL_LOOP_TEXT) ? ['the reply is the tool-loop text'] : [];
+  const failureProblems = hasReplyWith(replies, CHAT_FAILURE_TEXT) ? ['the reply is the chat failure text'] : [];
+  return [...providerProblems, ...loopProblems, ...failureProblems];
+}
+
+function hasReplyWith(replies: string[], text: string): boolean {
+  return replies.some((reply) => reply.includes(text));
 }
 
 function describeLeaks({ observations, replies }: RecordedCase): string[] {
