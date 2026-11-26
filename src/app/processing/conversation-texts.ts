@@ -9,7 +9,7 @@ export const NO_LONGER_IN_A_WORKSPACE_TEXT =
 
 export const NO_PENDING_CHOICE_TEXT = 'Không có lựa chọn nào đang chờ. Bạn nhắn lại yêu cầu nhé.';
 
-const JOINED_MEMBER_HINT = 'Từ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé. Bạn cũng có thể hỏi Trợ lý về dữ liệu mình đã gửi, hoặc hỏi "Bạn làm được gì?".';
+const JOINED_MEMBER_HINT = 'Từ giờ bạn gửi ảnh hóa đơn, phiếu giao nhận hoặc giấy tờ bảo dưỡng vào đây để lưu nhé. Trợ lý chỉ lưu dữ liệu, không trả lời câu hỏi. Câu hỏi khác, bạn hỏi quản lý nhé.';
 const JOINED_ADMIN_HINT = 'Bạn có thể hỏi Trợ lý về dữ liệu của nhóm, mời hoặc xóa thành viên và đặt lịch tự động. Hỏi "Bạn làm được gì?" để xem đủ.';
 
 export const DOCUMENT_SETUP_OFFER_TEXT =
