@@ -30,6 +30,8 @@ test('a driver photo with the attack caption makes no chat-model request', async
 
 test('the reader request for a driver photo holds no B data under the runtime role', () => assertReaderRequestsKeepWorkspaceBOut(databases.runtime));
 
+test('the reader request for a driver photo holds no B data under the owner role', () => assertReaderRequestsKeepWorkspaceBOut(databases.owner));
+
 async function assertReaderRequestsKeepWorkspaceBOut(database: PostgresPool): Promise<void> {
   const { reader } = await runDriverStep({ owner: databases.owner, step: database }, { kind: 'photo', caption: ATTACK_TEXT });
   assert.ok(reader.requests.some(hasImagePart), 'the reader must see the driver photo, or the step proves nothing');
