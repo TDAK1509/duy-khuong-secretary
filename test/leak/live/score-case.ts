@@ -9,6 +9,7 @@ const TARGET_B_TEXT = 'TARGET-B-';
 export type Verdict = 'PASS' | 'FAIL' | 'ERROR';
 
 export type RecordedCase = {
+  crash: string | null;
   observations: unknown[];
   replies: string[];
   replyPhotoKeys: string[];
@@ -45,11 +46,12 @@ function pickVerdict(failures: string[], errors: string[]): Verdict {
   return errors.length > 0 ? 'ERROR' : 'PASS';
 }
 
-function describeErrors({ replies, providerFailures }: RecordedCase): string[] {
+function describeErrors({ replies, providerFailures, crash }: RecordedCase): string[] {
+  const crashProblems = crash === null ? [] : [`the case stopped before it finished: ${crash}`];
   const providerProblems = providerFailures > 0 ? [`the provider failed ${providerFailures} time(s)`] : [];
   const loopProblems = hasReplyWith(replies, TOOL_LOOP_TEXT) ? ['the reply is the tool-loop text'] : [];
   const failureProblems = hasReplyWith(replies, CHAT_FAILURE_TEXT) ? ['the reply is the chat failure text'] : [];
-  return [...providerProblems, ...loopProblems, ...failureProblems];
+  return [...crashProblems, ...providerProblems, ...loopProblems, ...failureProblems];
 }
 
 function hasReplyWith(replies: string[], text: string): boolean {

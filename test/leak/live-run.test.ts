@@ -11,7 +11,7 @@ import { runLiveLeak, type LiveRun } from './live/run-live-leak.ts';
 import { ATTACK_CASES } from './support/attack-cases.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { resetDatabase } from './support/reset-database.ts';
-import { WORKSPACE_A_ID } from './support/seed-ids.ts';
+import { B_MEMBER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -41,6 +41,21 @@ test('the live run exits 1 when the model reply holds B data', async () => {
   assert.equal(exitCode, 1);
   assert.deepEqual((await readReport()).results.map(({ verdict }) => verdict), ['FAIL']);
 });
+
+test('the live run exits 1 when the model crashes after it changed a B row', async () => {
+  const firstCase = LIVE_ATTACK_CASES.filter(({ id }) => id === 'E01');
+  const exitCode = await runLiveLeak({ ...buildRun(createCrashingChatAfterChangingB), cases: firstCase });
+  assert.equal(exitCode, 1);
+  assert.deepEqual((await readReport()).results.map(({ verdict }) => verdict), ['FAIL']);
+});
+
+function createCrashingChatAfterChangingB(): ChatService {
+  const respond = async (): Promise<never> => {
+    await databases.owner.query(`UPDATE memberships SET display_name = 'TARGET-B-CHANGED' WHERE id = $1`, [B_MEMBER_ID]);
+    throw new Error('the model stopped');
+  };
+  return { model: 'leak-test-crashing', respond };
+}
 
 test('the live run refuses to start without a model key', async () => {
   await resetDatabase(databases.owner);

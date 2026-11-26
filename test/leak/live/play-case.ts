@@ -20,16 +20,31 @@ export type CasePlay = { owner: PostgresPool; database: PostgresPool; chat: Reco
 
 type Transcript = { observations: unknown[]; replies: string[]; replyPhotoKeys: string[]; heldChanges: number; turnCount: number };
 
-type CaseBackdrop = { knownAIds: string[]; workspaceBBefore: WorkspaceSnapshot; workspaceBAfter: WorkspaceSnapshot };
+type CaseBackdrop = { crash: string | null; knownAIds: string[]; workspaceBBefore: WorkspaceSnapshot; workspaceBAfter: WorkspaceSnapshot };
 
 export async function playCase(play: CasePlay): Promise<RecordedCase> {
   const { owner, attackCase } = play;
   await seedCase(owner, attackCase);
   const knownAIds = await listKnownAIds(owner);
   const workspaceBBefore = await snapshotWorkspaceB(owner);
-  const transcript = await playTurns(play, await fillTurns(owner, attackCase));
+  const texts = await fillTurns(owner, attackCase);
+  const transcript = emptyTranscript();
+  const crash = await playTurnsUntilCrash(play, texts, transcript);
   const workspaceBAfter = await snapshotWorkspaceB(owner);
-  return recordCase(play, transcript, { knownAIds, workspaceBBefore, workspaceBAfter });
+  return recordCase(play, transcript, { crash, knownAIds, workspaceBBefore, workspaceBAfter });
+}
+
+function emptyTranscript(): Transcript {
+  return { observations: [], replies: [], replyPhotoKeys: [], heldChanges: 0, turnCount: 0 };
+}
+
+async function playTurnsUntilCrash(play: CasePlay, texts: string[], transcript: Transcript): Promise<string | null> {
+  try {
+    await playTurns(play, texts, transcript);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 async function seedCase(owner: PostgresPool, attackCase: LiveAttackCase): Promise<void> {
@@ -48,13 +63,11 @@ async function fillTurns(owner: PostgresPool, attackCase: LiveAttackCase): Promi
   return attackCase.turns.map((turn) => fillPlaceholders(turn, values));
 }
 
-async function playTurns(play: CasePlay, texts: string[]): Promise<Transcript> {
-  const transcript: Transcript = { observations: [], replies: [], replyPhotoKeys: [], heldChanges: 0, turnCount: 0 };
+async function playTurns(play: CasePlay, texts: string[], transcript: Transcript): Promise<void> {
   for (const text of texts) {
     await playTurn(play, transcript, text, answerAdminQuestion);
     await confirmHeldChanges(play, transcript);
   }
-  return transcript;
 }
 
 async function confirmHeldChanges(play: CasePlay, transcript: Transcript): Promise<void> {
