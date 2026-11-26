@@ -14,7 +14,6 @@ export type ChatTask = keyof ChatServices;
 
 const TASK_VARIABLE_PREFIXES: Record<ChatTask, string> = {
   adminChat: 'ADMIN_CHAT',
-  memberChat: 'MEMBER_CHAT',
   scheduledRun: 'SCHEDULED_RUN',
 };
 
@@ -46,7 +45,6 @@ export function loadChatConfig(environment: NodeJS.ProcessEnv): ChatConfigResult
       timeoutMs: settings.LLM_TIMEOUT_MS,
       tasks: {
         adminChat: readModelSetting(environment, 'adminChat'),
-        memberChat: readModelSetting(environment, 'memberChat'),
         scheduledRun: readModelSetting(environment, 'scheduledRun'),
       },
     },

@@ -36,6 +36,5 @@ export interface ChatService {
 
 export type ChatServices = {
   adminChat: ChatService;
-  memberChat: ChatService;
   scheduledRun: ChatService;
 };

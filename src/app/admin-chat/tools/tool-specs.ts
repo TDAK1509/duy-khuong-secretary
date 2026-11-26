@@ -185,48 +185,6 @@ export const MAINTENANCE_STATUS_SPEC: ToolSpec = {
   }
 };
 
-export const ATTACH_PHOTOS_SPEC: ToolSpec = {
-  "name": "attach_photos",
-  "description": "Gửi kèm ảnh gốc của các mục dữ liệu ngay sau câu trả lời, mỗi ảnh một tin nhắn. Lấy id từ kết quả search_records. Tối đa 4 ảnh. Mục không có ảnh hoặc không được phép xem sẽ bị bỏ qua.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "record_ids": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        },
-        "description": "id của các mục cần gửi ảnh."
-      }
-    },
-    "required": [
-      "record_ids"
-    ],
-    "additionalProperties": false
-  }
-};
-
-export const LIST_SOURCES_SPEC: ToolSpec = {
-  "name": "list_sources",
-  "description": "Tìm tin gốc của các mục dữ liệu: ai gửi, gửi lúc nào (giờ Việt Nam), gửi ảnh hay tin nhắn, và ngày trên giấy tờ. Lấy record_ids từ search_records. Tối đa 5 tin gốc mỗi lần gọi, theo thứ tự id. Hệ thống tự gửi một thẻ nguồn có nguyên văn tin nhắn cho mỗi tin gốc ngay sau câu trả lời. left_out đếm số id không có trong kết quả. Nếu quoted là true, thẻ nguồn trích lại tin gốc trong cuộc trò chuyện này.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "record_ids": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        },
-        "description": "id các mục cần xem nguồn, lấy từ search_records."
-      }
-    },
-    "required": [
-      "record_ids"
-    ],
-    "additionalProperties": false
-  }
-};
-
 export const CREATE_SCHEDULED_TASK_SPEC: ToolSpec = {
   "name": "create_scheduled_task",
   "description": "Đặt lịch để Trợ lý tự làm một việc vào giờ đã hẹn và gửi kết quả cho quản lý. Giờ là giờ Việt Nam. Lịch được lưu và bắt đầu chạy ngay.",

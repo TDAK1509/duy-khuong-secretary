@@ -48,7 +48,7 @@ async function saveReply(
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, text);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);
-  if (plan.saved && plan.asksQuestion && photo === null) await markQuestionPending(transaction, messageId);
+  if (plan.saved && plan.asksQuestion && photo === null && sender.role === 'admin') await markQuestionPending(transaction, messageId);
 }
 
 function isPhotoQuestion({ situation }: ReplyPlan): boolean {

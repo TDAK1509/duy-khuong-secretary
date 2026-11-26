@@ -52,10 +52,6 @@ services:
         value: gpt-6.1-sol
       - key: ADMIN_CHAT_REASONING_EFFORT
         value: medium
-      - key: MEMBER_CHAT_MODEL
-        value: gpt-6.1-sol
-      - key: MEMBER_CHAT_REASONING_EFFORT
-        value: medium
       - key: SCHEDULED_RUN_MODEL
         value: gpt-6.1-sol
       - key: SCHEDULED_RUN_REASONING_EFFORT
