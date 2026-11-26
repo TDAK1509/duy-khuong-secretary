@@ -78,6 +78,7 @@ const eventSchema = z.object({
   timestamp: z.coerce.number().refine(isDateTimestamp),
   sender: z.object({ id: z.string() }),
   recipient: z.object({ id: z.string() }),
+  quote_msg_id: z.string().optional(),
   message: z.object({
     msg_id: z.string(),
     text: z.string().optional(),
@@ -473,7 +474,7 @@ function hasSheetExtension(fileName: string): boolean {
 
 function toTextEvent(base: EventBase, event: ZaloEvent): InboundEvent {
   if (event.message.text === undefined) return IGNORED_EVENT;
-  const quoteMessageId = event.message.quote_msg_id;
+  const quoteMessageId = event.message.quote_msg_id ?? event.quote_msg_id;
   return { kind: 'text', ...base, text: event.message.text, ...(quoteMessageId !== undefined && { quoteMessageId }) };
 }
 
