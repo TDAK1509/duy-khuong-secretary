@@ -1,6 +1,6 @@
 import { OperatorAlerts } from '../../../src/app/alerts/operator-alerts.ts';
 import { encryptToken } from '../../../src/app/channel-auth/token-cipher.ts';
-import { runOutboundStep } from '../../../src/app/delivery/outbound-step.ts';
+import { runOutboundStep, type OutboundDependencies } from '../../../src/app/delivery/outbound-step.ts';
 import { OffGroupNotices } from '../../../src/app/processing/off-group-notices.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
 import type { Clock } from '../../../src/services/clock/clock.ts';
@@ -39,27 +39,8 @@ export async function queueOutboundImage(owner: PostgresPool, id: string): Promi
 
 export async function runOutboundDeliveryStep(databases: { owner: PostgresPool; step: PostgresPool }, sendResult: SendResult): Promise<void> {
   await storeMadeUpAccessToken(databases.owner);
-  const photoStorage = new MemoryPhotoStorage();
-  await photoStorage.put(OUTBOUND_PHOTO_KEY, OUTBOUND_PHOTO);
-  const outcome = await runOutboundStep({
-    database: databases.step,
-    clock: CLOCK,
-    alerts: new OperatorAlerts({ notify: async () => {} }, CLOCK),
-    notices: new OffGroupNotices(CLOCK, () => {}),
-    channel: new AnsweringChannel(sendResult),
-    photoStorage,
-    encryptionKey: MADE_UP_ENCRYPTION_KEY,
-    maxPerMinute: MAX_SENDS_PER_MINUTE,
-    reportReadyTemplateId: null,
-  });
-  if (outcome !== 'processed') throw new Error('the outbound step found no queued message');
-}
-
-export async function readOutboundRow(owner: PostgresPool, id: string): Promise<OutboundRow> {
-  const { rows } = await owner.query<OutboundRow>('SELECT status, external_message_id FROM outbound_messages WHERE id = $1', [id]);
-  const [row] = rows;
-  if (row === undefined) throw new Error(`outbound message ${id} does not exist`);
-  return row;
+  const dependencies = buildOutboundDependencies(databases.step, sendResult, await buildPhotoStorage());
+  assertStepProcessedAMessage(await runOutboundStep(dependencies));
 }
 
 async function storeMadeUpAccessToken(owner: PostgresPool): Promise<void> {
@@ -68,6 +49,26 @@ async function storeMadeUpAccessToken(owner: PostgresPool): Promise<void> {
     OUTBOUND_RECIPIENT.channel,
     OUTBOUND_RECIPIENT.accountId,
   ]);
+}
+
+async function buildPhotoStorage(): Promise<MemoryPhotoStorage> {
+  const photoStorage = new MemoryPhotoStorage();
+  await photoStorage.put(OUTBOUND_PHOTO_KEY, OUTBOUND_PHOTO);
+  return photoStorage;
+}
+
+function buildOutboundDependencies(database: PostgresPool, sendResult: SendResult, photoStorage: MemoryPhotoStorage): OutboundDependencies {
+  return {
+    database,
+    clock: CLOCK,
+    alerts: new OperatorAlerts({ notify: async () => {} }, CLOCK),
+    notices: new OffGroupNotices(CLOCK, () => {}),
+    channel: new AnsweringChannel(sendResult),
+    photoStorage,
+    encryptionKey: MADE_UP_ENCRYPTION_KEY,
+    maxPerMinute: MAX_SENDS_PER_MINUTE,
+    reportReadyTemplateId: null,
+  };
 }
 
 class AnsweringChannel extends StubMessagingChannel {
@@ -85,4 +86,15 @@ class AnsweringChannel extends StubMessagingChannel {
   override async sendImage(): Promise<SendResult> {
     return this.answer;
   }
+}
+
+function assertStepProcessedAMessage(outcome: 'processed' | 'idle'): void {
+  if (outcome !== 'processed') throw new Error('the outbound step found no queued message');
+}
+
+export async function readOutboundRow(owner: PostgresPool, id: string): Promise<OutboundRow> {
+  const { rows } = await owner.query<OutboundRow>('SELECT status, external_message_id FROM outbound_messages WHERE id = $1', [id]);
+  const [row] = rows;
+  if (row === undefined) throw new Error(`outbound message ${id} does not exist`);
+  return row;
 }
