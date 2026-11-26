@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { after, beforeEach, test } from 'node:test';
+import { assertNoLeak } from './support/leak-check.ts';
+import { openLeakDatabases } from './support/leak-databases.ts';
+import { NoCompanyMatchReader } from './support/no-company-match-reader.ts';
+import { insertPhotoPaper, insertReplyMessage, insertSentPhoto, listPapersWithDropOff, buildImageKey, readPaperPlate } from './support/photo-reply-rows.ts';
+import { resetDatabase } from './support/reset-database.ts';
+import { snapshotWorkspaceB } from './support/snapshot-workspace-b.ts';
+import { createToolHarness } from './support/tool-harness.ts';
+
+const databases = openLeakDatabases();
+const SHARED_PLATE = '51A00001';
+const SHARED_DATE = '2026-03-02';
+const NEW_DROP_OFF = 'Kho Moi Hai';
+const NEW_PLATE = '51B00002';
+const B_PHOTO_IMAGE_KEY = 'seed/LEAK-B-photo.jpg';
+
+beforeEach(() => resetDatabase(databases.owner));
+
+after(() => databases.close());
+
+test("a reply to a photo the bot sent changes only that photo's paper", async () => {
+  const papers = await insertSharedPlatePapers(7);
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-3'), zaloMessageId: 'SENT-1' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-1' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[2]!.paperId]);
+});
+
+async function insertSharedPlatePapers(count: number) {
+  const papers = [];
+  for (let index = 1; index <= count; index += 1) papers.push(await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE }));
+  return papers;
+}
+
+type Correction = Partial<{ new_plate: string; new_number: string; company_name: string; company_slot: 'dropoff'; last_photo: boolean; current_plate: string; current_number: string; current_date: string }>;
+
+function buildCorrectionArguments(correction: Correction): object {
+  return {
+    new_plate: null, new_number: null, new_date: null, new_stage: null,
+    printed_label: null, printed_value: null, printed_meaning: null, printed_number: null, printed_unit: null,
+    company_slot: null, company_name: null, last_photo: false,
+    current_plate: null, current_number: null, current_date: null, all_matching: false,
+    ...correction,
+  };
+}
+
+test("a reply with last_photo true uses the quoted photo, not the admin's last own photo", async () => {
+  const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
+  const ownPaper = await insertPhotoPaper(databases.owner, { key: 'admin-own', plate: '51A00004', date: SHARED_DATE, sentBy: 'admin', at: '2026-03-02 10:00:00+00' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('bot-sent'), zaloMessageId: 'SENT-2' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-2' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, last_photo: true }));
+  assert.equal(await readPaperPlate(databases.owner, quotedPaper.paperId), NEW_PLATE);
+  assert.equal(await readPaperPlate(databases.owner, ownPaper.paperId), '51A00004');
+});
+
+test("a reply to the admin's own earlier photo changes that photo's paper", async () => {
+  await insertSharedPlatePapers(6);
+  const ownPaper = await insertPhotoPaper(databases.owner, { key: 'INBOUND-1', plate: SHARED_PLATE, date: SHARED_DATE, sentBy: 'admin' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'INBOUND-1' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [ownPaper.paperId]);
+});
+
+test('a paper named by its number wins over the quoted photo', async () => {
+  const quotedPaper = await insertPhotoPaper(databases.owner, { key: 'bot-sent', plate: '51A00003', date: SHARED_DATE });
+  const namedPaper = await insertPhotoPaper(databases.owner, { key: 'named', plate: '51A00004', date: SHARED_DATE, number: 'NUMBER2' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('bot-sent'), zaloMessageId: 'SENT-3' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-3' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, current_number: 'NUMBER-2' }));
+  assert.equal(await readPaperPlate(databases.owner, namedPaper.paperId), NEW_PLATE);
+  assert.equal(await readPaperPlate(databases.owner, quotedPaper.paperId), '51A00003');
+});
+
+test("a quote of an unknown id keeps today's answer", async () => {
+  await insertSharedPlatePapers(7);
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'UNKNOWN-1' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  const output = await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), []);
+  assert.deepEqual(pickAnswerSummary(output), { action: 'ambiguous', total: 7, listed: 7 });
+});
+
+function pickAnswerSummary(output: string): { action: string; total: number; listed: number } {
+  const answer = JSON.parse(output) as { action: string; total: number; papers: unknown[] };
+  return { action: answer.action, total: answer.total, listed: answer.papers.length };
+}
+
+test('a quoted photo of workspace B changes no B paper', async () => {
+  await insertSentPhoto(databases.owner, { imageKey: B_PHOTO_IMAGE_KEY, zaloMessageId: 'SENT-B' });
+  const reply = await insertReplyMessage(databases.owner, { text: `đổi biển số thành ${NEW_PLATE}`, quotedId: 'SENT-B' });
+  const snapshotBefore = await snapshotWorkspaceB(databases.owner);
+  const output = await createToolHarness(databases.runtime, { currentMessage: reply }).runTool('chat-gate', 'correct_document', buildCorrectionArguments({ new_plate: NEW_PLATE, last_photo: true }));
+  assert.deepEqual(await snapshotWorkspaceB(databases.owner), snapshotBefore);
+  assertNoLeak([output], { label: 'a quote of a workspace B photo' });
+});
+
+test('a Zalo id repeated for two sends of the same photo still finds that photo', async () => {
+  const papers = await insertSharedPlatePapers(7);
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-4'), zaloMessageId: 'SENT-4' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-4'), zaloMessageId: 'SENT-4' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-4' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[3]!.paperId]);
+});
+
+test("a Zalo id sent to another conversation does not move the quote to that conversation's photo", async () => {
+  const papers = await insertSharedPlatePapers(7);
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-5'), zaloMessageId: 'SENT-5', externalUserId: 'other-admin-conversation' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('shared-2'), zaloMessageId: 'SENT-5' });
+  const reply = await insertReplyMessage(databases.owner, { text: `cập nhật phiếu này: nơi đổ hàng ${NEW_DROP_OFF}`, quotedId: 'SENT-5' });
+  const harness = createToolHarness(databases.runtime, { currentMessage: reply, companyReader: new NoCompanyMatchReader() });
+  await harness.runTool('chat-gate', 'correct_document', buildCorrectionArguments({ company_slot: 'dropoff', company_name: NEW_DROP_OFF, current_plate: SHARED_PLATE, current_date: SHARED_DATE }));
+  assert.deepEqual(await listPapersWithDropOff(databases.owner, NEW_DROP_OFF), [papers[1]!.paperId]);
+});

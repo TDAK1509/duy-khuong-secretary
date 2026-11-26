@@ -1,19 +1,17 @@
 import type { AccessScope } from '../../access/access-scope.ts';
 import { runInTransaction, type Transaction } from '../../db/transaction.ts';
 import { correctPaper } from '../../documents/corrections/correct-paper.ts';
-import { findLastPhotoMessage } from '../../documents/corrections/find-last-photo-message.ts';
-import { findPapersToCorrect, type FoundPapers } from '../../documents/corrections/find-papers-to-correct.ts';
+import type { FoundPapers } from '../../documents/corrections/find-papers-to-correct.ts';
 import type { CorrectedPaper, FoundPaper, NewPaperValues, PaperCorrector } from '../../documents/corrections/paper-correction.ts';
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { parseCorrectionRequest, type CorrectionRequest } from './correct-document-arguments.ts';
+import { findRequestedPapers, LIST_LIMIT } from './find-requested-papers.ts';
 import { describeCorrectedPaper, describeFoundPaper } from './describe-correction.ts';
 import { chooseOrganizationId } from './choose-paper-company.ts';
 import { requireCompanyRoles, settleCompany, type PickedCompany } from './settle-company.ts';
 import { settlePrintedValue } from './settle-printed-value.ts';
 import { collectAdminTypedTexts, refuseUntypedValues } from './refuse-untyped-values.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
-
-const LIST_LIMIT = 20;
 
 type Decision = 'no_match' | 'several' | 'number_on_several' | 'printed_on_several' | 'company_on_several' | 'apply';
 
@@ -64,17 +62,6 @@ async function correctEachPaper(corrector: PaperCorrector, papers: FoundPaper[],
   const corrected: CorrectedPaper[] = [];
   for (const paper of papers) corrected.push(await correctPaper(corrector, paper, values));
   return corrected;
-}
-
-async function findRequestedPapers(transaction: Transaction, dependencies: AdminToolDependencies, scope: AccessScope, request: CorrectionRequest): Promise<FoundPapers> {
-  const lastPhotoMessageId = request.fromLastPhoto ? await findLastPhoto(transaction, dependencies, scope) : null;
-  if (request.fromLastPhoto && lastPhotoMessageId === null) return { papers: [], total: 0 };
-  return findPapersToCorrect(transaction, scope.workspaceId, { ...request.pointer, lastPhotoMessageId }, request.allMatching ? null : LIST_LIMIT);
-}
-
-async function findLastPhoto(transaction: Transaction, { currentMessageId }: AdminToolDependencies, scope: AccessScope): Promise<string | null> {
-  if (!currentMessageId) return null;
-  return findLastPhotoMessage(transaction, { workspaceId: scope.workspaceId, userId: scope.userId, currentMessageId });
 }
 
 function decideCorrection({ total }: FoundPapers, { values, company, allMatching }: CorrectionRequest): Decision {
