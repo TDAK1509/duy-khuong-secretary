@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import type { PostgresPool } from '../../src/providers/database/postgres.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { assertNoLeak } from './support/leak-check.ts';
 import { resetDatabase } from './support/reset-database.ts';
@@ -23,10 +24,14 @@ beforeEach(() => resetDatabase(databases.owner));
 
 after(() => databases.close());
 
-test('record search with B names returns only A records under the runtime role', async () => {
+test('record search with B names returns only A records under the runtime role', () => assertSearchKeepsWorkspaceBOut(databases.runtime));
+
+test('record search with B names returns only A records under the owner role', () => assertSearchKeepsWorkspaceBOut(databases.owner));
+
+async function assertSearchKeepsWorkspaceBOut(database: PostgresPool): Promise<void> {
   const snapshotBefore = await snapshotWorkspaceB(databases.owner);
-  const result = await callChatTool(databases.runtime, 'search_records', SEARCH_WITH_B_NAMES);
+  const result = await callChatTool(database, 'search_records', SEARCH_WITH_B_NAMES);
   assert.match(result, /SAFE-A-RECORD/);
   assertNoLeak([result]);
   assert.deepEqual(await snapshotWorkspaceB(databases.owner), snapshotBefore);
-});
+}
