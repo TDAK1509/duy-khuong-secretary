@@ -7,6 +7,7 @@ import { resetDatabase } from './support/reset-database.ts';
 import { A_ADMIN_USER_ID, FIXED_NOW } from './support/seed-ids.ts';
 
 const SESSION_TOKEN = 'SAFE-A-SESSION-TOKEN';
+const MCP_TOKEN = 'SAFE-A-MCP-TOKEN';
 const ONE_HOUR_MS = 3_600_000;
 const EXPIRES_AT = new Date(FIXED_NOW.getTime() + ONE_HOUR_MS);
 
@@ -24,4 +25,14 @@ test('the MCP server refuses the session of a workspace admin who is not interna
   ]);
   const result = await authenticateMcpRequest(databases.runtime, `Bearer ${SESSION_TOKEN}`, FIXED_NOW);
   assert.deepEqual(result, { kind: 'forbidden' });
+});
+
+test('the MCP server refuses an MCP token of a user who is not internal', async () => {
+  await databases.owner.query('INSERT INTO internal_mcp_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)', [
+    A_ADMIN_USER_ID,
+    hashSecretToken(MCP_TOKEN),
+    EXPIRES_AT,
+  ]);
+  const result = await authenticateMcpRequest(databases.runtime, `Bearer ${MCP_TOKEN}`, FIXED_NOW);
+  assert.deepEqual(result, { kind: 'unauthenticated' });
 });
