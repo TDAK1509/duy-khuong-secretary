@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 const SECRET_TEXT = /LEAK-B-[A-Za-z0-9-]*/g;
-const WORKSPACE_B_ID = /bbbbbbbb-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+const WORKSPACE_B_ID = /bbbbbbbb-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 export type LeakCheckOptions = { passedIds?: string[]; label?: string };
 
@@ -16,7 +16,8 @@ export function listLeaks(values: unknown[], passedIds: string[] = []): string[]
 
 function findLeaks(text: string, passedIds: string[]): string[] {
   const secrets = text.match(SECRET_TEXT) ?? [];
-  const ids = (text.match(WORKSPACE_B_ID) ?? []).filter((id) => !passedIds.includes(id));
+  const passedLowerCase = passedIds.map((id) => id.toLowerCase());
+  const ids = (text.match(WORKSPACE_B_ID) ?? []).filter((id) => !passedLowerCase.includes(id.toLowerCase()));
   return [...secrets, ...ids];
 }
 
