@@ -1,6 +1,6 @@
 import type { AttackCase } from './attack-case.ts';
 import { SHARED_PLATE_FILTER } from './document-filter.ts';
-import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_MEMBER_ID, B_PHOTO_MESSAGE_ID, B_RECORD_ID, SHARED_PLATE } from './seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_MEMBER_ID, B_ONLY_DOCUMENT_ID, B_PHOTO_MESSAGE_ID, B_RECORD_ID, SHARED_PLATE } from './seed-ids.ts';
 
 const SHARED_MEANING = 'SHARED-MEANING';
 
@@ -13,7 +13,7 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'total_fact_values', kind: 'read', arguments: { value_name: 'Lương', ...SHARED_PLATE_FILTER, group_by: 'none' } },
   { name: 'list_rules', kind: 'read', arguments: {} },
   { name: 'list_goods_names', kind: 'read', arguments: {} },
-  { name: 'propose_document_templates', kind: 'read', arguments: { paper_id: B_DOCUMENT_ID } },
+  { name: 'propose_document_templates', kind: 'read', arguments: { paper_id: null }, alsoAimedAt: [{ paper_id: B_ONLY_DOCUMENT_ID }] },
   { name: 'list_document_templates', kind: 'read', arguments: {} },
   { name: 'maintenance_status', kind: 'read', arguments: { plate: SHARED_PLATE, maintenance_item: null, cursor: null } },
   { name: 'attach_photos', kind: 'read', arguments: { record_ids: [B_RECORD_ID], document_ids: [B_DOCUMENT_ID] } },
