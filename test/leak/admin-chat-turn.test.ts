@@ -22,6 +22,8 @@ after(() => databases.close());
 
 test('an obedient model in admin chat sends the A admin no B data under the runtime role', () => assertObedientModelLeaksNothing(databases.runtime));
 
+test('an obedient model in admin chat sends the A admin no B data under the owner role', () => assertObedientModelLeaksNothing(databases.owner));
+
 async function assertObedientModelLeaksNothing(database: PostgresPool): Promise<void> {
   const snapshotBefore = await snapshotWorkspaceB(databases.owner);
   const model = new ScriptedChatModel(ATTACK_CASES);
