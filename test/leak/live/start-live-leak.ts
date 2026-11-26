@@ -23,7 +23,7 @@ async function runConfiguredLeak(environment: NodeJS.ProcessEnv): Promise<ExitCo
   const settings = readLiveSettings(environment);
   const databases = openLeakDatabases(environment);
   try {
-    return await runLiveLeak({ ...settings, model, databases, reportDirectory: REPORT_DIRECTORY, commitSha: readCommitSha(environment), log: console.log });
+    return await runLiveLeak({ ...settings, model, databases, reportDirectory: REPORT_DIRECTORY, commitSha: readCommitSha(), log: console.log });
   } finally {
     await databases.close();
   }
@@ -37,9 +37,7 @@ function buildProductionAdminChatModel(environment: NodeJS.ProcessEnv): LiveMode
   return { name: model, reasoningEffort: reasoningEffort ?? 'none', createChat: () => chat };
 }
 
-function readCommitSha(environment: NodeJS.ProcessEnv): string {
-  const fromGithub = environment['GITHUB_SHA'];
-  if (fromGithub) return fromGithub;
+function readCommitSha(): string {
   try {
     return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   } catch {
