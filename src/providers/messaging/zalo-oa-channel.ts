@@ -62,6 +62,8 @@ const REQUEST_NEVER_SENT_CODES = [
   'UND_ERR_CONNECT_TIMEOUT',
 ];
 
+const optionalId = z.string().optional().catch(undefined);
+
 const attachmentSchema = z.object({
   type: z.string(),
   payload: z
@@ -78,11 +80,11 @@ const eventSchema = z.object({
   timestamp: z.coerce.number().refine(isDateTimestamp),
   sender: z.object({ id: z.string() }),
   recipient: z.object({ id: z.string() }),
-  quote_msg_id: z.string().optional(),
+  quote_msg_id: optionalId,
   message: z.object({
     msg_id: z.string(),
     text: z.string().optional(),
-    quote_msg_id: z.string().optional(),
+    quote_msg_id: optionalId,
     attachments: z.array(attachmentSchema).default([]),
   }),
 });
