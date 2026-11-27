@@ -31,7 +31,7 @@ export type AdminTextRun = { owner: PostgresPool; database: PostgresPool; model:
 
 export type AdminChatTurn = { observations: unknown[]; passedIds: string[] };
 
-export type TurnPlay = { owner: PostgresPool; database: PostgresPool; chat: ChatService; text: string; turnNumber: number };
+export type TurnPlay = { owner: PostgresPool; database: PostgresPool; chat: ChatService; text: string; turnNumber: number; quotedId?: string };
 
 export type AdminSession = { context: IntakeContext; message: ChatMessage; companyReader: RecordingReader; dropOffReader: RecordingReader; storage: FakeFileStorage };
 
@@ -87,8 +87,8 @@ async function answerCatchingCrash(answer: AnswerStep, session: AdminSession): P
   }
 }
 
-async function openSession({ owner, database, chat, text, turnNumber }: TurnPlay): Promise<AdminSession> {
-  await queueAdminEvent(owner, text, turnNumber);
+async function openSession({ owner, database, chat, text, turnNumber, quotedId }: TurnPlay): Promise<AdminSession> {
+  await queueAdminEvent(owner, { text, turnNumber, quotedId });
   const event = await claimInboundEvent(database, FIXED_NOW);
   if (event === null) throw new Error('the queued admin event was not claimed');
   const sender = await findIntakeSender(database, event, text);
@@ -100,8 +100,10 @@ async function openSession({ owner, database, chat, text, turnNumber }: TurnPlay
   return { context, message: { id: stored.id, text }, ...parts };
 }
 
-async function queueAdminEvent(owner: PostgresPool, text: string, turnNumber: number): Promise<void> {
-  const payload = JSON.stringify({ text, sent_at: FIXED_NOW.toISOString() });
+type QueuedEvent = { text: string; turnNumber: number; quotedId?: string };
+
+async function queueAdminEvent(owner: PostgresPool, { text, turnNumber, quotedId }: QueuedEvent): Promise<void> {
+  const payload = JSON.stringify({ text, sent_at: FIXED_NOW.toISOString(), ...(quotedId === undefined ? {} : { quote_msg_id: quotedId }) });
   await owner.query(
     `INSERT INTO inbound_events (channel, account_id, external_event_id, external_user_id, kind, payload, available_at, received_at)
      VALUES ($1, $2, $3, $4, 'text', $5, $6, $6)`,

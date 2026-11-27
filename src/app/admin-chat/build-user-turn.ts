@@ -2,10 +2,12 @@ import type { Database } from '../db/transaction.ts';
 import { isQuestionPending } from '../intake/store-user-message.ts';
 import type { CurrentRequest } from './build-chat-context.ts';
 import type { ChatMessage } from './chat-message.ts';
+import { describeQuotedPhoto } from './describe-quoted-photo.ts';
 
-export async function buildCurrentRequest(database: Database, message: ChatMessage): Promise<CurrentRequest> {
+export async function buildCurrentRequest(database: Database, message: ChatMessage, workspaceId: string): Promise<CurrentRequest> {
   const savedNote = (await isQuestionPending(database, message.id)) ? await findSavedReply(database, message.id) : null;
-  return { text: message.text === '' ? null : message.text, savedNote };
+  const quotedPhoto = await describeQuotedPhoto(database, { workspaceId, currentMessageId: message.id });
+  return { text: message.text === '' ? null : message.text, savedNote, quotedPhoto };
 }
 
 async function findSavedReply(database: Database, messageId: string): Promise<string | null> {

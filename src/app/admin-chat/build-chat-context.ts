@@ -2,12 +2,13 @@ import type { ChatTurn } from '../../services/chat/chat-service.ts';
 import { RETRIEVED_DATA_RULE, wrapRetrievedData } from '../reading/retrieved-data.ts';
 import type { ConfirmedChange } from './changes/run-confirmed-calls.ts';
 
-export type CurrentRequest = { text: string | null; savedNote: string | null };
+export type CurrentRequest = { text: string | null; savedNote: string | null; quotedPhoto: string | null };
 
 export type ChatContext = { profileLines: string[]; memory: string; rules: string; history: ChatTurn[]; confirmed: ConfirmedChange[]; current: CurrentRequest };
 
 const EMPTY_MEMORY = '(trống)';
 const EMPTY_RULES = '(chưa có quy tắc nào)';
+const QUOTED_PHOTO_INTRO = 'Ghi chú của hệ thống về ảnh mà tin nhắn này trả lời:';
 const CONFIRMED_CHANGES_INTRO = 'Quản lý vừa trả lời Có cho câu hỏi xác nhận của hệ thống. Hệ thống đã chạy các việc đã hỏi, kết quả từng việc:';
 
 export const CHAT_DATA_RULES = `Dữ liệu và yêu cầu:
@@ -39,9 +40,10 @@ function describeConfirmedChanges(confirmed: ConfirmedChange[]): string[] {
   return [CONFIRMED_CHANGES_INTRO, ...confirmed.map(({ name, output }) => wrapRetrievedData(`tool:${name}`, output))];
 }
 
-function describeCurrentRequest({ text, savedNote }: CurrentRequest): string {
+function describeCurrentRequest({ text, savedNote, quotedPhoto }: CurrentRequest): string {
   const note = savedNote === null ? [] : [`Ghi chú của hệ thống về tin nhắn này:\n${wrapRetrievedData('saved-note', `Hệ thống đã lưu:\n${savedNote}`)}`];
-  return [text ?? '', ...note].join('\n\n');
+  const photo = quotedPhoto === null ? [] : [`${QUOTED_PHOTO_INTRO}\n${wrapRetrievedData('quoted-photo', quotedPhoto)}`];
+  return [text ?? '', ...note, ...photo].join('\n\n');
 }
 
 function describeHistoryLines(history: ChatTurn[]): string[] {
