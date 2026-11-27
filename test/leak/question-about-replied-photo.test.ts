@@ -67,6 +67,14 @@ test('a quoted photo without a saved paper says so', async () => {
   assert.equal(readQuotedPhotoBody(request), 'Ảnh này chưa có giấy tờ nào đã lưu.');
 });
 
+test("a message without a quote gives today's request", async () => {
+  for (let index = 1; index <= 4; index += 1) {
+    await insertPhotoPaper(databases.owner, { key: `shared-${index}`, plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(index) });
+  }
+  const request = await askAboutQuote(QUESTION);
+  assert.ok(!request.includes('source="quoted-photo"'));
+});
+
 function readQuotedPhotoBody(request: string): string | undefined {
   return request.match(/<retrieved-data source="quoted-photo">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1];
 }
