@@ -6,12 +6,14 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { buildImageKey, insertPhotoMessage, insertPaperDetails, insertPhotoPaper, insertSentPhoto } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
+import type { ChatRequest } from '../../src/services/chat/chat-service.ts';
 
 const databases = openLeakDatabases();
 const SHARED_PLATE = '51A00001';
 const SHARED_DATE = '2026-03-02';
 const B_PHOTO_IMAGE_KEY = 'seed/LEAK-B-photo.jpg';
-const QUESTION ='phiếu này lưu thông tin gì?';
+const QUESTION = 'phiếu này lưu thông tin gì?';
+const QUOTED_PHOTO_RULE = '- Nếu tin nhắn hiện tại trả lời một ảnh trên Zalo, hệ thống thêm thẻ quoted-photo có các giấy tờ đã lưu từ đúng ảnh đó. Khi đó "phiếu này", "giấy này", "ảnh này" và "xe này" chỉ các giấy tờ trong thẻ quoted-photo. Trả lời về các giấy tờ đó, không hỏi lại ảnh nào hay phiếu nào, kể cả khi trước đó có nhiều ảnh được gửi. Không cần gọi search_records hay list_documents để tìm lại các giấy tờ đó. Nếu thẻ ghi ảnh chưa có giấy tờ nào đã lưu, nói rõ điều đó.';
 
 beforeEach(() => resetDatabase(databases.owner));
 
@@ -127,6 +129,11 @@ test('an accepted paper renders the full block text', async () => {
   ].join('\n'));
 });
 
+test('the chat rules tell the model how to use the quoted-photo block', async () => {
+  const { system } = await askForFirstRequest(QUESTION);
+  assert.ok(system.includes(`\n${QUOTED_PHOTO_RULE}\n`));
+});
+
 function readQuotedPhotoBody(request: string): string | undefined {
   return request.match(/<retrieved-data source="quoted-photo">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1];
 }
@@ -136,14 +143,16 @@ function numberOf(index: number): string {
 }
 
 async function askAboutQuote(text: string, quotedId?: string): Promise<string> {
+  const [contextTurn] = (await askForFirstRequest(text, quotedId)).turns;
+  if (contextTurn?.role !== 'user' || contextTurn.text === null) throw new Error('the model received no user turn');
+  return contextTurn.text;
+}
+
+async function askForFirstRequest(text: string, quotedId?: string): Promise<ChatRequest> {
   const model = new ScriptedChatModel([]);
   const played = await playAdminTurn({ owner: databases.owner, database: databases.runtime, chat: model, text, turnNumber: 1, quotedId }, answerAdminQuestion);
   if (played.crash !== null) throw played.crash;
-  return readFirstRequestText(model);
-}
-
-function readFirstRequestText(model: ScriptedChatModel): string {
-  const turn = model.requests[0]?.turns[0];
-  if (turn?.role !== 'user' || turn.text === null) throw new Error('the model received no user turn');
-  return turn.text;
+  const [firstRequest] = model.requests;
+  if (firstRequest === undefined) throw new Error('the model received no request');
+  return firstRequest;
 }
