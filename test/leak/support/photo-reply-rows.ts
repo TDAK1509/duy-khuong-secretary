@@ -31,10 +31,6 @@ export async function insertPhotoPaper(owner: PostgresPool, spec: PhotoPaperSpec
   return { paperId, photoMessageId };
 }
 
-export function buildImageKey(key: string): string {
-  return `photo-reply-test/${key}.jpg`;
-}
-
 async function insertPhotoMessage(owner: PostgresPool, spec: PhotoPaperSpec, sender: { userId: string; externalUserId: string }): Promise<string> {
   const eventId = await insertInboundEvent(owner, { externalEventId: spec.key, externalUserId: sender.externalUserId, kind: 'images', payload: {} });
   const { rows } = await owner.query<{ id: string }>(
@@ -43,6 +39,10 @@ async function insertPhotoMessage(owner: PostgresPool, spec: PhotoPaperSpec, sen
     [WORKSPACE_A_ID, sender.userId, `photo ${spec.key}`, buildImageKey(spec.key), eventId, spec.at ?? '2026-03-02 08:00:00+00'],
   );
   return rows[0]!.id;
+}
+
+export function buildImageKey(key: string): string {
+  return `photo-reply-test/${key}.jpg`;
 }
 
 async function insertPaper(owner: PostgresPool, spec: PhotoPaperSpec): Promise<string> {
