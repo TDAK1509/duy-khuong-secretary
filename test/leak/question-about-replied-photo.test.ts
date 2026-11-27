@@ -75,6 +75,12 @@ test("a message without a quote gives today's request", async () => {
   assert.ok(!request.includes('source="quoted-photo"'));
 });
 
+test("a quote of an unknown id gives today's request", async () => {
+  await insertPhotoPaper(databases.owner, { key: 'shared-1', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(1) });
+  const request = await askAboutQuote(QUESTION, 'UNKNOWN-1');
+  assert.ok(!request.includes('source="quoted-photo"'));
+});
+
 function readQuotedPhotoBody(request: string): string | undefined {
   return request.match(/<retrieved-data source="quoted-photo">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1];
 }
