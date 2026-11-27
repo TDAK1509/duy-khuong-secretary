@@ -12,7 +12,12 @@ export const checkDocumentDeletion: RiskyChecker = async ({ database }, scope, p
   return { targets: null, writeQuestion: () => question };
 };
 
-function describePaperLine({ kind, title, plate, documentNumber, documentDate }: SavedPaper): string {
+function describePaperLine(paper: SavedPaper): string {
+  const { kind, title, plate, documentNumber, documentDate } = paper;
   const parts = [title ?? kind, plate === null ? null : `xe ${plate}`, documentNumber === null ? null : `số ${documentNumber}`, documentDate === null ? null : `ngày ${documentDate}`];
-  return parts.filter((part) => part !== null).join(', ');
+  return parts.filter((part) => part !== null).join(', ') + describeOtherPhotos(paper);
+}
+
+function describeOtherPhotos({ photoCount }: SavedPaper): string {
+  return photoCount > 1 ? `. Giấy tờ này còn có ${photoCount - 1} ảnh khác; thông tin từ tất cả các ảnh đó sẽ mất` : '';
 }
