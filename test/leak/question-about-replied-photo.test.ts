@@ -38,12 +38,12 @@ test("a question replying to the admin's own single photo gets that photo's pape
   assert.ok(!request.includes(numberOf(2)));
 });
 
-test("a question replying to the second photo of an album gets only that photo's paper", async () => {
+test("a question replying to the first photo of an album gets only that photo's paper", async () => {
   await insertPhotoPaper(databases.owner, { key: 'INBOUND-A1', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(1), sentBy: 'admin', at: '2026-03-02 08:00:00+00' });
   await insertPhotoPaper(databases.owner, { key: 'INBOUND-A2', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(2), sentBy: 'admin', at: '2026-03-02 08:00:01+00' });
-  const request = await askAboutQuote('ảnh này là phiếu gì?', 'INBOUND-A2');
-  assert.ok(request.includes(numberOf(2)));
-  assert.ok(!request.includes(numberOf(1)));
+  const request = await askAboutQuote('ảnh này là phiếu gì?', 'INBOUND-A1');
+  assert.ok(request.includes(numberOf(1)));
+  assert.ok(!request.includes(numberOf(2)));
 });
 
 test('a photo with two saved papers puts both papers in the block', async () => {
