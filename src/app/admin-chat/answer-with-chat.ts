@@ -114,7 +114,7 @@ async function buildChatRequest(context: IntakeContext, message: ChatMessage, pr
   const { database, clock } = context.dependencies;
   const history = await loadHistoryTurns(database, context.sender, profile.joinedAt, message.id);
   const tools = listChatTools('admin');
-  const current = await buildCurrentRequest(database, message);
+  const current = await buildCurrentRequest(database, message, context.sender.workspaceId);
   const profileLines = await buildProfileLines(context, profile);
   const rules = await loadCompanyRules(context);
   const contextTurn = buildChatContextTurn({ profileLines, memory: await loadMemory(context), rules, history, confirmed, current });

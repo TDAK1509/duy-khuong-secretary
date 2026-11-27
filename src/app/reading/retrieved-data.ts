@@ -23,6 +23,7 @@ export type RetrievedDataSource =
   | 'memory'
   | 'company-rules'
   | 'saved-note'
+  | 'quoted-photo'
   | `tool:${string}`;
 
 const GAP = '[\\s\\u200B-\\u200D\\u2060\\uFEFF]*';
