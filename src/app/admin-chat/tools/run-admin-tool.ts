@@ -29,6 +29,7 @@ import { runCorrectDocument } from './correct-document-tool.ts';
 import { runSaveFact } from './save-fact-tool.ts';
 import { runListFacts } from './list-facts-tool.ts';
 import { runUpdateFact } from './update-fact-tool.ts';
+import { runDeleteDocument } from './delete-document-tool.ts';
 import { runDeleteFact } from './delete-fact-tool.ts';
 import { runDeleteDocumentTemplate } from './delete-document-template-tool.ts';
 import { runListDocumentTemplates } from './list-document-templates-tool.ts';
@@ -92,6 +93,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   add_member_fact: ({ database }, scope, args) => runAddMemberFact(database, scope, args),
   rewrite_member_plate: ({ database }, scope, args) => runRewriteMemberPlate(database, scope, args),
   correct_document: runCorrectDocument,
+  delete_document: ({ database }, scope, args) => runDeleteDocument(database, scope, args),
   save_fact: ({ database, companyReader }, scope, args) => runSaveFact(database, scope, args, companyReader ?? null),
   list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
   update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),

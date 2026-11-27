@@ -13,6 +13,7 @@ import { SAVE_FACT_SPEC } from './save-fact-spec.ts';
 import { LIST_FACTS_SPEC } from './list-facts-spec.ts';
 import { UPDATE_FACT_SPEC } from './update-fact-spec.ts';
 import { DELETE_FACT_SPEC } from './delete-fact-spec.ts';
+import { DELETE_DOCUMENT_SPEC } from './delete-document-spec.ts';
 import { TOTAL_FACT_VALUES_SPEC } from './total-fact-values-spec.ts';
 import { WORKSPACE_RULE_TOOLS } from './workspace-rule-specs.ts';
 import { GOODS_NAME_TOOLS } from './goods-name-specs.ts';
@@ -37,6 +38,7 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   ...MEMBER_FACT_TOOLS,
   REWRITE_MEMBER_PLATE_SPEC,
   CORRECT_DOCUMENT_SPEC,
+  DELETE_DOCUMENT_SPEC,
   SAVE_FACT_SPEC,
   LIST_FACTS_SPEC,
   UPDATE_FACT_SPEC,
