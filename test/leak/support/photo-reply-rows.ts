@@ -16,15 +16,17 @@ export type PhotoPaperSpec = {
   stage?: 'dispatch' | 'receipt';
   sentBy?: 'driver' | 'admin';
   at?: string;
+  photoMessageId?: string;
+  itemIndex?: number;
 };
 
 export type PhotoPaper = { paperId: string; photoMessageId: string };
 
 export async function insertPhotoPaper(owner: PostgresPool, spec: PhotoPaperSpec): Promise<PhotoPaper> {
   const sender = spec.sentBy === 'admin' ? { userId: A_ADMIN_USER_ID, externalUserId: ADMIN_EXTERNAL_USER_ID } : { userId: DRIVER_USER_ID, externalUserId: DRIVER_EXTERNAL_USER_ID };
-  const photoMessageId = await insertPhotoMessage(owner, spec, sender);
+  const photoMessageId = spec.photoMessageId ?? (await insertPhotoMessage(owner, spec, sender));
   const paperId = await insertPaper(owner, spec);
-  await owner.query('INSERT INTO document_sources (workspace_id, document_id, message_id, item_index) VALUES ($1, $2, $3, 0)', [WORKSPACE_A_ID, paperId, photoMessageId]);
+  await owner.query('INSERT INTO document_sources (workspace_id, document_id, message_id, item_index) VALUES ($1, $2, $3, $4)', [WORKSPACE_A_ID, paperId, photoMessageId, spec.itemIndex ?? 0]);
   return { paperId, photoMessageId };
 }
 

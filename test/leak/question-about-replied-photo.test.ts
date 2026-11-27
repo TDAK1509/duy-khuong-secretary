@@ -42,6 +42,17 @@ test("a question replying to the second photo of an album gets only that photo's
   assert.ok(!request.includes(numberOf(1)));
 });
 
+test('a photo with two saved papers puts both papers in the block', async () => {
+  const first = await insertPhotoPaper(databases.owner, { key: 'two-papers', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(1) });
+  await insertPhotoPaper(databases.owner, { key: 'two-papers-second', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(2), photoMessageId: first.photoMessageId, itemIndex: 1 });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('two-papers'), zaloMessageId: 'SENT-4' });
+  const request = await askAboutQuote(QUESTION, 'SENT-4');
+  assert.ok(request.includes(`Giấy tờ 1 (id: ${first.paperId})`));
+  assert.ok(request.includes('Giấy tờ 2 (id: '));
+  assert.ok(request.includes(numberOf(1)));
+  assert.ok(request.includes(numberOf(2)));
+});
+
 function numberOf(index: number): string {
   return `NUM-000${index}`;
 }
