@@ -13,6 +13,7 @@ function describePaper(paper: QuotedPaper, index: number): string {
     `Loại: ${paper.kind}`,
     ...describeStatus(paper.status),
     ...describeOptional('Số giấy tờ', paper.document_number),
+    `Tóm tắt: ${paper.summary}`,
   ].join('\n');
 }
 
