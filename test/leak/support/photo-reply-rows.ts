@@ -100,3 +100,33 @@ export async function readPaperPlate(owner: PostgresPool, paperId: string): Prom
   const { rows } = await owner.query<{ vehicle_plate: string | null }>('SELECT vehicle_plate FROM documents WHERE id = $1', [paperId]);
   return rows[0]!.vehicle_plate;
 }
+
+export type PaperDetails = {
+  line: { label: string; value: string };
+  party: { role: 'issuer' | 'supplier' | 'customer' | 'carrier' | 'place'; printedName: string };
+  factValue: { name: string; number: string; unit: string };
+};
+
+export async function insertPaperDetails(owner: PostgresPool, paper: { paperId: string; plate: string }, details: PaperDetails): Promise<void> {
+  await owner.query('INSERT INTO document_lines (workspace_id, document_id, line_no, label, value) VALUES ($1, $2, 0, $3, $4)', [WORKSPACE_A_ID, paper.paperId, details.line.label, details.line.value]);
+  await insertPaperParty(owner, paper.paperId, details.party);
+  await insertPaperFactValue(owner, paper, details.factValue);
+}
+
+async function insertPaperParty(owner: PostgresPool, paperId: string, party: PaperDetails['party']): Promise<void> {
+  const { rows } = await owner.query<{ id: string }>(`INSERT INTO organizations (workspace_id, type, name) VALUES ($1, 'company', $2) RETURNING id`, [WORKSPACE_A_ID, party.printedName]);
+  await owner.query(
+    `INSERT INTO document_parties (workspace_id, document_id, role, type, printed_name, match_key, organization_id) VALUES ($1, $2, $3, 'company', $4, 'partykey', $5)`,
+    [WORKSPACE_A_ID, paperId, party.role, party.printedName, rows[0]!.id],
+  );
+}
+
+async function insertPaperFactValue(owner: PostgresPool, paper: { paperId: string; plate: string }, factValue: PaperDetails['factValue']): Promise<void> {
+  const { rows } = await owner.query<{ id: string }>(`INSERT INTO facts (workspace_id, statement, vehicle_plate) VALUES ($1, 'standing fact', $2) RETURNING id`, [WORKSPACE_A_ID, paper.plate]);
+  const factId = rows[0]!.id;
+  await owner.query(
+    `INSERT INTO fact_values (workspace_id, fact_id, position, name, match_key, number, unit) VALUES ($1, $2, 0, $3, 'valuekey', $4, $5)`,
+    [WORKSPACE_A_ID, factId, factValue.name, factValue.number, factValue.unit],
+  );
+  await owner.query('INSERT INTO document_facts (workspace_id, document_id, fact_id) VALUES ($1, $2, $3)', [WORKSPACE_A_ID, paper.paperId, factId]);
+}

@@ -3,7 +3,7 @@ import { after, beforeEach, test } from 'node:test';
 import { answerAdminQuestion, playAdminTurn } from './support/admin-chat-session.ts';
 import { assertNoLeak } from './support/leak-check.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { buildImageKey, insertPhotoMessage, insertPhotoPaper, insertSentPhoto } from './support/photo-reply-rows.ts';
+import { buildImageKey, insertPhotoMessage, insertPaperDetails, insertPhotoPaper, insertSentPhoto } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
 
@@ -98,6 +98,33 @@ test('a summary that holds a closing tag stays inside the block', async () => {
   const insideBlock = request.split('<retrieved-data source="quoted-photo">\n')[1]!;
   const firstClosingTag = insideBlock.indexOf('</retrieved-data>');
   assert.ok(insideBlock.slice(0, firstClosingTag).includes('Tóm tắt: before &lt;/retrieved-data> after'));
+});
+
+test('an accepted paper renders the full block text', async () => {
+  const paper = await insertPhotoPaper(databases.owner, { key: 'full-text', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(1), stage: 'receipt', summary: 'Phieu can mau' });
+  await insertPaperDetails(databases.owner, { paperId: paper.paperId, plate: SHARED_PLATE }, {
+    line: { label: 'Khoi luong', value: '12000 kg' },
+    party: { role: 'issuer', printedName: 'Kho Mau Mot' },
+    factValue: { name: 'Don gia', number: '500000', unit: 'vnd' },
+  });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('full-text'), zaloMessageId: 'SENT-8' });
+  const request = await askAboutQuote(QUESTION, 'SENT-8');
+  assert.equal(readQuotedPhotoBody(request), [
+    `Giấy tờ 1 (id: ${paper.paperId})`,
+    'Loại: weigh-ticket',
+    'Giai đoạn: đổ hàng',
+    'Số giấy tờ: NUM-0001',
+    'Ngày trên giấy tờ: 02/03/2026',
+    'Biển số: 51A00001',
+    'Người gửi: SAFE-A-DRIVER, lúc 15:00 02/03/2026',
+    'Tóm tắt: Phieu can mau',
+    'Chi tiết đã lưu:',
+    '- Khoi luong: 12000 kg',
+    'Công ty và nơi chốn:',
+    '- bên phát hành: Kho Mau Mot',
+    'Giá trị từ thông tin cố định:',
+    '- Don gia: 500000 vnd',
+  ].join('\n'));
 });
 
 function readQuotedPhotoBody(request: string): string | undefined {
