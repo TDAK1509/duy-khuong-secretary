@@ -1,4 +1,4 @@
-export const GUARDED_TOOLS = ['remove_member', 'create_invite', 'forget_all', 'forget_all_member_facts', 'rewrite_member_plate', 'save_document_template'] as const;
+export const GUARDED_TOOLS = ['remove_member', 'create_invite', 'forget_all', 'forget_all_member_facts', 'rewrite_member_plate', 'save_document_template', 'delete_document'] as const;
 
 export type GuardedTool = (typeof GUARDED_TOOLS)[number];
 

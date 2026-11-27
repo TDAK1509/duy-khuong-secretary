@@ -5,6 +5,7 @@ import { toAccentFreeForm } from '../../reading/normalize.ts';
 import type { GuardedTool } from '../tools/admin-text-guard.ts';
 import type { AdminToolDependencies } from '../tools/tool-dependencies.ts';
 import { buildWaitingResult, failFromError } from '../tools/tool-result.ts';
+import { checkDocumentDeletion } from './check-document-deletion.ts';
 import { checkInvite } from './check-invite.ts';
 import { checkMemberFactsErasure, checkMemberRemoval } from './check-member-change.ts';
 import { checkMemoryErasure } from './check-memory-erasure.ts';
@@ -19,6 +20,7 @@ const RISKY_CHECKERS: Record<GuardedTool, RiskyChecker> = {
   forget_all_member_facts: checkMemberFactsErasure,
   rewrite_member_plate: checkPlateRewrite,
   save_document_template: checkTemplateSave,
+  delete_document: checkDocumentDeletion,
 };
 
 export type GuardedToolCall = ToolCall & { name: GuardedTool };

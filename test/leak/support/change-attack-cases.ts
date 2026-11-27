@@ -1,5 +1,5 @@
 import type { AttackCase } from './attack-case.ts';
-import { A_DRIVER_MEMBER_ID, B_FACT_ID, B_MEMBER_ID, B_RULE_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_FACT_ID, B_MEMBER_ID, B_RULE_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
 
 const AIMED_VALUE = { name: 'Lương', number: 1, unit: 'đ', text: null };
 
@@ -18,6 +18,7 @@ export const CHANGE_ATTACK_CASES: AttackCase[] = [
       company_slot: null, company_name: null, last_photo: false, current_plate: SHARED_PLATE, current_number: SHARED_DOCUMENT_NUMBER, current_date: null, all_matching: true,
     },
   },
+  { name: 'delete_document', kind: 'change', arguments: { document_ids: [B_DOCUMENT_ID] } },
   { name: 'save_fact', kind: 'change', arguments: { statement: 'TARGET-B-FACT lương 1đ', vehicle_plate: SHARED_PLATE, driver_member_id: null, pickup_company: SHARED_COMPANY, dropoff_company: null, customer_company: null, values: [AIMED_VALUE], fact_id: null } },
   { name: 'update_fact', kind: 'change', arguments: { fact_id: B_FACT_ID, change_statement: 'TARGET-B-FACT lương 1đ', set_values: [AIMED_VALUE], remove_values: [], vehicle_plate: null, driver_member_id: null, clear_scope: [] } },
   { name: 'delete_fact', kind: 'change', arguments: { fact_id: B_FACT_ID } },
