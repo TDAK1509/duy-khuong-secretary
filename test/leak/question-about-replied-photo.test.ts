@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { answerAdminQuestion, playAdminTurn } from './support/admin-chat-session.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { buildImageKey, insertPhotoPaper, insertSentPhoto } from './support/photo-reply-rows.ts';
+import { buildImageKey, insertPhotoMessage, insertPhotoPaper, insertSentPhoto } from './support/photo-reply-rows.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
 
@@ -59,6 +59,17 @@ test('a paper under review is marked in the block', async () => {
   const request = await askAboutQuote(QUESTION, 'SENT-5');
   assert.ok(request.includes('Trạng thái: đang chờ duyệt'));
 });
+
+test('a quoted photo without a saved paper says so', async () => {
+  await insertPhotoMessage(databases.owner, { key: 'no-paper' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('no-paper'), zaloMessageId: 'SENT-6' });
+  const request = await askAboutQuote(QUESTION, 'SENT-6');
+  assert.equal(readQuotedPhotoBody(request), 'Ảnh này chưa có giấy tờ nào đã lưu.');
+});
+
+function readQuotedPhotoBody(request: string): string | undefined {
+  return request.match(/<retrieved-data source="quoted-photo">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1];
+}
 
 function numberOf(index: number): string {
   return `NUM-000${index}`;

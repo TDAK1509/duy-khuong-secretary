@@ -24,14 +24,14 @@ export type PhotoPaperSpec = {
 export type PhotoPaper = { paperId: string; photoMessageId: string };
 
 export async function insertPhotoPaper(owner: PostgresPool, spec: PhotoPaperSpec): Promise<PhotoPaper> {
-  const sender = spec.sentBy === 'admin' ? { userId: A_ADMIN_USER_ID, externalUserId: ADMIN_EXTERNAL_USER_ID } : { userId: DRIVER_USER_ID, externalUserId: DRIVER_EXTERNAL_USER_ID };
-  const photoMessageId = spec.photoMessageId ?? (await insertPhotoMessage(owner, spec, sender));
+  const photoMessageId = spec.photoMessageId ?? (await insertPhotoMessage(owner, spec));
   const paperId = await insertPaper(owner, spec);
   await owner.query('INSERT INTO document_sources (workspace_id, document_id, message_id, item_index) VALUES ($1, $2, $3, $4)', [WORKSPACE_A_ID, paperId, photoMessageId, spec.itemIndex ?? 0]);
   return { paperId, photoMessageId };
 }
 
-async function insertPhotoMessage(owner: PostgresPool, spec: PhotoPaperSpec, sender: { userId: string; externalUserId: string }): Promise<string> {
+export async function insertPhotoMessage(owner: PostgresPool, spec: Pick<PhotoPaperSpec, 'key' | 'sentBy' | 'at'>): Promise<string> {
+  const sender = spec.sentBy === 'admin' ? { userId: A_ADMIN_USER_ID, externalUserId: ADMIN_EXTERNAL_USER_ID } : { userId: DRIVER_USER_ID, externalUserId: DRIVER_EXTERNAL_USER_ID };
   const eventId = await insertInboundEvent(owner, { externalEventId: spec.key, externalUserId: sender.externalUserId, kind: 'images', payload: {} });
   const { rows } = await owner.query<{ id: string }>(
     `INSERT INTO messages (workspace_id, user_id, author, text, image_key, inbound_event_id, event_part, submission_status, created_at)

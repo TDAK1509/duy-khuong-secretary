@@ -1,6 +1,9 @@
 import type { QuotedPaper } from './load-quoted-papers.ts';
 
+const NO_SAVED_PAPER = 'Ảnh này chưa có giấy tờ nào đã lưu.';
+
 export function formatQuotedPapers(papers: QuotedPaper[]): string {
+  if (papers.length === 0) return NO_SAVED_PAPER;
   return papers.map(describePaper).join('\n\n');
 }
 
