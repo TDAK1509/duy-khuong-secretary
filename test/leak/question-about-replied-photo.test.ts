@@ -53,6 +53,13 @@ test('a photo with two saved papers puts both papers in the block', async () => 
   assert.ok(request.includes(numberOf(2)));
 });
 
+test('a paper under review is marked in the block', async () => {
+  await insertPhotoPaper(databases.owner, { key: 'under-review', plate: SHARED_PLATE, date: SHARED_DATE, number: numberOf(1), status: 'needs_review' });
+  await insertSentPhoto(databases.owner, { imageKey: buildImageKey('under-review'), zaloMessageId: 'SENT-5' });
+  const request = await askAboutQuote(QUESTION, 'SENT-5');
+  assert.ok(request.includes('Trạng thái: đang chờ duyệt'));
+});
+
 function numberOf(index: number): string {
   return `NUM-000${index}`;
 }

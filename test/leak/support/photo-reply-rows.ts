@@ -16,6 +16,7 @@ export type PhotoPaperSpec = {
   stage?: 'dispatch' | 'receipt';
   sentBy?: 'driver' | 'admin';
   at?: string;
+  status?: 'accepted' | 'needs_review';
   photoMessageId?: string;
   itemIndex?: number;
 };
@@ -46,9 +47,9 @@ async function insertPhotoMessage(owner: PostgresPool, spec: PhotoPaperSpec, sen
 
 async function insertPaper(owner: PostgresPool, spec: PhotoPaperSpec): Promise<string> {
   const { rows } = await owner.query<{ id: string }>(
-    `INSERT INTO documents (workspace_id, kind, stage, document_number, document_date, vehicle_plate, summary)
-     VALUES ($1, 'weigh-ticket', $2, $3, $4, $5, $6) RETURNING id`,
-    [WORKSPACE_A_ID, spec.stage ?? 'receipt', spec.number ?? null, spec.date, spec.plate, `paper ${spec.key}`],
+    `INSERT INTO documents (workspace_id, kind, stage, document_number, document_date, vehicle_plate, summary, status)
+     VALUES ($1, 'weigh-ticket', $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [WORKSPACE_A_ID, spec.stage ?? 'receipt', spec.number ?? null, spec.date, spec.plate, `paper ${spec.key}`, spec.status ?? 'accepted'],
   );
   return rows[0]!.id;
 }

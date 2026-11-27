@@ -8,8 +8,13 @@ function describePaper(paper: QuotedPaper, index: number): string {
   return [
     `Giấy tờ ${index + 1} (id: ${paper.id})`,
     `Loại: ${paper.kind}`,
+    ...describeStatus(paper.status),
     ...describeOptional('Số giấy tờ', paper.document_number),
   ].join('\n');
+}
+
+function describeStatus(status: QuotedPaper['status']): string[] {
+  return status === 'needs_review' ? ['Trạng thái: đang chờ duyệt'] : [];
 }
 
 function describeOptional(label: string, value: string | null): string[] {
