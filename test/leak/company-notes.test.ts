@@ -6,7 +6,9 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry, insertPaper } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
+import { ScriptedPairingReader } from './support/scripted-pairing-reader.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
+import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
 
@@ -31,6 +33,15 @@ test('the admin chat context lists a note with its author and conditions', async
 test('a company-wide note says it applies to the whole company', async () => {
   await insertEntry(databases.owner, { note: 'gửi phiếu trước 18 giờ' });
   assert.ok((await readCompanyRules()).includes('- SAFE-A-ADMIN: toàn công ty: gửi phiếu trước 18 giờ'));
+});
+
+test('trip pairing receives the note', async () => {
+  await insertEntry(databases.owner, { pickup: 'Alpha', note: 'cân lại ở trạm' });
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  const pairingReader = new ScriptedPairingReader([]);
+  await exportTripReport(pairingReader);
+  assert.ok(pairingReader.requests.some((request) => JSON.stringify(request.userParts).includes('cân lại ở trạm')));
 });
 
 function saveNoteArguments(note: string): Record<string, string | null> {
@@ -68,4 +79,10 @@ async function readCompanyRules(): Promise<string> {
   const [contextTurn] = model.requests[0]?.turns ?? [];
   if (contextTurn?.role !== 'user' || contextTurn.text === null) throw new Error('the model received no user turn');
   return contextTurn.text.match(/<retrieved-data source="company-rules">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1] ?? '';
+}
+
+async function exportTripReport(dropOffReader: ScriptedPairingReader): Promise<void> {
+  const column = { name: 'Biển số', source: 'field', field: 'plate', value_name: null };
+  const harness = createToolHarness(databases.runtime, { dropOffReader });
+  await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-31', plate: '51C12345', columns: [column], layout: null });
 }

@@ -6,6 +6,7 @@ import { buildReportWorkbook, REPORT_SHEET_NAME } from '../../documents/build-re
 import { saveExportRecord } from '../../documents/save-export-record.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, sortReportRows, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
+import { listCompanyNoteLines } from '../../facts/list-company-notes.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { OUTCOME_DEFINITIONS, PER_TON_UNIT, SHOWN_GOODS_MATCH_KEY } from '../../facts/knowledge-outcomes.ts';
 import { buildTripReport, type TripReport } from '../../trips/build-trip-report.ts';
@@ -18,7 +19,6 @@ import { countReviewTripPapers, listWinningValues, type TripPaper, type TripPape
 import { matchTripEntries } from '../../trips/match-trip-entries.ts';
 import { readRouteEntryId } from '../../trips/read-trip-cell.ts';
 import { listEntrySnapshots } from '../../facts/list-entry-snapshots.ts';
-import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -107,8 +107,7 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_TRIP_PAPERS + 1 };
   const papers = await loadTripPapers(database, query);
   if (papers === null) return failTool(TOO_MANY_PAPERS_ERROR);
-  const rules = await listWorkspaceRules(database, scope.workspaceId);
-  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
+  const pairing = await pairTrips(dropOffReader, papers, await listCompanyNoteLines(database, scope.workspaceId));
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
   const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });
