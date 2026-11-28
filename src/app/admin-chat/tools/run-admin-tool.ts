@@ -98,7 +98,7 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
   update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),
   delete_fact: ({ database }, scope, args) => runDeleteFact(database, scope, args),
-  total_fact_values: ({ database }, scope, args) => runTotalFactValues(database, scope, args),
+  total_fact_values: runTotalFactValues,
   save_rule: runSaveRule,
   list_rules: ({ database }, scope, args) => runListRules(database, scope, args),
   delete_rule: ({ database }, scope, args) => runDeleteRule(database, scope, args),

@@ -4,7 +4,7 @@ import { FILTER_NAMES, FILTER_PROPERTIES, GROUP_BY } from './document-number-spe
 export const TOTAL_FACT_VALUES_SPEC: ToolSpec = {
   name: 'total_fact_values',
   description:
-    'Tính tổng một giá trị quản lý đã lưu bằng save_fact (ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng) trên các giấy tờ đã chấp nhận và phù hợp, với cùng bộ lọc và cách chia nhóm như total_document_numbers. Mỗi giấy tờ tính một lần, theo thông tin cập nhật gần nhất. amounts: số tiền mỗi chuyến, cộng lại. per_ton: giá mỗi tấn, nhân với trọng lượng hàng của từng giấy tờ (kg chia 1000). texts: giá trị chữ, đếm số giấy tờ. review_documents đếm giấy tờ đang chờ xem lại.',
+    'Tính tổng một giá trị quản lý đã lưu bằng save_fact (ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng) trên các giấy tờ đã chấp nhận và phù hợp, với cùng bộ lọc và cách chia nhóm như total_document_numbers. Mỗi chuyến tính một lần theo cùng cách ghép phiếu của báo cáo chuyến; nhiều chuyến cùng xe trong cùng ngày vẫn tính riêng, và phiếu lấy cùng phiếu đổ của một chuyến không cộng thêm. amounts: số tiền mỗi chuyến, cộng lại. per_ton: giá mỗi tấn, nhân với trọng lượng hàng của từng giấy tờ (kg chia 1000). texts: giá trị chữ, đếm số giấy tờ. review_documents đếm giấy tờ đang chờ xem lại.',
   parameters: {
     type: 'object',
     properties: {

@@ -120,3 +120,23 @@ test('a customer the admin names is saved as a value and does not limit the matc
   })) as { fact_id: string };
   assert.deepEqual(await listLinkedPaperIds(databases.owner, saved.fact_id), [ticket]);
 });
+
+const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
+
+const NO_FILTERS = { organization: null, role: null, stage: null, kind: null, plate: null, template: null, date_meaning: null };
+
+type Totals = { amounts: { sum: number }[]; per_ton: { amount: number }[] };
+
+async function totalValue(valueName: string, dateFrom: string, dateTo: string): Promise<Totals> {
+  const output = await callChatTool(databases.runtime, 'total_fact_values', { value_name: valueName, ...NO_FILTERS, date_from: dateFrom, date_to: dateTo, group_by: 'none' });
+  return JSON.parse(output) as Totals;
+}
+
+test('a pickup paper and a drop-off paper of one built trip add the wage once', async () => {
+  const pickup = await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const dropOff = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [WAGE] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [pickup, dropOff].sort());
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06')).amounts[0]?.sum, 700000);
+});

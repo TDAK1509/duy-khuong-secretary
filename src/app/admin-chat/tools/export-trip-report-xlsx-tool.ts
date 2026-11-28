@@ -8,9 +8,10 @@ import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
-import { dropRepeatedPapers, type RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
-import { pairTrips, type PairingPapers, type TripPairing } from '../../trips/pair-trips.ts';
-import { countReviewTripPapers, listKnownValues, listReceiptPapers, listTripPapers, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import type { RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
+import { DAY_MS, loadTripPapers, MAX_TRIP_PAPERS, TOO_MANY_PAPERS_ERROR } from '../../trips/load-trip-papers.ts';
+import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
+import { countReviewTripPapers, listKnownValues, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import { matchTripFacts } from '../../trips/match-trip-facts.ts';
 import { loadShownGoodsNames, type ShownGoodsNames } from '../../goods-names/show-goods-name.ts';
 import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
@@ -22,10 +23,8 @@ import { failTool, INVALID_DATE_ERROR, REFUSAL_ERROR } from './tool-result.ts';
 
 const MAX_DAYS = 92;
 const MAX_COLUMNS = 40;
-const MAX_ROWS = 5000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_COLUMN_NAME_LENGTH = 80;
-const DAY_MS = 86_400_000;
 
 const columnSchema = z.strictObject({
   name: z.string(),
@@ -101,9 +100,9 @@ type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOf
 
 async function exportTripReport(storage: FileStorage, database: Database, scope: AccessScope, planned: PlannedReport): Promise<string> {
   const { request, dropOffReader } = planned;
-  const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_ROWS + 1 };
+  const query: TripPaperQuery = { workspaceId: scope.workspaceId, dateFrom: request.date_from, dateTo: request.date_to, plate: request.plate, limit: MAX_TRIP_PAPERS + 1 };
   const papers = await loadTripPapers(database, query);
-  if (papers === null) return failTool(`Có hơn ${MAX_ROWS} giấy tờ chuyến trong khoảng này. Hãy chọn khoảng ngắn hơn hoặc một xe.`);
+  if (papers === null) return failTool(TOO_MANY_PAPERS_ERROR);
   const rules = await listWorkspaceRules(database, scope.workspaceId);
   const goodsNames = await loadShownGoodsNames(database, scope.workspaceId);
   const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule), goodsNames);
@@ -111,17 +110,6 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
   const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing, goodsNames });
   return storeReport(storage, scope, planned, report, pairing);
-}
-
-type LoadedPapers = PairingPapers & { repeats: RepeatedPaper[] };
-
-async function loadTripPapers(database: Database, query: TripPaperQuery): Promise<LoadedPapers | null> {
-  const pickups = await listTripPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1) });
-  const receipts = await listReceiptPapers(database, { ...query, dateFrom: addDays(query.dateFrom, -1), dateTo: addDays(query.dateTo, 1) });
-  if (pickups.length > MAX_ROWS || receipts.length > MAX_ROWS) return null;
-  const withoutRepeatedPickups = dropRepeatedPapers(pickups, 'pickup');
-  const withoutRepeatedReceipts = dropRepeatedPapers(receipts, 'dropOff');
-  return { pickups: withoutRepeatedPickups.papers, receipts: withoutRepeatedReceipts.papers, repeats: [...withoutRepeatedPickups.repeats, ...withoutRepeatedReceipts.repeats] };
 }
 
 type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing; goodsNames: ShownGoodsNames };
@@ -143,10 +131,6 @@ async function storeReport(storage: FileStorage, scope: AccessScope, { request, 
 
 function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {
   return choice.kind === 'chosen' ? choice : { ...choice, layout: { sort: [] } };
-}
-
-function addDays(date: string, days: number): string {
-  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
 function listValueKeys(columns: TripColumn[]): string[] {
