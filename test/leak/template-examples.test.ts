@@ -38,6 +38,14 @@ test('the snapshot keeps parties, number and date details, and null fields', asy
   assert.equal(reading.amount_vnd, null);
 });
 
+test('a paper whose photo is deleted cannot be an example', async () => {
+  const paperId = await insertExamplePaper(databases.owner, { imageKey: 'example/deleted.jpg', isPhotoDeleted: true });
+  const result = JSON.parse(await saveTemplate([paperId]));
+  assert.equal(result.ok, false);
+  const { rows } = await databases.owner.query("SELECT 1 FROM document_templates WHERE name = 'EXAMPLE-TEMPLATE'");
+  assert.equal(rows.length, 0);
+});
+
 function saveTemplate(examplePaperIds: string[]): Promise<string> {
   const toolArguments = {
     name: 'EXAMPLE-TEMPLATE',
