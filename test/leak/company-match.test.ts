@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import { loadShownGoodsNames } from '../../src/app/goods-names/show-goods-name.ts';
+import { buildTrips, type Trip } from '../../src/app/trips/build-trips.ts';
 import { listReceiptPapers, listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
+import { loadTripPapers } from '../../src/app/trips/load-trip-papers.ts';
+import { pairTrips } from '../../src/app/trips/pair-trips.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { NamedDropOffReader } from './support/named-drop-off-reader.ts';
 import { ScriptedPairingReader } from './support/scripted-pairing-reader.ts';
 import type { RecordingReader } from './support/recording-reader.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { insertEntry, insertPaper, linkEntry, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
+import { addCompanyAlias, insertEntry, insertPaper, linkEntry, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
@@ -81,6 +85,38 @@ test('a receipt-stage ticket issued by the pickup company is listed as a pickup'
   await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha' }));
   assert.deepEqual(await listTripPaperIds(), { pickups: [ticket], receipts: [] });
 });
+
+test('a ticket issued under an alias of the pickup company is listed as a pickup', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', parties: [{ role: 'issuer', name: 'Alpha Group' }] });
+  await addCompanyAlias(databases.owner, 'Alpha Group', 'Alpha');
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha' }));
+  assert.deepEqual(await listTripPaperIds(), { pickups: [ticket], receipts: [] });
+});
+
+test('a receipt-stage ticket issued by another company stays a receipt', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', parties: [{ role: 'issuer', name: 'Beta' }, { role: 'supplier', name: 'Alpha' }] });
+  const entry = await insertEntry(databases.owner, { pickup: 'Alpha' });
+  await linkEntry(databases.runtime, entry);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), [ticket]);
+  assert.deepEqual(await listTripPaperIds(), { pickups: [], receipts: [ticket] });
+});
+
+test('the ticket of the pickup company pairs with the drop-off ticket in the trip report', async () => {
+  const pickup = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-05', weightKg: 27080, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const dropOff = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 27060, parties: [{ role: 'issuer', name: 'Beta' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha' }));
+  const trips = await buildTripsOfTwoDays();
+  assert.deepEqual(trips.map((trip) => [trip.pickup?.id, trip.dropOff?.id, trip.method]), [[pickup, dropOff, 'rule']]);
+});
+
+async function buildTripsOfTwoDays(): Promise<Trip[]> {
+  const database = openWorkspaceA(databases.runtime);
+  const query = { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-06', plate: null, limit: 10 };
+  const papers = await loadTripPapers(database, query);
+  if (papers === null) throw new Error('too many trip papers');
+  const pairing = await pairTrips(null, papers, [], await loadShownGoodsNames(database, WORKSPACE_A_ID));
+  return buildTrips({ ...papers, dateFrom: query.dateFrom, dateTo: query.dateTo }, pairing);
+}
 
 async function listTripPaperIds(): Promise<{ pickups: string[]; receipts: string[] }> {
   const query = { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-05', plate: null, limit: 10 };
