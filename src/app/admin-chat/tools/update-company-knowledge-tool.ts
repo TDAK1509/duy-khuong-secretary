@@ -2,9 +2,10 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
 import { updateKnowledge, type UpdateKnowledgeResult } from '../../facts/update-company-knowledge.ts';
+import { listExampleDocuments, type ExampleDocument } from '../../facts/list-example-documents.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import { knowledgeFieldsSchema, readKnowledgeArguments } from './company-knowledge-arguments.ts';
-import { describeChange, describeThen, describeWhenWithMatches } from './describe-knowledge.ts';
+import { describeChange, describeExampleDocument, describeThen, describeWhenWithMatches } from './describe-knowledge.ts';
 import { failTool } from './tool-result.ts';
 
 const NOT_FOUND_ERROR = 'Không tìm thấy kiến thức này. Gọi list_company_knowledge để lấy đúng entry_id.';
@@ -18,12 +19,17 @@ export async function runUpdateCompanyKnowledge(database: Database, scope: Acces
   const read = await readKnowledgeArguments(database, scope, request, companyReader);
   const result = await updateKnowledge(database, { ...read.knowledge, entryId: request.entry_id });
   const matched = { pickup: read.pickup?.matchedOrganization ?? null, dropoff: read.dropoff?.matchedOrganization ?? null };
-  return describeUpdateResult(result, matched);
+  return describeUpdateResult(result, matched, await listExamples(database, scope, result));
 }
 
-function describeUpdateResult(result: UpdateKnowledgeResult, matched: { pickup: string | null; dropoff: string | null }): string {
+async function listExamples(database: Database, scope: AccessScope, result: UpdateKnowledgeResult): Promise<ExampleDocument[]> {
+  if (result.kind !== 'updated') return [];
+  return listExampleDocuments(database, scope.workspaceId, result.entry.id);
+}
+
+function describeUpdateResult(result: UpdateKnowledgeResult, matched: { pickup: string | null; dropoff: string | null }, examples: ExampleDocument[]): string {
   if (result.kind === 'not_found') return failTool(NOT_FOUND_ERROR);
   if (result.kind === 'same_as_other') return JSON.stringify({ ok: false, error: SAME_AS_OTHER_ERROR, other_entry_id: result.otherEntryId });
   const { entry, changes } = result;
-  return JSON.stringify({ ok: true, entry_id: entry.id, when: describeWhenWithMatches(entry, matched), then: describeThen(entry.outcomes), changes: changes.map(describeChange), linked_documents: entry.linkedDocuments });
+  return JSON.stringify({ ok: true, entry_id: entry.id, when: describeWhenWithMatches(entry, matched), then: describeThen(entry.outcomes), changes: changes.map(describeChange), linked_documents: entry.linkedDocuments, example_documents: examples.map(describeExampleDocument) });
 }

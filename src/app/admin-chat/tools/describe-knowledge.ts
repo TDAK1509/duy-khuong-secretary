@@ -1,4 +1,5 @@
 import type { KnowledgeOutcomes, StoredEntry } from '../../facts/company-knowledge.ts';
+import type { ExampleDocument } from '../../facts/list-example-documents.ts';
 import type { OutcomeChange } from '../../facts/outcome-changes.ts';
 
 export type MatchedCompanies = { pickup: string | null; dropoff: string | null };
@@ -27,4 +28,9 @@ export function describeThen({ customer, dropoff, wageVnd, ratePerTonVnd, allowa
 
 export function describeChange({ name, before, after }: OutcomeChange): Record<string, unknown> {
   return { kind: before === null ? 'added' : 'replaced', name, before, after };
+}
+
+export function describeExampleDocument({ kind, title, documentNumber, documentDate, vehiclePlate }: ExampleDocument): Record<string, string> {
+  const fields = { kind, title, document_number: documentNumber, document_date: documentDate, vehicle_plate: vehiclePlate };
+  return Object.fromEntries(Object.entries(fields).filter((field): field is [string, string] => field[1] !== null));
 }
