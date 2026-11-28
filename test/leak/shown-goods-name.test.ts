@@ -27,6 +27,30 @@ test('the paper export shows the shown goods name of the linked entry', async ()
   assert.deepEqual(await exportPaperColumn('Tên hàng hiển thị'), ['Than đá']);
 });
 
+test('the trip report shows the shown goods name of the linked entry', async () => {
+  await insertPairedTrip('Than cám loại 2');
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { goods: 'Than', shownGoodsName: 'Than đá' }));
+  assert.deepEqual(await exportTripGoods(), ['Than đá']);
+});
+
+test('the trip report keeps the printed goods name when no entry gives a shown name', async () => {
+  await insertPairedTrip('Cát');
+  assert.deepEqual(await exportTripGoods(), ['Cát']);
+});
+
+async function insertPairedTrip(goods: string): Promise<void> {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: goods }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+}
+
+async function exportTripGoods(): Promise<string[] | null> {
+  const harness = createToolHarness(databases.runtime);
+  const column = { name: 'Hàng hóa', source: 'field', field: 'goods', value_name: null };
+  await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-31', plate: '51C12345', columns: [column], layout: null });
+  const [file] = harness.storage.listStoredFiles();
+  return file === undefined ? null : readSheetColumn(file.bytes, 'Hàng hóa');
+}
+
 async function exportPaperColumn(header: string): Promise<string[] | null> {
   const harness = createToolHarness(databases.runtime);
   await harness.runTool('chat-gate', 'export_documents_xlsx', { organization: null, role: null, stage: null, kind: null, plate: '51C12345', date_meaning: null, date_from: '2026-03-01', date_to: '2026-03-31' });

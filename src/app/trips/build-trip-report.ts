@@ -1,5 +1,4 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
-import { showGoodsName, type ShownGoodsNames } from '../goods-names/show-goods-name.ts';
 import { PER_TON_UNIT } from '../facts/knowledge-outcomes.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
@@ -50,11 +49,11 @@ const PAIRING_METHOD_COLUMN: ReportColumn = { name: 'Cách ghép phiếu', type:
 
 export type WinnerIndex = Map<string, WinningValue>;
 
-export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; repeats: RepeatedPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; goodsNames: ShownGoodsNames; dateFrom: string; dateTo: string };
+export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; repeats: RepeatedPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; dateFrom: string; dateTo: string };
 
-export function buildTripReport({ title, createdAt, columns, trips, pickups, repeats, winners, reviewPapers, pairing, matching, goodsNames, dateFrom, dateTo }: TripReportInput): TripReport {
+export function buildTripReport({ title, createdAt, columns, trips, pickups, repeats, winners, reviewPapers, pairing, matching, dateFrom, dateTo }: TripReportInput): TripReport {
   const index = indexWinners(winners);
-  const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index, goodsNames)), describePairingMethod(trip.method)]);
+  const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index)), describePairingMethod(trip.method)]);
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
   const duplicates = groupPossibleDuplicates(pickups.filter((paper) => isInRange(paper, dateFrom, dateTo))).map(describeDuplicate);
@@ -71,15 +70,15 @@ export function indexWinners(winners: WinningValue[]): WinnerIndex {
   return new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
 }
 
-function readCell(column: TripColumn, trip: Trip, index: WinnerIndex, goodsNames: ShownGoodsNames): ReportCell {
+function readCell(column: TripColumn, trip: Trip, index: WinnerIndex): ReportCell {
   if (column.source === 'none') return null;
-  if (column.source === 'field') return FIELD_READERS[column.field](trip, goodsNames);
+  if (column.source === 'field') return FIELD_READERS[column.field](trip);
   const winner = findWinner(index, trip, column.matchKey);
   if (column.source === 'knowledge_value') return readWinner(winner);
   return calculateAmount(winner, readWinnerWeight(trip, winner));
 }
 
-type FieldReader = (trip: Trip, goodsNames: ShownGoodsNames) => ReportCell;
+type FieldReader = (trip: Trip) => ReportCell;
 
 const FIELD_READERS: Record<TripField, FieldReader> = {
   date: (trip) => readTripDate(trip),
@@ -90,7 +89,7 @@ const FIELD_READERS: Record<TripField, FieldReader> = {
   pickup_place: ({ pickup }) => (pickup === null ? null : readPickupPlace(pickup)),
   dropoff_place: (trip) => findDropOffPlace(trip),
   customer: (trip) => readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party),
-  goods: (trip, goodsNames) => readGoods(trip, goodsNames),
+  goods: (trip) => readGoods(trip),
   weight_kg: ({ pickup, dropOff }) => readWeightKg(pickup) ?? readWeightKg(dropOff),
   pickup_weight_kg: ({ pickup }) => readWeightKg(pickup),
   dropoff_weight_kg: ({ dropOff }) => readWeightKg(dropOff),
@@ -129,8 +128,9 @@ function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): strin
   return numbers.length === 0 ? null : numbers.join(' / ');
 }
 
-function readGoods(trip: Trip, goodsNames: ShownGoodsNames): string | null {
-  return showGoodsName(goodsNames, readFirst(trip, (paper) => paper.goods_line));
+function readGoods(trip: Trip): string | null {
+  const mainPaper = trip.pickup ?? trip.dropOff;
+  return mainPaper?.shown_goods_name ?? readFirst(trip, (paper) => paper.goods_line);
 }
 
 function describeRoute(trip: Trip): string | null {

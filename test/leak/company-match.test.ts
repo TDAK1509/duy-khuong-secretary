@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
-import { loadShownGoodsNames } from '../../src/app/goods-names/show-goods-name.ts';
 import { buildTrips, type Trip } from '../../src/app/trips/build-trips.ts';
 import { listReceiptPapers, listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { loadTripPapers } from '../../src/app/trips/load-trip-papers.ts';
@@ -114,7 +113,7 @@ async function buildTripsOfTwoDays(): Promise<Trip[]> {
   const query = { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-06', plate: null, limit: 10 };
   const papers = await loadTripPapers(database, query);
   if (papers === null) throw new Error('too many trip papers');
-  const pairing = await pairTrips(null, papers, [], await loadShownGoodsNames(database, WORKSPACE_A_ID));
+  const pairing = await pairTrips(null, papers, []);
   return buildTrips({ ...papers, dateFrom: query.dateFrom, dateTo: query.dateTo }, pairing);
 }
 

@@ -22,6 +22,7 @@ export type TripPaper = {
   route_customer: string | null;
   route_pickup_key: string | null;
   goods_line: string | null;
+  shown_goods_name: string | null;
   note_line: string | null;
   receiver_id: string | null;
   receiver_name: string | null;
@@ -77,6 +78,7 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
        ${buildPreciseTimeSql()} AS precise_at,
        ${buildPrintedTimesSql()} AS printed_times,
        ${GOODS_LINE_SQL} AS goods_line,
+       ${SHOWN_GOODS_NAME_SQL} AS shown_goods_name,
        ${NOTE_LINE_SQL} AS note_line,
        ${withReceiver ? RECEIVER_COLUMNS : NO_RECEIVER_COLUMNS}
      FROM documents document
@@ -95,6 +97,11 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
 const NOTE_LABEL_KEY = 'ghichu';
 
 const GOODS_LINE_SQL = buildLabelledLineSql(GOODS_LABEL_KEY);
+
+const SHOWN_GOODS_NAME_SQL = `(SELECT entry.then_shown_goods_name FROM company_knowledge_links link
+  JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
+  WHERE link.document_id = document.id AND entry.then_shown_goods_name IS NOT NULL
+  ORDER BY entry.updated_at DESC, entry.id DESC LIMIT 1)`;
 
 const NOTE_LINE_SQL = buildLabelledLineSql(NOTE_LABEL_KEY);
 
