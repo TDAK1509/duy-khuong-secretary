@@ -19,11 +19,6 @@ export const IS_TRIP_TICKET_SHAPE = `(
 
 export const IS_TRIP_TICKET = `(document.status = 'accepted' AND ${IS_TRIP_TICKET_SHAPE})`;
 
-const NO_ROLES = 'ARRAY[]::text[]';
-const PICKUP_ROLES = `(CASE WHEN document.stage = 'receipt' THEN ${NO_ROLES} WHEN document.stage IS NULL THEN ARRAY['issuer'] ELSE ARRAY['issuer', 'place', 'supplier'] END)`;
-const DROPOFF_ROLES = `(CASE WHEN document.stage = 'dispatch' THEN ${NO_ROLES} WHEN document.stage IS NULL THEN ARRAY['issuer'] ELSE ARRAY['issuer', 'place'] END)`;
-const CUSTOMER_ROLES = `ARRAY['customer']`;
-
 const FACT_GOODS = `
   SELECT nullif(${buildAccentFreeKey('value.text_value')}, '') AS key,
     coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token <> ''), '{}') AS tokens,
@@ -53,9 +48,9 @@ const LINK_MATCHES_SQL = `
     AND (NOT ${IS_ROUTE_FACT} OR ${IS_TRIP_TICKET})
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
-    AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup', PICKUP_ROLES)})
-    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildCompanyMatch('dropoff', DROPOFF_ROLES)})
-    AND (fact.customer_match_key IS NULL OR ${buildCompanyMatch('customer', CUSTOMER_ROLES)})
+    AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup')})
+    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildCompanyMatch('dropoff')})
+    AND (fact.customer_match_key IS NULL OR ${buildCompanyMatch('customer')})
     AND ${GOODS_MATCH}
   ON CONFLICT DO NOTHING
   RETURNING document_id
@@ -75,23 +70,22 @@ export async function linkDocumentsToMatchingFacts(transaction: Transaction, wor
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentIds]);
 }
 
-function buildCompanyMatch(slot: CompanySlot, roles: string): string {
-  return `(CASE WHEN fact.${slot}_resolved THEN ${buildPickedMatch(slot, roles)} ELSE ${buildPartyMatch(`${slot}_match_key`, roles)} END)`;
+function buildCompanyMatch(slot: CompanySlot): string {
+  return `(CASE WHEN fact.${slot}_resolved THEN ${buildPickedMatch(slot)} ELSE ${buildPartyMatch(`${slot}_match_key`)} END)`;
 }
 
-function buildPickedMatch(slot: CompanySlot, roles: string): string {
+function buildPickedMatch(slot: CompanySlot): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     JOIN fact_companies pick ON pick.fact_id = fact.id AND pick.slot = '${slot}' AND pick.organization_id = party.organization_id
-    WHERE party.document_id = document.id AND party.role = ANY(${roles})
+    WHERE party.document_id = document.id
   )`;
 }
 
-function buildPartyMatch(matchKeyColumn: `${CompanySlot}_match_key`, roles: string): string {
+function buildPartyMatch(matchKeyColumn: `${CompanySlot}_match_key`): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     WHERE party.document_id = document.id
-      AND party.role = ANY(${roles})
       AND (
         party.match_key = fact.${matchKeyColumn}
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.${matchKeyColumn})

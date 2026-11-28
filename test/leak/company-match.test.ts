@@ -18,3 +18,10 @@ test('a pickup company printed as supplier links the fact', async () => {
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
 });
+
+test('a pickup company that issued a receipt-stage ticket links the fact', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha' });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
+});
