@@ -3,7 +3,7 @@ import { after, beforeEach, test } from 'node:test';
 import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { NamedDropOffReader } from './support/named-drop-off-reader.ts';
-import { ScriptedPairingReader, type ScriptedPair } from './support/scripted-pairing-reader.ts';
+import { ScriptedPairingReader } from './support/scripted-pairing-reader.ts';
 import type { RecordingReader } from './support/recording-reader.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
