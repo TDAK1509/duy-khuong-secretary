@@ -1,8 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { buildReportWorkbook, type ReportTable } from '../../documents/build-report-workbook.ts';
 import { COLUMN_UNITS } from '../../documents/format-workbook-sheet.ts';
-import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout } from '../../documents/report-layout.ts';
+import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, sortReportRows } from '../../documents/report-layout.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
 import { EXPORT_EXPIRES_HOURS, EXPORT_NOT_CONFIGURED_ERROR, storeExcelExport } from './store-excel-export.ts';
 import { failTool, REFUSAL_ERROR } from './tool-result.ts';
@@ -25,8 +26,9 @@ export async function runExportReportXlsx(dependencies: AdminToolDependencies, s
   const problem = findTableProblem(request);
   if (problem !== null) return failTool(problem);
   const choice = readReportLayout(request.layout, request.columns);
-  const table = { title: request.title, columns: request.columns, createdAt: dependencies.clock.now(), rows: request.rows.map((cells) => readCells(request.columns, cells)), layout: choice.layout };
-  const { url, filename } = await storeExcelExport(storage, scope, table.createdAt, await buildReportWorkbook(table), 'bao-cao');
+  const rows = sortReportRows(request.rows.map((cells) => readCells(request.columns, cells)), choice.layout, (cells) => cells);
+  const table = { title: request.title, columns: request.columns, createdAt: dependencies.clock.now(), rows };
+  const { url, filename } = await storeExcelExport(storage, scope, { id: randomUUID(), now: table.createdAt, bytes: await buildReportWorkbook(table), filePrefix: 'bao-cao' });
   return JSON.stringify({ ok: true, url, filename, rows: table.rows.length, layout: describeEffectiveLayout(choice, request.columns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 

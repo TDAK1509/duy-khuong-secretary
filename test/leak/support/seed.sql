@@ -187,3 +187,11 @@ INSERT INTO workspace_invites (id, workspace_id, code_hash, display_name, role, 
 
 INSERT INTO channel_connections (id, channel, account_id, access_token_encrypted, refresh_token_encrypted, access_expires_at, refresh_expires_at) VALUES
   ('aaaaaaaa-0036-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'seed-not-a-token', 'seed-not-a-token', '2030-01-01 00:00:00+00', '2030-01-01 00:00:00+00');
+
+INSERT INTO company_exports (id, workspace_id, requested_by_user_id, kind, sheet_name, columns) VALUES
+  ('aaaaaaaa-0047-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'documents', 'Giấy tờ', '[{"key": "kind", "name": "Loại", "value_type": "text"}]'),
+  ('bbbbbbbb-0047-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'documents', 'Giấy tờ', '[{"key": "kind", "name": "Loại", "value_type": "text"}]');
+
+INSERT INTO company_export_rows (id, workspace_id, export_id, row_number, document_ids, entry_ids, cells) VALUES
+  ('aaaaaaaa-0048-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0047-4000-8000-000000000001', 5, ARRAY['aaaaaaaa-0011-4000-8000-000000000001']::uuid[], ARRAY['aaaaaaaa-0014-4000-8000-000000000001']::uuid[], '{"kind": {"value_type": "text", "value": "SAFE-A-KIND", "source": {"kind": "paper", "document_id": "aaaaaaaa-0011-4000-8000-000000000001", "field": "kind", "snapshot": {}}}}'),
+  ('bbbbbbbb-0048-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0047-4000-8000-000000000001', 5, ARRAY['bbbbbbbb-0011-4000-8000-000000000001']::uuid[], ARRAY['bbbbbbbb-0014-4000-8000-000000000001']::uuid[], '{"kind": {"value_type": "text", "value": "LEAK-B-KIND", "source": {"kind": "paper", "document_id": "bbbbbbbb-0011-4000-8000-000000000001", "field": "kind", "snapshot": {}}}}');

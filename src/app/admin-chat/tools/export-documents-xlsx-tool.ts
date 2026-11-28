@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
-import { buildDocumentsWorkbook, type ExportRow } from '../../documents/build-documents-workbook.ts';
+import { buildDocumentsWorkbook, DOCUMENTS_SHEET_NAME, listDocumentColumns, type ExportRow } from '../../documents/build-documents-workbook.ts';
+import { describeDocumentColumns, recordDocumentRow } from '../../documents/record-document-rows.ts';
+import { saveExportRecord } from '../../documents/save-export-record.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere } from '../../documents/build-document-where.ts';
 import type { DocumentFilters } from '../../documents/add-document-filters.ts';
-import { buildDocumentKnowledgeSql, type DocumentKnowledge } from '../../facts/document-knowledge.ts';
+import { buildSourcedKnowledgeSql, type SourcedKnowledge } from '../../facts/document-knowledge.ts';
+import { listEntrySnapshots } from '../../facts/list-entry-snapshots.ts';
 import type { WhereClause } from '../../records/where-clause.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -29,12 +33,23 @@ async function executeExport(storage: FileStorage, { database, clock }: AdminToo
   const rows = await queryExportRows(database, scope, filters);
   if (rows.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches', described_filter: describedFilter });
   const createdAt = clock.now();
-  const bytes = await buildDocumentsWorkbook({ title: describedFilter, createdAt, rows });
-  const { url, filename } = await storeExcelExport(storage, scope, createdAt, bytes, 'giay-to');
+  const exportId = randomUUID();
+  const rowIds = rows.map(() => randomUUID());
+  const bytes = await buildDocumentsWorkbook({ title: describedFilter, createdAt, rows, marks: { exportId, rowIds } });
+  const { url, filename } = await storeExcelExport(storage, scope, { id: exportId, now: createdAt, bytes, filePrefix: 'giay-to' });
+  await recordExport(database, scope, exportId, rows, rowIds);
   return JSON.stringify({ ok: true, url, filename, count: rows.length, described_filter: describedFilter, expires_hours: EXPORT_EXPIRES_HOURS });
 }
 
+async function recordExport(database: Database, scope: AccessScope, exportId: string, rows: ExportRow[], rowIds: string[]): Promise<void> {
+  const columns = listDocumentColumns(rows);
+  const snapshots = await listEntrySnapshots(database, scope.workspaceId, rows.flatMap((row) => row.company_knowledge.map((value) => value.entry_id)));
+  const recorded = rows.map((row, position) => recordDocumentRow(rowIds[position]!, row, columns, snapshots));
+  await saveExportRecord(database, scope, { id: exportId, kind: 'documents', sheetName: DOCUMENTS_SHEET_NAME, columns: describeDocumentColumns(columns), rows: recorded });
+}
+
 type DocumentExportRow = {
+  id: string;
   document_date: string | null;
   kind: string;
   title: string | null;
@@ -42,7 +57,7 @@ type DocumentExportRow = {
   vehicle_plate: string | null;
   amount_vnd: number | null;
   sender_name: string | null;
-  company_knowledge: DocumentKnowledge[];
+  company_knowledge: SourcedKnowledge[];
 };
 
 async function queryExportRows(database: Database, scope: AccessScope, filters: DocumentFilters): Promise<ExportRow[]> {
@@ -54,11 +69,12 @@ async function queryExportRows(database: Database, scope: AccessScope, filters: 
 function buildExportSql(where: WhereClause): string {
   return `
     SELECT
+      document.id,
       to_char(document.document_date, 'YYYY-MM-DD') AS document_date,
       document.kind, document.title, document.document_number, document.vehicle_plate,
       ${buildAmountSubquery()} AS amount_vnd,
       ${buildSenderSubquery()} AS sender_name,
-      ${buildDocumentKnowledgeSql()} AS company_knowledge
+      ${buildSourcedKnowledgeSql()} AS company_knowledge
     FROM documents document
     WHERE ${where.toSql()}
     ORDER BY document.document_date DESC NULLS LAST, document.created_at DESC

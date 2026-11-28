@@ -94,6 +94,7 @@ function applyRouteEntry(pickup: TripPaper, entry: PickupEntry | undefined): Tri
     route_pickup_key: entry?.pickup_match_key ?? null,
     route_dropoff: entry?.dropoff_name ?? null,
     route_customer: entry?.customer_name ?? null,
+    route_entry_id: entry?.entry_id ?? null,
   };
 }
 
