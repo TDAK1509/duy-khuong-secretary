@@ -1,6 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import type { KnowledgeConditions, NewKnowledge, StoredEntry } from './company-knowledge.ts';
+import { hasCondition, type KnowledgeConditions, type NewKnowledge, type StoredEntry } from './company-knowledge.ts';
 import { buildInsertEntrySql, buildMergeOutcomesSql, listEntryValues, listOutcomeValues } from './entry-columns.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { replaceSlotCompanies, storeKnowledgeCompanies } from './knowledge-companies.ts';
@@ -23,7 +23,7 @@ export function saveKnowledge(database: Database, knowledge: NewKnowledge, targe
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, knowledge.workspaceId);
     const identity = describeIdentity(knowledge.when, targetEntryId !== null);
-    const matches = await findSameConditions(transaction, knowledge.workspaceId, identity);
+    const matches = hasCondition(knowledge.when) ? await findSameConditions(transaction, knowledge.workspaceId, identity) : [];
     if (targetEntryId !== null) return updateTarget(transaction, knowledge, matches.find((match) => match.id === targetEntryId));
     if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
     const [match] = matches;

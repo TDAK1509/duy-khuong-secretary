@@ -6,9 +6,9 @@ import { ACCEPTED_CONFIRMED, buildDocumentWhere } from '../documents/build-docum
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { countNotRereadMessages } from '../documents/count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from '../documents/document-groups.ts';
+import { listCompanyNoteLines } from '../facts/list-company-notes.ts';
 import { countReviewDocuments, type DocumentKnowledgeRow, type KnowledgeValueRequest, type KnowledgeTotals } from '../facts/knowledge-totals.ts';
 import { WhereClause } from '../records/where-clause.ts';
-import { listWorkspaceRules } from '../workspace-rules/list-workspace-rules.ts';
 import { findWinner, indexWinners, readWinnerWeight } from './read-trip-cell.ts';
 import { buildTrips, type Trip } from './build-trips.ts';
 import { listWinningValues, type WinningValue } from './list-trip-papers.ts';
@@ -59,8 +59,7 @@ type TripSearch = { range: DateRange; plate: string | null; dropOffReader: Reade
 async function matchTripsInRange(database: Database, workspaceId: string, { range, plate, dropOffReader }: TripSearch): Promise<TripEntries | null> {
   const papers = await loadTripPapers(database, { workspaceId, dateFrom: range.from, dateTo: range.to, plate, limit: MAX_TRIP_PAPERS + 1 });
   if (papers === null) return null;
-  const rules = await listWorkspaceRules(database, workspaceId);
-  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
+  const pairing = await pairTrips(dropOffReader, papers, await listCompanyNoteLines(database, workspaceId));
   const trips = buildTrips({ ...papers, dateFrom: range.from, dateTo: range.to }, pairing);
   return matchTripEntries(database, dropOffReader, workspaceId, trips);
 }

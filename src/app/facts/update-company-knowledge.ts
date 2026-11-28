@@ -1,6 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
-import type { KnowledgeConditions, KnowledgeOutcomes, StoredEntry } from './company-knowledge.ts';
+import { hasCondition, type KnowledgeConditions, type KnowledgeOutcomes, type StoredEntry } from './company-knowledge.ts';
 import { buildReplaceEntrySql, listEntryValues } from './entry-columns.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { storeKnowledgeCompanies } from './knowledge-companies.ts';
@@ -33,6 +33,7 @@ export function updateKnowledge(database: Database, update: KnowledgeUpdate): Pr
 }
 
 async function findTwin(transaction: Transaction, { workspaceId, entryId, when }: KnowledgeUpdate): Promise<StoredEntry | undefined> {
+  if (!hasCondition(when)) return undefined;
   const identity = { vehiclePlate: when.vehiclePlate, driverUserId: when.driverUserId, goods: readGoodsKey(when.goods), pickup: describeNewSide(when.pickup), dropoff: describeNewSide(when.dropoff) };
   const matches = await findSameConditions(transaction, workspaceId, identity);
   return matches.find((match) => match.id !== entryId);

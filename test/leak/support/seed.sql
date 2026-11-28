@@ -161,13 +161,9 @@ INSERT INTO outbound_messages (id, channel, account_id, external_user_id, kind, 
   ('aaaaaaaa-0030-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'seed-zalo-admin-a', 'text', 'SAFE-A-OUTBOUND', 'aaaaaaaa-0004-4000-8000-000000000001', 'sent', now(), 'aaaaaaaa-0029-4000-8000-000000000001'),
   ('bbbbbbbb-0030-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'seed-zalo-admin-b', 'text', 'LEAK-B-OUTBOUND', 'bbbbbbbb-0004-4000-8000-000000000001', 'sent', now(), 'bbbbbbbb-0029-4000-8000-000000000001');
 
-INSERT INTO workspace_rules (id, workspace_id, author_user_id, rule) VALUES
-  ('aaaaaaaa-0031-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-RULE'),
-  ('bbbbbbbb-0031-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-RULE');
-
-INSERT INTO workspace_rules (workspace_id, author_user_id, rule)
-SELECT 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-RULE-' || number
-FROM generate_series(1, 49) AS number;
+INSERT INTO company_knowledge_entries (id, workspace_id, author_user_id, statement, then_note) VALUES
+  ('aaaaaaaa-0014-4000-8000-000000000002', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-NOTE', 'SAFE-A-NOTE'),
+  ('bbbbbbbb-0014-4000-8000-000000000003', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-NOTE', 'LEAK-B-NOTE');
 
 INSERT INTO template_backfills (id, workspace_id, template_id, template_revision, requested_by_user_id, status, document_ids, finished_at) VALUES
   ('aaaaaaaa-0032-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0009-4000-8000-000000000001', 1, 'aaaaaaaa-0001-4000-8000-000000000001', 'done', ARRAY['aaaaaaaa-0011-4000-8000-000000000001']::uuid[], now()),

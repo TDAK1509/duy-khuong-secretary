@@ -1,5 +1,5 @@
 import type { AttackCase } from './attack-case.ts';
-import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_ENTRY_ID, B_MEMBER_ID, B_RULE_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_ENTRY_ID, B_MEMBER_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
 
 const AIMED_KNOWLEDGE = {
   statement: 'TARGET-B-FACT lương 1đ',
@@ -37,8 +37,6 @@ export const CHANGE_ATTACK_CASES: AttackCase[] = [
   { name: 'save_company_knowledge', kind: 'change', arguments: { ...AIMED_KNOWLEDGE, entry_id: null } },
   { name: 'update_company_knowledge', kind: 'change', arguments: { ...AIMED_KNOWLEDGE, entry_id: B_ENTRY_ID } },
   { name: 'delete_company_knowledge', kind: 'change', arguments: { entry_id: B_ENTRY_ID } },
-  { name: 'save_rule', kind: 'change', arguments: {} },
-  { name: 'delete_rule', kind: 'change', arguments: { rule_id: B_RULE_ID } },
   { name: 'save_document_template', kind: 'change', arguments: { name: 'TARGET-B-TEMPLATE-ONLY', kind: 'phiếu cân', issuer_company: SHARED_COMPANY, stage: 'dispatch', description: 'TARGET-B-TEMPLATE', fields: [], example_paper_ids: [B_DOCUMENT_ID] } },
   { name: 'delete_document_template', kind: 'change', arguments: { name: 'TARGET-B-TEMPLATE-ONLY' } },
   { name: 'create_scheduled_task', kind: 'change', arguments: { title: 'TARGET-B-TASK', instruction: 'TARGET-B-WORKSPACE', repeat: 'daily', run_once_at: null, time_of_day: '09:00', weekday: null, day_of_month: null } },
