@@ -50,3 +50,8 @@ export async function findSavedPapers(transaction: Transaction, workspaceId: str
 function toSavedPaper(row: SavedPaperRow): SavedPaper {
   return { id: row.id, kind: row.kind, title: row.title, plate: row.plate, documentNumber: row.document_number, documentDate: row.document_date, photoCount: row.photo_count };
 }
+
+export function describeSavedPaper({ kind, title, plate, documentNumber, documentDate }: SavedPaper): string {
+  const parts = [title ?? kind, plate === null ? null : `xe ${plate}`, documentNumber === null ? null : `số ${documentNumber}`, documentDate === null ? null : `ngày ${documentDate}`];
+  return parts.filter((part) => part !== null).join(', ');
+}

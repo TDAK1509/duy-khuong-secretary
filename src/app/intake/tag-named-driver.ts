@@ -13,19 +13,20 @@ export async function findDriverTag(transaction: Transaction, sender: IntakeSend
   const name = plan.namedDriver?.trim() ?? '';
   if (sender.role !== 'admin' || plan.saved === null || name === '') return null;
   const wanted = toAccentFreeForm(name);
-  const members = await transaction.query<{ user_id: string; display_name: string }>(
-    'SELECT user_id, display_name FROM memberships WHERE workspace_id = $1',
-    [sender.workspaceId],
-  );
+  const members = await listMembers(transaction, sender.workspaceId);
   const matches = members.filter((member) => toAccentFreeForm(member.display_name) === wanted);
   const [only] = matches;
   if (matches.length > 1) return { kind: 'ambiguous', name };
   return only === undefined ? { kind: 'not_found', name } : { kind: 'tagged', driver: { userId: only.user_id, name: only.display_name } };
 }
 
+function listMembers(transaction: Transaction, workspaceId: string): Promise<{ user_id: string; display_name: string }[]> {
+  return transaction.query('SELECT user_id, display_name FROM memberships WHERE workspace_id = $1', [workspaceId]);
+}
+
 export function nameDriverInReply(plan: ReplyPlan, tag: DriverTag | null): ReplyPlan {
   if (tag === null || plan.saved === null) return plan;
-  if (tag.kind === 'tagged') return { ...plan, replyText: formatSavedReply(plan.saved, tag.driver.name) + formatMissingDetails(plan.readItems) };
+  if (tag.kind === 'tagged') return { ...plan, replyText: formatSavedReply(plan.saved, tag.driver.name, plan.keptPapers) + formatMissingDetails(plan.readItems) };
   return { ...plan, replyText: `${plan.replyText}\n${describeUntaggedDriver(tag)}` };
 }
 

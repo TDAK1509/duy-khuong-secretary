@@ -1,14 +1,11 @@
 import type { Transaction } from '../db/transaction.ts';
-import { storeDocuments } from '../documents/store-documents.ts';
-import { insertRecords } from '../records/insert-records.ts';
 import { enqueueReplyToMessage } from './enqueue-reply.ts';
 import { formatReplyWithReadData } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import type { ReplyPlan } from './plan-reply.ts';
-import { rejectDuplicates } from './run-reply-stage.ts';
+import { saveRecordsAndPapers } from './run-reply-stage.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
-import { findDriverTag, nameDriverInReply, readTaggedDriver } from './tag-named-driver.ts';
 
 export type SavedReply = ReplyPlan & { senderText: string };
 
@@ -28,29 +25,14 @@ export async function saveRereadOnPhoto(
 
 export async function saveReplyOnPhoto(
   transaction: Transaction,
-  context: IntakeContext,
-  target: TextOnPhoto,
-  plan: ReplyPlan,
-): Promise<SavedReply> {
-  const { sender } = context;
-  const unnamedReply = await rejectDuplicates(transaction, sender.workspaceId, plan);
-  const driverTag = await findDriverTag(transaction, sender, unnamedReply);
-  const reply = nameDriverInReply(unnamedReply, driverTag);
-  const senderText = formatReplyWithReadData(reply);
-  await saveRecordsAndReply(transaction, context, target, { reply, senderText });
-  await storeDocuments(transaction, { id: target.photo.id, workspaceId: sender.workspaceId }, plan, reply.saved !== null, sender, readTaggedDriver(driverTag));
-  if (reply.saved && reply.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, target.textId);
-  return { ...reply, senderText };
-}
-
-async function saveRecordsAndReply(
-  transaction: Transaction,
   { sender }: IntakeContext,
   { textId, photo }: TextOnPhoto,
-  { reply, senderText }: { reply: ReplyPlan; senderText: string },
-): Promise<void> {
-  const holder = { id: photo.id, workspaceId: sender.workspaceId, userId: sender.userId };
-  if (reply.saved) await insertRecords(transaction, holder, reply.saved);
+  plan: ReplyPlan,
+): Promise<SavedReply> {
+  const reply = await saveRecordsAndPapers(transaction, sender, photo.id, plan);
+  const senderText = formatReplyWithReadData(reply);
   await storeBotReply(transaction, textId, { text: senderText, kind: reply.replyKind });
   await setSubmissionStatus(transaction, textId, reply.status);
+  if (reply.saved && reply.asksQuestion && sender.role === 'admin') await markQuestionPending(transaction, textId);
+  return { ...reply, senderText };
 }
