@@ -38,6 +38,7 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
 - New: note check. When the write would succeed and `notes_checked` is false, find the entries with `then_note` whose conditions overlap. A note-only entry with no condition overlaps everything.
   - When there are any, return `action: "check_notes"` with `related_notes` (entry id, conditions, note, author), and write nothing.
   - When there are none, the first call saves.
+  - A save with `notes_checked` true returns `same_route_entries`. These are the other entries that have the same pickup condition and compatible goods, plate and driver, but a different drop-off condition, each with its entry id, conditions and outcomes. When the admin picked the note's drop-off, this is the old route entry that says otherwise.
 - New property `notes_checked` on both tools (type `boolean`, required), with the exact description: `Lần đầu luôn là false. Chỉ là true khi gọi lại sau action "check_notes" và bạn đã so related_notes với thông tin sắp lưu, hoặc quản lý đã chọn sau khi bạn hỏi.`
 - Order of checks: the structured conflict first, then the notes.
 - Append this exact sentence to both tool descriptions: ` Trước khi lưu, công cụ tìm mục có điều kiện chồng lấp nhưng kết quả khác (action "conflict") và các ghi chú có điều kiện chồng lấp (action "check_notes"); khi đó chưa đổi gì.`
@@ -45,7 +46,7 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
 
   ```text
   - Nếu save_company_knowledge hoặc update_company_knowledge trả về action "conflict", chưa có gì thay đổi. Nêu từng mục trong conflicts bằng lời thường: kết quả đã lưu, kết quả mới, điều kiện của mục đã lưu và số giấy tờ chung (shared_documents), rồi hỏi đúng một câu: thông tin cũ hay thông tin mới đúng. Không tự chọn. Nếu quản lý nói cả hai đều đúng, hỏi điều kiện nào phân biệt hai trường hợp. Nếu quản lý chọn thông tin cũ, nói ngắn đã giữ thông tin cũ và không gọi công cụ thay đổi. Nếu quản lý chọn thông tin mới, gọi lại đúng công cụ với cùng tham số và replace_conflicts là true.
-  - Nếu công cụ trả về action "check_notes", chưa lưu gì. Đọc từng ghi chú trong related_notes. Nếu một ghi chú nói khác với thông tin sắp lưu (ví dụ nơi đổ hàng khác), nêu ghi chú đó và thông tin mới rồi hỏi quản lý cái nào đúng. Nếu quản lý chọn thông tin mới, gọi lại với notes_checked là true, rồi đề nghị xóa ghi chú cũ. Nếu không có ghi chú nào nói khác, gọi lại ngay với notes_checked là true và không hỏi.
+  - Nếu công cụ trả về action "check_notes", chưa lưu gì. Đọc từng ghi chú trong related_notes. Nếu một ghi chú nói khác với thông tin sắp lưu (ví dụ nơi đổ hàng khác), nêu ghi chú đó và thông tin mới rồi hỏi quản lý cái nào đúng. Nếu quản lý chọn thông tin mới, gọi lại với notes_checked là true, rồi đề nghị xóa ghi chú cũ và đề nghị xóa mục cũ nói khác, là từng mục trong same_route_entries của kết quả; chỉ xóa bằng delete_company_knowledge sau khi quản lý đồng ý. Nếu không có ghi chú nào nói khác, gọi lại ngay với notes_checked là true và không hỏi.
   ```
 
 ### Tests, in order
@@ -121,6 +122,12 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
     - Setup: Entry 1 with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 600000.
     - Input: Save an entry with `when_pickup` "Alpha", `when_dropoff` "Gamma" and `then_wage_vnd` 750000, with `replace_conflicts` false and `notes_checked` false.
     - Expected: Action "added".
+
+13. Backend (integration): After the admin picks the note's drop-off, the bot is offered the old route entry to delete.
+
+    - Setup: Entry 1 with `when_pickup` "Alpha", `when_goods` "Đá", `when_dropoff` "Beta" and `then_wage_vnd` 700000. A note-only entry with no condition and `then_note` "hàng Đá ở Alpha chỉ đổ ở Gamma".
+    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá", `when_dropoff` "Gamma" and `then_wage_vnd` 700000, with `replace_conflicts` false and `notes_checked` true.
+    - Expected: The result's `same_route_entries` holds entry 1.
 
 ## Revert cost
 
