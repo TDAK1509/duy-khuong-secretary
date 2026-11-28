@@ -50,8 +50,11 @@ export const LINK_MATCHES_SQL = `
     AND (NOT ${IS_ROUTE_FACT} OR ${IS_LINKABLE_PAPER})
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
-    AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup')})
-    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR ${buildCompanyMatch('dropoff')})
+    AND (
+      (fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL)
+      OR (fact.pickup_match_key IS NOT NULL AND ${buildCompanyMatch('pickup')})
+      OR (fact.dropoff_match_key IS NOT NULL AND ${buildCompanyMatch('dropoff')})
+    )
     AND ${GOODS_MATCH}
   ON CONFLICT DO NOTHING
   RETURNING document_id

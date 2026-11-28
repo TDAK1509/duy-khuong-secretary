@@ -61,6 +61,13 @@ test('with a pickup, the drop-off is not needed on the paper', async () => {
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
 });
 
+test('with a pickup, a paper that prints only the drop-off company links too', async () => {
+  const receipt = await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Beta' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [receipt]);
+});
+
 test('with a pickup, the trip report still shows the drop-off', async () => {
   await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', parties: [{ role: 'issuer', name: 'Alpha' }] });
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });

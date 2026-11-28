@@ -24,7 +24,9 @@ const LINK_MATCHES_SQL = `
   JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
   WHERE source.document_id = document.id AND message.user_id = fact.driver_user_id
 ))
-    AND (fact.pickup_match_key IS NULL OR (CASE WHEN fact.pickup_resolved THEN EXISTS (
+    AND (
+      (fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL)
+      OR (fact.pickup_match_key IS NOT NULL AND (CASE WHEN fact.pickup_resolved THEN EXISTS (
     SELECT 1 FROM document_parties party
     JOIN fact_companies pick ON pick.fact_id = fact.id AND pick.slot = 'pickup' AND pick.organization_id = party.organization_id
     WHERE party.document_id = document.id
@@ -36,7 +38,7 @@ const LINK_MATCHES_SQL = `
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.pickup_match_key)
       )
   ) END))
-    AND (fact.dropoff_match_key IS NULL OR fact.pickup_match_key IS NOT NULL OR (CASE WHEN fact.dropoff_resolved THEN EXISTS (
+      OR (fact.dropoff_match_key IS NOT NULL AND (CASE WHEN fact.dropoff_resolved THEN EXISTS (
     SELECT 1 FROM document_parties party
     JOIN fact_companies pick ON pick.fact_id = fact.id AND pick.slot = 'dropoff' AND pick.organization_id = party.organization_id
     WHERE party.document_id = document.id
@@ -48,6 +50,7 @@ const LINK_MATCHES_SQL = `
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.dropoff_match_key)
       )
   ) END))
+    )
     AND (fact_goods.key IS NULL OR EXISTS (
   SELECT 1 FROM (
   SELECT line.value AS text FROM document_lines line
