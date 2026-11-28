@@ -28,6 +28,15 @@ test('an entry links a paper that prints its drop-off condition company in any r
   assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), [ticket]);
 });
 
+test('saving the same conditions twice updates the entry', async () => {
+  await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 600000 });
+  const saved = JSON.parse(await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }))) as SavedKnowledge;
+  assert.equal(saved.action, 'updated');
+  assert.deepEqual(saved.changes, [{ kind: 'replaced', name: 'Lương tài xế', before: 600000, after: 700000 }]);
+  const { rows } = await databases.owner.query<{ wage: string }>('SELECT then_wage_vnd::text AS wage FROM company_knowledge_entries WHERE when_pickup_name = $1', ['Alpha']);
+  assert.deepEqual(rows, [{ wage: '700000' }]);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
