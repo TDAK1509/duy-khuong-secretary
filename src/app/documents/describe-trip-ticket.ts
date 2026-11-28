@@ -1,4 +1,4 @@
-import { WEIGHT_MEANING } from '../facts/total-fact-values.ts';
+import { WEIGHT_MEANING } from '../facts/fact-value-totals.ts';
 import type { ReadingDetail } from '../reading/reading.ts';
 import { buildMatchKey } from './build-match-key.ts';
 import type { DocumentDraft } from './document-draft.ts';

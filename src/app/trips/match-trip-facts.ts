@@ -1,7 +1,7 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { Database } from '../db/transaction.ts';
 import type { Trip } from './build-trips.ts';
-import { listPickupFacts, type PickupFact } from './list-pickup-facts.ts';
+import { listPickupFacts, listUnprintedPickupFacts, type PickupFact, type UnprintedPickupFact } from './list-pickup-facts.ts';
 import { listReceivers } from './list-receivers.ts';
 import type { ExcludedLinks, TripPaper } from './list-trip-papers.ts';
 import { matchDropOffNames, type DropOffMatch, type DropOffMatching, type DropOffName } from './match-drop-off-names.ts';
@@ -15,11 +15,29 @@ type ChosenFacts = { trip: Trip; excluded: PickupFact[] };
 
 export async function matchTripFacts(database: Database, reader: ReaderService | null, workspaceId: string, trips: Trip[]): Promise<TripFacts> {
   const pickupIds = trips.flatMap(({ pickup }) => pickup?.id ?? []);
-  const factsByPickup = groupByPickup(await listPickupFacts(database, workspaceId, pickupIds));
+  const unprinted = await listUnprintedPickupFacts(database, workspaceId, listTripPaperIds(trips));
+  const printedFacts = (await listPickupFacts(database, workspaceId, pickupIds)).filter((fact) => !isUnprinted(unprinted, fact.document_id, fact.fact_id));
+  const factsByPickup = groupByPickup(printedFacts);
   const matching = await matchPairedTrips(database, reader, workspaceId, trips.filter(isPaired), factsByPickup);
   logMatching(matching);
   const chosen = trips.map((trip) => chooseTripFacts(trip, factsByPickup, matching));
-  return { trips: chosen.map((entry) => entry.trip), excludedLinks: listExcludedLinks(chosen), matching };
+  return { trips: chosen.map((entry) => entry.trip), excludedLinks: listExcludedLinks(chosen, listUnprintedLinks(trips, unprinted)), matching };
+}
+
+function listTripPaperIds(trips: Trip[]): { pickupId: string; dropOffId: string | null }[] {
+  return trips.flatMap(({ pickup, dropOff }) => (pickup === null ? [] : [{ pickupId: pickup.id, dropOffId: dropOff?.id ?? null }]));
+}
+
+function isUnprinted(unprinted: UnprintedPickupFact[], pickupId: string, factId: string): boolean {
+  return unprinted.some((entry) => entry.pickup_id === pickupId && entry.fact_id === factId);
+}
+
+function listUnprintedLinks(trips: Trip[], unprinted: UnprintedPickupFact[]): ExcludedLinks {
+  const links = unprinted.flatMap(({ pickup_id: pickupId, fact_id: factId }) => {
+    const dropOffId = trips.find((trip) => trip.pickup?.id === pickupId)?.dropOff?.id;
+    return [pickupId, ...(dropOffId === undefined ? [] : [dropOffId])].map((documentId) => ({ documentId, factId }));
+  });
+  return { documentIds: links.map((link) => link.documentId), factIds: links.map((link) => link.factId) };
 }
 
 function groupByPickup(facts: PickupFact[]): FactsByPickup {
@@ -79,9 +97,9 @@ function applyRouteFact(pickup: TripPaper, fact: PickupFact | undefined): TripPa
   };
 }
 
-function listExcludedLinks(chosen: ChosenFacts[]): ExcludedLinks {
+function listExcludedLinks(chosen: ChosenFacts[], unprinted: ExcludedLinks): ExcludedLinks {
   const excluded = chosen.flatMap((entry) => entry.excluded);
-  return { documentIds: excluded.map((fact) => fact.document_id), factIds: excluded.map((fact) => fact.fact_id) };
+  return { documentIds: [...excluded.map((fact) => fact.document_id), ...unprinted.documentIds], factIds: [...excluded.map((fact) => fact.fact_id), ...unprinted.factIds] };
 }
 
 function logMatching(matching: DropOffMatching): void {

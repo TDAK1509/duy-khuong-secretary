@@ -21,7 +21,7 @@ export type FactUpdate = {
   scopeChange: ScopeChange;
 };
 
-export type UpdatedScope = { vehiclePlate: string | null; driverName: string | null; pickupName: string | null; dropoffName: string | null; customerName: string | null };
+export type UpdatedScope = { vehiclePlate: string | null; driverName: string | null; pickupName: string | null; dropoffName: string | null };
 
 export type FactUpdateResult =
   | { kind: 'updated'; changes: ValueChange[]; missingValueKeys: string[]; scope: UpdatedScope; linkedDocuments: number }
@@ -36,16 +36,13 @@ type FactRow = {
   pickup_match_key: string | null;
   dropoff_name: string | null;
   dropoff_match_key: string | null;
-  customer_name: string | null;
-  customer_match_key: string | null;
   pickup_resolved: boolean;
   dropoff_resolved: boolean;
-  customer_resolved: boolean;
 };
 
 const LOAD_FACT_SQL = `
-  SELECT statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, customer_name, customer_match_key,
-    pickup_resolved, dropoff_resolved, customer_resolved
+  SELECT statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key,
+    pickup_resolved, dropoff_resolved
   FROM facts WHERE id = $1 AND workspace_id = $2
   FOR UPDATE
 `;
@@ -53,13 +50,13 @@ const LOAD_FACT_SQL = `
 const UPDATE_FACT_SQL = `
   UPDATE facts
   SET statement = $3, vehicle_plate = $4, driver_user_id = $5, pickup_name = $6, pickup_match_key = $7,
-      dropoff_name = $8, dropoff_match_key = $9, customer_name = $10, customer_match_key = $11,
-      pickup_resolved = $12, dropoff_resolved = $13, customer_resolved = $14, updated_at = now()
+      dropoff_name = $8, dropoff_match_key = $9,
+      pickup_resolved = $10, dropoff_resolved = $11, updated_at = now()
   WHERE id = $1 AND workspace_id = $2
 `;
 
 const LOAD_SCOPE_SQL = `
-  SELECT fact.vehicle_plate, driver.display_name AS driver_name, fact.pickup_name, fact.dropoff_name, fact.customer_name,
+  SELECT fact.vehicle_plate, driver.display_name AS driver_name, fact.pickup_name, fact.dropoff_name,
     (SELECT count(*) FROM document_facts link WHERE link.fact_id = fact.id)::int AS linked_documents
   FROM facts fact
   LEFT JOIN memberships driver ON driver.workspace_id = fact.workspace_id AND driver.user_id = fact.driver_user_id
@@ -128,11 +125,8 @@ async function writeFactRow(transaction: Transaction, { factId, workspaceId }: F
     next.pickup_match_key,
     next.dropoff_name,
     next.dropoff_match_key,
-    next.customer_name,
-    next.customer_match_key,
     next.pickup_resolved,
     next.dropoff_resolved,
-    next.customer_resolved,
   ]);
 }
 
@@ -147,7 +141,7 @@ async function relinkDocuments(transaction: Transaction, workspaceId: string, fa
 }
 
 async function loadScope(transaction: Transaction, { factId, workspaceId }: FactUpdate): Promise<{ scope: UpdatedScope; linkedDocuments: number }> {
-  const [row] = await transaction.query<{ vehicle_plate: string | null; driver_name: string | null; pickup_name: string | null; dropoff_name: string | null; customer_name: string | null; linked_documents: number }>(LOAD_SCOPE_SQL, [factId, workspaceId]);
+  const [row] = await transaction.query<{ vehicle_plate: string | null; driver_name: string | null; pickup_name: string | null; dropoff_name: string | null; linked_documents: number }>(LOAD_SCOPE_SQL, [factId, workspaceId]);
   if (row === undefined) throw new Error('the updated fact disappeared inside its transaction');
-  return { scope: { vehiclePlate: row.vehicle_plate, driverName: row.driver_name, pickupName: row.pickup_name, dropoffName: row.dropoff_name, customerName: row.customer_name }, linkedDocuments: row.linked_documents };
+  return { scope: { vehiclePlate: row.vehicle_plate, driverName: row.driver_name, pickupName: row.pickup_name, dropoffName: row.dropoff_name }, linkedDocuments: row.linked_documents };
 }

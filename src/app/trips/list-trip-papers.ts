@@ -2,9 +2,9 @@ import type { Database } from '../db/transaction.ts';
 import { buildSenderSubquery } from '../admin-chat/tools/export-documents-xlsx-tool.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from '../documents/build-document-where.ts';
 import type { DocumentFilters } from '../documents/add-document-filters.ts';
-import { GOODS_VALUE_KEY } from '../facts/fact.ts';
+import { GOODS_VALUE_KEY, SELECT_FACT_CUSTOMER_SQL } from '../facts/fact.ts';
 import { IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
-import { buildWeightSql, PER_TON_UNIT } from '../facts/total-fact-values.ts';
+import { buildWeightSql, PER_TON_UNIT } from '../facts/fact-value-totals.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 
 export type TripPaperQuery = { workspaceId: string; dateFrom: string; dateTo: string; plate: string | null; limit: number };
@@ -38,7 +38,7 @@ export type WinningValue = { document_id: string; match_key: string; number: str
 export type KnownValue = { match_key: string; name: string; per_ton: boolean };
 
 const ROUTE_FACT_JOIN = `LEFT JOIN LATERAL (
-    SELECT fact.id, fact.pickup_name, fact.dropoff_name, fact.customer_name, fact.pickup_match_key
+    SELECT fact.id, fact.pickup_name, fact.dropoff_name, ${SELECT_FACT_CUSTOMER_SQL} AS customer_name, fact.pickup_match_key
     FROM document_facts link JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
     WHERE link.document_id = document.id AND (fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)
     ORDER BY fact.updated_at DESC, fact.id

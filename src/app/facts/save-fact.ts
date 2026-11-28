@@ -3,14 +3,14 @@ import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import { GOODS_VALUE_KEY, type FactCompany, type FactValue, type NewFact } from './fact.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
 import { replaceSlotCompanies, storeFactCompanies } from './fact-companies.ts';
-import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
+import { FACT_COMPANY_SLOTS, type FactCompanySlot } from './pick-fact-companies.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
 import { applyValueChanges, planValueChanges, type ValueChange } from './plan-value-changes.ts';
 import { describeNewSide, findRouteFactTwin, findSameRouteFacts, isRouteIdentity, readGoodsKey, type RouteFact, type RouteIdentity } from './route-fact-identity.ts';
 
 export type SaveFactResult =
   | { action: 'added'; factId: string; linkedDocuments: number }
-  | { action: 'updated'; factId: string; linkedDocuments: number; changes: ValueChange[]; restoredSlots: CompanySlot[]; stored: RouteFact }
+  | { action: 'updated'; factId: string; linkedDocuments: number; changes: ValueChange[]; restoredSlots: FactCompanySlot[]; stored: RouteFact }
   | { action: 'ambiguous'; candidates: RouteFact[] }
   | { action: 'same_as_other'; otherFactId: string }
   | { action: 'not_same_route' };
@@ -19,9 +19,8 @@ const UPDATE_STATEMENT_SQL = 'UPDATE facts SET statement = $3, updated_at = now(
 const COUNT_LINKS_SQL = 'SELECT count(*)::int AS count FROM document_facts WHERE fact_id = $1 AND workspace_id = $2';
 
 const INSERT_FACT_SQL = `
-  INSERT INTO facts (workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, customer_name, customer_match_key,
-    pickup_resolved, dropoff_resolved, customer_resolved)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+  INSERT INTO facts (workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key, pickup_resolved, dropoff_resolved)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
   RETURNING id
 `;
 
@@ -51,7 +50,7 @@ export function saveFact(database: Database, fact: NewFact, { targetFactId, upda
 function describeIdentity({ scope, values }: NewFact): RouteIdentity {
   return {
     vehiclePlate: scope.vehiclePlate, driverUserId: scope.driverUserId, goods: readGoodsKey(values),
-    pickup: describeNewSide(scope.pickup), dropoff: describeNewSide(scope.dropoff), customer: describeNewSide(scope.customer),
+    pickup: describeNewSide(scope.pickup), dropoff: describeNewSide(scope.dropoff),
   };
 }
 
@@ -73,7 +72,7 @@ async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: 
   const factId = stored.id;
   const plan = await planValueChanges(transaction, factId, fact.values, []);
   const changes = plan.changes.filter(isRealChange);
-  const restoredSlots = COMPANY_SLOTS.filter((slot) => !stored[slot].resolved && stored[slot].matchKey !== null && (fact.scope[slot]?.organizationIds?.length ?? 0) > 0);
+  const restoredSlots = FACT_COMPANY_SLOTS.filter((slot) => !stored[slot].resolved && stored[slot].matchKey !== null && (fact.scope[slot]?.organizationIds?.length ?? 0) > 0);
   if (changes.length > 0) await applyValueChanges(transaction, fact.workspaceId, factId, changes);
   if (changes.length > 0 || restoredSlots.length > 0) await prependStatement(transaction, fact, factId);
   if (restoredSlots.length > 0) await restorePicks(transaction, fact, factId, restoredSlots);
@@ -82,7 +81,7 @@ async function updateSameRoute(transaction: Transaction, fact: NewFact, stored: 
   return { action: 'updated', factId, linkedDocuments: links?.count ?? 0, changes, restoredSlots, stored };
 }
 
-async function restorePicks(transaction: Transaction, fact: NewFact, factId: string, slots: CompanySlot[]): Promise<void> {
+async function restorePicks(transaction: Transaction, fact: NewFact, factId: string, slots: FactCompanySlot[]): Promise<void> {
   for (const slot of slots) {
     await replaceSlotCompanies(transaction, fact.workspaceId, factId, slot, fact.scope[slot]?.organizationIds ?? null);
     await transaction.query(`UPDATE facts SET ${slot}_resolved = true WHERE id = $1 AND workspace_id = $2`, [factId, fact.workspaceId]);
@@ -116,11 +115,8 @@ async function insertFact(transaction: Transaction, { workspaceId, authorUserId,
     scope.pickup?.matchKey ?? null,
     scope.dropoff?.name ?? null,
     scope.dropoff?.matchKey ?? null,
-    scope.customer?.name ?? null,
-    scope.customer?.matchKey ?? null,
     isResolved(scope.pickup),
     isResolved(scope.dropoff),
-    isResolved(scope.customer),
   ]);
   if (row === undefined) throw new Error('inserting a fact returned no row');
   return row.id;

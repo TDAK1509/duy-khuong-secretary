@@ -1,6 +1,6 @@
 import type { Transaction } from '../db/transaction.ts';
 import { IS_TRIP_TICKET } from '../facts/link-facts.ts';
-import { buildWeightSql } from '../facts/total-fact-values.ts';
+import { buildWeightSql } from '../facts/fact-value-totals.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { describeTripTicket, type TripTicket } from './describe-trip-ticket.ts';
 import type { DocumentDraft } from './document-draft.ts';

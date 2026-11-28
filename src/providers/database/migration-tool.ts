@@ -7,6 +7,7 @@ import pg from 'pg';
 const APPLICATION_NAME = 'migrate';
 const LOCK_NOT_AVAILABLE = '55P03';
 const CONNECTION_TIMEOUT_MESSAGE = 'timeout expired';
+const MIGRATION_NOTICE_PREFIX = '[migration]';
 const RETRY_DELAY_MS = 2000;
 const RETRY_JITTER_RATIO = 0.25;
 const MIGRATION_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
@@ -38,6 +39,7 @@ export type MigrationRun = {
   databaseUrl: string;
   directory: string;
   retry?: Partial<RetryPolicy>;
+  notify?: (message: string) => void;
 };
 
 export type MigrationOutcome = { kind: 'applied'; names: string[] } | { kind: 'database-ahead' };
@@ -63,18 +65,26 @@ class BudgetUsedUp extends Error {}
 type Budget = { totalMs: number; remainingMs: () => number };
 
 async function migrateOnce(run: MigrationRun, budget: Budget): Promise<MigrationOutcome> {
-  const client = new pg.Client({
-    connectionString: run.databaseUrl,
-    application_name: APPLICATION_NAME,
-    connectionTimeoutMillis: takeRemainingMs(budget),
-  });
-  client.on('error', () => {});
+  const client = createClient(run, budget);
   await connectWithinBudget(client);
   try {
     return await applyMigrations(client, run.directory, budget);
   } finally {
     await endCleanly(client);
   }
+}
+
+function createClient(run: MigrationRun, budget: Budget): pg.Client {
+  const client = new pg.Client({
+    connectionString: run.databaseUrl,
+    application_name: APPLICATION_NAME,
+    connectionTimeoutMillis: takeRemainingMs(budget),
+  });
+  client.on('error', () => {});
+  client.on('notice', ({ message = '' }) => {
+    if (message.startsWith(MIGRATION_NOTICE_PREFIX)) run.notify?.(message);
+  });
+  return client;
 }
 
 async function connectWithinBudget(client: pg.Client): Promise<void> {
