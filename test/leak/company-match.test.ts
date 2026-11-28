@@ -186,6 +186,7 @@ test('a customer the admin names is saved as a result and does not limit the mat
     when_driver_member_id: null,
     then_customer: 'Gamma',
     then_dropoff: null,
+    then_shown_goods: null,
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,

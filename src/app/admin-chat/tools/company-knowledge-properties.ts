@@ -16,6 +16,10 @@ export const KNOWLEDGE_PROPERTIES = {
     ...NULLABLE_STRING,
     description: 'Nơi đổ hàng là kết quả của các điều kiện khác, khi quản lý không nêu nơi đó như một phần của tuyến, ví dụ "hàng X luôn đổ ở Y". Không dùng cho nơi đổ hàng của tuyến; nơi đó là when_dropoff_company. null nếu không nêu.',
   },
+  then_shown_goods: {
+    ...NULLABLE_STRING,
+    description: 'Tên hàng hiển thị trong báo cáo cho mọi giấy tờ khớp điều kiện, như quản lý viết, ví dụ "Than đá" trong "Than Da, Than đều là Than đá". Tối đa 80 ký tự. null nếu không nêu.',
+  },
   then_wage_vnd: { ...NULLABLE_NUMBER, description: 'Lương tài xế cho một chuyến, đơn vị đồng. null nếu không nêu.' },
   then_rate_vnd_per_ton: { ...NULLABLE_NUMBER, description: 'Cước vận chuyển cho một tấn, đơn vị đồng mỗi tấn. null nếu không nêu.' },
   then_allowance_vnd: { ...NULLABLE_NUMBER, description: 'Chi phí bồi dưỡng cho một chuyến, đơn vị đồng. null nếu không nêu.' },

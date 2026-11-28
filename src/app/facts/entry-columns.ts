@@ -6,7 +6,7 @@ const CONDITION_COLUMNS = [
   'when_dropoff_name', 'when_dropoff_match_key', 'when_dropoff_resolved',
 ];
 
-const OUTCOME_COLUMNS = ['then_customer', 'then_dropoff', 'then_wage_vnd', 'then_rate_vnd_per_ton', 'then_allowance_vnd', 'then_note'];
+const OUTCOME_COLUMNS = ['then_customer', 'then_dropoff', 'then_shown_goods_name', 'then_wage_vnd', 'then_rate_vnd_per_ton', 'then_allowance_vnd', 'then_note'];
 
 const ENTRY_COLUMNS = [...CONDITION_COLUMNS, ...OUTCOME_COLUMNS];
 
@@ -22,8 +22,8 @@ function listCompanyValues(company: KnowledgeCompany | null): unknown[] {
   return [company?.name ?? null, company?.matchKey ?? null, company !== null && company.organizationIds !== null];
 }
 
-export function listOutcomeValues({ customer, dropoff, wageVnd, ratePerTonVnd, allowanceVnd, note }: KnowledgeOutcomes): unknown[] {
-  return [customer, dropoff, wageVnd, ratePerTonVnd, allowanceVnd, note];
+export function listOutcomeValues({ customer, dropoff, shownGoodsName, wageVnd, ratePerTonVnd, allowanceVnd, note }: KnowledgeOutcomes): unknown[] {
+  return [customer, dropoff, shownGoodsName, wageVnd, ratePerTonVnd, allowanceVnd, note];
 }
 
 export function buildInsertEntrySql(): string {

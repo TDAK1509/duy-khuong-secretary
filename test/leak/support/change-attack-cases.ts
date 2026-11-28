@@ -10,6 +10,7 @@ const AIMED_KNOWLEDGE = {
   when_driver_member_id: null,
   then_customer: null,
   then_dropoff: null,
+  then_shown_goods: null,
   then_wage_vnd: 1,
   then_rate_vnd_per_ton: null,
   then_allowance_vnd: null,

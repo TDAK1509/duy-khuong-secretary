@@ -14,6 +14,7 @@ export type OutcomeDefinition = {
 export const OUTCOME_DEFINITIONS: readonly OutcomeDefinition[] = [
   { key: 'customer', name: 'Khách hàng', matchKey: 'khachhang', column: 'then_customer', unit: null },
   { key: 'dropoff', name: 'Nơi đổ hàng', matchKey: 'noidohang', column: 'then_dropoff', unit: null },
+  { key: 'shownGoodsName', name: 'Tên hàng hiển thị', matchKey: 'tenhanghienthi', column: 'then_shown_goods_name', unit: null },
   { key: 'wageVnd', name: 'Lương tài xế', matchKey: 'luongtaixe', column: 'then_wage_vnd', unit: PER_TRIP_UNIT },
   { key: 'ratePerTonVnd', name: 'Cước vận chuyển', matchKey: 'cuocvanchuyen', column: 'then_rate_vnd_per_ton', unit: PER_TON_UNIT },
   { key: 'allowanceVnd', name: 'Chi phí bồi dưỡng', matchKey: 'chiphiboiduong', column: 'then_allowance_vnd', unit: PER_TRIP_UNIT },
