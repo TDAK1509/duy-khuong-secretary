@@ -10,7 +10,7 @@ import { resolveTemplateIssuer, type TemplateIssuer } from './document-template-
 import { failTool } from './tool-result.ts';
 
 const TOO_MANY_TEMPLATES_ERROR = `Nhóm đã có ${MAX_TEMPLATES_PER_WORKSPACE} mẫu, chưa lưu mẫu mới. Hỏi quản lý muốn xóa mẫu nào.`;
-const EXAMPLE_NOT_FOUND_ERROR = 'Không tìm thấy giấy tờ này.';
+export const EXAMPLE_NOT_FOUND_ERROR = 'Không tìm thấy giấy tờ này.';
 const ISSUER_NOT_MATCHED_NOTE = 'Không khớp công ty nào đã lưu với tên công ty phát hành, nên mẫu chưa gắn với công ty. Nói rõ điều này với quản lý.';
 
 const argumentsSchema = z.strictObject({

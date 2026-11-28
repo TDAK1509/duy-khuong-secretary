@@ -77,8 +77,20 @@ test('the template list shows the example papers in order', async () => {
   assert.deepEqual(saved.examples, [{ position: 1, paper_id: second }, { position: 2, paper_id: first }]);
 });
 
+test('the save confirmation lists the example papers', async () => {
+  const paperId = await insertExamplePaper(databases.owner, { imageKey: 'example/one.jpg', title: 'EXAMPLE-TITLE' });
+  const harness = createToolHarness(databases.runtime);
+  await harness.runTool('chat-gate', 'save_document_template', buildSaveArguments([paperId]));
+  const [change] = harness.dependencies.waiting.list();
+  assert.match(change?.question ?? '', /Giấy tờ ví dụ: EXAMPLE-TITLE, xe 99Z12345, số EX0001, ngày 01\/03\/2026/);
+});
+
 function saveTemplate(examplePaperIds: string[]): Promise<string> {
-  const toolArguments = {
+  return createToolHarness(databases.runtime).runTool('confirmed', 'save_document_template', buildSaveArguments(examplePaperIds));
+}
+
+function buildSaveArguments(examplePaperIds: string[]): object {
+  return {
     name: 'EXAMPLE-TEMPLATE',
     kind: 'phiếu cân',
     issuer_company: null,
@@ -87,7 +99,6 @@ function saveTemplate(examplePaperIds: string[]): Promise<string> {
     fields: [{ name: 'Trọng lượng hàng', type: 'number', unit: 'kg', required: false }],
     example_paper_ids: examplePaperIds,
   };
-  return createToolHarness(databases.runtime).runTool('confirmed', 'save_document_template', toolArguments);
 }
 
 type StoredExample = { position: number; image_key: string; expected_reading: Record<string, unknown> };
