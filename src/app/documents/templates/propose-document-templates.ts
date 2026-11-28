@@ -1,4 +1,5 @@
-import type { Database } from '../../db/transaction.ts';
+import { runInTransaction, type Database } from '../../db/transaction.ts';
+import { findExamplePapers } from './find-example-papers.ts';
 import { MAX_FIELDS_PER_TEMPLATE } from './document-template.ts';
 
 export type ProposedField = { name: string; valueType: string; unit: string | null; paperCount: number };
@@ -117,7 +118,8 @@ export async function proposeTemplateFromPaper(database: Database, workspaceId: 
   const { rows: [paper] } = await database.query<PaperRow>(FIND_PAPER_SQL, [workspaceId, paperId]);
   if (paper === undefined) return null;
   const { rows: fields } = await database.query<FieldRow>(FIND_PAPER_FIELDS_SQL, [workspaceId, paper.id]);
-  return toPaperProposal(paper, fields);
+  const { papers } = await runInTransaction(database, (transaction) => findExamplePapers(transaction, workspaceId, [paper.id]));
+  return toPaperProposal(paper, fields, papers.map((example) => example.documentId));
 }
 
 function toGroupProposal(group: GroupRow, fields: FieldRow[], examples: ExampleRow[]): TemplateProposal {
@@ -126,9 +128,9 @@ function toGroupProposal(group: GroupRow, fields: FieldRow[], examples: ExampleR
   return { issuerId: group.issuer_id, issuerName: group.issuer_name, kind: group.kind, paperCount: group.paper_count, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField), examplePaperIds };
 }
 
-function toPaperProposal(paper: PaperRow, fields: FieldRow[]): TemplateProposal {
+function toPaperProposal(paper: PaperRow, fields: FieldRow[], examplePaperIds: string[]): TemplateProposal {
   const stageCounts = { dispatch: paper.stage === 'dispatch' ? 1 : 0, receipt: paper.stage === 'receipt' ? 1 : 0, none: paper.stage === null ? 1 : 0 };
-  return { issuerId: paper.issuer_id, issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField), examplePaperIds: [paper.id] };
+  return { issuerId: paper.issuer_id, issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField), examplePaperIds };
 }
 
 function toProposedField(row: FieldRow): ProposedField {
