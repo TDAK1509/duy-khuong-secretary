@@ -3,7 +3,9 @@ import type { CellChange } from './list-changed-cells.ts';
 
 export type PaperField = 'date' | 'number' | 'plate' | 'weight' | 'goods' | 'pickup' | 'dropoff' | 'customer';
 
-export type KnowledgeOutcome = 'then_customer' | 'then_dropoff' | 'then_shown_goods_name' | 'then_wage_vnd' | 'then_rate_vnd_per_ton' | 'then_allowance_vnd';
+const OUTCOMES = ['then_customer', 'then_dropoff', 'then_shown_goods_name', 'then_wage_vnd', 'then_rate_vnd_per_ton', 'then_allowance_vnd'] as const;
+
+export type KnowledgeOutcome = (typeof OUTCOMES)[number];
 
 export type KnowledgeWhen = { goods: string | null; pickup_company: string | null; dropoff_company: string | null; vehicle_plate: string | null };
 
@@ -31,8 +33,6 @@ const PAPER_FIELDS: Record<string, PaperField> = {
 const OUTCOMES_OF_PAPER_FIELDS: Record<string, KnowledgeOutcome> = { goods_line: 'then_shown_goods_name', customer_party: 'then_customer', receiver_name: 'then_dropoff' };
 
 const PAPER_FIELDS_OF_OUTCOMES: Record<string, PaperField> = { then_customer: 'customer', then_dropoff: 'dropoff', then_shown_goods_name: 'goods' };
-
-const OUTCOMES: readonly string[] = ['then_customer', 'then_dropoff', 'then_shown_goods_name', 'then_wage_vnd', 'then_rate_vnd_per_ton', 'then_allowance_vnd'];
 
 export function buildCandidates(input: CandidateInput): CandidateAction[] {
   const { source } = input.cell;
@@ -66,7 +66,7 @@ function listKnowledgeAdd({ change }: CandidateInput, outcome: KnowledgeOutcome,
 
 function listEntryActions(input: CandidateInput, source: CellSource): CandidateAction[] {
   if (source.field === 'when_dropoff') return listPaperActions(input, source, 'dropoff');
-  if (!OUTCOMES.includes(source.field)) return [];
+  if (!(OUTCOMES as readonly string[]).includes(source.field)) return [];
   return [...listKnowledgeOfOutcome(input, source), ...listPaperActions(input, source, PAPER_FIELDS_OF_OUTCOMES[source.field])];
 }
 

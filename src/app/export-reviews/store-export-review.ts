@@ -16,10 +16,16 @@ const INSERT_CHANGES_SQL = `
     CASE WHEN jsonb_array_length(change.candidate_actions) = 0 THEN 'unsupported' ELSE 'pending' END
   FROM jsonb_to_recordset($3::jsonb) AS change(export_row_id uuid, column_key text, value_type text, before_value jsonb, after_value jsonb, suggested_cause text, candidate_actions jsonb)`;
 
+const APPLY_UNSUPPORTED_REVIEW_SQL = `
+  UPDATE company_export_reviews review SET status = 'applied', applied_at = now()
+  WHERE review.workspace_id = $1 AND review.id = $2
+    AND NOT EXISTS (SELECT 1 FROM company_export_review_changes open WHERE open.review_id = review.id AND open.status = 'pending')`;
+
 export async function storeExportReview(transaction: Transaction, claim: FileClaim, exportId: string, changes: ReviewedChange[]): Promise<void> {
   const [review] = await transaction.query<{ id: string }>(INSERT_REVIEW_SQL, [claim.workspaceId, exportId, claim.fileId]);
   if (review === undefined) return;
   await transaction.query(INSERT_CHANGES_SQL, [claim.workspaceId, review.id, JSON.stringify(changes.map(describeChange))]);
+  await transaction.query(APPLY_UNSUPPORTED_REVIEW_SQL, [claim.workspaceId, review.id]);
 }
 
 function describeChange({ exportRowId, change, suggestedCause, candidates }: ReviewedChange) {

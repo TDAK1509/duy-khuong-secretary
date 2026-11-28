@@ -57,7 +57,7 @@ export async function readCustomers(owner: PostgresPool): Promise<string[]> {
   return rows.map((row) => row.then_customer);
 }
 
-export async function returnEditedFreight(databases: LeakDatabases, newAmount: number): Promise<string> {
+export async function returnEditedFreightFile(databases: LeakDatabases, newAmount: number): Promise<void> {
   await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
   await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 27000, parties: [{ role: 'supplier', name: 'Alpha' }] });
   await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', ratePerTonVnd: 150000 }));
@@ -68,7 +68,6 @@ export async function returnEditedFreight(databases: LeakDatabases, newAmount: n
     sheet.getRow(FIRST_DATA_ROW).getCell(findColumn(sheet, 'Cước')).value = newAmount;
   });
   await sendReturnedFile(databases, edited);
-  return findNewestChangeId(databases);
 }
 
 export async function readRates(owner: PostgresPool): Promise<number[]> {

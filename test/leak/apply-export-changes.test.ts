@@ -4,7 +4,7 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry } from './support/paper-fixtures.ts';
 import { editDataSheet, FIRST_DATA_ROW, findColumn, sendReturnedFile } from './support/returned-export-files.ts';
 import { exportAlphaPapers } from './support/returned-export-fixtures.ts';
-import { decideChange, findNewestChangeId, listCustomerNames, readCustomers, readChangeStatus, readRates, returnEditedFreight, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
+import { decideChange, findNewestChangeId, listCustomerNames, readCustomers, readChangeStatus, readRates, returnEditedFreightFile, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
@@ -88,7 +88,14 @@ test('a customer change confirmed as a paper reading changes only that paper', a
 
 test('a freight amount confirmed as company knowledge updates the entry rate', async () => {
   await removeSeededEntries(databases.owner);
-  const changeId = await returnEditedFreight(databases, 4320000);
+  await returnEditedFreightFile(databases, 4320000);
+  const changeId = await findNewestChangeId(databases);
   const result = await decideChange(databases, changeId, { cause: 'company_knowledge' });
   assert.deepEqual([result.action, await readRates(databases.owner)], ['applied', [160000]]);
+});
+
+test('a review whose changes are all unsupported is applied at once', async () => {
+  await returnEditedFreightFile(databases, 4050001);
+  const { rows } = await databases.owner.query('SELECT status FROM company_export_reviews WHERE id <> ALL($1::uuid[])', [['aaaaaaaa-0049-4000-8000-000000000001', 'bbbbbbbb-0049-4000-8000-000000000001']]);
+  assert.deepEqual(rows, [{ status: 'applied' }]);
 });

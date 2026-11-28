@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { HEADER_ROW } from '../../../src/app/documents/format-workbook-sheet.ts';
 import { HeldFiles } from '../../../src/app/sheet-files/held-files.ts';
 import { runParseFilesStep } from '../../../src/app/intake/run-parse-files-step.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
@@ -11,7 +12,7 @@ const RETURNED_EVENT_ID = 'aaaaaaaa-0019-4000-8000-0000000000a1';
 const RETURNED_MESSAGE_ID = 'aaaaaaaa-0020-4000-8000-0000000000a1';
 const RETURNED_FILE_ID = 'aaaaaaaa-0022-4000-8000-0000000000a1';
 const RETURNED_FILE_KEY = 'leak-test/returned-export.xlsx';
-export const HEADER_ROW = 4;
+export { HEADER_ROW };
 
 export const FIRST_DATA_ROW = HEADER_ROW + 1;
 
