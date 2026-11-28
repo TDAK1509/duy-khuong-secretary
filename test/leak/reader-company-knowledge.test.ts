@@ -52,6 +52,12 @@ test('money outcomes are left out of the reader request', async () => {
   assert.ok(!JSON.stringify(request).includes('700000'));
 });
 
+test('a company-wide note reaches the reader', async () => {
+  const note = 'phiếu cân của trạm C là phiếu lấy hàng';
+  const request = await readDriverPhotoWithEntries([{ goods: 'Đá', note }]);
+  assert.ok(findKnowledgePart(request).includes(note));
+});
+
 function findKnowledgePart(request: ReaderRequest): string {
   const texts = request.userParts.flatMap((part) => (part.kind === 'text' ? [part.text] : []));
   return texts.find((text) => text.includes('source="company-knowledge"')) ?? '';
