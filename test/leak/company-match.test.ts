@@ -16,7 +16,10 @@ import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
 const databases = openLeakDatabases();
 
-beforeEach(() => resetDatabase(databases.owner));
+beforeEach(async () => {
+  await resetDatabase(databases.owner);
+  await databases.owner.query('DELETE FROM company_knowledge_entries WHERE workspace_id = $1', [WORKSPACE_A_ID]);
+});
 
 after(() => databases.close());
 
@@ -191,6 +194,8 @@ test('a customer the admin names is saved as a result and does not limit the mat
     then_allowance_vnd: null,
     then_equal_weights: false,
     then_note: null,
+    replace_conflicts: false,
+    notes_checked: true,
   })) as { entry_id: string };
   assert.deepEqual(await listLinkedPaperIds(databases.owner, saved.entry_id), [ticket]);
 });

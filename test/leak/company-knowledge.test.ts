@@ -16,9 +16,14 @@ const A_DRIVER_USER_ID = 'aaaaaaaa-0001-4000-8000-000000000002';
 
 const TRIP_PLATE = '51C12345';
 
+const SEEDED_WAGE_ENTRY_ID = 'aaaaaaaa-0014-4000-8000-000000000001';
+
 const PAPER_FILTERS = { organization: null, role: null, stage: null, kind: null, plate: TRIP_PLATE, date_meaning: null, date_from: '2026-03-01', date_to: '2026-03-31' };
 
-beforeEach(() => resetDatabase(databases.owner));
+beforeEach(async () => {
+  await resetDatabase(databases.owner);
+  await databases.owner.query('DELETE FROM company_knowledge_entries WHERE id = $1', [SEEDED_WAGE_ENTRY_ID]);
+});
 
 after(() => databases.close());
 
@@ -227,6 +232,8 @@ function saveArguments(given: Record<string, string | number | boolean>): Record
     then_allowance_vnd: null,
     then_equal_weights: false,
     then_note: null,
+    replace_conflicts: false,
+    notes_checked: true,
     ...given,
   };
 }

@@ -25,6 +25,14 @@ export const KNOWLEDGE_PROPERTIES = {
   then_allowance_vnd: { ...NULLABLE_NUMBER, description: 'Chi phí bồi dưỡng cho một chuyến, đơn vị đồng. null nếu không nêu.' },
   then_equal_weights: { type: 'boolean', description: 'true chỉ khi quản lý nói khối lượng lấy hàng bằng khối lượng đổ hàng. false nếu không nêu.' },
   then_note: { ...NULLABLE_STRING, description: 'Ghi chú lâu dài khác của công ty, chép đúng ý quản lý. null nếu không có.' },
+  replace_conflicts: {
+    type: 'boolean',
+    description: 'Lần đầu luôn là false. Chỉ là true khi gọi lại sau action "conflict" và quản lý đã chọn thông tin mới là đúng; khi đó công cụ bỏ các kết quả khác ở các mục trong conflicts rồi lưu. Không tự chọn thay quản lý.',
+  },
+  notes_checked: {
+    type: 'boolean',
+    description: 'Lần đầu luôn là false. Chỉ là true khi gọi lại sau action "check_notes" và bạn đã so related_notes với thông tin sắp lưu, hoặc quản lý đã chọn sau khi bạn hỏi.',
+  },
 };
 
 export const KNOWLEDGE_PROPERTY_NAMES = Object.keys(KNOWLEDGE_PROPERTIES);

@@ -68,6 +68,8 @@ function saveNoteArguments(note: string): Record<string, string | boolean | null
     then_allowance_vnd: null,
     then_note: note,
     then_equal_weights: false,
+    replace_conflicts: false,
+    notes_checked: true,
   };
 }
 

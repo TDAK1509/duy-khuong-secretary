@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
+import type { WriteChecks } from '../../facts/check-knowledge-write.ts';
 import type { KnowledgeConditions, KnowledgeOutcomes, NewKnowledge } from '../../facts/company-knowledge.ts';
 import { flattenStatement, MAX_STATEMENT_LENGTH } from '../../facts/keep-newest-statements.ts';
 import { pickFactCompanies } from '../../facts/pick-fact-companies.ts';
@@ -29,11 +30,13 @@ export const knowledgeFieldsSchema = {
   then_allowance_vnd: z.number().nullable(),
   then_equal_weights: z.boolean(),
   then_note: z.string().nullable(),
+  replace_conflicts: z.boolean(),
+  notes_checked: z.boolean(),
 };
 
 export type KnowledgeArguments = z.infer<z.ZodObject<typeof knowledgeFieldsSchema>>;
 
-export type ReadKnowledge = { knowledge: NewKnowledge; driver: FactDriver | null; pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null };
+export type ReadKnowledge = { knowledge: NewKnowledge; checks: WriteChecks; driver: FactDriver | null; pickup: ResolvedCompany | null; dropoff: ResolvedCompany | null };
 
 export async function readKnowledgeArguments(database: Database, scope: AccessScope, request: KnowledgeArguments, companyReader: ReaderService | null): Promise<ReadKnowledge> {
   const statement = readStatement(request.statement);
@@ -46,7 +49,7 @@ export async function readKnowledgeArguments(database: Database, scope: AccessSc
   const then = readOutcomes(request);
   requireConditionOrNote(when, then);
   const knowledge = { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, when, then: requireOutcome(then) };
-  return { knowledge, driver, pickup, dropoff };
+  return { knowledge, checks: { replaceConflicts: request.replace_conflicts, notesChecked: request.notes_checked }, driver, pickup, dropoff };
 }
 
 function readStatement(raw: string): string {

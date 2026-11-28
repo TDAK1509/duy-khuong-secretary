@@ -5,7 +5,7 @@ import { saveKnowledge, type SaveKnowledgeResult } from '../../facts/save-compan
 import { listExampleDocuments, type ExampleDocument } from '../../facts/list-example-documents.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import { knowledgeFieldsSchema, readKnowledgeArguments, type ReadKnowledge } from './company-knowledge-arguments.ts';
-import { describeCandidate, describeChange, describeExampleDocument, describeThen, describeWhenWithMatches } from './describe-knowledge.ts';
+import { describeCandidate, describeChange, describeExampleDocument, describeThen, describeWhenWithMatches, describeWriteStop } from './describe-knowledge.ts';
 import { failTool, refuseInvalidArgument } from './tool-result.ts';
 
 const NOT_SAME_CONDITIONS_ERROR = 'entry_id không phải mục có cùng mọi điều kiện when với kiến thức này. Chưa lưu gì.';
@@ -18,7 +18,7 @@ export async function runSaveCompanyKnowledge(database: Database, scope: AccessS
   const request = argumentsSchema.parse(parsedArguments);
   const targetEntryId = readTargetEntryId(request.entry_id);
   const read = await readKnowledgeArguments(database, scope, request, companyReader);
-  const result = await saveKnowledge(database, read.knowledge, targetEntryId);
+  const result = await saveKnowledge(database, read.knowledge, { targetEntryId, checks: read.checks });
   return describeSaveResult(result, read, await listExamples(database, scope, result));
 }
 
@@ -36,9 +36,10 @@ async function listExamples(database: Database, scope: AccessScope, result: Save
 function describeSaveResult(result: SaveKnowledgeResult, read: ReadKnowledge, examples: ExampleDocument[]): string {
   if (result.action === 'not_same_conditions') return failTool(NOT_SAME_CONDITIONS_ERROR);
   if (result.action === 'limit_reached') return failTool(LIMIT_REACHED_ERROR);
+  if (result.action === 'conflict' || result.action === 'check_notes') return describeWriteStop(result);
   if (result.action === 'ambiguous') return JSON.stringify({ ok: true, action: 'ambiguous', candidates: result.candidates.map(describeCandidate) });
   const matched = { pickup: read.pickup?.matchedOrganization ?? null, dropoff: read.dropoff?.matchedOrganization ?? null };
   const changes = result.action === 'updated' ? result.changes.map(describeChange) : [];
   const { entry } = result;
-  return JSON.stringify({ ok: true, action: result.action, entry_id: entry.id, when: describeWhenWithMatches(entry, matched), then: describeThen(entry.outcomes), changes, linked_documents: entry.linkedDocuments, example_documents: examples.map(describeExampleDocument) });
+  return JSON.stringify({ ok: true, action: result.action, entry_id: entry.id, when: describeWhenWithMatches(entry, matched), then: describeThen(entry.outcomes), changes, linked_documents: entry.linkedDocuments, example_documents: examples.map(describeExampleDocument), same_route_entries: result.sameRouteEntries.map(describeCandidate) });
 }

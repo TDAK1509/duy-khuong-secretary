@@ -1,3 +1,5 @@
+import type { WriteStop } from '../../facts/check-knowledge-write.ts';
+import type { KnowledgeConflict } from '../../facts/knowledge-conflicts.ts';
 import type { KnowledgeOutcomes, StoredEntry } from '../../facts/company-knowledge.ts';
 import type { ExampleDocument } from '../../facts/list-example-documents.ts';
 import type { OutcomeChange } from '../../facts/outcome-changes.ts';
@@ -33,4 +35,17 @@ export function describeChange({ name, before, after }: OutcomeChange): Record<s
 export function describeExampleDocument({ kind, title, documentNumber, documentDate, vehiclePlate }: ExampleDocument): Record<string, string> {
   const fields = { kind, title, document_number: documentNumber, document_date: documentDate, vehicle_plate: vehiclePlate };
   return Object.fromEntries(Object.entries(fields).filter((field): field is [string, string] => field[1] !== null));
+}
+
+export function describeWriteStop(stop: WriteStop): string {
+  if (stop.action === 'conflict') return JSON.stringify({ ok: true, action: 'conflict', conflicts: stop.conflicts.map(describeConflict) });
+  return JSON.stringify({ ok: true, action: 'check_notes', related_notes: stop.relatedNotes.map(describeRelatedNote) });
+}
+
+export function describeConflict({ entry, name, savedValue, newValue, sharedDocuments }: KnowledgeConflict): Record<string, unknown> {
+  return { entry_id: entry.id, when: describeWhen(entry), outcome: name, saved_value: savedValue, new_value: newValue, shared_documents: sharedDocuments };
+}
+
+export function describeRelatedNote(entry: StoredEntry): Record<string, unknown> {
+  return { entry_id: entry.id, when: describeWhen(entry), note: entry.outcomes.note, author: entry.authorName };
 }

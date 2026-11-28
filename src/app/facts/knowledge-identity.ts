@@ -27,13 +27,13 @@ export async function findSameConditions(transaction: Transaction, workspaceId: 
   return entries.filter((entry) => isSameGoods(identity, entry) && FACT_COMPANY_SLOTS.every((slot) => isSameCompany(identity[slot], entry.sides[slot], aliases)));
 }
 
-function listSides(entry: StoredEntry): StoredSide[] {
+export function listSides(entry: StoredEntry): StoredSide[] {
   return FACT_COMPANY_SLOTS.map((slot) => entry.sides[slot]);
 }
 
-type AliasIndex = Map<string, Set<string>>;
+export type AliasIndex = Map<string, Set<string>>;
 
-async function loadAliases(transaction: Transaction, workspaceId: string, sides: StoredSide[]): Promise<AliasIndex> {
+export async function loadAliases(transaction: Transaction, workspaceId: string, sides: StoredSide[]): Promise<AliasIndex> {
   const keys = [...new Set(sides.flatMap((side) => side.matchKey ?? []))];
   const rows = await transaction.query<{ match_key: string; organization_id: string }>(LIST_ALIASES_SQL, [workspaceId, keys]);
   const index: AliasIndex = new Map();
@@ -49,7 +49,7 @@ export function readGoodsKey(goods: string | null): string {
   return buildMatchKey(goods ?? '');
 }
 
-function isSameCompany(first: StoredSide, second: StoredSide, aliases: AliasIndex): boolean {
+export function isSameCompany(first: StoredSide, second: StoredSide, aliases: AliasIndex): boolean {
   if (first.matchKey === null || second.matchKey === null) return first.matchKey === second.matchKey;
   if (first.matchKey === second.matchKey) return true;
   if (isResolvedToNothing(first) || isResolvedToNothing(second)) return false;

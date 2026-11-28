@@ -1,5 +1,6 @@
 import { runInTransaction, type Database, type Transaction } from '../db/transaction.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
+import { checkWrittenEntry, startCheckedWrite, type WriteChecks, type WriteStop } from './check-knowledge-write.ts';
 import { hasCondition, type KnowledgeConditions, type NewKnowledge, type StoredEntry } from './company-knowledge.ts';
 import { buildInsertEntrySql, buildMergeOutcomesSql, listEntryValues, listOutcomeValues } from './entry-columns.ts';
 import { joinNewestStatements } from './keep-newest-statements.ts';
@@ -10,25 +11,34 @@ import { planKeepingChanges, type OutcomeChange } from './outcome-changes.ts';
 import { FACT_COMPANY_SLOTS, type FactCompanySlot } from './pick-fact-companies.ts';
 import { findEntry } from './select-entries.ts';
 
-export type SaveKnowledgeResult =
+type WrittenKnowledge =
   | { action: 'added'; entry: StoredEntry }
-  | { action: 'updated'; entry: StoredEntry; changes: OutcomeChange[] }
-  | { action: 'ambiguous'; candidates: StoredEntry[] }
-  | { action: 'not_same_conditions' }
-  | { action: 'limit_reached' };
+  | { action: 'updated'; entry: StoredEntry; changes: OutcomeChange[] };
+
+type UnwrittenKnowledge = { action: 'ambiguous'; candidates: StoredEntry[] } | { action: 'not_same_conditions' } | { action: 'limit_reached' };
+
+export type SaveKnowledgeResult = (WrittenKnowledge & { sameRouteEntries: StoredEntry[] }) | UnwrittenKnowledge | WriteStop;
 
 export const MAX_ENTRIES_PER_WORKSPACE = 100;
 
-export function saveKnowledge(database: Database, knowledge: NewKnowledge, targetEntryId: string | null): Promise<SaveKnowledgeResult> {
+export function saveKnowledge(database: Database, knowledge: NewKnowledge, request: { targetEntryId: string | null; checks: WriteChecks }): Promise<SaveKnowledgeResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, knowledge.workspaceId);
-    const identity = describeIdentity(knowledge.when, targetEntryId !== null);
-    const matches = hasCondition(knowledge.when) ? await findSameConditions(transaction, knowledge.workspaceId, identity) : [];
-    if (targetEntryId !== null) return updateTarget(transaction, knowledge, matches.find((match) => match.id === targetEntryId));
-    if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
-    const [match] = matches;
-    return match === undefined ? addEntry(transaction, knowledge) : updateEntry(transaction, knowledge, match);
+    await startCheckedWrite(transaction);
+    const result = await writeKnowledge(transaction, knowledge, request.targetEntryId);
+    if (result.action !== 'added' && result.action !== 'updated') return result;
+    const verdict = await checkWrittenEntry(transaction, { workspaceId: knowledge.workspaceId, entry: result.entry, then: knowledge.then, checks: request.checks });
+    return verdict.action === 'passed' ? { ...result, sameRouteEntries: verdict.sameRouteEntries } : verdict;
   });
+}
+
+async function writeKnowledge(transaction: Transaction, knowledge: NewKnowledge, targetEntryId: string | null): Promise<WrittenKnowledge | UnwrittenKnowledge> {
+  const identity = describeIdentity(knowledge.when, targetEntryId !== null);
+  const matches = hasCondition(knowledge.when) ? await findSameConditions(transaction, knowledge.workspaceId, identity) : [];
+  if (targetEntryId !== null) return updateTarget(transaction, knowledge, matches.find((match) => match.id === targetEntryId));
+  if (matches.length > 1) return { action: 'ambiguous', candidates: matches };
+  const [match] = matches;
+  return match === undefined ? addEntry(transaction, knowledge) : updateEntry(transaction, knowledge, match);
 }
 
 function describeIdentity(when: KnowledgeConditions, hasTarget: boolean): KnowledgeIdentity {
@@ -37,11 +47,11 @@ function describeIdentity(when: KnowledgeConditions, hasTarget: boolean): Knowle
   return { vehiclePlate: when.vehiclePlate, driverUserId: when.driverUserId, goods, pickup: describeNewSide(when.pickup), dropoff: describeNewSide(when.dropoff) };
 }
 
-async function updateTarget(transaction: Transaction, knowledge: NewKnowledge, target: StoredEntry | undefined): Promise<SaveKnowledgeResult> {
+async function updateTarget(transaction: Transaction, knowledge: NewKnowledge, target: StoredEntry | undefined): Promise<WrittenKnowledge | UnwrittenKnowledge> {
   return target === undefined ? { action: 'not_same_conditions' } : updateEntry(transaction, knowledge, target);
 }
 
-async function addEntry(transaction: Transaction, knowledge: NewKnowledge): Promise<SaveKnowledgeResult> {
+async function addEntry(transaction: Transaction, knowledge: NewKnowledge): Promise<WrittenKnowledge | UnwrittenKnowledge> {
   if (await isWorkspaceFull(transaction, knowledge.workspaceId)) return { action: 'limit_reached' };
   const entryId = await insertEntry(transaction, knowledge);
   await storeKnowledgeCompanies(transaction, knowledge.workspaceId, entryId, knowledge.when);
@@ -60,7 +70,7 @@ async function insertEntry(transaction: Transaction, { workspaceId, authorUserId
   return row.id;
 }
 
-async function updateEntry(transaction: Transaction, knowledge: NewKnowledge, stored: StoredEntry): Promise<SaveKnowledgeResult> {
+async function updateEntry(transaction: Transaction, knowledge: NewKnowledge, stored: StoredEntry): Promise<WrittenKnowledge> {
   const changes = planKeepingChanges(stored.outcomes, knowledge.then);
   const restoredSlots = listRestoredSlots(stored, knowledge.when);
   if (changes.length > 0 || restoredSlots.length > 0) await mergeOutcomes(transaction, knowledge, stored);
