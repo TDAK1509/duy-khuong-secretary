@@ -1,5 +1,5 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
-import { PER_TON_UNIT } from '../facts/knowledge-outcomes.ts';
+import { PER_TON_UNIT, SHOWN_GOODS_MATCH_KEY } from '../facts/knowledge-outcomes.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
 import type { ColumnUnit } from '../documents/format-workbook-sheet.ts';
@@ -72,13 +72,13 @@ export function indexWinners(winners: WinningValue[]): WinnerIndex {
 
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex): ReportCell {
   if (column.source === 'none') return null;
-  if (column.source === 'field') return FIELD_READERS[column.field](trip);
+  if (column.source === 'field') return FIELD_READERS[column.field](trip, index);
   const winner = findWinner(index, trip, column.matchKey);
   if (column.source === 'knowledge_value') return readWinner(winner);
   return calculateAmount(winner, readWinnerWeight(trip, winner));
 }
 
-type FieldReader = (trip: Trip) => ReportCell;
+type FieldReader = (trip: Trip, index: WinnerIndex) => ReportCell;
 
 const FIELD_READERS: Record<TripField, FieldReader> = {
   date: (trip) => readTripDate(trip),
@@ -89,7 +89,7 @@ const FIELD_READERS: Record<TripField, FieldReader> = {
   pickup_place: ({ pickup }) => (pickup === null ? null : readPickupPlace(pickup)),
   dropoff_place: (trip) => findDropOffPlace(trip),
   customer: (trip) => readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party),
-  goods: (trip) => readGoods(trip),
+  goods: (trip, index) => readGoods(trip, index),
   weight_kg: ({ pickup, dropOff }) => readWeightKg(pickup) ?? readWeightKg(dropOff),
   pickup_weight_kg: ({ pickup }) => readWeightKg(pickup),
   dropoff_weight_kg: ({ dropOff }) => readWeightKg(dropOff),
@@ -128,8 +128,8 @@ function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): strin
   return numbers.length === 0 ? null : numbers.join(' / ');
 }
 
-function readGoods(trip: Trip): string | null {
-  return readFirst(trip, (paper) => paper.shown_goods_name ?? paper.goods_line);
+function readGoods(trip: Trip, index: WinnerIndex): string | null {
+  return findWinner(index, trip, SHOWN_GOODS_MATCH_KEY)?.text ?? readFirst(trip, (paper) => paper.goods_line);
 }
 
 function describeRoute(trip: Trip): string | null {

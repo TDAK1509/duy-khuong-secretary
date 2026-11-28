@@ -5,7 +5,7 @@ import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
-import { OUTCOME_DEFINITIONS, PER_TON_UNIT } from '../../facts/knowledge-outcomes.ts';
+import { OUTCOME_DEFINITIONS, PER_TON_UNIT, SHOWN_GOODS_MATCH_KEY } from '../../facts/knowledge-outcomes.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
 import type { RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
@@ -132,7 +132,12 @@ function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {
 }
 
 function listValueKeys(columns: TripColumn[]): string[] {
-  return [...new Set(columns.flatMap((column) => (column.source === 'knowledge_value' || column.source === 'knowledge_amount' ? [column.matchKey] : [])))];
+  return [...new Set(columns.flatMap(listColumnValueKeys))];
+}
+
+function listColumnValueKeys(column: TripColumn): string[] {
+  if (column.source === 'knowledge_value' || column.source === 'knowledge_amount') return [column.matchKey];
+  return column.source === 'field' && column.field === 'goods' ? [SHOWN_GOODS_MATCH_KEY] : [];
 }
 
 function summarizeReport(report: TripReport, pairing: TripPairing) {
