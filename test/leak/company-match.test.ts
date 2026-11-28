@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { insertFact, insertPaper, linkFact, listLinkedPaperIds } from './support/paper-fixtures.ts';
+import { insertFact, insertPaper, linkFact, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
 const databases = openLeakDatabases();
 
@@ -52,4 +54,12 @@ test('with a pickup, the drop-off is not needed on the paper', async () => {
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
+});
+
+test('with a pickup, the trip report still shows the drop-off', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
+  await linkFact(databases.runtime, fact);
+  const papers = await listTripPapers(openWorkspaceA(databases.runtime), { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-05', plate: null, limit: 10 });
+  assert.deepEqual(papers.map((paper) => paper.route_dropoff), ['Beta']);
 });
