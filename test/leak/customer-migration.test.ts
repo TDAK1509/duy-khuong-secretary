@@ -24,7 +24,11 @@ test('the migration turns a customer condition into a value', async () => {
   await migrateOldFacts([{ customer: 'Gamma', ageDays: 0, values: [] }], async ({ client, notices }) => {
     const [fact] = await listRouteFacts(client);
     assert.deepEqual(await listValues(client, fact), [{ name: 'Khách hàng', number: null, unit: null, text_value: 'Gamma' }]);
-    assert.match(notices.join('\n'), /\[migration\] customer_values_added=1 facts_merged=0 facts_relinked=\d+/);
+    const { rows } = await client.query<{ linked: number; unlinked: number }>(
+      'SELECT count(DISTINCT link.fact_id)::int AS linked, (SELECT count(*)::int FROM facts) - count(DISTINCT link.fact_id)::int AS unlinked FROM document_facts link',
+    );
+    assert.equal(rows[0]?.unlinked, 1);
+    assert.match(notices.join('\n'), new RegExp(`\\[migration\\] customer_values_added=1 facts_merged=0 facts_relinked=${rows[0]?.linked}$`, 'm'));
   });
 });
 
