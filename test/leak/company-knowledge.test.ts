@@ -39,12 +39,27 @@ test('saving the same conditions twice updates the entry', async () => {
   assert.deepEqual(rows, [{ wage: '700000' }]);
 });
 
+test('saving with the equal-weight outcome sets it and a later false keeps it', async () => {
+  await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_goods: 'Đá', then_equal_weights: true }));
+  await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_goods: 'Đá', then_wage_vnd: 700000 }));
+  const { rows } = await databases.owner.query<{ equal: boolean }>('SELECT then_equal_weights AS equal FROM company_knowledge_entries WHERE when_goods = $1', ['Đá']);
+  assert.deepEqual(rows, [{ equal: true }]);
+});
+
 test('the paper export shows the fixed outcome columns of the linked entry', async () => {
   await insertPaper(databases.owner, { stage: 'dispatch', plate: TRIP_PLATE, parties: [{ role: 'issuer', name: 'Alpha' }] });
   await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', customer: 'Gamma', wageVnd: 700000 }));
   const bytes = await exportPapers();
   assert.deepEqual(await readSheetColumn(bytes, 'Khách hàng'), ['Gamma']);
   assert.deepEqual(await readSheetColumn(bytes, 'Lương tài xế'), ['700000']);
+});
+
+test('the paper export shows the equal-weight column only when an entry sets it', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: TRIP_PLATE, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 700000 }));
+  assert.equal(await readSheetColumn(await exportPapers(), 'Khối lượng lấy = khối lượng đổ'), null);
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', equalWeights: true }));
+  assert.deepEqual(await readSheetColumn(await exportPapers(), 'Khối lượng lấy = khối lượng đổ'), ['Có']);
 });
 
 test('the paper export leaves out a column with no value', async () => {
@@ -195,7 +210,7 @@ async function insertNumberedAlphaTicket(documentNumber: string, date: string): 
   await databases.owner.query('UPDATE documents SET document_number = $2 WHERE id = $1', [paperId, documentNumber]);
 }
 
-function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
+function saveArguments(given: Record<string, string | number | boolean>): Record<string, string | number | boolean | null> {
   return {
     statement: 'fixture statement',
     entry_id: null,
@@ -210,6 +225,7 @@ function saveArguments(given: Record<string, string | number>): Record<string, s
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,
+    then_equal_weights: false,
     then_note: null,
     ...given,
   };

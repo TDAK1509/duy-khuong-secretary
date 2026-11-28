@@ -24,6 +24,7 @@ type EntryRow = {
   then_wage_vnd: string | null;
   then_rate_vnd_per_ton: string | null;
   then_allowance_vnd: string | null;
+  then_equal_weights: boolean;
   then_note: string | null;
   linked_documents: number;
   updated_at: Date;
@@ -34,7 +35,7 @@ const SELECT_ENTRIES_SQL = `
     entry.when_goods, entry.when_vehicle_plate, entry.when_driver_user_id, driver.display_name AS driver_name,
     entry.when_pickup_name, entry.when_pickup_match_key, entry.when_pickup_resolved, ${buildPicksSql('pickup')} AS pickup_picks,
     entry.when_dropoff_name, entry.when_dropoff_match_key, entry.when_dropoff_resolved, ${buildPicksSql('dropoff')} AS dropoff_picks,
-    entry.then_customer, entry.then_dropoff, entry.then_shown_goods_name, entry.then_wage_vnd::text, entry.then_rate_vnd_per_ton::text, entry.then_allowance_vnd::text, entry.then_note,
+    entry.then_customer, entry.then_dropoff, entry.then_shown_goods_name, entry.then_wage_vnd::text, entry.then_rate_vnd_per_ton::text, entry.then_allowance_vnd::text, entry.then_equal_weights, entry.then_note,
     (SELECT count(*) FROM company_knowledge_links link WHERE link.entry_id = entry.id)::int AS linked_documents,
     entry.updated_at
   FROM company_knowledge_entries entry
@@ -87,6 +88,7 @@ function toOutcomes(row: EntryRow): KnowledgeOutcomes {
     wageVnd: toNumber(row.then_wage_vnd),
     ratePerTonVnd: toNumber(row.then_rate_vnd_per_ton),
     allowanceVnd: toNumber(row.then_allowance_vnd),
+    equalWeights: row.then_equal_weights,
     note: row.then_note,
   };
 }

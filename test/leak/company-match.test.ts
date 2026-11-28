@@ -189,6 +189,7 @@ test('a customer the admin names is saved as a result and does not limit the mat
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,
+    then_equal_weights: false,
     then_note: null,
   })) as { entry_id: string };
   assert.deepEqual(await listLinkedPaperIds(databases.owner, saved.entry_id), [ticket]);

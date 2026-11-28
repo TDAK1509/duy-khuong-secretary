@@ -1,5 +1,5 @@
 import type { KnowledgeOutcomes } from './company-knowledge.ts';
-import { OUTCOME_DEFINITIONS } from './knowledge-outcomes.ts';
+import { OUTCOME_DEFINITIONS, type OutcomeDefinition } from './knowledge-outcomes.ts';
 
 export type OutcomeValue = string | number;
 
@@ -10,6 +10,12 @@ export function planKeepingChanges(stored: KnowledgeOutcomes, given: KnowledgeOu
 }
 
 export function planReplacingChanges(stored: KnowledgeOutcomes, given: KnowledgeOutcomes): OutcomeChange[] {
-  const changes = OUTCOME_DEFINITIONS.map(({ key, name }) => ({ name, before: stored[key], after: given[key] }));
+  const changes = OUTCOME_DEFINITIONS.map((definition) => ({ name: definition.name, before: readOutcomeValue(stored, definition), after: readOutcomeValue(given, definition) }));
   return changes.filter((change) => change.before !== change.after);
+}
+
+function readOutcomeValue(outcomes: KnowledgeOutcomes, { key, flagText }: OutcomeDefinition): OutcomeValue | null {
+  const value = outcomes[key];
+  if (typeof value !== 'boolean') return value;
+  return value ? (flagText ?? null) : null;
 }
