@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import type { PoolClient } from 'pg';
-import { up } from '../../src/app/db/migrations/0107_move_company_rules_to_company_knowledge.ts';
+import { up } from '../../src/app/db/migrations/0104_move_company_rules_to_company_knowledge.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { restoreOldCompanyRules } from './support/old-company-rules.ts';
 import { resetDatabase } from './support/reset-database.ts';
