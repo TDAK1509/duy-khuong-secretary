@@ -41,6 +41,15 @@ test('a missing example photo is skipped', async () => {
   assert.deepEqual(exampleTexts, [{ kind: 'text', text: 'Ví dụ 2 của mẫu đã chọn; ảnh ví dụ nằm ngay sau dòng này.' }]);
 });
 
+test('a text-only message with a picked template gets no example parts', async () => {
+  const example: TemplateExample = { position: 1, photo: EXAMPLE_PHOTO, expectedReading: { category: 'EXAMPLE-CATEGORY' } };
+  const reader = new PickingReader();
+  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: 'EXAMPLE-TEXT', photo: null }, [], EMPTY_READER_CATALOG, [], [TEMPLATE], async () => [example]);
+  const parts = reader.readRequest().userParts;
+  assert.equal(parts.some((part) => part.kind === 'image'), false);
+  assert.equal(parts.some((part) => part.kind === 'text' && part.text.startsWith('Ví dụ ')), false);
+});
+
 class PickingReader implements ReaderService {
   readonly requests: ReaderRequest[] = [];
 

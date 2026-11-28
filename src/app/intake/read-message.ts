@@ -39,16 +39,16 @@ export async function readWithReader(
   fromAdmin = false,
 ): Promise<ReadAttempt> {
   const picked = await pickTemplate(reader, templates, message);
-  const examples = await loadPickedExamples(loadExamples, picked);
+  const examples = await loadPickedExamples(loadExamples, picked, message);
   const result = await reader.read(buildReadRequest({ now, message, labels, catalog, facts, fromAdmin, picked, examples }));
   const attempt = result.ok ? validateReading(result.json) : result;
   logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);
   return applyPickedTemplate(attempt, picked);
 }
 
-async function loadPickedExamples(loadExamples: ExampleLoader, picked: ListedTemplate | null): Promise<TemplateExample[]> {
+async function loadPickedExamples(loadExamples: ExampleLoader, picked: ListedTemplate | null, message: MessageContent): Promise<TemplateExample[]> {
   if (picked === null) return [];
-  const examples = await loadExamples(picked.template.id);
+  const examples = message.photo === null ? [] : await loadExamples(picked.template.id);
   console.log(`[reader] template_examples=${examples.length}`);
   return examples;
 }
