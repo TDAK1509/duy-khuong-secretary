@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
-import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
+import { listReceiptPapers, listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { NamedDropOffReader } from './support/named-drop-off-reader.ts';
 import { ScriptedPairingReader } from './support/scripted-pairing-reader.ts';
@@ -75,6 +75,19 @@ test('the trip report shows the drop-off of an entry with a pickup and a drop-of
   const papers = await listTripPapers(openWorkspaceA(databases.runtime), { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-05', plate: null, limit: 10 });
   assert.deepEqual(papers.map((paper) => paper.route_dropoff), ['Beta']);
 });
+
+test('a receipt-stage ticket issued by the pickup company is listed as a pickup', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha' }));
+  assert.deepEqual(await listTripPaperIds(), { pickups: [ticket], receipts: [] });
+});
+
+async function listTripPaperIds(): Promise<{ pickups: string[]; receipts: string[] }> {
+  const query = { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-05', plate: null, limit: 10 };
+  const database = openWorkspaceA(databases.runtime);
+  const [pickups, receipts] = await Promise.all([listTripPapers(database, query), listReceiptPapers(database, query)]);
+  return { pickups: pickups.map((paper) => paper.id), receipts: receipts.map((paper) => paper.id) };
+}
 
 test('a drop-off-only entry does not link a paper without the drop-off company', async () => {
   await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Gamma' }] });

@@ -4,7 +4,7 @@ import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from '../do
 import type { DocumentFilters } from '../documents/add-document-filters.ts';
 import { buildOutcomeRowsSql } from '../facts/knowledge-outcomes.ts';
 import { buildWeightSql } from '../facts/knowledge-totals.ts';
-import { GOODS_LABEL_KEY, IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
+import { buildCompanyMatch, GOODS_LABEL_KEY, IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 import { IS_ROUTE_ENTRY_SQL, ROUTE_DROPOFF_NAME_SQL } from './route-dropoff.ts';
 
@@ -46,17 +46,22 @@ const ROUTE_ENTRY_JOIN = `LEFT JOIN LATERAL (
 
 const IS_TRIP_PAPER = `(document.stage = 'dispatch' OR ${IS_TRIP_TICKET_SHAPE})`;
 
+const IS_ISSUED_BY_PICKUP_COMPANY = `EXISTS (
+  SELECT 1 FROM company_knowledge_links link JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
+  WHERE link.document_id = document.id AND entry.when_pickup_match_key IS NOT NULL AND ${buildCompanyMatch('pickup', 'issuer')}
+)`;
+
 export type ReceiptPaperQuery = { workspaceId: string; dateFrom: string; dateTo: string; plate: string | null; limit: number };
 
 export async function listTripPapers(database: Database, query: TripPaperQuery): Promise<TripPaper[]> {
   const where = buildTripWhere(query, ACCEPTED_CONFIRMED);
-  where.require(`${IS_TRIP_PAPER} AND document.stage IS DISTINCT FROM 'receipt'`);
+  where.require(`${IS_TRIP_PAPER} AND (document.stage IS DISTINCT FROM 'receipt' OR ${IS_ISSUED_BY_PICKUP_COMPANY})`);
   return selectPapers(database, where, { withReceiver: false, limit: query.limit });
 }
 
 export async function listReceiptPapers(database: Database, query: ReceiptPaperQuery): Promise<TripPaper[]> {
   const where = buildTripWhere(query, ACCEPTED_CONFIRMED);
-  where.require(`document.stage = 'receipt' AND ${IS_TRIP_TICKET}`);
+  where.require(`document.stage = 'receipt' AND ${IS_TRIP_TICKET} AND NOT ${IS_ISSUED_BY_PICKUP_COMPANY}`);
   return selectPapers(database, where, { withReceiver: true, limit: query.limit });
 }
 

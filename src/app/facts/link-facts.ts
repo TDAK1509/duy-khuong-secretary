@@ -84,22 +84,23 @@ export async function linkDocumentsToMatchingEntries(transaction: Transaction, w
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentIds]);
 }
 
-export function buildCompanyMatch(slot: FactCompanySlot): string {
-  return `(CASE WHEN entry.when_${slot}_resolved THEN ${buildPickedMatch(slot)} ELSE ${buildPartyMatch(`when_${slot}_match_key`)} END)`;
+export function buildCompanyMatch(slot: FactCompanySlot, partyRole: string | null = null): string {
+  const partyFilter = partyRole === null ? '' : `AND party.role = '${partyRole}'`;
+  return `(CASE WHEN entry.when_${slot}_resolved THEN ${buildPickedMatch(slot, partyFilter)} ELSE ${buildPartyMatch(`when_${slot}_match_key`, partyFilter)} END)`;
 }
 
-function buildPickedMatch(slot: FactCompanySlot): string {
+function buildPickedMatch(slot: FactCompanySlot, partyFilter: string): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     JOIN company_knowledge_companies pick ON pick.entry_id = entry.id AND pick.slot = '${slot}' AND pick.organization_id = party.organization_id
-    WHERE party.document_id = document.id
+    WHERE party.document_id = document.id ${partyFilter}
   )`;
 }
 
-function buildPartyMatch(matchKeyColumn: `when_${FactCompanySlot}_match_key`): string {
+function buildPartyMatch(matchKeyColumn: `when_${FactCompanySlot}_match_key`, partyFilter: string): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
-    WHERE party.document_id = document.id
+    WHERE party.document_id = document.id ${partyFilter}
       AND (
         party.match_key = entry.${matchKeyColumn}
         OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = entry.${matchKeyColumn})
