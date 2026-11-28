@@ -87,6 +87,17 @@ test('a correction recalculates the links of that paper', async () => {
   assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), []);
 });
 
+test('rewriting the plate of a driver updates the note entry of that driver', async () => {
+  const { rows } = await databases.owner.query<{ id: string }>(
+    `INSERT INTO company_knowledge_entries (workspace_id, statement, when_driver_user_id, then_note) VALUES ($1, 'plate note', $2, 'Biển số xe: 51C12345') RETURNING id`,
+    ['aaaaaaaa-0002-4000-8000-000000000001', A_DRIVER_USER_ID],
+  );
+  const harness = createToolHarness(databases.runtime);
+  await harness.runTool('confirmed', 'rewrite_member_plate', { member_id: A_DRIVER_MEMBER_ID, vehicle_plate: '51C67890' });
+  const note = await databases.owner.query<{ then_note: string }>('SELECT then_note FROM company_knowledge_entries WHERE id = $1', [rows[0]?.id]);
+  assert.deepEqual(note.rows, [{ then_note: 'Biển số xe: 51C67890' }]);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
