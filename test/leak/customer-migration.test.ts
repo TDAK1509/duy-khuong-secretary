@@ -28,6 +28,22 @@ test('the migration turns a customer condition into a value', async () => {
   });
 });
 
+test('the migration merges two facts that differed only by customer', async () => {
+  const wage = { name: 'Lương tài xế', matchKey: 'luongtaixe', number: 700000, unit: 'đ' };
+  const rate = { name: 'Cước vận chuyển', matchKey: 'cuocvanchuyen', number: 150000, unit: 'đ/tấn' };
+  const olderRateFact = { customer: 'Delta', ageDays: 1, values: [rate] };
+  const newerWageFact = { customer: 'Gamma', ageDays: 0, values: [wage] };
+  await migrateOldFacts([olderRateFact, newerWageFact], async ({ client }) => {
+    const facts = await listRouteFacts(client);
+    assert.equal(facts.length, 1);
+    assert.deepEqual(await listValues(client, facts[0]), [
+      { name: 'Lương tài xế', number: '700000', unit: 'đ', text_value: null },
+      { name: 'Khách hàng', number: null, unit: null, text_value: 'Gamma' },
+      { name: 'Cước vận chuyển', number: '150000', unit: 'đ/tấn', text_value: null },
+    ]);
+  });
+});
+
 async function migrateOldFacts(facts: OldFact[], check: (migrated: Migrated) => Promise<void>): Promise<void> {
   const client = await databases.owner.connect();
   const notices: string[] = [];
