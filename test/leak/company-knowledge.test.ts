@@ -5,7 +5,7 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry, insertPaper, linkEntry, listLinkedPaperIds } from './support/paper-fixtures.ts';
 import { readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
-import { A_DRIVER_MEMBER_ID } from './support/seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
@@ -112,6 +112,13 @@ test('the trip report falls back to the drop-off outcome', async () => {
   assert.deepEqual(await exportTripColumn({ name: 'Nơi đổ hàng', source: 'field', field: 'dropoff_place', value_name: null }), ['Beta']);
 });
 
+test('the 100th entry of a workspace saves', async () => {
+  await fillWorkspaceEntries(99);
+  const saved = JSON.parse(await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }))) as SavedKnowledge;
+  assert.equal(saved.action, 'added');
+  assert.equal(await countWorkspaceEntries(), 100);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
@@ -184,4 +191,17 @@ async function readGoods(paperId: string): Promise<string | undefined> {
 async function readWage(entryId: string): Promise<string | undefined> {
   const { rows } = await databases.owner.query<{ wage: string }>('SELECT then_wage_vnd::text AS wage FROM company_knowledge_entries WHERE id = $1', [entryId]);
   return rows[0]?.wage;
+}
+
+async function fillWorkspaceEntries(total: number): Promise<void> {
+  await databases.owner.query(
+    `INSERT INTO company_knowledge_entries (workspace_id, statement, when_goods, then_note)
+     SELECT $1, 'filler', 'filler ' || number, 'filler' FROM generate_series(1, $2::int - (SELECT count(*)::int FROM company_knowledge_entries WHERE workspace_id = $1)) AS number`,
+    [WORKSPACE_A_ID, total],
+  );
+}
+
+async function countWorkspaceEntries(): Promise<number> {
+  const { rows } = await databases.owner.query<{ count: number }>('SELECT count(*)::int AS count FROM company_knowledge_entries WHERE workspace_id = $1', [WORKSPACE_A_ID]);
+  return rows[0]?.count ?? 0;
 }
