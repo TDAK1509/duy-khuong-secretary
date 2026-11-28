@@ -126,6 +126,14 @@ test('the 101st entry of a workspace is refused and nothing is written', async (
   assert.equal(await countWorkspaceEntries(), 100);
 });
 
+test('an update of an existing entry works when the workspace has 100 entries', async () => {
+  await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 600000 });
+  await fillWorkspaceEntries(100);
+  const saved = JSON.parse(await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }))) as SavedKnowledge;
+  assert.equal(saved.action, 'updated');
+  assert.equal(await countWorkspaceEntries(), 100);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
