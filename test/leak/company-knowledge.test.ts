@@ -57,6 +57,12 @@ test('the trip report reads the route drop-off from the entry', async () => {
   assert.deepEqual(await exportTripColumn({ name: 'Nơi đổ hàng', source: 'field', field: 'dropoff_place', value_name: null }), ['Beta']);
 });
 
+test('the trip report reads the wage from the entry', async () => {
+  await insertPairedTrip();
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 700000 }));
+  assert.deepEqual(await exportTripColumn({ name: 'Lương', source: 'knowledge_value', field: null, value_name: 'Lương tài xế' }), ['700000']);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
