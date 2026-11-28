@@ -129,8 +129,7 @@ function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): strin
 }
 
 function readGoods(trip: Trip): string | null {
-  const mainPaper = trip.pickup ?? trip.dropOff;
-  return mainPaper?.shown_goods_name ?? readFirst(trip, (paper) => paper.goods_line);
+  return readFirst(trip, (paper) => paper.shown_goods_name ?? paper.goods_line);
 }
 
 function describeRoute(trip: Trip): string | null {

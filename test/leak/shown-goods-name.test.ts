@@ -33,6 +33,13 @@ test('the trip report shows the shown goods name of the linked entry', async () 
   assert.deepEqual(await exportTripGoods(), ['Than đá']);
 });
 
+test('the trip report shows the shown goods name of a receipt when the pickup paper prints no goods', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Than' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { goods: 'Than', shownGoodsName: 'Than đá' }));
+  assert.deepEqual(await exportTripGoods(), ['Than đá']);
+});
+
 test('the trip report keeps the printed goods name when no entry gives a shown name', async () => {
   await insertPairedTrip('Cát');
   assert.deepEqual(await exportTripGoods(), ['Cát']);
