@@ -157,3 +157,11 @@ test('two trips of one truck on one day add the wage twice', async () => {
   const pairs = [{ pickup: 'p1', receipt: 'r1' }, { pickup: 'p2', receipt: 'r2' }];
   assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-05', pairs)).amounts[0]?.sum, 1400000);
 });
+
+test('a per-ton rate uses the weight of each built trip once', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [{ name: 'Cước vận chuyển', number: 150000, unit: 'đ/tấn' }] });
+  await linkFact(databases.runtime, fact);
+  assert.equal((await totalValue('Cước vận chuyển', '2026-03-05', '2026-03-06')).per_ton[0]?.amount, 4050000);
+});
