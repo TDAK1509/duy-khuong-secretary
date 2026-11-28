@@ -54,21 +54,21 @@ test('a text message that names the pickup company does not link', async () => {
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
 });
 
-test('with a pickup, the drop-off is not needed on the paper', async () => {
+test('a fact with a pickup and a drop-off links a paper that prints only the pickup', async () => {
   const ticket = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }] });
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
 });
 
-test('with a pickup, a paper that prints only the drop-off company links too', async () => {
+test('a fact with a pickup and a drop-off links a paper that prints only the drop-off', async () => {
   const receipt = await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Beta' }] });
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [receipt]);
 });
 
-test('with a pickup, the trip report still shows the drop-off', async () => {
+test('the trip report shows the drop-off of a fact with a pickup and a drop-off', async () => {
   await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', parties: [{ role: 'issuer', name: 'Alpha' }] });
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta' });
   await linkFact(databases.runtime, fact);
