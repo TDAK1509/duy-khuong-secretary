@@ -51,6 +51,13 @@ test('the migration keeps a drop-off-only fact drop-off as a condition', async (
   });
 });
 
+test('the migration keeps an unknown value as a note line', async () => {
+  const plate = { name: 'Biển số xe', text: '51C12345' };
+  await migrateOldFacts([{ driver: true, values: [plate] }], async ({ client }) => {
+    assert.deepEqual(await listEntries(client, ['then_note']), [{ then_note: 'Biển số xe: 51C12345' }]);
+  });
+});
+
 const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
 
 async function migrateOldFacts(facts: OldFact[], check: (migrated: Migrated) => Promise<void>): Promise<void> {
