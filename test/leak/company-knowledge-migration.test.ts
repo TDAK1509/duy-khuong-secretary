@@ -5,6 +5,7 @@ import { up } from '../../src/app/db/migrations/0100_move_facts_to_company_knowl
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { restoreOldFactTables } from './support/old-fact-tables.ts';
+import { insertPaper } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { A_ADMIN_USER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 
@@ -55,6 +56,14 @@ test('the migration keeps an unknown value as a note line', async () => {
   const plate = { name: 'Biển số xe', text: '51C12345' };
   await migrateOldFacts([{ driver: true, values: [plate] }], async ({ client }) => {
     assert.deepEqual(await listEntries(client, ['then_note']), [{ then_note: 'Biển số xe: 51C12345' }]);
+  });
+});
+
+test('the migration keeps both companies of a route fact as conditions', async () => {
+  const receipt = await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Beta' }] });
+  await migrateOldFacts([{ pickup: 'Alpha', dropoff: 'Beta', values: [WAGE] }], async ({ client }) => {
+    const { rows } = await client.query<{ document_id: string }>('SELECT document_id FROM company_knowledge_links WHERE workspace_id = $1', [WORKSPACE_A_ID]);
+    assert.deepEqual(rows.map((row) => row.document_id), [receipt]);
   });
 });
 

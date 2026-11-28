@@ -13,6 +13,9 @@ export function up(pgm: MigrationBuilder): void {
   createLinks(pgm);
   for (const table of ['company_knowledge_entries', 'company_knowledge_companies', 'company_knowledge_links']) protectTable(pgm, table);
   moveFacts(pgm);
+  moveCompanies(pgm);
+  linkEntries(pgm);
+  logCounts(pgm);
 }
 
 function createEntries(pgm: MigrationBuilder): void {
@@ -146,5 +149,99 @@ function moveFacts(pgm: MigrationBuilder): void {
       RETURNING 1
     )
     INSERT INTO migration_counts SELECT 'entries_inserted', count(*) FROM inserted
+  `);
+}
+
+function moveCompanies(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    INSERT INTO company_knowledge_companies (id, workspace_id, entry_id, slot, organization_id, created_at)
+    SELECT pick.id, pick.workspace_id, pick.fact_id, pick.slot, pick.organization_id, pick.created_at FROM fact_companies pick
+  `);
+}
+
+const LINK_MATCHES_SQL = `
+  INSERT INTO company_knowledge_links (workspace_id, document_id, entry_id)
+  SELECT document.workspace_id, document.id, entry.id
+  FROM company_knowledge_entries entry
+  LEFT JOIN LATERAL (
+  SELECT nullif(regexp_replace(lower(unaccent(entry.when_goods)), '[^a-z0-9]', '', 'g'), '') AS key,
+    coalesce((SELECT array_agg(DISTINCT token) FROM regexp_split_to_table(lower(unaccent(entry.when_goods)), '[^a-z0-9]+') token WHERE token <> ''), '{}') AS tokens) entry_goods ON true
+  JOIN documents document ON document.workspace_id = entry.workspace_id
+  WHERE entry.workspace_id = $1
+    AND ($2::uuid IS NULL OR entry.id = $2)
+    AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
+    AND (document.status = 'accepted' AND regexp_replace(lower(unaccent(document.kind)), '[^a-z0-9]', '', 'g') <> 'tinnhan' AND document.sheet_signature IS NULL)
+    AND (entry.when_vehicle_plate IS NULL OR document.vehicle_plate = entry.when_vehicle_plate)
+    AND (entry.when_driver_user_id IS NULL OR document.driver_user_id = entry.when_driver_user_id OR EXISTS (
+  SELECT 1 FROM document_sources source
+  JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
+  WHERE source.document_id = document.id AND message.user_id = entry.when_driver_user_id
+))
+    AND (
+      (entry.when_pickup_match_key IS NULL AND entry.when_dropoff_match_key IS NULL)
+      OR (entry.when_pickup_match_key IS NOT NULL AND (CASE WHEN entry.when_pickup_resolved THEN EXISTS (
+    SELECT 1 FROM document_parties party
+    JOIN company_knowledge_companies pick ON pick.entry_id = entry.id AND pick.slot = 'pickup' AND pick.organization_id = party.organization_id
+    WHERE party.document_id = document.id
+  ) ELSE EXISTS (
+    SELECT 1 FROM document_parties party
+    WHERE party.document_id = document.id
+      AND (
+        party.match_key = entry.when_pickup_match_key
+        OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = entry.when_pickup_match_key)
+      )
+  ) END))
+      OR (entry.when_dropoff_match_key IS NOT NULL AND (CASE WHEN entry.when_dropoff_resolved THEN EXISTS (
+    SELECT 1 FROM document_parties party
+    JOIN company_knowledge_companies pick ON pick.entry_id = entry.id AND pick.slot = 'dropoff' AND pick.organization_id = party.organization_id
+    WHERE party.document_id = document.id
+  ) ELSE EXISTS (
+    SELECT 1 FROM document_parties party
+    WHERE party.document_id = document.id
+      AND (
+        party.match_key = entry.when_dropoff_match_key
+        OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = entry.when_dropoff_match_key)
+      )
+  ) END))
+    )
+    AND (entry_goods.key IS NULL OR EXISTS (
+  SELECT 1 FROM (
+  SELECT line.value AS text FROM document_lines line
+  WHERE line.document_id = document.id AND line.item IS NULL AND regexp_replace(lower(unaccent(line.label)), '[^a-z0-9]', '', 'g') = 'hanghoa'
+  UNION ALL
+  SELECT line.item AS text FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL) goods WHERE regexp_replace(lower(unaccent(goods.text)), '[^a-z0-9]', '', 'g') = entry_goods.key OR NOT EXISTS (
+    SELECT 1 FROM unnest(entry_goods.tokens) wanted
+    WHERE NOT EXISTS (SELECT 1 FROM regexp_split_to_table(lower(unaccent(goods.text)), '[^a-z0-9]+') token WHERE token <> '' AND (wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token))))
+  )
+))
+  ON CONFLICT DO NOTHING
+  RETURNING document_id
+`;
+
+function linkEntries(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    DO $link_entries$
+    DECLARE workspace record;
+    BEGIN
+      FOR workspace IN SELECT id FROM workspaces LOOP
+        EXECUTE $link$${LINK_MATCHES_SQL}$link$ USING workspace.id, NULL::uuid, NULL::uuid[];
+      END LOOP;
+    END
+    $link_entries$
+  `);
+  pgm.sql(`INSERT INTO migration_counts SELECT 'papers_linked', count(DISTINCT document_id) FROM company_knowledge_links`);
+}
+
+function logCounts(pgm: MigrationBuilder): void {
+  pgm.sql(`
+    DO $log$
+    BEGIN
+      RAISE NOTICE '[migration] facts_moved=% entries_inserted=% notes_from_values=% papers_linked=%',
+        (SELECT count FROM migration_counts WHERE name = 'facts_moved'),
+        (SELECT count FROM migration_counts WHERE name = 'entries_inserted'),
+        (SELECT count FROM migration_counts WHERE name = 'notes_from_values'),
+        (SELECT count FROM migration_counts WHERE name = 'papers_linked');
+    END
+    $log$
   `);
 }
