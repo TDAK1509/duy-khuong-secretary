@@ -7,6 +7,7 @@ type EntryRow = {
   when_dropoff_name: string | null;
   then_customer: string | null;
   then_dropoff: string | null;
+  then_shown_goods_name: string | null;
   then_note: string | null;
 };
 
@@ -18,7 +19,7 @@ export async function listReaderKnowledge(transaction: Transaction, workspaceId:
 }
 
 const LIST_READER_ENTRIES_SQL = `
-  SELECT when_goods, when_pickup_name, when_dropoff_name, then_customer, then_dropoff, then_note
+  SELECT when_goods, when_pickup_name, when_dropoff_name, then_customer, then_dropoff, then_shown_goods_name, then_note
   FROM company_knowledge_entries
   WHERE workspace_id = $1
     AND (when_goods IS NOT NULL OR when_pickup_match_key IS NOT NULL OR when_dropoff_match_key IS NOT NULL
@@ -28,7 +29,7 @@ const LIST_READER_ENTRIES_SQL = `
 function toReaderKnowledge(row: EntryRow): ReaderKnowledge {
   return {
     when: keepFilled({ goods: row.when_goods, pickup: row.when_pickup_name, dropoff: row.when_dropoff_name }),
-    then: keepFilled({ customer: row.then_customer, dropoff: row.then_dropoff, note: row.then_note }),
+    then: keepFilled({ customer: row.then_customer, dropoff: row.then_dropoff, shown_goods: row.then_shown_goods_name, note: row.then_note }),
   };
 }
 

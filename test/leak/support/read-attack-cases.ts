@@ -12,7 +12,6 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'list_company_knowledge', kind: 'read', arguments: {} },
   { name: 'total_company_knowledge', kind: 'read', arguments: { value_name: 'Lương tài xế', ...SHARED_PLATE_FILTER, group_by: 'none' } },
   { name: 'list_rules', kind: 'read', arguments: {} },
-  { name: 'list_goods_names', kind: 'read', arguments: {} },
   { name: 'propose_document_templates', kind: 'read', arguments: { paper_id: null }, alsoAimedAt: [{ paper_id: B_ONLY_DOCUMENT_ID }] },
   { name: 'list_document_templates', kind: 'read', arguments: {} },
   { name: 'maintenance_status', kind: 'read', arguments: { plate: SHARED_PLATE, maintenance_item: null, cursor: null } },

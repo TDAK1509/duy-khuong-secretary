@@ -1,4 +1,3 @@
-import { showGoodsName, type ShownGoodsNames } from '../goods-names/show-goods-name.ts';
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { pairDropOffsInBatches, type BatchedPairing, type ModelPaper, type ModelPairing, type Truck } from './pair-drop-offs-by-model.ts';
@@ -15,12 +14,12 @@ export type PairingPapers = { pickups: TripPaper[]; receipts: TripPaper[] };
 
 type DatedPaper = TripPaper & { vehicle_plate: string; document_date: string };
 
-export async function pairTrips(reader: ReaderService | null, { pickups, receipts }: PairingPapers, rules: string[], goodsNames: ShownGoodsNames): Promise<TripPairing> {
+export async function pairTrips(reader: ReaderService | null, { pickups, receipts }: PairingPapers, rules: string[]): Promise<TripPairing> {
   const duplicateIds = new Set(groupPossibleDuplicates(pickups).flat().map((paper) => paper.id));
   const datedPickups = pickups.filter(isDated);
   const datedReceipts = receipts.filter(isDated);
   const rule = pairDropOffsByRule(datedPickups.map((paper) => toPairingRow(paper, duplicateIds)), datedReceipts.map(toPairingPaper));
-  const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts, goodsNames), rules);
+  const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts), rules);
   const pairs = choosePairs(rule.pairs, model);
   logPairing(pairs, model.calls);
   return { pairs, modelCalls: model.calls, modelSkippedRows: model.skippedRows };
@@ -34,20 +33,19 @@ function toPairingRow(paper: DatedPaper, duplicateIds: Set<string>): PairingRow 
   return { ...toPairingPaper(paper), isPossibleDuplicate: duplicateIds.has(paper.id) };
 }
 
-function listTrucksWithReceipts(pickups: DatedPaper[], receipts: DatedPaper[], goodsNames: ShownGoodsNames): Truck[] {
-  const toShownModelPaper = (paper: DatedPaper): ModelPaper => toModelPaper(paper, goodsNames);
-  const receiptsByPlate = groupByPlate(receipts.map(toShownModelPaper));
-  const trucks = [...groupByPlate(pickups.map(toShownModelPaper))].map(([plate, truckPickups]) => ({ plate, pickups: truckPickups, receipts: receiptsByPlate.get(plate) ?? [] }));
+function listTrucksWithReceipts(pickups: DatedPaper[], receipts: DatedPaper[]): Truck[] {
+  const receiptsByPlate = groupByPlate(receipts.map(toModelPaper));
+  const trucks = [...groupByPlate(pickups.map(toModelPaper))].map(([plate, truckPickups]) => ({ plate, pickups: truckPickups, receipts: receiptsByPlate.get(plate) ?? [] }));
   return trucks.filter((truck) => truck.receipts.length > 0);
 }
 
-function toModelPaper(paper: DatedPaper, goodsNames: ShownGoodsNames): ModelPaper {
+function toModelPaper(paper: DatedPaper): ModelPaper {
   return {
     ...toPairingPaper(paper),
     date: paper.document_date,
     preciseAt: paper.precise_at,
     ticketNumber: paper.document_number,
-    goods: showGoodsName(goodsNames, paper.goods_line),
+    goods: paper.shown_goods_name ?? paper.goods_line,
     issuer: paper.issuer_name,
     customer: paper.customer_party,
     note: paper.note_line,

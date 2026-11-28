@@ -5,7 +5,7 @@ import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
-import { OUTCOME_DEFINITIONS, PER_TON_UNIT } from '../../facts/knowledge-outcomes.ts';
+import { OUTCOME_DEFINITIONS, PER_TON_UNIT, SHOWN_GOODS_MATCH_KEY } from '../../facts/knowledge-outcomes.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
 import type { RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
@@ -13,7 +13,6 @@ import { DAY_MS, loadTripPapers, MAX_TRIP_PAPERS, TOO_MANY_PAPERS_ERROR } from '
 import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
 import { countReviewTripPapers, listWinningValues, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
 import { matchTripEntries } from '../../trips/match-trip-entries.ts';
-import { loadShownGoodsNames, type ShownGoodsNames } from '../../goods-names/show-goods-name.ts';
 import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
@@ -104,22 +103,21 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const papers = await loadTripPapers(database, query);
   if (papers === null) return failTool(TOO_MANY_PAPERS_ERROR);
   const rules = await listWorkspaceRules(database, scope.workspaceId);
-  const goodsNames = await loadShownGoodsNames(database, scope.workspaceId);
-  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule), goodsNames);
+  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
-  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing, goodsNames });
+  const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });
   return storeReport(storage, scope, planned, report, pairing);
 }
 
-type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing; goodsNames: ShownGoodsNames };
+type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing };
 
-async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing, goodsNames }: PairedTrips): Promise<TripReport> {
+async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing }: PairedTrips): Promise<TripReport> {
   const entries = await matchTripEntries(database, dropOffReader, scope.workspaceId, trips);
   const documentIds = entries.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
   const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), entries.excludedLinks);
   const reviewPapers = await countReviewTripPapers(database, query);
-  return buildTripReport({ title: request.title, createdAt, columns, trips: entries.trips, pickups, repeats, winners, reviewPapers, pairing, matching: entries.matching, goodsNames, dateFrom: request.date_from, dateTo: request.date_to });
+  return buildTripReport({ title: request.title, createdAt, columns, trips: entries.trips, pickups, repeats, winners, reviewPapers, pairing, matching: entries.matching, dateFrom: request.date_from, dateTo: request.date_to });
 }
 
 async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
@@ -134,7 +132,12 @@ function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {
 }
 
 function listValueKeys(columns: TripColumn[]): string[] {
-  return [...new Set(columns.flatMap((column) => (column.source === 'knowledge_value' || column.source === 'knowledge_amount' ? [column.matchKey] : [])))];
+  return [...new Set(columns.flatMap(listColumnValueKeys))];
+}
+
+function listColumnValueKeys(column: TripColumn): string[] {
+  if (column.source === 'knowledge_value' || column.source === 'knowledge_amount') return [column.matchKey];
+  return column.source === 'field' && column.field === 'goods' ? [SHOWN_GOODS_MATCH_KEY] : [];
 }
 
 function summarizeReport(report: TripReport, pairing: TripPairing) {

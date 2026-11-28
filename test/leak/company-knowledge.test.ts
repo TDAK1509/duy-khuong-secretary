@@ -192,6 +192,7 @@ function saveArguments(given: Record<string, string | number>): Record<string, s
     when_driver_member_id: null,
     then_customer: null,
     then_dropoff: null,
+    then_shown_goods: null,
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,

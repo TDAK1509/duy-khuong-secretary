@@ -4,7 +4,7 @@ export type GuardedTool = (typeof GUARDED_TOOLS)[number];
 
 export const MEMBER_TEXT_TOOLS: readonly string[] = ['search_records', 'count_records', 'maintenance_status', 'list_document_numbers', 'total_document_numbers', 'list_organizations', 'list_merged_names', 'list_sources', 'list_documents', 'correct_document', 'total_company_knowledge', 'export_trip_report_xlsx', 'propose_document_templates'];
 
-export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx', 'list_company_knowledge', 'export_report_xlsx', 'list_document_templates', 'list_rules', 'list_goods_names'];
+export const ADMIN_TEXT_TOOLS: readonly string[] = ['list_members', 'list_member_facts', 'list_scheduled_tasks', 'attach_photos', 'export_documents_xlsx', 'list_company_knowledge', 'export_report_xlsx', 'list_document_templates', 'list_rules'];
 
 export class AdminTextGuard {
   private otherTextSeen: boolean;

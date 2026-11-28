@@ -13,6 +13,7 @@ export type KnowledgeConditions = {
 export type KnowledgeOutcomes = {
   customer: string | null;
   dropoff: string | null;
+  shownGoodsName: string | null;
   wageVnd: number | null;
   ratePerTonVnd: number | null;
   allowanceVnd: number | null;
@@ -43,4 +44,4 @@ export type StoredEntry = {
   updatedAt: Date;
 };
 
-export const NO_OUTCOMES: KnowledgeOutcomes = { customer: null, dropoff: null, wageVnd: null, ratePerTonVnd: null, allowanceVnd: null, note: null };
+export const NO_OUTCOMES: KnowledgeOutcomes = { customer: null, dropoff: null, shownGoodsName: null, wageVnd: null, ratePerTonVnd: null, allowanceVnd: null, note: null };

@@ -31,7 +31,7 @@ export const EXPORT_TRIP_REPORT_XLSX_SPEC: ToolSpec = {
               enum: [...TRIP_FIELDS, null],
               description: 'Khi source là field: date (ngày của chuyến), pickup_date (ngày nhận hàng hoặc lấy hàng), dropoff_date (ngày đổ hàng hoặc giao hàng), plate (biển số), route (tuyến "nơi lấy → nơi đổ"), pickup_place (nơi lấy hàng), dropoff_place (nơi đổ hàng), customer (khách hàng), goods (hàng hóa), pickup_weight_kg (khối lượng lấy hàng, kg), dropoff_weight_kg (khối lượng đổ hàng, kg), weight_kg (trọng lượng chuyến: lấy hàng, không có thì đổ hàng), pickup_document_number (số phiếu lấy hàng), dropoff_document_number (số phiếu cân hoặc phiếu nhận hàng ở nơi đổ), document_number (cả hai số), document_kind, sender (người gửi). Nếu không thì null.',
             },
-            value_name: { type: ['string', 'null'], description: 'Khi source là knowledge_value hoặc knowledge_amount: một trong Khách hàng, Nơi đổ hàng, Lương tài xế, Cước vận chuyển, Chi phí bồi dưỡng, Ghi chú. knowledge_amount chỉ dùng với Cước vận chuyển. Nếu không thì null.' },
+            value_name: { type: ['string', 'null'], description: 'Khi source là knowledge_value hoặc knowledge_amount: một trong Khách hàng, Nơi đổ hàng, Tên hàng hiển thị, Lương tài xế, Cước vận chuyển, Chi phí bồi dưỡng, Ghi chú. knowledge_amount chỉ dùng với Cước vận chuyển. Nếu không thì null.' },
           },
           required: ['name', 'source', 'field', 'value_name'],
           additionalProperties: false,

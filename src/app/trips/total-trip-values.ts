@@ -7,7 +7,6 @@ import { buildMatchKey } from '../documents/build-match-key.ts';
 import { countNotRereadMessages } from '../documents/count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from '../documents/document-groups.ts';
 import { countReviewDocuments, type DocumentKnowledgeRow, type KnowledgeValueRequest, type KnowledgeTotals } from '../facts/knowledge-totals.ts';
-import { loadShownGoodsNames } from '../goods-names/show-goods-name.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { listWorkspaceRules } from '../workspace-rules/list-workspace-rules.ts';
 import { findWinner, indexWinners, readWinnerWeight } from './build-trip-report.ts';
@@ -61,7 +60,7 @@ async function matchTripsInRange(database: Database, workspaceId: string, { rang
   const papers = await loadTripPapers(database, { workspaceId, dateFrom: range.from, dateTo: range.to, plate, limit: MAX_TRIP_PAPERS + 1 });
   if (papers === null) return null;
   const rules = await listWorkspaceRules(database, workspaceId);
-  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule), await loadShownGoodsNames(database, workspaceId));
+  const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule));
   const trips = buildTrips({ ...papers, dateFrom: range.from, dateTo: range.to }, pairing);
   return matchTripEntries(database, dropOffReader, workspaceId, trips);
 }

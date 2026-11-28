@@ -11,6 +11,7 @@ import { ToolRefusal, refuseInvalidArgument } from './tool-result.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
 const NO_CONDITION_ERROR = 'Cần ít nhất một điều kiện when.';
+const MAX_SHOWN_GOODS_NAME_LENGTH = 80;
 const NO_OUTCOME_ERROR = 'Cần ít nhất một kết quả then.';
 
 export const knowledgeFieldsSchema = {
@@ -22,6 +23,7 @@ export const knowledgeFieldsSchema = {
   when_driver_member_id: z.string().nullable(),
   then_customer: z.string().nullable(),
   then_dropoff: z.string().nullable(),
+  then_shown_goods: z.string().nullable(),
   then_wage_vnd: z.number().nullable(),
   then_rate_vnd_per_ton: z.number().nullable(),
   then_allowance_vnd: z.number().nullable(),
@@ -66,11 +68,18 @@ function readOutcomes(request: KnowledgeArguments): KnowledgeOutcomes {
   return {
     customer: readText(request.then_customer),
     dropoff: readText(request.then_dropoff),
+    shownGoodsName: readShownGoodsName(request.then_shown_goods),
     wageVnd: readAmount(request.then_wage_vnd, 'then_wage_vnd'),
     ratePerTonVnd: readAmount(request.then_rate_vnd_per_ton, 'then_rate_vnd_per_ton'),
     allowanceVnd: readAmount(request.then_allowance_vnd, 'then_allowance_vnd'),
     note: readText(request.then_note),
   };
+}
+
+function readShownGoodsName(raw: string | null): string | null {
+  const name = readText(raw);
+  if (name !== null && name.length > MAX_SHOWN_GOODS_NAME_LENGTH) refuseInvalidArgument('then_shown_goods');
+  return name;
 }
 
 function readAmount(raw: number | null, field: string): number | null {
