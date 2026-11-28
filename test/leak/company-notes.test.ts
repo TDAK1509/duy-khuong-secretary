@@ -51,7 +51,7 @@ test('the paper export shows the note of the linked entry', async () => {
   assert.deepEqual(await exportPaperColumn('Ghi chú'), ['cân lại ở trạm']);
 });
 
-function saveNoteArguments(note: string): Record<string, string | null> {
+function saveNoteArguments(note: string): Record<string, string | boolean | null> {
   return {
     statement: note,
     entry_id: null,
@@ -67,6 +67,7 @@ function saveNoteArguments(note: string): Record<string, string | null> {
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,
     then_note: note,
+    then_equal_weights: false,
   };
 }
 
