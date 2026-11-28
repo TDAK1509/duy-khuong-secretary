@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import { answerAdminQuestion, playAdminTurn } from './support/admin-chat-session.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { insertPaper } from './support/paper-fixtures.ts';
+import { insertEntry, insertPaper } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { ScriptedChatModel } from './support/scripted-chat-model.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
 const databases = openLeakDatabases();
@@ -19,6 +21,11 @@ test('a note with no condition saves and links no paper', async () => {
   await callChatTool(databases.runtime, 'save_company_knowledge', saveNoteArguments('cân lại ở trạm'));
   const entries = await listNoteEntries('cân lại ở trạm');
   assert.deepEqual(entries.map((entry) => entry.links), [0]);
+});
+
+test('the admin chat context lists a note with its author and conditions', async () => {
+  await insertEntry(databases.owner, { pickup: 'Alpha', note: 'cân lại ở trạm' });
+  assert.ok((await readCompanyRules()).includes('- SAFE-A-ADMIN: lấy hàng ở Alpha: cân lại ở trạm'));
 });
 
 function saveNoteArguments(note: string): Record<string, string | null> {
@@ -47,4 +54,13 @@ async function listNoteEntries(note: string): Promise<NoteEntry[]> {
     [WORKSPACE_A_ID, note],
   );
   return rows;
+}
+
+async function readCompanyRules(): Promise<string> {
+  const model = new ScriptedChatModel([]);
+  const played = await playAdminTurn({ owner: databases.owner, database: databases.runtime, chat: model, text: 'công ty có những ghi chú nào?', turnNumber: 1 }, answerAdminQuestion);
+  if (played.crash !== null) throw played.crash;
+  const [contextTurn] = model.requests[0]?.turns ?? [];
+  if (contextTurn?.role !== 'user' || contextTurn.text === null) throw new Error('the model received no user turn');
+  return contextTurn.text.match(/<retrieved-data source="company-rules">\n([\s\S]*?)\n<\/retrieved-data>/)?.[1] ?? '';
 }
