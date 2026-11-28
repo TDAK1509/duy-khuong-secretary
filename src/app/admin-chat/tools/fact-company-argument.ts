@@ -31,12 +31,11 @@ function describeAmbiguousCompany(name: string, organizationNames: string[]): st
   return `Có nhiều công ty đã lưu khớp với "${name}": ${organizationNames.join('; ')}. Hỏi lại quản lý muốn chọn công ty nào.`;
 }
 
-export type CompanyArguments = { pickup_company: string | null; dropoff_company: string | null; customer_company: string | null };
+export type CompanyArguments = { pickup_company: string | null; dropoff_company: string | null };
 
 export function listSlotNames(request: CompanyArguments): SlotNames {
   const names: SlotNames = {};
   if (request.pickup_company !== null) names.pickup = request.pickup_company.trim();
   if (request.dropoff_company !== null) names.dropoff = request.dropoff_company.trim();
-  if (request.customer_company !== null) names.customer = request.customer_company.trim();
   return names;
 }

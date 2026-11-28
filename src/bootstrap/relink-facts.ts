@@ -49,10 +49,8 @@ function parseArguments([workspaceId, flag, ...rest]: string[]): RelinkArguments
   return { workspaceId: parsedWorkspaceId.data, apply: flag === '--apply' };
 }
 
-function describeResult({ factId, before, after, customer, customerProblem, slots }: RelinkedFact): string {
-  const customerNote = customer === null ? '' : ` customer=${customer}`;
-  const problemNote = customerProblem === null ? '' : ` (${customerProblem}, customer not filled)`;
-  return `${factId} ${before} → ${after}${customerNote}${problemNote}${slots.map(describeSlot).join('')}`;
+function describeResult({ factId, before, after, slots }: RelinkedFact): string {
+  return `${factId} ${before} → ${after}${slots.map(describeSlot).join('')}`;
 }
 
 function describeSlot({ slot, name, picked }: SlotOutcome): string {

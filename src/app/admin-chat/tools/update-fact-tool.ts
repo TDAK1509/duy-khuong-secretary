@@ -12,7 +12,7 @@ import { failTool, refuseInvalidArgument, ToolRefusal } from './tool-result.ts';
 import { readPlateArgument } from './vehicle-plate.ts';
 
 const SCOPE_FIELDS = ['vehicle_plate', 'driver'] as const;
-const ROUTE_FIELDS = ['pickup_company', 'dropoff_company', 'customer_company'] as const;
+const ROUTE_FIELDS = ['pickup_company', 'dropoff_company'] as const;
 
 const FACT_NOT_FOUND_ERROR = 'Không tìm thấy thông tin này. Gọi list_facts để lấy đúng id.';
 const NOTHING_TO_CHANGE_ERROR = 'Không có thay đổi nào để lưu.';
@@ -110,7 +110,6 @@ function describeUpdate(result: Extract<FactUpdateResult, { kind: 'updated' }>, 
       driver: result.scope.driverName,
       pickup_company: result.scope.pickupName,
       dropoff_company: result.scope.dropoffName,
-      customer_company: result.scope.customerName,
     },
     linked_documents: result.linkedDocuments,
   };

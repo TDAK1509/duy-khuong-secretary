@@ -1,13 +1,13 @@
 import type { Transaction } from '../db/transaction.ts';
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { GOODS_VALUE_KEY, type FactCompany, type FactValue } from './fact.ts';
-import { COMPANY_SLOTS, type CompanySlot } from './pick-fact-companies.ts';
+import { FACT_COMPANY_SLOTS, type FactCompanySlot } from './pick-fact-companies.ts';
 
 export type RouteSide = { matchKey: string | null; resolved: boolean; picks: string[] };
 
-export type RouteIdentity = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null } & Record<CompanySlot, RouteSide>;
+export type RouteIdentity = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null } & Record<FactCompanySlot, RouteSide>;
 
-export type RouteFact = RouteIdentity & { id: string; pickupName: string | null; dropoffName: string | null; customerName: string | null; goodsName: string | null };
+export type RouteFact = RouteIdentity & { id: string; pickupName: string | null; dropoffName: string | null; goodsName: string | null };
 
 type RouteFactRow = {
   id: string;
@@ -21,10 +21,6 @@ type RouteFactRow = {
   dropoff_match_key: string | null;
   dropoff_resolved: boolean;
   dropoff_picks: string[];
-  customer_name: string | null;
-  customer_match_key: string | null;
-  customer_resolved: boolean;
-  customer_picks: string[];
   goods: string | null;
 };
 
@@ -32,7 +28,6 @@ const SELECT_ROUTE_FACTS_SQL = `
   SELECT fact.id, fact.vehicle_plate, fact.driver_user_id,
     fact.pickup_name, fact.pickup_match_key, fact.pickup_resolved, ${buildPicksSql('pickup')} AS pickup_picks,
     fact.dropoff_name, fact.dropoff_match_key, fact.dropoff_resolved, ${buildPicksSql('dropoff')} AS dropoff_picks,
-    fact.customer_name, fact.customer_match_key, fact.customer_resolved, ${buildPicksSql('customer')} AS customer_picks,
     (SELECT value.text_value FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}') AS goods
   FROM facts fact`;
 
@@ -62,7 +57,7 @@ export async function findSameRouteFacts(transaction: Transaction, workspaceId: 
   const rows = await transaction.query<RouteFactRow>(LIST_ROUTE_FACTS_SQL, [workspaceId, identity.vehiclePlate, identity.driverUserId]);
   const facts = rows.map(toRouteFact);
   const aliases = await loadAliases(transaction, workspaceId, [identity, ...facts]);
-  return facts.filter((fact) => isSameGoods(identity, fact) && COMPANY_SLOTS.every((slot) => isSameCompany(identity[slot], fact[slot], aliases)));
+  return facts.filter((fact) => isSameGoods(identity, fact) && FACT_COMPANY_SLOTS.every((slot) => isSameCompany(identity[slot], fact[slot], aliases)));
 }
 
 export type ScopeOwner = { vehiclePlate: string | null; driverUserId: string | null; goods: string | null };
@@ -76,7 +71,7 @@ export async function findRouteFactTwin(transaction: Transaction, workspaceId: s
   return matches.find((match) => match.id !== factId) ?? null;
 }
 
-function buildPicksSql(slot: CompanySlot): string {
+function buildPicksSql(slot: FactCompanySlot): string {
   return `coalesce((SELECT array_agg(pick.organization_id::text) FROM fact_companies pick WHERE pick.fact_id = fact.id AND pick.slot = '${slot}'), '{}')`;
 }
 
@@ -87,19 +82,17 @@ function toRouteFact(row: RouteFactRow): RouteFact {
     driverUserId: row.driver_user_id,
     pickupName: row.pickup_name,
     dropoffName: row.dropoff_name,
-    customerName: row.customer_name,
     goods: buildMatchKey(row.goods ?? ''),
     goodsName: row.goods,
     pickup: { matchKey: row.pickup_match_key, resolved: row.pickup_resolved, picks: row.pickup_picks },
     dropoff: { matchKey: row.dropoff_match_key, resolved: row.dropoff_resolved, picks: row.dropoff_picks },
-    customer: { matchKey: row.customer_match_key, resolved: row.customer_resolved, picks: row.customer_picks },
   };
 }
 
 type AliasIndex = Map<string, Set<string>>;
 
 async function loadAliases(transaction: Transaction, workspaceId: string, identities: RouteIdentity[]): Promise<AliasIndex> {
-  const keys = [...new Set(identities.flatMap((identity) => COMPANY_SLOTS.flatMap((slot) => identity[slot].matchKey ?? [])))];
+  const keys = [...new Set(identities.flatMap((identity) => FACT_COMPANY_SLOTS.flatMap((slot) => identity[slot].matchKey ?? [])))];
   const rows = await transaction.query<{ match_key: string; organization_id: string }>(LIST_ALIASES_SQL, [workspaceId, keys]);
   const index: AliasIndex = new Map();
   for (const row of rows) index.set(row.match_key, new Set([...(index.get(row.match_key) ?? []), row.organization_id]));

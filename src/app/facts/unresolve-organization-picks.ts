@@ -1,11 +1,11 @@
 import type { Transaction } from '../db/transaction.ts';
 import { linkFactToMatchingDocuments } from './link-facts.ts';
-import type { CompanySlot } from './pick-fact-companies.ts';
+import type { FactCompanySlot } from './pick-fact-companies.ts';
 
-const RESOLVED_COLUMNS: Record<CompanySlot, string> = { pickup: 'pickup_resolved', dropoff: 'dropoff_resolved', customer: 'customer_resolved' };
+const RESOLVED_COLUMNS: Record<FactCompanySlot, string> = { pickup: 'pickup_resolved', dropoff: 'dropoff_resolved' };
 
 export async function unresolveOrganizationPicks(transaction: Transaction, workspaceId: string, organizationId: string): Promise<string[]> {
-  const picks = await transaction.query<{ fact_id: string; slot: CompanySlot }>(
+  const picks = await transaction.query<{ fact_id: string; slot: FactCompanySlot }>(
     'SELECT DISTINCT fact_id, slot FROM fact_companies WHERE workspace_id = $1 AND organization_id = $2',
     [workspaceId, organizationId],
   );
@@ -15,7 +15,7 @@ export async function unresolveOrganizationPicks(transaction: Transaction, works
   return factIds;
 }
 
-async function unresolveSlot(transaction: Transaction, workspaceId: string, factId: string, slot: CompanySlot): Promise<void> {
+async function unresolveSlot(transaction: Transaction, workspaceId: string, factId: string, slot: FactCompanySlot): Promise<void> {
   await transaction.query('DELETE FROM fact_companies WHERE fact_id = $1 AND workspace_id = $2 AND slot = $3', [factId, workspaceId, slot]);
   await transaction.query(`UPDATE facts SET ${RESOLVED_COLUMNS[slot]} = false WHERE id = $1 AND workspace_id = $2`, [factId, workspaceId]);
 }

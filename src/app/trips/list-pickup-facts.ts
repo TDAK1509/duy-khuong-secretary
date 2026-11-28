@@ -1,4 +1,5 @@
 import type { Database } from '../db/transaction.ts';
+import { SELECT_FACT_CUSTOMER_SQL } from '../facts/fact.ts';
 
 export type PickupFact = {
   document_id: string;
@@ -13,7 +14,7 @@ export type PickupFact = {
 export async function listPickupFacts(database: Database, workspaceId: string, pickupIds: string[]): Promise<PickupFact[]> {
   if (pickupIds.length === 0) return [];
   const { rows } = await database.query<PickupFact>(
-    `SELECT link.document_id, fact.id AS fact_id, fact.pickup_name, fact.pickup_match_key, fact.dropoff_name, fact.dropoff_match_key, fact.customer_name
+    `SELECT link.document_id, fact.id AS fact_id, fact.pickup_name, fact.pickup_match_key, fact.dropoff_name, fact.dropoff_match_key, ${SELECT_FACT_CUSTOMER_SQL} AS customer_name
      FROM document_facts link JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
      WHERE link.workspace_id = $1 AND link.document_id = ANY($2::uuid[])
      ORDER BY fact.updated_at DESC, fact.id`,

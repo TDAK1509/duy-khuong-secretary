@@ -6,6 +6,10 @@ export const COMPANY_SLOTS = ['pickup', 'dropoff', 'customer'] as const;
 
 export type CompanySlot = (typeof COMPANY_SLOTS)[number];
 
+export const FACT_COMPANY_SLOTS = ['pickup', 'dropoff'] as const;
+
+export type FactCompanySlot = (typeof FACT_COMPANY_SLOTS)[number];
+
 export type SlotNames = Partial<Record<CompanySlot, string>>;
 
 export type PickedCompanies = { organizationIds: string[]; organizationNames: string[] };

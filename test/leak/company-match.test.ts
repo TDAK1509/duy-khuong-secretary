@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
+import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertFact, insertPaper, linkFact, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
@@ -104,4 +105,18 @@ test('a goods word of four or more letters matches as a prefix', async () => {
   const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [{ name: 'Hàng hóa', text: 'Clinke' }] });
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
+});
+
+test('a customer the admin names is saved as a value and does not limit the match', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const saved = JSON.parse(await callChatTool(databases.runtime, 'save_fact', {
+    statement: 'Lấy hàng ở Alpha, khách hàng là Gamma',
+    vehicle_plate: null,
+    driver_member_id: null,
+    pickup_company: 'Alpha',
+    dropoff_company: null,
+    values: [{ name: 'Khách hàng', number: null, unit: null, text: 'Gamma' }],
+    fact_id: null,
+  })) as { fact_id: string };
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, saved.fact_id), [ticket]);
 });

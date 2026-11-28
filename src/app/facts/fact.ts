@@ -2,6 +2,8 @@ export const CUSTOMER_VALUE_NAME = 'Khách hàng';
 export const CUSTOMER_VALUE_KEY = 'khachhang';
 export const GOODS_VALUE_KEY = 'hanghoa';
 
+export const SELECT_FACT_CUSTOMER_SQL = `(SELECT value.text_value FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${CUSTOMER_VALUE_KEY}')`;
+
 export type FactCompany = { name: string; matchKey: string; organizationIds: string[] | null };
 
 export type FactScope = {
@@ -9,7 +11,6 @@ export type FactScope = {
   driverUserId: string | null;
   pickup: FactCompany | null;
   dropoff: FactCompany | null;
-  customer: FactCompany | null;
 };
 
 export type FactValueContent = { kind: 'number'; number: number; unit: string } | { kind: 'text'; text: string };
