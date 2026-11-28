@@ -32,3 +32,10 @@ test('a handover record with item lines links the fact', async () => {
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [record]);
 });
+
+test('a paper without the pickup company does not link', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Beta' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha' });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
+});
