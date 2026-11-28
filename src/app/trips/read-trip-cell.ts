@@ -113,10 +113,11 @@ function readCustomer(trip: Trip, { snapshots }: TripContext): Reading {
   return { value, source: buildEntrySource({ entryId: paper.route_entry_id ?? undefined, documentId: paper.id }, 'then_customer', value, snapshots) };
 }
 
-function readGoods(trip: Trip, { winners }: TripContext): Reading {
-  const shown = findWinner(winners, trip, SHOWN_GOODS_MATCH_KEY)?.text ?? null;
+function readGoods(trip: Trip, { winners, snapshots }: TripContext): Reading {
+  const shown = findWinner(winners, trip, SHOWN_GOODS_MATCH_KEY);
+  if (shown?.text != null) return { value: shown.text, source: buildEntrySource({ entryId: shown.entry_id, documentId: shown.document_id }, describeOutcomeField(SHOWN_GOODS_MATCH_KEY), shown.text, snapshots) };
   const { paper, value } = readFirst(trip, (candidate) => candidate.goods_line);
-  return readPaper(paper ?? readAnchor(trip), 'goods_line', () => shown ?? value);
+  return readPaper(paper ?? readAnchor(trip), 'goods_line', () => value);
 }
 
 function readDocumentNumbers(trip: Trip): Reading {

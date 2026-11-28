@@ -25,6 +25,7 @@ const DROPOFF_WEIGHT_COLUMN = { name: 'KL dỡ', source: 'field', field: 'dropof
 const PICKUP_DATE_COLUMN = { name: 'Ngày lấy', source: 'field', field: 'pickup_date', value_name: null };
 const RATE_COLUMN = { name: 'Đơn giá', source: 'knowledge_value', field: null, value_name: 'Cước vận chuyển' };
 const A_DRIVER_USER_ID = 'aaaaaaaa-0001-4000-8000-000000000002';
+const GOODS_COLUMN = { name: 'Hàng', source: 'field', field: 'goods', value_name: null };
 const FREIGHT_COLUMN = { name: 'Cước', source: 'knowledge_amount', field: null, value_name: 'Cước vận chuyển' };
 
 beforeEach(() => resetDatabase(databases.owner));
@@ -140,6 +141,16 @@ test('a rate column records the per-ton unit', async () => {
   await exportTrip([RATE_COLUMN]);
   const [row] = await listExportRows(databases.owner);
   assert.equal(row!.columns.find((column) => column.name === 'Đơn giá')?.unit, 'đ/tấn');
+});
+
+test('a goods cell that shows an entry name records that entry as its source', async () => {
+  await insertAlphaPaper();
+  const entryId = await insertEntry(databases.owner, { pickup: 'Alpha', shownGoodsName: 'Đá xay' });
+  await linkEntry(databases.runtime, entryId);
+  await exportTrip([GOODS_COLUMN]);
+  const [row] = await listExportRows(databases.owner);
+  const cell = findCell(row!, 'Hàng');
+  assert.deepEqual([cell.value, cell.source?.kind, cell.source?.entry_id, cell.source?.field], ['Đá xay', 'entry', entryId, 'then_shown_goods_name']);
 });
 
 async function insertAlphaPaper(spec: { weightKg?: number } = {}): Promise<string> {
