@@ -11,7 +11,7 @@ const RETURNED_EVENT_ID = 'aaaaaaaa-0019-4000-8000-0000000000a1';
 const RETURNED_MESSAGE_ID = 'aaaaaaaa-0020-4000-8000-0000000000a1';
 const RETURNED_FILE_ID = 'aaaaaaaa-0022-4000-8000-0000000000a1';
 const RETURNED_FILE_KEY = 'leak-test/returned-export.xlsx';
-const HEADER_ROW = 4;
+export const HEADER_ROW = 4;
 
 export const FIRST_DATA_ROW = HEADER_ROW + 1;
 
@@ -62,3 +62,18 @@ export function findColumn(sheet: ExcelJS.Worksheet, header: string): number {
   for (let column = 1; column <= sheet.columnCount; column += 1) if (sheet.getRow(HEADER_ROW).getCell(column).value === header) return column;
   throw new Error(`the sheet has no column "${header}"`);
 }
+
+export async function buildPlainSheet(): Promise<Uint8Array> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Data');
+  sheet.addRow(['Plate', 'Weight']);
+  sheet.addRow(['51C12345', 27000]);
+  return new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
+}
+
+export async function countNewReviews(owner: PostgresPool): Promise<number> {
+  const { rows } = await owner.query('SELECT 1 FROM company_export_reviews WHERE id <> ALL($1::uuid[])', [SEEDED_REVIEW_IDS]);
+  return rows.length;
+}
+
+const SEEDED_REVIEW_IDS = ['aaaaaaaa-0049-4000-8000-000000000001', 'bbbbbbbb-0049-4000-8000-000000000001'];
