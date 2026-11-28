@@ -39,3 +39,10 @@ test('a paper without the pickup company does not link', async () => {
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
 });
+
+test('a text message that names the pickup company does not link', async () => {
+  await insertPaper(databases.owner, { kind: 'tin nhắn', stage: null, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha' });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
+});
