@@ -7,7 +7,7 @@ import { readPickupPlace, readWeightKg } from './read-trip-paper.ts';
 import { describePairingMethod } from './trip-report-texts.ts';
 import type { TripColumn, TripField } from './trip-columns.ts';
 
-export type Reading = { value: ReportCell; source: CellSource };
+export type Reading = { value: ReportCell; source: CellSource | null };
 
 export type WinnerIndex = Map<string, WinningValue>;
 
@@ -34,21 +34,21 @@ export function readPairingMethod(trip: Trip): Reading {
 }
 
 const FIELD_READERS: Record<TripField, FieldReader> = {
-  date: (trip) => readPaper(trip, readAnchor(trip), 'document_date', (paper) => paper.document_date),
-  pickup_date: (trip) => readPaper(trip, trip.pickup, 'document_date', (paper) => paper.document_date),
-  dropoff_date: (trip) => readPaper(trip, trip.dropOff, 'document_date', (paper) => paper.document_date),
-  plate: (trip) => readPaper(trip, readAnchor(trip), 'vehicle_plate', (paper) => paper.vehicle_plate),
+  date: (trip) => readPaper(readAnchor(trip), 'document_date', (paper) => paper.document_date),
+  pickup_date: (trip) => readPaper(trip.pickup, 'document_date', (paper) => paper.document_date),
+  dropoff_date: (trip) => readPaper(trip.dropOff, 'document_date', (paper) => paper.document_date),
+  plate: (trip) => readPaper(readAnchor(trip), 'vehicle_plate', (paper) => paper.vehicle_plate),
   route: (trip, context) => readRoute(trip, context),
   pickup_place: (trip, context) => readPickupPlaceCell(trip, context),
   dropoff_place: (trip, context) => readDropOffPlace(trip, context),
   customer: (trip, context) => readCustomer(trip, context),
   goods: (trip, context) => readGoods(trip, context),
   weight_kg: (trip) => readFirstField(trip, 'weight_kg', (paper) => readWeightKg(paper)),
-  pickup_weight_kg: (trip) => readPaper(trip, trip.pickup, 'weight_kg', (paper) => readWeightKg(paper)),
-  dropoff_weight_kg: (trip) => readPaper(trip, trip.dropOff, 'weight_kg', (paper) => readWeightKg(paper)),
+  pickup_weight_kg: (trip) => readPaper(trip.pickup, 'weight_kg', (paper) => readWeightKg(paper)),
+  dropoff_weight_kg: (trip) => readPaper(trip.dropOff, 'weight_kg', (paper) => readWeightKg(paper)),
   document_number: (trip) => readDocumentNumbers(trip),
-  pickup_document_number: (trip) => readPaper(trip, trip.pickup, 'document_number', (paper) => paper.document_number),
-  dropoff_document_number: (trip) => readPaper(trip, trip.dropOff, 'document_number', (paper) => paper.document_number),
+  pickup_document_number: (trip) => readPaper(trip.pickup, 'document_number', (paper) => paper.document_number),
+  dropoff_document_number: (trip) => readPaper(trip.dropOff, 'document_number', (paper) => paper.document_number),
   document_kind: (trip) => readFirstField(trip, 'kind', (paper) => paper.kind),
   sender: (trip) => readFirstField(trip, 'sender_name', (paper) => paper.sender_name),
 };
@@ -61,8 +61,8 @@ function readAnchor(trip: Trip): TripPaper {
   return (trip.pickup ?? trip.dropOff) as TripPaper;
 }
 
-function readPaper(trip: Trip, paper: TripPaper | null, field: string, read: (paper: TripPaper) => ReportCell): Reading {
-  if (paper === null) return { value: null, source: buildPaperSource(readAnchor(trip), field) };
+function readPaper(paper: TripPaper | null, field: string, read: (paper: TripPaper) => ReportCell): Reading {
+  if (paper === null) return { value: null, source: null };
   return { value: read(paper), source: buildPaperSource(paper, field) };
 }
 
@@ -76,7 +76,7 @@ function readFirst<Value>(trip: Trip, read: (paper: TripPaper) => Value | null):
 
 function readFirstField(trip: Trip, field: string, read: (paper: TripPaper) => ReportCell): Reading {
   const { paper, value } = readFirst(trip, read);
-  return readPaper(trip, paper, field, () => value);
+  return readPaper(paper ?? readAnchor(trip), field, () => value);
 }
 
 function readRoute(trip: Trip, context: TripContext): Reading {
@@ -94,14 +94,14 @@ export function readRouteEntryId(trip: Trip): string | null {
 
 function readPickupPlaceCell(trip: Trip, { snapshots }: TripContext): Reading {
   const { pickup } = trip;
-  if (pickup === null || pickup.route_pickup === null) return readPaper(trip, pickup, 'issuer_name', (paper) => readPickupPlace(paper));
+  if (pickup === null || pickup.route_pickup === null) return readPaper(pickup, 'issuer_name', (paper) => readPickupPlace(paper));
   return { value: pickup.route_pickup, source: buildEntrySource({ entryId: pickup.route_entry_id ?? undefined, documentId: pickup.id }, 'when_pickup', pickup.route_pickup, snapshots) };
 }
 
 function readDropOffPlace(trip: Trip, { snapshots }: TripContext): Reading {
-  if (trip.dropOff?.receiver_name != null) return readPaper(trip, trip.dropOff, 'receiver_name', (paper) => paper.receiver_name);
+  if (trip.dropOff?.receiver_name != null) return readPaper(trip.dropOff, 'receiver_name', (paper) => paper.receiver_name);
   const { paper, value } = readFirst(trip, (candidate) => candidate.route_dropoff);
-  if (paper === null) return readPaper(trip, trip.dropOff, 'receiver_name', () => null);
+  if (paper === null) return readPaper(trip.dropOff, 'receiver_name', () => null);
   const entryId = paper.route_entry_id ?? undefined;
   const field = entryId !== undefined && snapshots.get(entryId)?.conditions['when_dropoff'] !== undefined ? 'when_dropoff' : 'then_dropoff';
   return { value, source: buildEntrySource({ entryId, documentId: paper.id }, field, value, snapshots) };
@@ -109,14 +109,14 @@ function readDropOffPlace(trip: Trip, { snapshots }: TripContext): Reading {
 
 function readCustomer(trip: Trip, { snapshots }: TripContext): Reading {
   const { paper, value } = readFirst(trip, (candidate) => candidate.route_customer ?? candidate.customer_party);
-  if (paper === null || paper.route_customer === null) return readPaper(trip, paper, 'customer_party', () => value);
+  if (paper === null || paper.route_customer === null) return readPaper(paper ?? readAnchor(trip), 'customer_party', () => value);
   return { value, source: buildEntrySource({ entryId: paper.route_entry_id ?? undefined, documentId: paper.id }, 'then_customer', value, snapshots) };
 }
 
 function readGoods(trip: Trip, { winners }: TripContext): Reading {
   const shown = findWinner(winners, trip, SHOWN_GOODS_MATCH_KEY)?.text ?? null;
   const { paper, value } = readFirst(trip, (candidate) => candidate.goods_line);
-  return readPaper(trip, paper, 'goods_line', () => shown ?? value);
+  return readPaper(paper ?? readAnchor(trip), 'goods_line', () => shown ?? value);
 }
 
 function readDocumentNumbers(trip: Trip): Reading {

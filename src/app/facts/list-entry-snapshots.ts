@@ -8,6 +8,7 @@ export async function listEntrySnapshots(database: Database, workspaceId: string
   const { rows } = await database.query<SnapshotRow>(
     `SELECT entry.id, entry.statement,
        jsonb_strip_nulls(jsonb_build_object('when_goods', entry.when_goods, 'when_vehicle_plate', entry.when_vehicle_plate,
+         'when_driver_user_id', entry.when_driver_user_id,
          'when_pickup', entry.when_pickup_name, 'when_dropoff', entry.when_dropoff_name)) AS conditions
      FROM company_knowledge_entries entry WHERE entry.workspace_id = $1 AND entry.id = ANY($2::uuid[])`,
     [workspaceId, entryIds],

@@ -3,7 +3,7 @@ import { A_EXPORT_ID, B_EXPORT_ID } from './seed-ids.ts';
 
 const SEEDED_EXPORT_IDS = [A_EXPORT_ID, B_EXPORT_ID];
 
-export type RecordedCell = { value_type: string; value: string | number | boolean | null; source: { kind: string; document_id?: string; entry_id?: string; field: string; snapshot: Record<string, unknown> } };
+export type RecordedCell = { value_type: string; value: string | number | boolean | null; source: { kind: string; document_id?: string; entry_id?: string; field: string; snapshot: Record<string, unknown> } | null };
 
 export type RecordedRow = { id: string; row_number: number; document_ids: string[]; entry_ids: string[]; cells: Record<string, RecordedCell>; columns: { key: string; name: string; value_type: string; unit?: string }[] };
 

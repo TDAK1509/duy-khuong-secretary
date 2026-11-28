@@ -1,4 +1,4 @@
-import { OUTCOME_DEFINITIONS } from '../facts/knowledge-outcomes.ts';
+import { OUTCOME_DEFINITIONS, PER_TON_UNIT } from '../facts/knowledge-outcomes.ts';
 import type { ColumnUnit } from './column-units.ts';
 
 export type ValueType = 'text' | 'number' | 'date' | 'boolean';
@@ -13,7 +13,7 @@ export type CellSource = {
   snapshot: Record<string, unknown>;
 };
 
-export type RecordedCell = { value_type: ValueType; value: CellValue; source: CellSource };
+export type RecordedCell = { value_type: ValueType; value: CellValue; source: CellSource | null };
 
 export type RecordedColumn = { key: string; name: string; value_type: ValueType; unit?: string };
 
@@ -25,7 +25,7 @@ export type EntrySnapshot = { statement: string; conditions: Record<string, stri
 
 export type EntrySnapshots = Map<string, EntrySnapshot>;
 
-const PRINTED_UNITS: Partial<Record<ColumnUnit, string>> = { vnd: 'đ', kg: 'kg', ton: 'tấn', liter: 'lít' };
+const PRINTED_UNITS: Partial<Record<ColumnUnit, string>> = { vnd: 'đ', kg: 'kg', ton: 'tấn', liter: 'lít', rate: PER_TON_UNIT };
 
 export function describeRecordedUnit(unit: ColumnUnit | null | undefined): { unit?: string } {
   const printed = unit === null || unit === undefined ? undefined : PRINTED_UNITS[unit];
@@ -50,7 +50,7 @@ export function buildServerSource(field: string): CellSource {
 }
 
 export function listSourceEntryIds(cells: Record<string, RecordedCell>): string[] {
-  return Object.values(cells).flatMap((cell) => cell.source.entry_id ?? []);
+  return Object.values(cells).flatMap((cell) => cell.source?.entry_id ?? []);
 }
 
 export function describeOutcomeField(matchKey: string): string {

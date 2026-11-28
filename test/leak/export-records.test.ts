@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import type { FileStorage } from '../../src/services/storage/file-storage.ts';
+import { listEntrySnapshots } from '../../src/app/facts/list-entry-snapshots.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry, insertPaper, linkEntry } from './support/paper-fixtures.ts';
 import { countExports, findCell, listExportRows } from './support/read-export-records.ts';
 import { listDataRows } from './support/read-marked-sheet.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
@@ -18,6 +20,11 @@ const PAPER_FILTERS = { organization: null, role: null, stage: null, kind: null,
 const PLATE_COLUMN = { name: 'Biển số', source: 'field', field: 'plate', value_name: null };
 const WAGE_COLUMN = { name: 'Lương', source: 'knowledge_value', field: null, value_name: 'Lương tài xế' };
 const ALLOWANCE_COLUMN = { name: 'Bồi dưỡng', source: 'knowledge_value', field: null, value_name: 'Chi phí bồi dưỡng' };
+const DROPOFF_DATE_COLUMN = { name: 'Ngày dỡ', source: 'field', field: 'dropoff_date', value_name: null };
+const DROPOFF_WEIGHT_COLUMN = { name: 'KL dỡ', source: 'field', field: 'dropoff_weight_kg', value_name: null };
+const PICKUP_DATE_COLUMN = { name: 'Ngày lấy', source: 'field', field: 'pickup_date', value_name: null };
+const RATE_COLUMN = { name: 'Đơn giá', source: 'knowledge_value', field: null, value_name: 'Cước vận chuyển' };
+const A_DRIVER_USER_ID = 'aaaaaaaa-0001-4000-8000-000000000002';
 const FREIGHT_COLUMN = { name: 'Cước', source: 'knowledge_amount', field: null, value_name: 'Cước vận chuyển' };
 
 beforeEach(() => resetDatabase(databases.owner));
@@ -39,7 +46,7 @@ test('a knowledge cell names its entry', async () => {
   await exportPapers();
   const [row] = await listExportRows(databases.owner);
   const cell = findCell(row!, 'Lương tài xế');
-  assert.deepEqual([cell.value_type, cell.value, cell.source.kind, cell.source.entry_id, cell.source.field], ['number', 700000, 'entry', entryId, 'then_wage_vnd']);
+  assert.deepEqual([cell.value_type, cell.value, cell.source?.kind, cell.source?.entry_id, cell.source?.field], ['number', 700000, 'entry', entryId, 'then_wage_vnd']);
 });
 
 test('a paired trip row saves both papers', async () => {
@@ -57,7 +64,7 @@ test('two cells from two entries name their own entry', async () => {
   await linkEntry(databases.runtime, allowanceEntry);
   await exportTrip([WAGE_COLUMN, ALLOWANCE_COLUMN]);
   const [row] = await listExportRows(databases.owner);
-  assert.deepEqual([findCell(row!, 'Lương').source.entry_id, findCell(row!, 'Bồi dưỡng').source.entry_id], [wageEntry, allowanceEntry]);
+  assert.deepEqual([findCell(row!, 'Lương').source?.entry_id, findCell(row!, 'Bồi dưỡng').source?.entry_id], [wageEntry, allowanceEntry]);
   assert.deepEqual([...row!.entry_ids].sort(), [wageEntry, allowanceEntry].sort());
 });
 
@@ -69,8 +76,8 @@ test('the freight amount cell names its entry and its paper', async () => {
   const [row] = await listExportRows(databases.owner);
   const cell = findCell(row!, 'Cước');
   assert.equal(cell.value, 4050000);
-  assert.deepEqual([cell.source.kind, cell.source.entry_id, cell.source.document_id], ['computed', entryId, paperId]);
-  assert.deepEqual([cell.source.snapshot['rate_vnd_per_ton'], cell.source.snapshot['weight_kg']], [150000, 27000]);
+  assert.deepEqual([cell.source?.kind, cell.source?.entry_id, cell.source?.document_id], ['computed', entryId, paperId]);
+  assert.deepEqual([cell.source?.snapshot['rate_vnd_per_ton'], cell.source?.snapshot['weight_kg']], [150000, 27000]);
 });
 
 test('row records follow the sort of the report', async () => {
@@ -101,7 +108,38 @@ test('deleting an entry keeps the export record', async () => {
   await callChatTool(databases.runtime, 'delete_company_knowledge', { entry_id: entryId });
   const [row] = await listExportRows(databases.owner);
   const cell = findCell(row!, 'Lương tài xế');
-  assert.deepEqual([row!.entry_ids, cell.source.entry_id, cell.source.snapshot['statement']], [[entryId], entryId, 'fixture entry']);
+  assert.deepEqual([row!.entry_ids, cell.source?.entry_id, cell.source?.snapshot['statement']], [[entryId], entryId, 'fixture entry']);
+});
+
+test('a pickup-only trip records no paper for its drop-off cells', async () => {
+  await insertAlphaPaper({ weightKg: 27000 });
+  await exportTrip([DROPOFF_DATE_COLUMN, DROPOFF_WEIGHT_COLUMN]);
+  const [row] = await listExportRows(databases.owner);
+  assert.deepEqual([findCell(row!, 'Ngày dỡ').source, findCell(row!, 'KL dỡ').source], [null, null]);
+});
+
+test('a drop-off-only trip records no paper for its pickup cells', async () => {
+  await insertPaper(databases.owner, { stage: 'receipt', plate: TRIP_PLATE, date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  await exportTrip([PICKUP_DATE_COLUMN]);
+  const [row] = await listExportRows(databases.owner);
+  assert.equal(findCell(row!, 'Ngày lấy').source, null);
+});
+
+test('a driver-only entry keeps its driver condition in the snapshot', async () => {
+  const { rows } = await databases.owner.query<{ id: string }>(
+    `INSERT INTO company_knowledge_entries (workspace_id, statement, when_driver_user_id, then_wage_vnd) VALUES ($1, 'driver note', $2, 500000) RETURNING id`,
+    [WORKSPACE_A_ID, A_DRIVER_USER_ID],
+  );
+  const snapshots = await listEntrySnapshots(databases.owner, WORKSPACE_A_ID, [rows[0]!.id]);
+  assert.deepEqual(snapshots.get(rows[0]!.id)?.conditions, { when_driver_user_id: A_DRIVER_USER_ID });
+});
+
+test('a rate column records the per-ton unit', async () => {
+  await insertAlphaPaper({ weightKg: 27000 });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', ratePerTonVnd: 150000 }));
+  await exportTrip([RATE_COLUMN]);
+  const [row] = await listExportRows(databases.owner);
+  assert.equal(row!.columns.find((column) => column.name === 'Đơn giá')?.unit, 'đ/tấn');
 });
 
 async function insertAlphaPaper(spec: { weightKg?: number } = {}): Promise<string> {
