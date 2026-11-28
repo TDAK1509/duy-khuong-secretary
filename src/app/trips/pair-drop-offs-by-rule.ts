@@ -2,9 +2,9 @@ export type PairingTimes = { dayMs: number; preciseMs: number | null };
 
 export type PairingPaper = { id: string; plate: string; times: PairingTimes; weightKg: number | null };
 
-export type PairingRow = PairingPaper & { isPossibleDuplicate: boolean };
+export type PairingRow = PairingPaper & { isPossibleDuplicate: boolean; hasEqualWeightEntry: boolean };
 
-export type RulePairing = { pairs: Map<string, string> };
+export type RulePairing = { pairs: Map<string, string>; crossPlateRowIds: Set<string> };
 
 const MAX_WEIGHT_GAP = 0.03;
 const MAX_PRECISE_GAP_MS = 24 * 60 * 60 * 1000;
@@ -21,15 +21,38 @@ export function pairDropOffsByRule(rows: PairingRow[], candidates: PairingPaper[
   for (const [rowId, candidateId] of closestCandidates) {
     if (!duplicateIds.has(rowId) && closestRows.get(candidateId) === rowId) pairs.set(rowId, candidateId);
   }
-  return { pairs };
+  return { pairs, crossPlateRowIds: listCrossPlateRowIds(rows, candidates, pairs) };
+}
+
+function listCrossPlateRowIds(rows: PairingRow[], candidates: PairingPaper[], pairs: Map<string, string>): Set<string> {
+  const candidatePlates = new Map(candidates.map((candidate) => [candidate.id, candidate.plate]));
+  return new Set(rows.filter((row) => pairs.has(row.id) && candidatePlates.get(pairs.get(row.id) ?? '') !== row.plate).map((row) => row.id));
 }
 
 function listEdges(rows: PairingRow[], candidates: PairingPaper[]): Edge[] {
   const byPlate = groupByPlate(candidates);
-  return rows.flatMap((row) => (byPlate.get(row.plate) ?? []).flatMap((candidate) => {
-    const gapKg = isInWindow(row, candidate) ? readSimilarWeightGap(row, candidate) : null;
-    return gapKg === null ? [] : [{ rowId: row.id, candidateId: candidate.id, gapKg }];
-  }));
+  return rows.flatMap((row) => [
+    ...(byPlate.get(row.plate) ?? []).flatMap((candidate) => toSamePlateEdges(row, candidate)),
+    ...(row.hasEqualWeightEntry ? candidates.flatMap((candidate) => toEqualWeightEdges(row, candidate)) : []),
+  ]);
+}
+
+function toSamePlateEdges(row: PairingRow, candidate: PairingPaper): Edge[] {
+  const gapKg = isInWindow(row, candidate) ? readSimilarWeightGap(row, candidate) : null;
+  return gapKg === null ? [] : [{ rowId: row.id, candidateId: candidate.id, gapKg }];
+}
+
+function toEqualWeightEdges(row: PairingRow, candidate: PairingPaper): Edge[] {
+  const isMatch = differsByOneCharacter(row.plate, candidate.plate) && isInTimeWindow(row, candidate) && hasEqualPositiveWeight(row, candidate);
+  return isMatch ? [{ rowId: row.id, candidateId: candidate.id, gapKg: 0 }] : [];
+}
+
+function differsByOneCharacter(first: string, second: string): boolean {
+  return first.length === second.length && [...first].filter((character, position) => character !== second[position]).length === 1;
+}
+
+function hasEqualPositiveWeight(row: PairingPaper, candidate: PairingPaper): boolean {
+  return row.weightKg !== null && row.weightKg > 0 && row.weightKg === candidate.weightKg;
 }
 
 function mapSingleClosest(edges: Edge[], readKey: (edge: Edge) => string, readOther: (edge: Edge) => string): Map<string, string> {
@@ -49,7 +72,10 @@ export function groupByPlate<Candidate extends { plate: string }>(candidates: Ca
 }
 
 export function isInWindow(row: PairingPaper, candidate: PairingPaper): boolean {
-  if (row.plate !== candidate.plate) return false;
+  return row.plate === candidate.plate && isInTimeWindow(row, candidate);
+}
+
+function isInTimeWindow(row: PairingPaper, candidate: PairingPaper): boolean {
   if (row.times.preciseMs !== null && candidate.times.preciseMs !== null) {
     const gap = candidate.times.preciseMs - row.times.preciseMs;
     return gap > 0 && gap <= MAX_PRECISE_GAP_MS;
