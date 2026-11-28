@@ -22,6 +22,11 @@ test('a two-character plate difference stays apart', () => {
   assert.equal(pairs.size, 0);
 });
 
+test('two equal candidates leave the pickup unpaired', () => {
+  const { pairs } = pairDropOffsByRule([buildPickup()], [buildDropOff('first', '51C12346', 27080), buildDropOff('second', '51C12347', 27080)]);
+  assert.equal(pairs.size, 0);
+});
+
 function buildPickup(overrides: Partial<PairingRow> = {}): PairingRow {
   return { id: 'pickup', plate: '51C12345', times: readPairingTimes('2026-03-05', null), weightKg: 27080, isPossibleDuplicate: false, hasEqualWeightEntry: true, ...overrides };
 }
