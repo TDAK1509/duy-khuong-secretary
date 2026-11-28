@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry } from './support/paper-fixtures.ts';
-import { decideChange, readChangeStatus, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
+import { editDataSheet, FIRST_DATA_ROW, findColumn, sendReturnedFile } from './support/returned-export-files.ts';
+import { exportAlphaPapers } from './support/returned-export-fixtures.ts';
+import { decideChange, findNewestChangeId, listCustomerNames, readCustomers, readChangeStatus, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
 const databases = openLeakDatabases();
 
@@ -53,4 +56,32 @@ test('a checked related note completes the knowledge change', async () => {
   await decideChange(databases, changeId, { cause: 'company_knowledge' });
   const result = await decideChange(databases, changeId, { cause: 'company_knowledge', notes_checked: true });
   assert.deepEqual([result.action, await readChangeStatus(databases.owner, changeId)], ['applied', 'applied']);
+});
+
+test('a knowledge change is refused when the saved value changed after the export', async () => {
+  await removeSeededEntries(databases.owner);
+  const changeId = await returnEditedWage(databases, 700000);
+  await databases.owner.query('UPDATE company_knowledge_entries SET then_wage_vnd = 650000 WHERE workspace_id = $1', [WORKSPACE_A_ID]);
+  const result = await decideChange(databases, changeId, { cause: 'company_knowledge' });
+  assert.deepEqual([result.reason, await readChangeStatus(databases.owner, changeId)], ['stale', 'pending']);
+});
+
+test('an unlisted change id is refused', async () => {
+  const result = await decideChange(databases, 'aaaaaaaa-0050-4000-8000-0000000000ff', { cause: 'dismiss' });
+  assert.equal(result.reason, 'not_listed');
+});
+
+test('an unsupported cause is refused', async () => {
+  const changeId = await returnEditedWage(databases, 700000);
+  const result = await decideChange(databases, changeId, { cause: 'paper_reading' });
+  assert.equal(result.reason, 'cause_not_offered');
+});
+
+test('a customer change confirmed as a paper reading changes only that paper', async () => {
+  const bytes = await exportAlphaPapers(databases, { count: 2, customer: 'Gamma' });
+  await sendReturnedFile(databases, await editDataSheet(bytes, (sheet) => {
+    sheet.getRow(FIRST_DATA_ROW).getCell(findColumn(sheet, 'Khách hàng')).value = 'Delta';
+  }));
+  const result = await decideChange(databases, await findNewestChangeId(databases), { cause: 'paper_reading' });
+  assert.deepEqual([result.action, await listCustomerNames(databases.owner), await readCustomers(databases.owner)], ['applied', ['Delta'], ['Gamma']]);
 });

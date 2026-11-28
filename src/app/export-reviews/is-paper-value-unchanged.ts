@@ -36,5 +36,5 @@ async function isCompanyUnchanged(transaction: Transaction, workspaceId: string,
   const roles = readCompanyRoles(slot, paper.stage);
   if (roles === null || before === null) return roles !== null;
   const parties = await transaction.query<{ printed_name: string; name: string | null }>(LIST_PARTY_NAMES_SQL, [workspaceId, paper.id, roles.replaced]);
-  return parties.some((party) => party.printed_name === before || party.name === before);
+  return parties.length === 0 || parties.some((party) => party.printed_name === before || party.name === before);
 }
