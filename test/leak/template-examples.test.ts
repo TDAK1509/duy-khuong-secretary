@@ -68,6 +68,15 @@ test('a proposal from all papers returns the newest papers that still have a pho
   assert.deepEqual(proposal.example_paper_ids, [newest, newer, older]);
 });
 
+test('the template list shows the example papers in order', async () => {
+  const first = await insertExamplePaper(databases.owner, { imageKey: 'example/first.jpg' });
+  const second = await insertExamplePaper(databases.owner, { imageKey: 'example/second.jpg' });
+  await saveTemplate([second, first]);
+  const { templates } = JSON.parse(await callChatTool(databases.runtime, 'list_document_templates', {}));
+  const saved = templates.find((template: { name: string }) => template.name === 'EXAMPLE-TEMPLATE');
+  assert.deepEqual(saved.examples, [{ position: 1, paper_id: second }, { position: 2, paper_id: first }]);
+});
+
 function saveTemplate(examplePaperIds: string[]): Promise<string> {
   const toolArguments = {
     name: 'EXAMPLE-TEMPLATE',

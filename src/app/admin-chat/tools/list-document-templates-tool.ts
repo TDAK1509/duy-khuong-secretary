@@ -19,15 +19,22 @@ export async function runListDocumentTemplates(database: Database, scope: Access
 
 function describeTemplate(template: DocumentTemplate, papers: number): Record<string, unknown> {
   return {
+    ...describeTemplateContent(template),
+    revision: template.revision,
+    papers,
+    updated_at: `${formatVietnamTime(template.updatedAt)} ${formatVietnamDate(template.updatedAt)}`,
+  };
+}
+
+function describeTemplateContent(template: DocumentTemplate): Record<string, unknown> {
+  return {
     name: template.name,
     kind: template.kind,
     issuer_company: template.issuerName,
     stage: template.stage,
     description: template.description,
     fields: template.fields.map(describeField),
-    revision: template.revision,
-    papers,
-    updated_at: `${formatVietnamTime(template.updatedAt)} ${formatVietnamDate(template.updatedAt)}`,
+    examples: template.examples.map(({ position, paperId }) => ({ position, paper_id: paperId })),
   };
 }
 

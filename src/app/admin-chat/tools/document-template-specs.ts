@@ -58,7 +58,7 @@ export const SAVE_DOCUMENT_TEMPLATE_SPEC: ToolSpec = {
 
 export const LIST_DOCUMENT_TEMPLATES_SPEC: ToolSpec = {
   name: 'list_document_templates',
-  description: 'Liệt kê các mẫu giấy tờ đã lưu của nhóm: tên, loại giấy tờ, công ty phát hành, lấy hàng hay đổ hàng, mô tả, các trường, số lần sửa và số giấy tờ đã khớp mẫu.',
+  description: 'Liệt kê các mẫu giấy tờ đã lưu của nhóm: tên, loại giấy tờ, công ty phát hành, lấy hàng hay đổ hàng, mô tả, các trường, các giấy tờ ví dụ, số lần sửa và số giấy tờ đã khớp mẫu.',
   parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
 };
 
