@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
+import { insertEntry, insertPaper, linkEntry } from './support/paper-fixtures.ts';
+import { readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
+import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
 
@@ -17,6 +20,19 @@ test('goods at a pickup company shown as a name saves as one entry', async () =>
   await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_goods: 'Than', when_pickup_company: 'Alpha', then_shown_goods: 'Than đá' }));
   assert.deepEqual(await listWorkspaceEntries(), [{ when_goods: 'Than', when_pickup_name: 'Alpha', then_shown_goods_name: 'Than đá' }]);
 });
+
+test('the paper export shows the shown goods name of the linked entry', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Than' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { goods: 'Than', shownGoodsName: 'Than đá' }));
+  assert.deepEqual(await exportPaperColumn('Tên hàng hiển thị'), ['Than đá']);
+});
+
+async function exportPaperColumn(header: string): Promise<string[] | null> {
+  const harness = createToolHarness(databases.runtime);
+  await harness.runTool('chat-gate', 'export_documents_xlsx', { organization: null, role: null, stage: null, kind: null, plate: '51C12345', date_meaning: null, date_from: '2026-03-01', date_to: '2026-03-31' });
+  const [file] = harness.storage.listStoredFiles();
+  return file === undefined ? null : readSheetColumn(file.bytes, header);
+}
 
 function saveArguments(given: Record<string, string>): Record<string, string | null> {
   return {
