@@ -55,7 +55,7 @@ export function buildReaderPrompt(today: Date, labels: string[], catalog: Reader
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: labels.length === 0 ? '' : WORKSPACE_LABELS_LINE,
     retrievedDataRule: RETRIEVED_DATA_RULE,
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...buildCompanyKnowledgeRules(knowledge),...(fromAdmin ? [NAMED_DRIVER_RULE, ADMIN_TEXT_RULE, STANDING_FACT_RULE, PAPER_CORRECTION_RULE] : [])].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...buildCompanyKnowledgeRules(knowledge), ...(fromAdmin ? [NAMED_DRIVER_RULE, ADMIN_TEXT_RULE, STANDING_FACT_RULE, PAPER_CORRECTION_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules|retrievedDataRule)\}/g, (_, name: string) => fills[name] ?? '');
 }

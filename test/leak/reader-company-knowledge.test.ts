@@ -58,6 +58,13 @@ test('a company-wide note reaches the reader', async () => {
   assert.ok(findKnowledgePart(request).includes(note));
 });
 
+test('an entry with only a plate condition stays out of the reader request and a goods entry stays in', async () => {
+  const request = await readDriverPhotoWithEntries([{ plate: '51C12345', note: 'PLATE-NOTE' }, { goods: 'Đá', note: 'GOODS-NOTE' }]);
+  const part = findKnowledgePart(request);
+  assert.ok(part.includes('GOODS-NOTE'));
+  assert.ok(!part.includes('PLATE-NOTE'));
+});
+
 function findKnowledgePart(request: ReaderRequest): string {
   const texts = request.userParts.flatMap((part) => (part.kind === 'text' ? [part.text] : []));
   return texts.find((text) => text.includes('source="company-knowledge"')) ?? '';

@@ -12,14 +12,18 @@ type EntryRow = {
 
 export async function listReaderKnowledge(transaction: Transaction, workspaceId: string): Promise<ReaderKnowledge[]> {
   return transaction.withScope({ workspaceId }, async () => {
-    const rows = await transaction.query<EntryRow>(
-      `SELECT when_goods, when_pickup_name, when_dropoff_name, then_customer, then_dropoff, then_note
-       FROM company_knowledge_entries WHERE workspace_id = $1 ORDER BY created_at, id`,
-      [workspaceId],
-    );
+    const rows = await transaction.query<EntryRow>(LIST_READER_ENTRIES_SQL, [workspaceId]);
     return rows.map(toReaderKnowledge);
   });
 }
+
+const LIST_READER_ENTRIES_SQL = `
+  SELECT when_goods, when_pickup_name, when_dropoff_name, then_customer, then_dropoff, then_note
+  FROM company_knowledge_entries
+  WHERE workspace_id = $1
+    AND (when_goods IS NOT NULL OR when_pickup_match_key IS NOT NULL OR when_dropoff_match_key IS NOT NULL
+      OR (when_vehicle_plate IS NULL AND when_driver_user_id IS NULL))
+  ORDER BY created_at, id`;
 
 function toReaderKnowledge(row: EntryRow): ReaderKnowledge {
   return {
