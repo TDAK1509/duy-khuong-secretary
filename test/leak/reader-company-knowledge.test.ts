@@ -30,6 +30,18 @@ test('the reader request has the company knowledge rule when the workspace has a
   assert.ok(request.system.includes(COMPANY_KNOWLEDGE_RULE));
 });
 
+test('the reader request has the company knowledge data part', async () => {
+  const request = await readDriverPhotoWithEntries([{ pickup: 'Alpha', goods: 'Đá' }]);
+  const part = findKnowledgePart(request);
+  assert.ok(part.startsWith(KNOWLEDGE_LABEL));
+  assert.ok(part.includes('Alpha') && part.includes('Đá'));
+});
+
+function findKnowledgePart(request: ReaderRequest): string {
+  const texts = request.userParts.flatMap((part) => (part.kind === 'text' ? [part.text] : []));
+  return texts.find((text) => text.includes('source="company-knowledge"')) ?? '';
+}
+
 async function readDriverPhotoWithEntries(entries: EntrySpec[]): Promise<ReaderRequest> {
   for (const entry of entries) await insertEntry(databases.owner, entry);
   const knowledge = await runInTransaction(openWorkspaceA(databases.runtime), (transaction) => listReaderKnowledge(transaction, WORKSPACE_A_ID));
