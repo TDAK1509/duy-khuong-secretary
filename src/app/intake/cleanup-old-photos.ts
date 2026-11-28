@@ -51,6 +51,7 @@ async function selectEligibleMessages(
     `SELECT id, image_key
        FROM messages
       WHERE image_key IS NOT NULL AND image_deleted_at IS NULL AND created_at < $1
+        AND NOT EXISTS (SELECT 1 FROM document_template_examples example WHERE example.image_key = messages.image_key)
       ORDER BY created_at ASC
       LIMIT $2
       FOR UPDATE SKIP LOCKED`,

@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+import { cleanupOldPhotos } from '../../src/app/intake/cleanup-old-photos.ts';
 import { validateReading } from '../../src/app/reading/reading.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { insertExamplePaper } from './support/insert-example-paper.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
+import { MemoryPhotoStorage } from './support/memory-photo-storage.ts';
 import { resetDatabase } from './support/reset-database.ts';
+import { FIXED_NOW } from './support/seed-ids.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
@@ -66,6 +69,20 @@ test('a proposal from all papers returns the newest papers that still have a pho
   const proposals = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: null })).proposals;
   const proposal = proposals.find((candidate: { kind: string }) => candidate.kind === 'phiếu cân');
   assert.deepEqual(proposal.example_paper_ids, [newest, newer, older]);
+});
+
+test('photo cleanup keeps an old photo that a template example uses and deletes an unused old one', async () => {
+  const usedPaper = await insertExamplePaper(databases.owner, { imageKey: 'example/used.jpg' });
+  await insertExamplePaper(databases.owner, { imageKey: 'example/unused.jpg' });
+  await saveTemplate([usedPaper]);
+  await databases.owner.query("UPDATE messages SET created_at = '2020-01-01T00:00:00Z' WHERE image_key LIKE 'example/%'");
+  const storage = new MemoryPhotoStorage();
+  const photo = { bytes: new Uint8Array([1]), contentType: 'image/jpeg' as const };
+  await storage.put('example/used.jpg', photo);
+  await storage.put('example/unused.jpg', photo);
+  await cleanupOldPhotos({ database: databases.owner, photoStorage: storage, clock: { now: () => FIXED_NOW }, retentionDays: 30, batchSize: 100 });
+  assert.notEqual(await storage.get('example/used.jpg'), null);
+  assert.equal(await storage.get('example/unused.jpg'), null);
 });
 
 test('the template list shows the example papers in order', async () => {
