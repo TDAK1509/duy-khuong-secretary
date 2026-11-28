@@ -21,6 +21,13 @@ test('the migration merges two rules that differ only in case and spaces', async
   });
 });
 
+test('the migration removes the old rule table', async () => {
+  await migrateRules([{ rule: 'gửi phiếu trước 18 giờ', createdAt: '2026-03-01' }], async (client) => {
+    const { rows } = await client.query<{ old_table: string | null }>(`SELECT to_regclass('workspace_rules')::text AS old_table`);
+    assert.deepEqual(rows, [{ old_table: null }]);
+  });
+});
+
 async function migrateRules(rules: OldRule[], check: (client: PoolClient) => Promise<void>): Promise<void> {
   const client = await databases.owner.connect();
   try {

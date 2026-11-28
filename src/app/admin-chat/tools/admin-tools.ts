@@ -15,7 +15,6 @@ import { UPDATE_COMPANY_KNOWLEDGE_SPEC } from './update-company-knowledge-spec.t
 import { DELETE_COMPANY_KNOWLEDGE_SPEC } from './delete-company-knowledge-spec.ts';
 import { DELETE_DOCUMENT_SPEC } from './delete-document-spec.ts';
 import { TOTAL_COMPANY_KNOWLEDGE_SPEC } from './total-company-knowledge-spec.ts';
-import { WORKSPACE_RULE_TOOLS } from './workspace-rule-specs.ts';
 import { DOCUMENT_TEMPLATE_TOOLS } from './document-template-specs.ts';
 import {
   CANCEL_SCHEDULED_TASK_SPEC,
@@ -43,7 +42,6 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   UPDATE_COMPANY_KNOWLEDGE_SPEC,
   DELETE_COMPANY_KNOWLEDGE_SPEC,
   TOTAL_COMPANY_KNOWLEDGE_SPEC,
-  ...WORKSPACE_RULE_TOOLS,
   ...DOCUMENT_TEMPLATE_TOOLS,
   MAINTENANCE_STATUS_SPEC,
   ADMIN_ATTACH_PHOTOS_SPEC,

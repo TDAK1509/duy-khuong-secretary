@@ -7,6 +7,7 @@ export function up(pgm: MigrationBuilder): void {
   lockTables(pgm, ['company_knowledge_entries', 'workspace_rules']);
   allowNoteOnlyEntries(pgm);
   moveRules(pgm);
+  pgm.sql('DROP TABLE workspace_rules');
 }
 
 function allowNoteOnlyEntries(pgm: MigrationBuilder): void {
