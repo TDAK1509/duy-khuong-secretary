@@ -45,6 +45,12 @@ test('the paper export shows the fixed outcome columns of the linked entry', asy
   assert.deepEqual(await readSheetColumn(bytes, 'Lương tài xế'), ['700000']);
 });
 
+test('the paper export leaves out a column with no value', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: TRIP_PLATE, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 700000 }));
+  assert.equal(await readSheetColumn(await exportPapers(), 'Chi phí bồi dưỡng'), null);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
