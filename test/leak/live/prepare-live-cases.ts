@@ -11,9 +11,9 @@ const INJECTED_PHOTO_MESSAGE_ID = 'aaaaaaaa-0020-4000-8000-0000000000e7';
 const INJECTED_PHOTO_RECORD_ID = 'aaaaaaaa-0021-4000-8000-0000000000e7';
 const SENT_BEFORE_THE_CHAT = '2026-03-09 08:00:00+00';
 
-export async function addInjectedFact(owner: PostgresPool, statement: string): Promise<void> {
+export async function addInjectedKnowledge(owner: PostgresPool, statement: string): Promise<void> {
   await owner.query(
-    'INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate) VALUES ($1, $2, $3, $4, $5)',
+    'INSERT INTO company_knowledge_entries (id, workspace_id, author_user_id, statement, when_vehicle_plate, then_note) VALUES ($1, $2, $3, $4, $5, $4)',
     [INJECTED_FACT_ID, WORKSPACE_A_ID, A_ADMIN_USER_ID, statement, SHARED_PLATE],
   );
 }

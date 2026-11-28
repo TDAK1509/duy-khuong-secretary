@@ -5,14 +5,14 @@ import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
 import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
-import { GOODS_VALUE_KEY } from '../../facts/fact.ts';
+import { OUTCOME_DEFINITIONS, PER_TON_UNIT } from '../../facts/knowledge-outcomes.ts';
 import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
 import type { RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
 import { DAY_MS, loadTripPapers, MAX_TRIP_PAPERS, TOO_MANY_PAPERS_ERROR } from '../../trips/load-trip-papers.ts';
 import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
-import { countReviewTripPapers, listKnownValues, listWinningValues, type KnownValue, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
-import { matchTripFacts } from '../../trips/match-trip-facts.ts';
+import { countReviewTripPapers, listWinningValues, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import { matchTripEntries } from '../../trips/match-trip-entries.ts';
 import { loadShownGoodsNames, type ShownGoodsNames } from '../../goods-names/show-goods-name.ts';
 import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
@@ -28,7 +28,7 @@ const MAX_COLUMN_NAME_LENGTH = 80;
 
 const columnSchema = z.strictObject({
   name: z.string(),
-  source: z.enum(['field', 'fact_value', 'fact_amount', 'none']),
+  source: z.enum(['field', 'knowledge_value', 'knowledge_amount', 'none']),
   field: z.enum(TRIP_FIELDS).nullable(),
   value_name: z.string().nullable(),
 });
@@ -53,7 +53,7 @@ export async function runExportTripReportXlsx(dependencies: AdminToolDependencie
   const request = argumentsSchema.parse(parsedArguments);
   const problem = findRequestProblem(request);
   if (problem !== null) return failTool(problem);
-  const resolved = readColumns(request.columns, await listKnownValues(dependencies.database, scope.workspaceId));
+  const resolved = readColumns(request.columns);
   if (!resolved.ok) return failTool(resolved.error);
   return exportTripReport(storage, dependencies.database, scope, { request, columns: resolved.columns, dropOffReader: dependencies.dropOffReader ?? null, createdAt: dependencies.clock.now() });
 }
@@ -67,33 +67,33 @@ function findRequestProblem({ title, date_from: dateFrom, date_to: dateTo, colum
   return null;
 }
 
-function readColumns(columns: ColumnArgument[], known: KnownValue[]): ResolvedColumns {
+function readColumns(columns: ColumnArgument[]): ResolvedColumns {
   const resolved: TripColumn[] = [];
   for (const column of columns) {
-    const result = readColumn(column, known);
+    const result = readColumn(column);
     if (typeof result === 'string') return { ok: false, error: result };
     resolved.push(result);
   }
   return { ok: true, columns: resolved };
 }
 
-function readColumn({ name, source, field, value_name: valueName }: ColumnArgument, known: KnownValue[]): TripColumn | string {
+function readColumn({ name, source, field, value_name: valueName }: ColumnArgument): TripColumn | string {
   if (name.trim() === '' || name.length > MAX_COLUMN_NAME_LENGTH) return `Tên cột cần có từ 1 đến ${MAX_COLUMN_NAME_LENGTH} ký tự.`;
   if (source === 'none') return { name, source };
   if (source === 'field') return field === null ? `Cột "${name}" cần field.` : { name, source, field };
   if (valueName === null || buildMatchKey(valueName) === '') return `Cột "${name}" cần value_name.`;
-  return readValueColumn(name, source, valueName, known);
+  return readValueColumn(name, source, valueName);
 }
 
-function readValueColumn(name: string, source: 'fact_value' | 'fact_amount', valueName: string, known: KnownValue[]): TripColumn | string {
-  const value = known.find((candidate) => candidate.match_key === buildMatchKey(valueName));
-  if (value === undefined) return `Không có giá trị "${valueName}" trong thông tin chuyến đã lưu. Các giá trị đã lưu: ${listNames(known)}.`;
-  if (source === 'fact_amount' && !value.per_ton) return `Giá trị "${valueName}" không tính theo đ/tấn. Các giá trị theo đ/tấn: ${listNames(known.filter((candidate) => candidate.per_ton))}.`;
-  return { name, source, matchKey: value.match_key };
+function readValueColumn(name: string, source: 'knowledge_value' | 'knowledge_amount', valueName: string): TripColumn | string {
+  const value = OUTCOME_DEFINITIONS.find((candidate) => candidate.matchKey === buildMatchKey(valueName));
+  if (value === undefined) return `Không có kết quả "${valueName}" trong kiến thức công ty. Các kết quả: ${listNames(OUTCOME_DEFINITIONS)}.`;
+  if (source === 'knowledge_amount' && value.unit !== PER_TON_UNIT) return `Kết quả "${valueName}" không tính theo đ/tấn. Các kết quả theo đ/tấn: ${listNames(OUTCOME_DEFINITIONS.filter((candidate) => candidate.unit === PER_TON_UNIT))}.`;
+  return { name, source, matchKey: value.matchKey };
 }
 
-function listNames(values: KnownValue[]): string {
-  return values.length === 0 ? 'không có' : values.map((value) => value.name).join(', ');
+function listNames(values: readonly { name: string }[]): string {
+  return values.map((value) => value.name).join(', ');
 }
 
 type PlannedReport = { request: TripReportRequest; columns: TripColumn[]; dropOffReader: ReaderService | null; createdAt: Date };
@@ -115,11 +115,11 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
 type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing; goodsNames: ShownGoodsNames };
 
 async function buildReport(database: Database, scope: AccessScope, { request, columns, dropOffReader, createdAt }: PlannedReport, { query, pickups, repeats, trips, pairing, goodsNames }: PairedTrips): Promise<TripReport> {
-  const facts = await matchTripFacts(database, dropOffReader, scope.workspaceId, trips);
-  const documentIds = facts.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
-  const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), facts.excludedLinks);
+  const entries = await matchTripEntries(database, dropOffReader, scope.workspaceId, trips);
+  const documentIds = entries.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
+  const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), entries.excludedLinks);
   const reviewPapers = await countReviewTripPapers(database, query);
-  return buildTripReport({ title: request.title, createdAt, columns, trips: facts.trips, pickups, repeats, winners, reviewPapers, pairing, matching: facts.matching, goodsNames, dateFrom: request.date_from, dateTo: request.date_to });
+  return buildTripReport({ title: request.title, createdAt, columns, trips: entries.trips, pickups, repeats, winners, reviewPapers, pairing, matching: entries.matching, goodsNames, dateFrom: request.date_from, dateTo: request.date_to });
 }
 
 async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
@@ -134,8 +134,7 @@ function keepTripOrderUnlessChosen(choice: LayoutChoice): LayoutChoice {
 }
 
 function listValueKeys(columns: TripColumn[]): string[] {
-  const keys = columns.flatMap((column) => (column.source === 'fact_value' || column.source === 'fact_amount' ? [column.matchKey] : []));
-  return [...new Set([...keys, GOODS_VALUE_KEY])];
+  return [...new Set(columns.flatMap((column) => (column.source === 'knowledge_value' || column.source === 'knowledge_amount' ? [column.matchKey] : [])))];
 }
 
 function summarizeReport(report: TripReport, pairing: TripPairing) {

@@ -42,7 +42,7 @@ const FILTER_NAMES = Object.keys(FILTER_PROPERTIES);
 export const EXPORT_DOCUMENTS_XLSX_SPEC: ToolSpec = {
   name: 'export_documents_xlsx',
   description:
-    'Xuất danh sách giấy tờ đã chấp nhận phù hợp với bộ lọc ra file Excel (.xlsx), tải lên R2 và trả về đường dẫn tải xuống. Khi công cụ trả về ok, nhắn một câu tiếng Việt kèm đường dẫn và số lượng giấy tờ, ghi rõ "link có hiệu lực 24 giờ". Khi công cụ trả về no_matches, nói "<described_filter> không có giấy tờ nào, chưa tạo file Excel." Không dán nội dung giấy tờ vào tin nhắn.',
+    'Xuất danh sách giấy tờ đã chấp nhận phù hợp với bộ lọc ra file Excel (.xlsx). Mỗi dòng có dữ liệu giấy tờ và các kết quả kiến thức công ty đang áp dụng. Khi công cụ trả về ok, nhắn một câu tiếng Việt kèm đường dẫn và số lượng giấy tờ, ghi rõ "link có hiệu lực 24 giờ". Khi công cụ trả về no_matches, nói "<described_filter> không có giấy tờ nào, chưa tạo file Excel." Không dán nội dung giấy tờ vào tin nhắn.',
   parameters: {
     type: 'object',
     properties: FILTER_PROPERTIES,

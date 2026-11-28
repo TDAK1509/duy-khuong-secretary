@@ -4,7 +4,7 @@ import type { Database } from '../../db/transaction.ts';
 import { buildDocumentsWorkbook, type ExportRow } from '../../documents/build-documents-workbook.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere } from '../../documents/build-document-where.ts';
 import type { DocumentFilters } from '../../documents/add-document-filters.ts';
-import { buildDocumentFactValuesSql, type DocumentFactValue } from '../../facts/document-fact-values.ts';
+import { buildDocumentKnowledgeSql, type DocumentKnowledge } from '../../facts/document-knowledge.ts';
 import type { WhereClause } from '../../records/where-clause.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
 import type { AdminToolDependencies } from './tool-dependencies.ts';
@@ -42,7 +42,7 @@ type DocumentExportRow = {
   vehicle_plate: string | null;
   amount_vnd: number | null;
   sender_name: string | null;
-  fact_values: DocumentFactValue[];
+  company_knowledge: DocumentKnowledge[];
 };
 
 async function queryExportRows(database: Database, scope: AccessScope, filters: DocumentFilters): Promise<ExportRow[]> {
@@ -58,7 +58,7 @@ function buildExportSql(where: WhereClause): string {
       document.kind, document.title, document.document_number, document.vehicle_plate,
       ${buildAmountSubquery()} AS amount_vnd,
       ${buildSenderSubquery()} AS sender_name,
-      ${buildDocumentFactValuesSql()} AS fact_values
+      ${buildDocumentKnowledgeSql()} AS company_knowledge
     FROM documents document
     WHERE ${where.toSql()}
     ORDER BY document.document_date DESC NULLS LAST, document.created_at DESC

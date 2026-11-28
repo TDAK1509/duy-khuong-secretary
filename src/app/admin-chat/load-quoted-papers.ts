@@ -1,5 +1,5 @@
 import type { Transaction } from '../db/transaction.ts';
-import { buildDocumentFactValuesSql, type DocumentFactValue } from '../facts/document-fact-values.ts';
+import { buildDocumentKnowledgeSql, type DocumentKnowledge } from '../facts/document-knowledge.ts';
 
 export type QuotedPaper = {
   id: string;
@@ -15,7 +15,7 @@ export type QuotedPaper = {
   sent_at: string;
   lines: { item: string | null; label: string; value: string }[];
   parties: { role: string; name: string }[];
-  fact_values: DocumentFactValue[];
+  company_knowledge: DocumentKnowledge[];
 };
 
 const SELECT_QUOTED_PAPERS_SQL = `
@@ -27,7 +27,7 @@ const SELECT_QUOTED_PAPERS_SQL = `
       FROM document_lines line WHERE line.document_id = document.id), '[]'::jsonb) AS lines,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('role', party.role, 'name', party.printed_name) ORDER BY party.created_at, party.id)
       FROM document_parties party WHERE party.document_id = document.id), '[]'::jsonb) AS parties,
-    ${buildDocumentFactValuesSql()} AS fact_values
+    ${buildDocumentKnowledgeSql()} AS company_knowledge
   FROM document_sources source
   JOIN documents document ON document.id = source.document_id AND document.workspace_id = source.workspace_id
   JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id

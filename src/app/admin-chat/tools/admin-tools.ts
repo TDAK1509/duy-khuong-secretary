@@ -9,12 +9,12 @@ import { CORRECT_DOCUMENT_SPEC } from './correct-document-spec.ts';
 import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { EXPORT_REPORT_XLSX_SPEC } from './export-report-xlsx-spec.ts';
 import { EXPORT_TRIP_REPORT_XLSX_SPEC } from './export-trip-report-xlsx-spec.ts';
-import { SAVE_FACT_SPEC } from './save-fact-spec.ts';
-import { LIST_FACTS_SPEC } from './list-facts-spec.ts';
-import { UPDATE_FACT_SPEC } from './update-fact-spec.ts';
-import { DELETE_FACT_SPEC } from './delete-fact-spec.ts';
+import { SAVE_COMPANY_KNOWLEDGE_SPEC } from './save-company-knowledge-spec.ts';
+import { LIST_COMPANY_KNOWLEDGE_SPEC } from './list-company-knowledge-spec.ts';
+import { UPDATE_COMPANY_KNOWLEDGE_SPEC } from './update-company-knowledge-spec.ts';
+import { DELETE_COMPANY_KNOWLEDGE_SPEC } from './delete-company-knowledge-spec.ts';
 import { DELETE_DOCUMENT_SPEC } from './delete-document-spec.ts';
-import { TOTAL_FACT_VALUES_SPEC } from './total-fact-values-spec.ts';
+import { TOTAL_COMPANY_KNOWLEDGE_SPEC } from './total-company-knowledge-spec.ts';
 import { WORKSPACE_RULE_TOOLS } from './workspace-rule-specs.ts';
 import { GOODS_NAME_TOOLS } from './goods-name-specs.ts';
 import { DOCUMENT_TEMPLATE_TOOLS } from './document-template-specs.ts';
@@ -39,11 +39,11 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   REWRITE_MEMBER_PLATE_SPEC,
   CORRECT_DOCUMENT_SPEC,
   DELETE_DOCUMENT_SPEC,
-  SAVE_FACT_SPEC,
-  LIST_FACTS_SPEC,
-  UPDATE_FACT_SPEC,
-  DELETE_FACT_SPEC,
-  TOTAL_FACT_VALUES_SPEC,
+  SAVE_COMPANY_KNOWLEDGE_SPEC,
+  LIST_COMPANY_KNOWLEDGE_SPEC,
+  UPDATE_COMPANY_KNOWLEDGE_SPEC,
+  DELETE_COMPANY_KNOWLEDGE_SPEC,
+  TOTAL_COMPANY_KNOWLEDGE_SPEC,
   ...WORKSPACE_RULE_TOOLS,
   ...GOODS_NAME_TOOLS,
   ...DOCUMENT_TEMPLATE_TOOLS,

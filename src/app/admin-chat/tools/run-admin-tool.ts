@@ -26,16 +26,16 @@ import { runRemember } from './remember-tool.ts';
 import { runRemoveMember } from './remove-member-tool.ts';
 import { runRewriteMemberPlate } from './rewrite-member-plate-tool.ts';
 import { runCorrectDocument } from './correct-document-tool.ts';
-import { runSaveFact } from './save-fact-tool.ts';
-import { runListFacts } from './list-facts-tool.ts';
-import { runUpdateFact } from './update-fact-tool.ts';
+import { runSaveCompanyKnowledge } from './save-company-knowledge-tool.ts';
+import { runListCompanyKnowledge } from './list-company-knowledge-tool.ts';
+import { runUpdateCompanyKnowledge } from './update-company-knowledge-tool.ts';
 import { runDeleteDocument } from './delete-document-tool.ts';
-import { runDeleteFact } from './delete-fact-tool.ts';
+import { runDeleteCompanyKnowledge } from './delete-company-knowledge-tool.ts';
 import { runDeleteDocumentTemplate } from './delete-document-template-tool.ts';
 import { runListDocumentTemplates } from './list-document-templates-tool.ts';
 import { runProposeDocumentTemplates } from './propose-document-templates-tool.ts';
 import { runSaveDocumentTemplate } from './save-document-template-tool.ts';
-import { runTotalFactValues } from './total-fact-values-tool.ts';
+import { runTotalCompanyKnowledge } from './total-company-knowledge-tool.ts';
 import { runDeleteRule, runListRules, runSaveRule } from './workspace-rule-tools.ts';
 import { runJoinGoodsNames, runListGoodsNames, runRemoveGoodsName } from './goods-name-tools.ts';
 import { runExportReportXlsx } from './export-report-xlsx-tool.ts';
@@ -94,11 +94,11 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   rewrite_member_plate: ({ database }, scope, args) => runRewriteMemberPlate(database, scope, args),
   correct_document: runCorrectDocument,
   delete_document: ({ database }, scope, args) => runDeleteDocument(database, scope, args),
-  save_fact: ({ database, companyReader }, scope, args) => runSaveFact(database, scope, args, companyReader ?? null),
-  list_facts: ({ database }, scope, args) => runListFacts(database, scope, args),
-  update_fact: ({ database }, scope, args) => runUpdateFact(database, scope, args),
-  delete_fact: ({ database }, scope, args) => runDeleteFact(database, scope, args),
-  total_fact_values: runTotalFactValues,
+  save_company_knowledge: ({ database, companyReader }, scope, args) => runSaveCompanyKnowledge(database, scope, args, companyReader ?? null),
+  list_company_knowledge: ({ database }, scope) => runListCompanyKnowledge(database, scope),
+  update_company_knowledge: ({ database, companyReader }, scope, args) => runUpdateCompanyKnowledge(database, scope, args, companyReader ?? null),
+  delete_company_knowledge: ({ database }, scope, args) => runDeleteCompanyKnowledge(database, scope, args),
+  total_company_knowledge: runTotalCompanyKnowledge,
   save_rule: runSaveRule,
   list_rules: ({ database }, scope, args) => runListRules(database, scope, args),
   delete_rule: ({ database }, scope, args) => runDeleteRule(database, scope, args),

@@ -7,7 +7,7 @@ import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import type { TaggedDriver } from '../intake/tag-named-driver.ts';
 import { groupItems, hasCompatiblePlate, pairItemsWithRecords, type DocumentDraft } from './document-draft.ts';
 import { findAcceptedDocuments } from './find-accepted-documents.ts';
-import { linkDocumentToMatchingFacts } from '../facts/link-facts.ts';
+import { linkDocumentToMatchingEntries } from '../facts/link-facts.ts';
 import { insertDocument, insertSources } from './insert-document.ts';
 import { extractPlateFromFacts } from './plate-from-facts.ts';
 import type { KeptPaper } from './kept-paper.ts';
@@ -67,7 +67,7 @@ async function storeDraft(transaction: Transaction, message: DocumentMessage, dr
 
 async function addSources(transaction: Transaction, message: DocumentMessage, documentId: string, draft: DocumentDraft): Promise<string> {
   await insertSources(transaction, message, documentId, draft);
-  await linkDocumentToMatchingFacts(transaction, message.workspaceId, documentId);
+  await linkDocumentToMatchingEntries(transaction, message.workspaceId, documentId);
   return documentId;
 }
 

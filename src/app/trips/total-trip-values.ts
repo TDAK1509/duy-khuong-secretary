@@ -6,7 +6,7 @@ import { ACCEPTED_CONFIRMED, buildDocumentWhere } from '../documents/build-docum
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { countNotRereadMessages } from '../documents/count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from '../documents/document-groups.ts';
-import { countReviewDocuments, type DocumentFactValueRow, type FactValueRequest, type FactValueTotals } from '../facts/fact-value-totals.ts';
+import { countReviewDocuments, type DocumentKnowledgeRow, type KnowledgeValueRequest, type KnowledgeTotals } from '../facts/knowledge-totals.ts';
 import { loadShownGoodsNames } from '../goods-names/show-goods-name.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { listWorkspaceRules } from '../workspace-rules/list-workspace-rules.ts';
@@ -14,7 +14,7 @@ import { findWinner, indexWinners, readWinnerWeight } from './build-trip-report.
 import { buildTrips, type Trip } from './build-trips.ts';
 import { listWinningValues, type WinningValue } from './list-trip-papers.ts';
 import { loadTripPapers, MAX_TRIP_PAPERS } from './load-trip-papers.ts';
-import { matchTripFacts, type TripFacts } from './match-trip-facts.ts';
+import { matchTripEntries, type TripEntries } from './match-trip-entries.ts';
 import { pairTrips } from './pair-trips.ts';
 
 type PassingPaper = { id: string; date: string | null };
@@ -23,20 +23,20 @@ type DateRange = { from: string; to: string };
 
 type PaperGroups = Map<string, string | null>;
 
-export async function totalTripValues(database: Database, scope: AccessScope, request: FactValueRequest, dropOffReader: ReaderService | null): Promise<FactValueTotals | null> {
+export async function totalTripValues(database: Database, scope: AccessScope, request: KnowledgeValueRequest, dropOffReader: ReaderService | null): Promise<KnowledgeTotals | null> {
   const rows = await listTripValueRows(database, scope.workspaceId, request, dropOffReader);
   if (rows === null) return null;
   return { documents: rows, reviewDocuments: await countReviewDocuments(database, scope, request), notRereadMessages: await countNotRereadMessages(database, scope) };
 }
 
-async function listTripValueRows(database: Database, workspaceId: string, request: FactValueRequest, dropOffReader: ReaderService | null): Promise<DocumentFactValueRow[] | null> {
+async function listTripValueRows(database: Database, workspaceId: string, request: KnowledgeValueRequest, dropOffReader: ReaderService | null): Promise<DocumentKnowledgeRow[] | null> {
   const passing = await listPassingPapers(database, workspaceId, request.filters);
   const range = readDateRange(passing, request.filters);
   if (range === null) return [];
-  const facts = await matchTripsInRange(database, workspaceId, { range, plate: request.filters.plate, dropOffReader });
-  if (facts === null) return null;
+  const entries = await matchTripsInRange(database, workspaceId, { range, plate: request.filters.plate, dropOffReader });
+  if (entries === null) return null;
   const passingIds = new Set(passing.map(({ id }) => id));
-  return describeTrips(database, workspaceId, request, { ...facts, trips: facts.trips.filter((trip) => listTripPaperIds(trip).some((id) => passingIds.has(id))) });
+  return describeTrips(database, workspaceId, request, { ...entries, trips: entries.trips.filter((trip) => listTripPaperIds(trip).some((id) => passingIds.has(id))) });
 }
 
 async function listPassingPapers(database: Database, workspaceId: string, filters: DocumentFilters): Promise<PassingPaper[]> {
@@ -57,20 +57,20 @@ function readDateRange(papers: PassingPaper[], filters: DocumentFilters): DateRa
 
 type TripSearch = { range: DateRange; plate: string | null; dropOffReader: ReaderService | null };
 
-async function matchTripsInRange(database: Database, workspaceId: string, { range, plate, dropOffReader }: TripSearch): Promise<TripFacts | null> {
+async function matchTripsInRange(database: Database, workspaceId: string, { range, plate, dropOffReader }: TripSearch): Promise<TripEntries | null> {
   const papers = await loadTripPapers(database, { workspaceId, dateFrom: range.from, dateTo: range.to, plate, limit: MAX_TRIP_PAPERS + 1 });
   if (papers === null) return null;
   const rules = await listWorkspaceRules(database, workspaceId);
   const pairing = await pairTrips(dropOffReader, papers, rules.map(({ rule }) => rule), await loadShownGoodsNames(database, workspaceId));
   const trips = buildTrips({ ...papers, dateFrom: range.from, dateTo: range.to }, pairing);
-  return matchTripFacts(database, dropOffReader, workspaceId, trips);
+  return matchTripEntries(database, dropOffReader, workspaceId, trips);
 }
 
 function listTripPaperIds({ pickup, dropOff }: Trip): string[] {
   return [pickup?.id ?? [], dropOff?.id ?? []].flat();
 }
 
-async function describeTrips(database: Database, workspaceId: string, request: FactValueRequest, { trips, excludedLinks }: TripFacts): Promise<DocumentFactValueRow[]> {
+async function describeTrips(database: Database, workspaceId: string, request: KnowledgeValueRequest, { trips, excludedLinks }: TripEntries): Promise<DocumentKnowledgeRow[]> {
   const paperIds = trips.flatMap(listTripPaperIds);
   const winners = await listWinningValues(database, workspaceId, paperIds, [buildMatchKey(request.valueName)], excludedLinks);
   const index = indexWinners(winners);
@@ -79,7 +79,7 @@ async function describeTrips(database: Database, workspaceId: string, request: F
   return trips.flatMap((trip) => describeTrip(trip, findWinner(index, trip, matchKey), groups, request.groupBy));
 }
 
-function describeTrip(trip: Trip, winner: WinningValue | undefined, groups: PaperGroups, groupBy: DocumentGroup): DocumentFactValueRow[] {
+function describeTrip(trip: Trip, winner: WinningValue | undefined, groups: PaperGroups, groupBy: DocumentGroup): DocumentKnowledgeRow[] {
   if (winner === undefined) return [];
   const weightKg = readWinnerWeight(trip, winner);
   return [{ group: readTripGroup(trip, groups, groupBy), number: winner.number, unit: winner.unit, text: winner.text, weight_kg: weightKg === null ? null : String(weightKg) }];
@@ -94,7 +94,7 @@ function readAnchorPaperId(trip: Trip): string {
   return (trip.pickup ?? trip.dropOff)?.id ?? '';
 }
 
-async function listPaperGroups(database: Database, workspaceId: string, { groupBy, filters }: FactValueRequest, paperIds: string[]): Promise<PaperGroups> {
+async function listPaperGroups(database: Database, workspaceId: string, { groupBy, filters }: KnowledgeValueRequest, paperIds: string[]): Promise<PaperGroups> {
   if (paperIds.length === 0) return new Map();
   const where = new WhereClause();
   const groupSql = buildGroupSql(groupBy, where, filters);

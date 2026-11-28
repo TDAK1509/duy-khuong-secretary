@@ -1,7 +1,6 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
-import { GOODS_VALUE_KEY } from '../facts/fact.ts';
 import { showGoodsName, type ShownGoodsNames } from '../goods-names/show-goods-name.ts';
-import { PER_TON_UNIT } from '../facts/fact-value-totals.ts';
+import { PER_TON_UNIT } from '../facts/knowledge-outcomes.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
 import type { ColumnUnit } from '../documents/format-workbook-sheet.ts';
@@ -23,8 +22,8 @@ export type TripField = (typeof TRIP_FIELDS)[number];
 
 export type TripColumn = { name: string } & (
   | { source: 'field'; field: TripField }
-  | { source: 'fact_value'; matchKey: string }
-  | { source: 'fact_amount'; matchKey: string }
+  | { source: 'knowledge_value'; matchKey: string }
+  | { source: 'knowledge_amount'; matchKey: string }
   | { source: 'none' }
 );
 
@@ -44,8 +43,6 @@ export type TripReport = {
 };
 
 export type TripCounts = { trips: number; both: number; pickupOnly: number; dropOffOnly: number; byRule: number; byAi: number };
-
-export { GOODS_VALUE_KEY };
 
 const NO_PLATE = '(không biển số)';
 
@@ -76,13 +73,13 @@ export function indexWinners(winners: WinningValue[]): WinnerIndex {
 
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex, goodsNames: ShownGoodsNames): ReportCell {
   if (column.source === 'none') return null;
-  if (column.source === 'field') return FIELD_READERS[column.field](trip, index, goodsNames);
+  if (column.source === 'field') return FIELD_READERS[column.field](trip, goodsNames);
   const winner = findWinner(index, trip, column.matchKey);
-  if (column.source === 'fact_value') return readWinner(winner);
+  if (column.source === 'knowledge_value') return readWinner(winner);
   return calculateAmount(winner, readWinnerWeight(trip, winner));
 }
 
-type FieldReader = (trip: Trip, index: WinnerIndex, goodsNames: ShownGoodsNames) => ReportCell;
+type FieldReader = (trip: Trip, goodsNames: ShownGoodsNames) => ReportCell;
 
 const FIELD_READERS: Record<TripField, FieldReader> = {
   date: (trip) => readTripDate(trip),
@@ -93,7 +90,7 @@ const FIELD_READERS: Record<TripField, FieldReader> = {
   pickup_place: ({ pickup }) => (pickup === null ? null : readPickupPlace(pickup)),
   dropoff_place: (trip) => findDropOffPlace(trip),
   customer: (trip) => readFirst(trip, (paper) => paper.route_customer ?? paper.customer_party),
-  goods: (trip, index, goodsNames) => readGoods(trip, index, goodsNames),
+  goods: (trip, goodsNames) => readGoods(trip, goodsNames),
   weight_kg: ({ pickup, dropOff }) => readWeightKg(pickup) ?? readWeightKg(dropOff),
   pickup_weight_kg: ({ pickup }) => readWeightKg(pickup),
   dropoff_weight_kg: ({ dropOff }) => readWeightKg(dropOff),
@@ -132,14 +129,8 @@ function joinNumbers(pickup: TripPaper | null, dropOff: TripPaper | null): strin
   return numbers.length === 0 ? null : numbers.join(' / ');
 }
 
-function readGoods(trip: Trip, index: WinnerIndex, goodsNames: ShownGoodsNames): string | null {
-  const goods = describeWinnerText(findWinner(index, trip, GOODS_VALUE_KEY)) ?? readFirst(trip, (paper) => paper.goods_line);
-  return showGoodsName(goodsNames, goods);
-}
-
-function describeWinnerText(winner: WinningValue | undefined): string | null {
-  if (winner === undefined) return null;
-  return winner.text ?? `${winner.number}${winner.unit ?? ''}`;
+function readGoods(trip: Trip, goodsNames: ShownGoodsNames): string | null {
+  return showGoodsName(goodsNames, readFirst(trip, (paper) => paper.goods_line));
 }
 
 function describeRoute(trip: Trip): string | null {
@@ -205,17 +196,17 @@ function describeColumn(column: TripColumn, trips: Trip[], index: WinnerIndex): 
 }
 
 function chooseColumnType(column: TripColumn, trips: Trip[], index: WinnerIndex): ReportColumn['type'] {
-  if (column.source === 'fact_amount') return 'number';
-  if (column.source === 'fact_value') return listWinners(column, trips, index).some((winner) => winner.number != null) ? 'number' : 'text';
+  if (column.source === 'knowledge_amount') return 'number';
+  if (column.source === 'knowledge_value') return listWinners(column, trips, index).some((winner) => winner.number != null) ? 'number' : 'text';
   if (column.source !== 'field') return 'text';
   if (DATE_FIELDS.includes(column.field)) return 'date';
   return KG_FIELDS.includes(column.field) ? 'number' : 'text';
 }
 
 function chooseColumnUnit(column: TripColumn, trips: Trip[], index: WinnerIndex): ColumnUnit | null {
-  if (column.source === 'fact_amount') return 'vnd';
+  if (column.source === 'knowledge_amount') return 'vnd';
   if (column.source === 'field' && KG_FIELDS.includes(column.field)) return 'kg';
-  if (column.source !== 'fact_value') return null;
+  if (column.source !== 'knowledge_value') return null;
   return chooseValueUnit(listWinners(column, trips, index));
 }
 

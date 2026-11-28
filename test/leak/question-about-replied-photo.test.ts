@@ -107,7 +107,7 @@ test('an accepted paper renders the full block text', async () => {
   await insertPaperDetails(databases.owner, { paperId: paper.paperId, plate: SHARED_PLATE }, {
     line: { label: 'Khoi luong', value: '12000 kg' },
     party: { role: 'issuer', printedName: 'Kho Mau Mot' },
-    factValue: { name: 'Don gia', number: '500000', unit: 'vnd' },
+    knowledge: { wageVnd: 500000 },
   });
   await insertSentPhoto(databases.owner, { imageKey: buildImageKey('full-text'), zaloMessageId: 'SENT-8' });
   const request = await askAboutQuote(QUESTION, 'SENT-8');
@@ -124,8 +124,8 @@ test('an accepted paper renders the full block text', async () => {
     '- Khoi luong: 12000 kg',
     'Công ty và nơi chốn:',
     '- bên phát hành: Kho Mau Mot',
-    'Giá trị từ thông tin cố định:',
-    '- Don gia: 500000 vnd',
+    'Kiến thức công ty áp dụng:',
+    '- Lương tài xế: 500000 đ',
   ].join('\n'));
 });
 

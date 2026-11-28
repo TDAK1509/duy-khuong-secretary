@@ -25,8 +25,8 @@ async function assertCountsAndSumsHoldOnlyAValues(database: PostgresPool): Promi
   });
   const documentTotals = await callAttackCase(database, 'total_document_numbers');
   assert.deepEqual(documentTotals['groups'], [{ group: null, unit: 'kg', count: 1, sum: '700', min: '700', max: '700' }]);
-  const factTotals = await callAttackCase(database, 'total_fact_values');
-  assert.deepEqual(factTotals['amounts'], [{ group: null, unit: 'vnd', documents: 1, sum: 500000, values: [{ number: '500000', documents: 1 }] }]);
+  const factTotals = await callAttackCase(database, 'total_company_knowledge');
+  assert.deepEqual(factTotals['amounts'], [{ group: null, unit: 'đ', documents: 1, sum: 500000, values: [{ number: '500000', documents: 1 }] }]);
 }
 
 async function callAttackCase(database: PostgresPool, name: string): Promise<Record<string, unknown>> {

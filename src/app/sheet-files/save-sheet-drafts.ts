@@ -6,7 +6,7 @@ import { buildLineRow, listLineDetails } from '../documents/insert-lines.ts';
 import { insertRows } from '../documents/insert-row.ts';
 import { describeMeaning, findOrInsertMeanings } from '../documents/find-or-insert-meaning.ts';
 import type { DocumentMessage } from '../documents/store-documents.ts';
-import { linkDocumentsToMatchingFacts } from '../facts/link-facts.ts';
+import { linkDocumentsToMatchingEntries } from '../facts/link-facts.ts';
 import { lockWorkspaceRecords } from '../records/lock-workspace-records.ts';
 import type { FileClaim } from './file-claims.ts';
 
@@ -46,7 +46,7 @@ export async function saveSheetDrafts(transaction: Transaction, claim: FileClaim
   await updateExistingDocuments(transaction, message, placed.filter((entry) => !entry.isNew));
   await insertSheetLines(transaction, message, placed);
   await insertRows(transaction, 'document_sources', placed.flatMap((entry) => buildSourceRows(message, entry)));
-  await linkDocumentsToMatchingFacts(transaction, claim.workspaceId, placed.map((entry) => entry.documentId));
+  await linkDocumentsToMatchingEntries(transaction, claim.workspaceId, placed.map((entry) => entry.documentId));
   const added = placed.filter((entry) => entry.isNew).length;
   return { added, updated: placed.length - added };
 }

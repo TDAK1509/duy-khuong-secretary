@@ -1,5 +1,5 @@
 import type { Transaction } from '../../db/transaction.ts';
-import { linkDocumentToMatchingFacts } from '../../facts/link-facts.ts';
+import { linkDocumentToMatchingEntries } from '../../facts/link-facts.ts';
 import { resolveCompanyTarget, type CompanyTarget } from './company-target.ts';
 import { findPrintedLine, type PrintedLine } from './find-printed-line.ts';
 import { listPaperChanges, resolveFinalValues, type ValuesBefore } from './list-paper-changes.ts';
@@ -31,7 +31,7 @@ export async function correctPaper(corrector: PaperCorrector, paper: FoundPaper,
   const changes = listPaperChanges(paper, values, before);
   if (changes.length === 0) return { paper, changes, mergedIntoId: null };
   const existingId = await storeCorrection(corrector, paper, values, before.company);
-  await relinkPaperFacts(transaction, workspaceId, existingId ?? paper.id);
+  await relinkPaperEntries(transaction, workspaceId, existingId ?? paper.id);
   return { paper, changes, mergedIntoId: existingId };
 }
 
@@ -69,7 +69,7 @@ async function updatePaper({ transaction, workspaceId, now }: PaperCorrector, pa
   await transaction.query(UPDATE_PAPER_SQL, [paperId, workspaceId, values.plate, values.documentNumber, values.documentDate, values.stage, now, issuerKey]);
 }
 
-async function relinkPaperFacts(transaction: Transaction, workspaceId: string, paperId: string): Promise<void> {
-  await transaction.query('DELETE FROM document_facts WHERE workspace_id = $1 AND document_id = $2', [workspaceId, paperId]);
-  await linkDocumentToMatchingFacts(transaction, workspaceId, paperId);
+async function relinkPaperEntries(transaction: Transaction, workspaceId: string, paperId: string): Promise<void> {
+  await transaction.query('DELETE FROM company_knowledge_links WHERE workspace_id = $1 AND document_id = $2', [workspaceId, paperId]);
+  await linkDocumentToMatchingEntries(transaction, workspaceId, paperId);
 }
