@@ -5,7 +5,7 @@ const NULLABLE_STRING = { type: ['string', 'null'] };
 export const PROPOSE_DOCUMENT_TEMPLATES_SPEC: ToolSpec = {
   name: 'propose_document_templates',
   description:
-    'Đề xuất mẫu giấy tờ từ các giấy tờ đã lưu của nhóm (không tính giấy tờ lưu từ file bảng tính). Không có paper_id: trả về tối đa 5 nhóm giấy tờ nhiều nhất theo bên phát hành và loại giấy tờ, mỗi nhóm có số giấy tờ, số giấy tờ lấy hàng (dispatch), đổ hàng (receipt) và chưa rõ (none), và từng thông tin kèm kiểu, đơn vị và số giấy tờ có thông tin đó. Có paper_id: đề xuất từ đúng một giấy tờ đã lưu. Mỗi nhóm cho biết nếu lưu mẫu thì sẽ đọc lại bao nhiêu giấy tờ đã lưu (papers_to_reread) và khoảng bao nhiêu credit (credits_estimate, chỉ là ước tính). Chỉ đề xuất, chưa lưu gì.',
+    'Đề xuất mẫu giấy tờ từ các giấy tờ đã lưu của nhóm (không tính giấy tờ lưu từ file bảng tính). Không có paper_id: trả về tối đa 5 nhóm giấy tờ nhiều nhất theo bên phát hành và loại giấy tờ, mỗi nhóm có số giấy tờ, số giấy tờ lấy hàng (dispatch), đổ hàng (receipt) và chưa rõ (none), và từng thông tin kèm kiểu, đơn vị và số giấy tờ có thông tin đó. Có paper_id: đề xuất từ đúng một giấy tờ đã lưu. Mỗi nhóm cho biết nếu lưu mẫu thì sẽ đọc lại bao nhiêu giấy tờ đã lưu (papers_to_reread) và khoảng bao nhiêu credit (credits_estimate, chỉ là ước tính). Chỉ đề xuất, chưa lưu gì. Mỗi đề xuất trả về example_paper_ids là tối đa ba giấy tờ đại diện còn ảnh để dùng khi lưu mẫu.',
   parameters: {
     type: 'object',
     properties: {
@@ -19,7 +19,7 @@ export const PROPOSE_DOCUMENT_TEMPLATES_SPEC: ToolSpec = {
 export const SAVE_DOCUMENT_TEMPLATE_SPEC: ToolSpec = {
   name: 'save_document_template',
   description:
-    'Lưu một mẫu giấy tờ của công ty sau khi quản lý đã xác nhận bản nháp: tên mẫu, loại giấy tờ, bên phát hành, lấy hàng hay đổ hàng, mô tả và các trường cần lưu. Từ khi lưu, giấy tờ mới gửi vào khớp mẫu được lưu theo loại, giai đoạn và các trường của mẫu. Mẫu mới, hoặc mẫu đổi loại, giai đoạn, công ty phát hành hoặc trường, còn đọc lại ở nền các giấy tờ đã lưu còn ảnh; kết quả cho biết đã bắt đầu đọc lại chưa và bao nhiêu giấy tờ, và hệ thống nhắn kết quả riêng sau. Cùng tên mẫu (không phân biệt dấu và chữ hoa) thì cập nhật mẫu đó và thay toàn bộ các trường. Tối đa 50 mẫu mỗi nhóm và 20 trường mỗi mẫu. Kết quả cho biết công ty phát hành đã khớp công ty đã lưu nào, null nếu không khớp.',
+    'Lưu một mẫu giấy tờ của công ty sau khi quản lý đã xác nhận bản nháp: tên mẫu, loại giấy tờ, bên phát hành, lấy hàng hay đổ hàng, mô tả và các trường cần lưu. Từ khi lưu, giấy tờ mới gửi vào khớp mẫu được lưu theo loại, giai đoạn và các trường của mẫu. Mẫu mới, hoặc mẫu đổi loại, giai đoạn, công ty phát hành hoặc trường, còn đọc lại ở nền các giấy tờ đã lưu còn ảnh; kết quả cho biết đã bắt đầu đọc lại chưa và bao nhiêu giấy tờ, và hệ thống nhắn kết quả riêng sau. Cùng tên mẫu (không phân biệt dấu và chữ hoa) thì cập nhật mẫu đó và thay toàn bộ các trường. Tối đa 50 mẫu mỗi nhóm và 20 trường mỗi mẫu. Kết quả cho biết công ty phát hành đã khớp công ty đã lưu nào, null nếu không khớp. Mỗi mẫu phải có từ 1 đến 3 giấy tờ ví dụ đã lưu còn ảnh. Công cụ lưu ảnh và kết quả đã chấp nhận của các giấy tờ đó làm ví dụ cho lần đọc sau.',
   parameters: {
     type: 'object',
     properties: {
@@ -43,15 +43,22 @@ export const SAVE_DOCUMENT_TEMPLATE_SPEC: ToolSpec = {
           additionalProperties: false,
         },
       },
+      example_paper_ids: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 3,
+        items: { type: 'string' },
+        description: 'Từ 1 đến 3 id giấy tờ đã lưu còn ảnh, theo thứ tự ví dụ tốt nhất trước. Lấy id từ propose_document_templates, list_documents hoặc search_records.',
+      },
     },
-    required: ['name', 'kind', 'issuer_company', 'stage', 'description', 'fields'],
+    required: ['name', 'kind', 'issuer_company', 'stage', 'description', 'fields', 'example_paper_ids'],
     additionalProperties: false,
   },
 };
 
 export const LIST_DOCUMENT_TEMPLATES_SPEC: ToolSpec = {
   name: 'list_document_templates',
-  description: 'Liệt kê các mẫu giấy tờ đã lưu của nhóm: tên, loại giấy tờ, công ty phát hành, lấy hàng hay đổ hàng, mô tả, các trường, số lần sửa và số giấy tờ đã khớp mẫu.',
+  description: 'Liệt kê các mẫu giấy tờ đã lưu của nhóm: tên, loại giấy tờ, công ty phát hành, lấy hàng hay đổ hàng, mô tả, các trường, các giấy tờ ví dụ, số lần sửa và số giấy tờ đã khớp mẫu.',
   parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
 };
 

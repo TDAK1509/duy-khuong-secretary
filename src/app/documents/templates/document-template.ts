@@ -7,6 +7,8 @@ export type TemplateFieldType = 'text' | 'number' | 'date';
 
 export type TemplateField = { name: string; nameKey: string; valueType: TemplateFieldType; unit: string | null; required: boolean };
 
+export type TemplateExampleSummary = { position: number; paperId: string | null };
+
 export type DocumentTemplate = {
   id: string;
   name: string;
@@ -17,4 +19,5 @@ export type DocumentTemplate = {
   revision: number;
   updatedAt: Date;
   fields: TemplateField[];
+  examples: TemplateExampleSummary[];
 };

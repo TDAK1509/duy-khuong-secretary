@@ -2,6 +2,7 @@ import { runInTransaction, type Database, type Transaction } from '../../db/tran
 import { insertRows } from '../insert-row.ts';
 import { lockWorkspaceRecords } from '../../records/lock-workspace-records.ts';
 import { carryBackfillToRevision, NO_BACKFILL, queueTemplateBackfill, type QueuedBackfill } from './backfills/queue-template-backfill.ts';
+import { findExamplePapers, type ExamplePaper } from './find-example-papers.ts';
 import { MAX_TEMPLATES_PER_WORKSPACE, type TemplateField, type TemplateStage } from './document-template.ts';
 
 export type NewDocumentTemplate = {
@@ -14,9 +15,13 @@ export type NewDocumentTemplate = {
   description: string;
   stage: TemplateStage | null;
   fields: TemplateField[];
+  examplePaperIds: string[];
 };
 
-export type SaveTemplateResult = { action: 'added' | 'updated'; templateId: string; revision: number; backfill: QueuedBackfill } | { action: 'too_many_templates' };
+export type SaveTemplateResult =
+  | { action: 'added' | 'updated'; templateId: string; revision: number; backfill: QueuedBackfill }
+  | { action: 'too_many_templates' }
+  | { action: 'unusable_examples'; paperIds: string[] };
 
 type ReadableField = Pick<TemplateField, 'name' | 'valueType' | 'unit'>;
 
@@ -50,8 +55,10 @@ const UPDATE_TEMPLATE_SQL = `
 export function saveDocumentTemplate(database: Database, template: NewDocumentTemplate): Promise<SaveTemplateResult> {
   return runInTransaction(database, async (transaction) => {
     await lockWorkspaceRecords(transaction, template.workspaceId);
+    const { papers, unusableIds } = await findExamplePapers(transaction, template.workspaceId, template.examplePaperIds);
+    if (unusableIds.length > 0) return { action: 'unusable_examples', paperIds: unusableIds };
     const [row] = await transaction.query<StoredRow>(FIND_TEMPLATE_SQL, [template.workspaceId, template.nameKey]);
-    return row === undefined ? addTemplate(transaction, template) : updateTemplate(transaction, template, toStoredTemplate(row));
+    return row === undefined ? addTemplate(transaction, template, papers) : updateTemplate(transaction, template, toStoredTemplate(row), papers);
   });
 }
 
@@ -59,7 +66,7 @@ function toStoredTemplate(row: StoredRow): StoredTemplate {
   return { id: row.id, revision: row.revision, kind: row.kind, stage: row.stage, issuerOrganizationId: row.issuer_organization_id, fields: row.fields };
 }
 
-async function addTemplate(transaction: Transaction, template: NewDocumentTemplate): Promise<SaveTemplateResult> {
+async function addTemplate(transaction: Transaction, template: NewDocumentTemplate, papers: ExamplePaper[]): Promise<SaveTemplateResult> {
   const [counted] = await transaction.query<{ count: number }>(COUNT_TEMPLATES_SQL, [template.workspaceId]);
   if ((counted?.count ?? 0) >= MAX_TEMPLATES_PER_WORKSPACE) return { action: 'too_many_templates' };
   const [inserted] = await transaction.query<{ id: string }>(INSERT_TEMPLATE_SQL, [
@@ -67,17 +74,20 @@ async function addTemplate(transaction: Transaction, template: NewDocumentTempla
   ]);
   if (inserted === undefined) throw new Error('A document template was not inserted');
   await insertFields(transaction, template, inserted.id);
+  await insertExamples(transaction, template.workspaceId, inserted.id, papers);
   const backfill = await queueBackfill(transaction, template, { templateId: inserted.id, revision: 1 });
   return { action: 'added', templateId: inserted.id, revision: 1, backfill };
 }
 
-async function updateTemplate(transaction: Transaction, template: NewDocumentTemplate, stored: StoredTemplate): Promise<SaveTemplateResult> {
+async function updateTemplate(transaction: Transaction, template: NewDocumentTemplate, stored: StoredTemplate, papers: ExamplePaper[]): Promise<SaveTemplateResult> {
   const [updated] = await transaction.query<{ revision: number }>(UPDATE_TEMPLATE_SQL, [
     stored.id, template.workspaceId, template.name, template.kind, template.issuerOrganizationId, template.description, template.stage,
   ]);
   if (updated === undefined) throw new Error('A document template was not updated');
   await transaction.query('DELETE FROM document_template_fields WHERE template_id = $1 AND workspace_id = $2', [stored.id, template.workspaceId]);
   await insertFields(transaction, template, stored.id);
+  await transaction.query('DELETE FROM document_template_examples WHERE template_id = $1 AND workspace_id = $2', [stored.id, template.workspaceId]);
+  await insertExamples(transaction, template.workspaceId, stored.id, papers);
   const backfill = await requeueBackfill(transaction, template, stored, updated.revision);
   return { action: 'updated', templateId: stored.id, revision: updated.revision, backfill };
 }
@@ -114,4 +124,16 @@ async function insertFields(transaction: Transaction, template: NewDocumentTempl
     required: field.required,
   }));
   await insertRows(transaction, 'document_template_fields', rows);
+}
+
+async function insertExamples(transaction: Transaction, workspaceId: string, templateId: string, papers: ExamplePaper[]): Promise<void> {
+  const rows = papers.map((paper, index) => ({
+    workspace_id: workspaceId,
+    template_id: templateId,
+    position: index + 1,
+    source_document_id: paper.documentId,
+    image_key: paper.imageKey,
+    expected_reading: paper.expectedReading,
+  }));
+  await insertRows(transaction, 'document_template_examples', rows);
 }

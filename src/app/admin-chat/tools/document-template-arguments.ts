@@ -8,6 +8,7 @@ const MAX_NAME_LENGTH = 80;
 const MAX_KIND_LENGTH = 60;
 const MAX_DESCRIPTION_LENGTH = 200;
 const MAX_FIELD_NAME_LENGTH = 60;
+const MAX_EXAMPLES_PER_TEMPLATE = 3;
 
 export const fieldArgumentSchema = z.strictObject({
   name: z.string(),
@@ -31,6 +32,13 @@ export function readTemplateDescription(raw: string): string {
   const description = raw.trim();
   if (description.length > MAX_DESCRIPTION_LENGTH) refuseInvalidArgument('description');
   return description;
+}
+
+export function readExamplePaperIds(raw: string[]): string[] {
+  const hasValidCount = raw.length >= 1 && raw.length <= MAX_EXAMPLES_PER_TEMPLATE;
+  const isEachIdValid = raw.every((id) => z.uuid().safeParse(id).success) && new Set(raw).size === raw.length;
+  if (!hasValidCount || !isEachIdValid) refuseInvalidArgument('example_paper_ids');
+  return raw;
 }
 
 export function readTemplateFields(raw: FieldArgument[]): TemplateField[] {

@@ -24,6 +24,7 @@ export type RetrievedDataSource =
   | 'company-rules'
   | 'saved-note'
   | 'quoted-photo'
+  | 'template-example-reading'
   | `tool:${string}`;
 
 const GAP = '[\\s\\u200B-\\u200D\\u2060\\uFEFF]*';
@@ -39,7 +40,15 @@ export function buildDataRequestParts(source: RetrievedDataSource, data: string,
 }
 
 export function wrapRetrievedData(source: RetrievedDataSource, text: string): string {
-  return `${openRetrievedData(source)}\n${text.replace(DELIMITER_START, '&lt;')}\n</retrieved-data>`;
+  return `${openRetrievedData(source)}\n${escapeDelimiters(text)}\n</retrieved-data>`;
+}
+
+export function wrapInlineRetrievedData(source: RetrievedDataSource, text: string): string {
+  return `${openRetrievedData(source)}${escapeDelimiters(text)}</retrieved-data>`;
+}
+
+function escapeDelimiters(text: string): string {
+  return text.replace(DELIMITER_START, '&lt;');
 }
 
 export function buildPhotoParts(photo: Photo): ReaderPart[] {

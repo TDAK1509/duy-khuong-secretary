@@ -7,7 +7,12 @@ const LIST_TEMPLATES_SQL = `
       (SELECT json_agg(json_build_object('name', field.name, 'nameKey', field.name_key, 'valueType', field.value_type, 'unit', field.unit, 'required', field.required) ORDER BY field.position)
        FROM document_template_fields field WHERE field.template_id = template.id),
       '[]'
-    ) AS fields
+    ) AS fields,
+    COALESCE(
+      (SELECT json_agg(json_build_object('position', example.position, 'paperId', example.source_document_id) ORDER BY example.position)
+       FROM document_template_examples example WHERE example.template_id = template.id),
+      '[]'
+    ) AS examples
   FROM document_templates template
   LEFT JOIN organizations organization ON organization.id = template.issuer_organization_id AND organization.workspace_id = template.workspace_id
   WHERE template.workspace_id = $1

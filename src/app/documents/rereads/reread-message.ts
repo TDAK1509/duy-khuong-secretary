@@ -4,6 +4,7 @@ import { runInTransaction, type Database, type Transaction } from '../../db/tran
 import { listReaderCatalog } from '../list-reader-catalog.ts';
 import { listReaderTemplates } from '../list-reader-templates.ts';
 import { storeDocuments } from '../store-documents.ts';
+import { createExampleLoader } from '../templates/load-template-examples.ts';
 import { wrapRecentMessages } from '../../intake/intake-texts.ts';
 import { planReply, type ReplyPlan } from '../../intake/plan-reply.ts';
 import { readWithReader } from '../../intake/read-message.ts';
@@ -22,26 +23,27 @@ export type MessageOutcome = 'saved' | 'no_document' | RereadFailureReason;
 
 export async function rereadMessage(scoped: Database, services: RereadServices, messageId: string): Promise<MessageOutcome> {
   const message = await loadMessageToReread(scoped, messageId);
-  if (message.imageKey === null) return readAndStore(scoped, services.reader, message, null);
+  if (message.imageKey === null) return readAndStore(scoped, services, message, null);
   const photo = await services.photoStorage.get(message.imageKey);
-  return photo === null ? 'photo_missing' : readAndStore(scoped, services.reader, message, photo);
+  return photo === null ? 'photo_missing' : readAndStore(scoped, services, message, photo);
 }
 
-async function readAndStore(scoped: Database, reader: ReaderService, message: MessageToReread, photo: Photo | null): Promise<MessageOutcome> {
-  const attempt = await readAgain(scoped, reader, message, photo);
+async function readAndStore(scoped: Database, services: RereadServices, message: MessageToReread, photo: Photo | null): Promise<MessageOutcome> {
+  const attempt = await readAgain(scoped, services, message, photo);
   if (!attempt.ok) return attempt.reason === 'invalid_output' ? 'invalid_output' : 'reader_failed';
   const plan = planReply(attempt, photo !== null);
   return plan.saved === null ? recordEmptyRead(scoped, message) : storeDocumentsAndRead(scoped, message, plan);
 }
 
-export async function readAgain(scoped: Database, reader: ReaderService, message: MessageToReread, photo: Photo | null): Promise<ReadAttempt> {
+export async function readAgain(scoped: Database, services: RereadServices, message: MessageToReread, photo: Photo | null): Promise<ReadAttempt> {
   const { labels, catalog, templates } = await runInTransaction(scoped, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, message.workspaceId),
     catalog: await listReaderCatalog(transaction, message.workspaceId),
     templates: await listReaderTemplates(transaction, message.workspaceId),
   }));
   const text = wrapWithContextTexts(message, await findContextTexts(scoped, message));
-  return readWithReader(reader, message.sentAt, { text, photo }, labels, catalog, [], templates, message.fromAdmin);
+  const loadExamples = createExampleLoader(scoped, message.workspaceId, services.photoStorage);
+  return readWithReader(services.reader, message.sentAt, { text, photo }, labels, catalog, [], templates, loadExamples, message.fromAdmin);
 }
 
 function wrapWithContextTexts(message: MessageToReread, contextTexts: string[]): string | null {

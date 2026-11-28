@@ -37,7 +37,8 @@ export async function readBackfillPaper(dependencies: PaperReaderDependencies, t
   const scoped = scopeDatabase(dependencies.database, { workspaceId: target.workspaceId });
   const found = await findPhotoMessage(dependencies.photoStorage, scoped, target);
   if (found === null) return { kind: 'skipped' };
-  const attempt = await readAgain(scoped, buildMeteredReader(dependencies, scoped, target.workspaceId), found.message, found.photo);
+  const services = { reader: buildMeteredReader(dependencies, scoped, target.workspaceId), photoStorage: dependencies.photoStorage };
+  const attempt = await readAgain(scoped, services, found.message, found.photo);
   if (!attempt.ok) return failRead(target.paperId, attempt.reason);
   return { kind: 'read', messageId: found.message.id, drafts: draftReading(attempt) };
 }
