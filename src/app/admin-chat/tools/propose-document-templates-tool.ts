@@ -38,6 +38,7 @@ function describeProposal(proposal: TemplateProposal, papersToReread: number, cr
     papers: proposal.paperCount,
     stages: proposal.stageCounts,
     fields: proposal.fields.map(describeField),
+    example_paper_ids: proposal.examplePaperIds,
     papers_to_reread: papersToReread,
     credits_estimate: credits,
   };

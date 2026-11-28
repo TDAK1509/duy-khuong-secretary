@@ -5,7 +5,7 @@ const NULLABLE_STRING = { type: ['string', 'null'] };
 export const PROPOSE_DOCUMENT_TEMPLATES_SPEC: ToolSpec = {
   name: 'propose_document_templates',
   description:
-    'Đề xuất mẫu giấy tờ từ các giấy tờ đã lưu của nhóm (không tính giấy tờ lưu từ file bảng tính). Không có paper_id: trả về tối đa 5 nhóm giấy tờ nhiều nhất theo bên phát hành và loại giấy tờ, mỗi nhóm có số giấy tờ, số giấy tờ lấy hàng (dispatch), đổ hàng (receipt) và chưa rõ (none), và từng thông tin kèm kiểu, đơn vị và số giấy tờ có thông tin đó. Có paper_id: đề xuất từ đúng một giấy tờ đã lưu. Mỗi nhóm cho biết nếu lưu mẫu thì sẽ đọc lại bao nhiêu giấy tờ đã lưu (papers_to_reread) và khoảng bao nhiêu credit (credits_estimate, chỉ là ước tính). Chỉ đề xuất, chưa lưu gì.',
+    'Đề xuất mẫu giấy tờ từ các giấy tờ đã lưu của nhóm (không tính giấy tờ lưu từ file bảng tính). Không có paper_id: trả về tối đa 5 nhóm giấy tờ nhiều nhất theo bên phát hành và loại giấy tờ, mỗi nhóm có số giấy tờ, số giấy tờ lấy hàng (dispatch), đổ hàng (receipt) và chưa rõ (none), và từng thông tin kèm kiểu, đơn vị và số giấy tờ có thông tin đó. Có paper_id: đề xuất từ đúng một giấy tờ đã lưu. Mỗi nhóm cho biết nếu lưu mẫu thì sẽ đọc lại bao nhiêu giấy tờ đã lưu (papers_to_reread) và khoảng bao nhiêu credit (credits_estimate, chỉ là ước tính). Chỉ đề xuất, chưa lưu gì. Mỗi đề xuất trả về example_paper_ids là tối đa ba giấy tờ đại diện còn ảnh để dùng khi lưu mẫu.',
   parameters: {
     type: 'object',
     properties: {

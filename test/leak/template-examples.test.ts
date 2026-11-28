@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { validateReading } from '../../src/app/reading/reading.ts';
+import { callChatTool } from './support/call-chat-tool.ts';
 import { insertExamplePaper } from './support/insert-example-paper.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { resetDatabase } from './support/reset-database.ts';
@@ -54,6 +55,17 @@ test('saving the template again replaces its examples', async () => {
   await saveTemplate([third]);
   const examples = await listStoredExamples();
   assert.deepEqual(examples.map(({ position, image_key: imageKey }) => ({ position, imageKey })), [{ position: 1, imageKey: 'example/third.jpg' }]);
+});
+
+test('a proposal from all papers returns the newest papers that still have a photo', async () => {
+  await insertExamplePaper(databases.owner, { imageKey: 'example/oldest.jpg' });
+  const older = await insertExamplePaper(databases.owner, { imageKey: 'example/older.jpg' });
+  const newer = await insertExamplePaper(databases.owner, { imageKey: 'example/newer.jpg' });
+  const newest = await insertExamplePaper(databases.owner, { imageKey: 'example/newest.jpg' });
+  await insertExamplePaper(databases.owner, { imageKey: 'example/deleted.jpg', isPhotoDeleted: true });
+  const proposals = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: null })).proposals;
+  const proposal = proposals.find((candidate: { kind: string }) => candidate.kind === 'phiếu cân');
+  assert.deepEqual(proposal.example_paper_ids, [newest, newer, older]);
 });
 
 function saveTemplate(examplePaperIds: string[]): Promise<string> {

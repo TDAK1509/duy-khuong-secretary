@@ -10,13 +10,15 @@ export type TemplateProposal = {
   paperCount: number;
   stageCounts: { dispatch: number; receipt: number; none: number };
   fields: ProposedField[];
+  examplePaperIds: string[];
 };
 
 const MAX_PROPOSALS = 5;
+const MAX_EXAMPLES_PER_PROPOSAL = 3;
 
 const ACCEPTED_PAPERS_SQL = `
   accepted_papers AS (
-    SELECT document.id, document.kind, document.stage,
+    SELECT document.id, document.kind, document.stage, document.created_at,
       (SELECT party.organization_id FROM document_parties party
        WHERE party.document_id = document.id AND party.role = 'issuer' AND party.organization_id IS NOT NULL
        ORDER BY party.id LIMIT 1) AS issuer_id
@@ -46,6 +48,25 @@ const FIND_GROUP_FIELDS_SQL = `
   LEFT JOIN meanings meaning ON meaning.id = line.meaning_id AND meaning.workspace_id = $1
   GROUP BY wanted.ordinal, COALESCE(meaning.name, line.label), COALESCE(meaning.value_type, 'text'), CASE WHEN meaning.value_type = 'number' THEN line.unit END
   ORDER BY wanted.ordinal, count(DISTINCT line.document_id) DESC, COALESCE(meaning.name, line.label) COLLATE "C"`;
+
+const FIND_GROUP_EXAMPLES_SQL = `
+  WITH ${ACCEPTED_PAPERS_SQL}
+  SELECT wanted.ordinal::int AS ordinal, example.id
+  FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS wanted(issuer_id, kind, ordinal)
+  CROSS JOIN LATERAL (
+    SELECT paper.id, paper.created_at
+    FROM accepted_papers paper
+    WHERE paper.kind = wanted.kind AND paper.issuer_id IS NOT DISTINCT FROM wanted.issuer_id
+      AND EXISTS (
+        SELECT 1 FROM document_sources source
+        JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
+        JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
+        WHERE source.document_id = paper.id AND source.workspace_id = $1 AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
+      )
+    ORDER BY paper.created_at DESC, paper.id
+    LIMIT ${MAX_EXAMPLES_PER_PROPOSAL}
+  ) example
+  ORDER BY wanted.ordinal, example.created_at DESC, example.id`;
 
 const FIND_PAPER_SQL = `
   SELECT document.id, document.kind, document.stage, organization.id AS issuer_id, organization.name AS issuer_name
@@ -79,13 +100,17 @@ type GroupRow = { issuer_name: string | null; issuer_id: string | null; kind: st
 
 type FieldRow = { ordinal: number; name: string; value_type: string; unit: string | null; paper_count: number };
 
+type ExampleRow = { ordinal: number; id: string };
+
 type PaperRow = { id: string; kind: string; stage: string | null; issuer_id: string | null; issuer_name: string | null };
 
 export async function proposeTemplatesFromPapers(database: Database, workspaceId: string): Promise<TemplateProposal[]> {
   const { rows: groups } = await database.query<GroupRow>(FIND_GROUPS_SQL, [workspaceId]);
   if (groups.length === 0) return [];
-  const { rows: fields } = await database.query<FieldRow>(FIND_GROUP_FIELDS_SQL, [workspaceId, groups.map((group) => group.issuer_id), groups.map((group) => group.kind)]);
-  return groups.map((group, index) => toGroupProposal(group, fields.filter((field) => field.ordinal === index + 1)));
+  const groupValues = [workspaceId, groups.map((group) => group.issuer_id), groups.map((group) => group.kind)];
+  const { rows: fields } = await database.query<FieldRow>(FIND_GROUP_FIELDS_SQL, groupValues);
+  const { rows: examples } = await database.query<ExampleRow>(FIND_GROUP_EXAMPLES_SQL, groupValues);
+  return groups.map((group, index) => toGroupProposal(group, fields.filter((field) => field.ordinal === index + 1), examples.filter((example) => example.ordinal === index + 1)));
 }
 
 export async function proposeTemplateFromPaper(database: Database, workspaceId: string, paperId: string): Promise<TemplateProposal | null> {
@@ -95,14 +120,15 @@ export async function proposeTemplateFromPaper(database: Database, workspaceId: 
   return toPaperProposal(paper, fields);
 }
 
-function toGroupProposal(group: GroupRow, fields: FieldRow[]): TemplateProposal {
+function toGroupProposal(group: GroupRow, fields: FieldRow[], examples: ExampleRow[]): TemplateProposal {
   const stageCounts = { dispatch: group.dispatch_count, receipt: group.receipt_count, none: group.none_count };
-  return { issuerId: group.issuer_id, issuerName: group.issuer_name, kind: group.kind, paperCount: group.paper_count, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
+  const examplePaperIds = examples.map((example) => example.id);
+  return { issuerId: group.issuer_id, issuerName: group.issuer_name, kind: group.kind, paperCount: group.paper_count, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField), examplePaperIds };
 }
 
 function toPaperProposal(paper: PaperRow, fields: FieldRow[]): TemplateProposal {
   const stageCounts = { dispatch: paper.stage === 'dispatch' ? 1 : 0, receipt: paper.stage === 'receipt' ? 1 : 0, none: paper.stage === null ? 1 : 0 };
-  return { issuerId: paper.issuer_id, issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField) };
+  return { issuerId: paper.issuer_id, issuerName: paper.issuer_name, kind: paper.kind, paperCount: 1, stageCounts, fields: fields.slice(0, MAX_FIELDS_PER_TEMPLATE).map(toProposedField), examplePaperIds: [paper.id] };
 }
 
 function toProposedField(row: FieldRow): ProposedField {
