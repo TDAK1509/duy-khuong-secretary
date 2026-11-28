@@ -24,17 +24,25 @@ type ExampleParty = { role: string; type: string; printed_name: string; known_na
 
 type ExampleDetail = { label: string; value: string; number: number | null; unit: string | null; meaning: string | null; item: string | null; date_time: string | null };
 
-type PaperRow = Omit<ExpectedReading, 'parties' | 'details' | 'template'> & { image_key: string };
+type PaperRow = Omit<ExpectedReading, 'parties' | 'details' | 'template'> & { document_id: string; image_key: string };
 
 const FIND_PAPER_SQL = `
-  SELECT message.image_key, record.category, document.title AS document_title, record.maintenance_item,
+  SELECT document.id AS document_id, message.image_key, record.category, document.title AS document_title, record.maintenance_item,
     to_char(record.occurred_on, 'YYYY-MM-DD') AS occurred_on, record.amount_vnd::float8 AS amount_vnd, record.identifiers,
     document.vehicle_plate, document.document_number, document.kind AS document_kind, document.stage
   FROM documents document
   JOIN document_sources source ON source.document_id = document.id AND source.workspace_id = document.workspace_id
   JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
   JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
-  WHERE document.id = $2 AND document.workspace_id = $1 AND document.status = 'accepted'
+  WHERE document.workspace_id = $1 AND document.status = 'accepted'
+    AND (
+      document.id = $2
+      OR document.id IN (
+        SELECT paper_source.document_id FROM records paper_record
+        JOIN document_sources paper_source ON paper_source.message_id = paper_record.message_id AND paper_source.item_index = paper_record.item_index
+        WHERE paper_record.id = $2 AND paper_record.workspace_id = $1
+      )
+    )
     AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
   ORDER BY source.created_at, source.id
   LIMIT 1`;
@@ -72,8 +80,8 @@ export async function findExamplePapers(transaction: Transaction, workspaceId: s
 async function findExamplePaper(transaction: Transaction, workspaceId: string, paperId: string): Promise<ExamplePaper | null> {
   const [row] = await transaction.query<PaperRow>(FIND_PAPER_SQL, [workspaceId, paperId]);
   if (row === undefined) return null;
-  const { image_key: imageKey, ...reading } = row;
-  const parties = await transaction.query<ExampleParty>(FIND_PARTIES_SQL, [workspaceId, paperId]);
-  const details = await transaction.query<ExampleDetail>(FIND_DETAILS_SQL, [workspaceId, paperId]);
-  return { documentId: paperId, imageKey, expectedReading: { ...reading, parties, details, template: null } };
+  const { document_id: documentId, image_key: imageKey, ...reading } = row;
+  const parties = await transaction.query<ExampleParty>(FIND_PARTIES_SQL, [workspaceId, documentId]);
+  const details = await transaction.query<ExampleDetail>(FIND_DETAILS_SQL, [workspaceId, documentId]);
+  return { documentId, imageKey, expectedReading: { ...reading, parties, details, template: null } };
 }

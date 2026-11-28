@@ -26,6 +26,18 @@ test('saving a template stores an example whose reading fits the reader item sch
   assert.equal(reading.ok, true);
 });
 
+test('saving with a record id stores that record\'s paper as the example', async () => {
+  const paperId = await insertExamplePaper(databases.owner, { imageKey: 'example/record.jpg' });
+  const { rows: [record] } = await databases.owner.query<{ id: string }>(
+    'SELECT record.id FROM records record JOIN document_sources source ON source.message_id = record.message_id AND source.item_index = record.item_index WHERE source.document_id = $1',
+    [paperId],
+  );
+  const result = JSON.parse(await saveTemplate([record?.id ?? '']));
+  assert.equal(result.ok, true);
+  const { rows } = await databases.owner.query('SELECT 1 FROM document_template_examples WHERE source_document_id = $1', [paperId]);
+  assert.equal(rows.length, 1);
+});
+
 test('the snapshot keeps parties, number and date details, and null fields', async () => {
   const lines = [
     { label: 'Trọng lượng hàng', value: '27080 kg', meaning: 'Trọng lượng hàng', number: 27080, unit: 'kg', at: null },

@@ -48,8 +48,8 @@ function describeField({ name, valueType, unit, required }: TemplateField): stri
 async function describeExamples(database: Database, workspaceId: string, paperIds: string[]): Promise<string> {
   return runInTransaction(database, (transaction) =>
     transaction.withScope({ workspaceId }, async () => {
-      const { unusableIds } = await findExamplePapers(transaction, workspaceId, paperIds);
-      const papers = unusableIds.length === 0 ? await findSavedPapers(transaction, workspaceId, paperIds) : null;
+      const { papers: examples, unusableIds } = await findExamplePapers(transaction, workspaceId, paperIds);
+      const papers = unusableIds.length === 0 ? await findSavedPapers(transaction, workspaceId, examples.map(({ documentId }) => documentId)) : null;
       if (papers === null) throw new ToolRefusal(EXAMPLE_NOT_FOUND_ERROR);
       return papers.map(describeSavedPaper).join('; ');
     }),
