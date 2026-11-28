@@ -7,7 +7,7 @@ export const READER_SCHEMA: JsonSchema = {"type":"object","additionalProperties"
   "has_work_data":{"type":"boolean"},
   "needs_explanation":{"type":"boolean"},
   "has_question":{"type":"boolean"},
-  "photo_problem":{"type":["string","null"],"enum":["blurry","cut_off","not_work","several_papers",null]},
+  "photo_problem":{"type":["string","null"],"enum":["blurry","cut_off","not_work",null]},
   "items":{"type":"array","items":{"type":"object","additionalProperties":false,
    "properties":{
     "category":{"type":"string"},

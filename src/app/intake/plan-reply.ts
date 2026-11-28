@@ -11,7 +11,6 @@ import {
   PHOTO_CUT_OFF_TEXT,
   PHOTO_NOT_WORK_TEXT,
   PHOTO_NOTHING_TO_SAVE_TEXT,
-  PHOTO_SEVERAL_PAPERS_TEXT,
   READ_FAILED_PHOTO_TEXT,
   READ_FAILED_TEXT,
   STILL_UNCLEAR_TEXT,
@@ -43,14 +42,10 @@ export type AnswerPlan = { kind: 'question' } | ReplyAnswer;
 export function planAnswer(attempt: ReadAttempt, asked: AskedPhoto): AnswerPlan {
   if (!attempt.ok) return planUnreadAnswer();
   const reply = planReply(attempt, true);
-  if (reply.situation === 'saved' || isSeveralPapersRefusal(attempt.reading, reply)) return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
+  if (reply.situation === 'saved') return { kind: 'reply', reply, photoAfter: 'same_as_reply' };
   if (attempt.reading.has_question) return { kind: 'question' };
   if (asked.status === 'asked_again') return { kind: 'reply', reply: planRefusal(STILL_UNCLEAR_TEXT), photoAfter: 'unresolved' };
   return { kind: 'reply', reply: planRefusal(ASK_AGAIN_TEXT), photoAfter: 'asked_again' };
-}
-
-function isSeveralPapersRefusal(reading: Reading, reply: ReplyPlan): boolean {
-  return reply.situation === 'no_work_data' && reading.photo_problem === 'several_papers';
 }
 
 export function asksOnlyAQuestion(attempt: ReadAttempt): boolean {
@@ -78,6 +73,10 @@ export function planUploadOnlyAnswer(): AnswerPlan {
 function planRecordsReply(readItems: ReadingItem[], asksQuestion: boolean, namedDriver: string | null): ReplyPlan {
   const records = buildNewRecords(readItems);
   if (records.some(isMaintenanceWithoutPlate)) return planMaintenanceWithoutPlateReply();
+  return planSavedReply(records, readItems, asksQuestion, namedDriver);
+}
+
+function planSavedReply(records: NewRecord[], readItems: ReadingItem[], asksQuestion: boolean, namedDriver: string | null): ReplyPlan { // allow-long-function: one reply object, one field per line // allow-comment: escape hatch markers
   return {
     replyText: formatSavedReply(records) + formatMissingDetails(readItems),
     replyKind: 'saved',
@@ -155,5 +154,4 @@ const PHOTO_PROBLEM_TEXTS = {
   blurry: PHOTO_BLURRY_TEXT,
   cut_off: PHOTO_CUT_OFF_TEXT,
   not_work: PHOTO_NOT_WORK_TEXT,
-  several_papers: PHOTO_SEVERAL_PAPERS_TEXT,
 };
