@@ -28,6 +28,11 @@ test('the admin chat context lists a note with its author and conditions', async
   assert.ok((await readCompanyRules()).includes('- SAFE-A-ADMIN: lấy hàng ở Alpha: cân lại ở trạm'));
 });
 
+test('a company-wide note says it applies to the whole company', async () => {
+  await insertEntry(databases.owner, { note: 'gửi phiếu trước 18 giờ' });
+  assert.ok((await readCompanyRules()).includes('- SAFE-A-ADMIN: toàn công ty: gửi phiếu trước 18 giờ'));
+});
+
 function saveNoteArguments(note: string): Record<string, string | null> {
   return {
     statement: note,
