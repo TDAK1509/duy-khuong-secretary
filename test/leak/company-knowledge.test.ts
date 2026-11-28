@@ -105,6 +105,13 @@ test('a drop-off outcome does not make a paper match', async () => {
   assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), []);
 });
 
+test('the trip report falls back to the drop-off outcome', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Đá' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { goods: 'Đá', thenDropoff: 'Beta' }));
+  assert.deepEqual(await exportTripColumn({ name: 'Nơi đổ hàng', source: 'field', field: 'dropoff_place', value_name: null }), ['Beta']);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
