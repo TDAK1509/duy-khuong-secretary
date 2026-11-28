@@ -37,6 +37,14 @@ test('saving the same conditions twice updates the entry', async () => {
   assert.deepEqual(rows, [{ wage: '700000' }]);
 });
 
+test('the paper export shows the fixed outcome columns of the linked entry', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: TRIP_PLATE, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', customer: 'Gamma', wageVnd: 700000 }));
+  const bytes = await exportPapers();
+  assert.deepEqual(await readSheetColumn(bytes, 'Khách hàng'), ['Gamma']);
+  assert.deepEqual(await readSheetColumn(bytes, 'Lương tài xế'), ['700000']);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
