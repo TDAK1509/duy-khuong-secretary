@@ -78,6 +78,15 @@ test('a correction of one paper changes only that paper', async () => {
   assert.equal(await readWage(entry), '700000');
 });
 
+test('a correction recalculates the links of that paper', async () => {
+  const first = await insertGoodsTicket('T0001');
+  const entry = await insertEntry(databases.owner, { pickup: 'Alpha', goods: 'Đá', wageVnd: 700000 });
+  await linkEntry(databases.runtime, entry);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), [first]);
+  await correctGoods(first, 'Cát');
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), []);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
