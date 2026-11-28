@@ -137,6 +137,7 @@ function saveArguments(given: Record<string, string | number | boolean>): Record
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,
+    then_equal_weights: false,
     then_note: null,
     ...given,
   };

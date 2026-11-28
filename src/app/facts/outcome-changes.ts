@@ -14,7 +14,7 @@ export function planReplacingChanges(stored: KnowledgeOutcomes, given: Knowledge
   return changes.filter((change) => change.before !== change.after);
 }
 
-function readOutcomeValue(outcomes: KnowledgeOutcomes, { key, flagText }: OutcomeDefinition): OutcomeValue | null {
+export function readOutcomeValue(outcomes: KnowledgeOutcomes, { key, flagText }: OutcomeDefinition): OutcomeValue | null {
   const value = outcomes[key];
   if (typeof value !== 'boolean') return value;
   return value ? (flagText ?? null) : null;

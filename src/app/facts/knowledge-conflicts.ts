@@ -2,7 +2,7 @@ import type { Transaction } from '../db/transaction.ts';
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import type { KnowledgeOutcomes, StoredEntry } from './company-knowledge.ts';
 import { OUTCOME_DEFINITIONS, type OutcomeDefinition } from './knowledge-outcomes.ts';
-import type { OutcomeValue } from './outcome-changes.ts';
+import { readOutcomeValue, type OutcomeValue } from './outcome-changes.ts';
 
 export type KnowledgeConflict = { entry: StoredEntry; key: OutcomeDefinition['key']; name: string; savedValue: OutcomeValue; newValue: OutcomeValue; sharedDocuments: number };
 
@@ -25,9 +25,10 @@ export async function findConflicts(transaction: Transaction, request: { workspa
 type Difference = { key: OutcomeDefinition['key']; name: string; savedValue: OutcomeValue; newValue: OutcomeValue };
 
 function listDifferences(saved: KnowledgeOutcomes, given: KnowledgeOutcomes): Difference[] {
-  return COMPARED_OUTCOMES.flatMap(({ key, name }) => {
-    const savedValue = saved[key];
-    const newValue = given[key];
+  return COMPARED_OUTCOMES.flatMap((definition) => {
+    const { key, name } = definition;
+    const savedValue = readOutcomeValue(saved, definition);
+    const newValue = readOutcomeValue(given, definition);
     return savedValue !== null && newValue !== null && !isSameValue(savedValue, newValue) ? [{ key, name, savedValue, newValue }] : [];
   });
 }
@@ -52,7 +53,7 @@ function groupByEntry(conflicts: KnowledgeConflict[]): Map<StoredEntry, OutcomeD
 }
 
 async function clearEntryOutcomes(transaction: Transaction, workspaceId: string, entry: StoredEntry, keys: OutcomeDefinition['key'][]): Promise<void> {
-  const keepsOutcome = OUTCOME_DEFINITIONS.some(({ key }) => entry.outcomes[key] !== null && !keys.includes(key));
+  const keepsOutcome = OUTCOME_DEFINITIONS.some((definition) => readOutcomeValue(entry.outcomes, definition) !== null && !keys.includes(definition.key));
   if (keepsOutcome) await clearOutcomes(transaction, workspaceId, entry.id, OUTCOME_DEFINITIONS.filter(({ key }) => keys.includes(key)));
   else await transaction.query('DELETE FROM company_knowledge_entries WHERE id = $1 AND workspace_id = $2', [entry.id, workspaceId]);
 }
