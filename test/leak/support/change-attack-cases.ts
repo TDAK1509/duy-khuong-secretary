@@ -1,7 +1,20 @@
 import type { AttackCase } from './attack-case.ts';
-import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_FACT_ID, B_MEMBER_ID, B_RULE_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
+import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_ENTRY_ID, B_MEMBER_ID, B_RULE_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
 
-const AIMED_VALUE = { name: 'Lương', number: 1, unit: 'đ', text: null };
+const AIMED_KNOWLEDGE = {
+  statement: 'TARGET-B-FACT lương 1đ',
+  when_goods: null,
+  when_pickup_company: SHARED_COMPANY,
+  when_dropoff_company: null,
+  when_vehicle_plate: SHARED_PLATE,
+  when_driver_member_id: null,
+  then_customer: null,
+  then_dropoff: null,
+  then_wage_vnd: 1,
+  then_rate_vnd_per_ton: null,
+  then_allowance_vnd: null,
+  then_note: null,
+};
 
 export const CHANGE_ATTACK_CASES: AttackCase[] = [
   { name: 'create_invite', kind: 'change', arguments: { display_name: 'TARGET-B-INVITEE', role: 'admin' } },
@@ -19,9 +32,9 @@ export const CHANGE_ATTACK_CASES: AttackCase[] = [
     },
   },
   { name: 'delete_document', kind: 'change', arguments: { document_ids: [B_DOCUMENT_ID] } },
-  { name: 'save_fact', kind: 'change', arguments: { statement: 'TARGET-B-FACT lương 1đ', vehicle_plate: SHARED_PLATE, driver_member_id: null, pickup_company: SHARED_COMPANY, dropoff_company: null, values: [AIMED_VALUE], fact_id: null } },
-  { name: 'update_fact', kind: 'change', arguments: { fact_id: B_FACT_ID, change_statement: 'TARGET-B-FACT lương 1đ', set_values: [AIMED_VALUE], remove_values: [], vehicle_plate: null, driver_member_id: null, clear_scope: [] } },
-  { name: 'delete_fact', kind: 'change', arguments: { fact_id: B_FACT_ID } },
+  { name: 'save_company_knowledge', kind: 'change', arguments: { ...AIMED_KNOWLEDGE, entry_id: null } },
+  { name: 'update_company_knowledge', kind: 'change', arguments: { ...AIMED_KNOWLEDGE, entry_id: B_ENTRY_ID } },
+  { name: 'delete_company_knowledge', kind: 'change', arguments: { entry_id: B_ENTRY_ID } },
   { name: 'save_rule', kind: 'change', arguments: {} },
   { name: 'delete_rule', kind: 'change', arguments: { rule_id: B_RULE_ID } },
   { name: 'join_goods_names', kind: 'change', arguments: { written_names: ['TARGET-B-GOODS-ONLY'], shown_name: 'TARGET-B-GOODS' } },

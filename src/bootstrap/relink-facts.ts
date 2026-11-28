@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { scopeDatabase } from '../app/db/scoped-database.ts';
 import { meterReader } from '../app/credits/meter-reader.ts';
 import type { Database } from '../app/db/transaction.ts';
-import { relinkFacts, type RelinkedFact, type SlotOutcome } from '../app/facts/relink-facts.ts';
+import { relinkEntries, type RelinkedEntry, type SlotOutcome } from '../app/facts/relink-facts.ts';
 import type { ReaderService } from '../services/reading/reader-service.ts';
 import { buildReader } from './from-env.ts';
 import { loadReaderConfig } from './reader-config.ts';
@@ -22,9 +22,9 @@ export async function runRelinkFactsCommand(args: string[], environment: NodeJS.
   try {
     const database = scopeDatabase(pool, { workspaceId: parsed.workspaceId });
     const reader = parsed.apply ? buildOperatorReader(environment, database, parsed.workspaceId) : null;
-    const results = await relinkFacts(database, parsed.workspaceId, { apply: parsed.apply, reader });
+    const results = await relinkEntries(database, parsed.workspaceId, { apply: parsed.apply, reader });
     for (const result of results) log(describeResult(result));
-    log(parsed.apply ? `Relinked ${results.length} facts.` : `Checked ${results.length} facts. Nothing changed. Run again with --apply.`);
+    log(parsed.apply ? `Relinked ${results.length} entries.` : `Checked ${results.length} entries. Nothing changed. Run again with --apply.`);
     return 0;
   } finally {
     await pool.end();
@@ -49,8 +49,8 @@ function parseArguments([workspaceId, flag, ...rest]: string[]): RelinkArguments
   return { workspaceId: parsedWorkspaceId.data, apply: flag === '--apply' };
 }
 
-function describeResult({ factId, before, after, slots }: RelinkedFact): string {
-  return `${factId} ${before} → ${after}${slots.map(describeSlot).join('')}`;
+function describeResult({ entryId, before, after, slots }: RelinkedEntry): string {
+  return `${entryId} ${before} → ${after}${slots.map(describeSlot).join('')}`;
 }
 
 function describeSlot({ slot, name, picked }: SlotOutcome): string {

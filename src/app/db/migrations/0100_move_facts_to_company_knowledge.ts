@@ -16,6 +16,7 @@ export function up(pgm: MigrationBuilder): void {
   moveCompanies(pgm);
   linkEntries(pgm);
   logCounts(pgm);
+  pgm.sql('DROP TABLE document_facts, fact_companies, fact_values, facts');
 }
 
 function createEntries(pgm: MigrationBuilder): void {
@@ -170,7 +171,7 @@ const LINK_MATCHES_SQL = `
   WHERE entry.workspace_id = $1
     AND ($2::uuid IS NULL OR entry.id = $2)
     AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
-    AND (document.status = 'accepted' AND regexp_replace(lower(unaccent(document.kind)), '[^a-z0-9]', '', 'g') <> 'tinnhan' AND document.sheet_signature IS NULL)
+    AND (NOT (entry.when_pickup_match_key IS NOT NULL OR entry.when_dropoff_match_key IS NOT NULL) OR (document.status = 'accepted' AND regexp_replace(lower(unaccent(document.kind)), '[^a-z0-9]', '', 'g') <> 'tinnhan' AND document.sheet_signature IS NULL))
     AND (entry.when_vehicle_plate IS NULL OR document.vehicle_plate = entry.when_vehicle_plate)
     AND (entry.when_driver_user_id IS NULL OR document.driver_user_id = entry.when_driver_user_id OR EXISTS (
   SELECT 1 FROM document_sources source

@@ -9,8 +9,8 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'count_records', kind: 'read', arguments: { added_from: '2026-01-01', added_to: '2026-12-31' } },
   { name: 'list_members', kind: 'read', arguments: {} },
   { name: 'list_member_facts', kind: 'read', arguments: { member_id: A_DRIVER_MEMBER_ID }, alsoAimedAt: [{ member_id: B_MEMBER_ID }] },
-  { name: 'list_facts', kind: 'read', arguments: { vehicle_plate: SHARED_PLATE, driver_member_id: null, company: null } },
-  { name: 'total_fact_values', kind: 'read', arguments: { value_name: 'Lương', ...SHARED_PLATE_FILTER, group_by: 'none' } },
+  { name: 'list_company_knowledge', kind: 'read', arguments: {} },
+  { name: 'total_company_knowledge', kind: 'read', arguments: { value_name: 'Lương tài xế', ...SHARED_PLATE_FILTER, group_by: 'none' } },
   { name: 'list_rules', kind: 'read', arguments: {} },
   { name: 'list_goods_names', kind: 'read', arguments: {} },
   { name: 'propose_document_templates', kind: 'read', arguments: { paper_id: null }, alsoAimedAt: [{ paper_id: B_ONLY_DOCUMENT_ID }] },
@@ -26,5 +26,5 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'list_documents', kind: 'read', arguments: { meaning: SHARED_MEANING, lines: 'document', ...SHARED_PLATE_FILTER, cursor: null } },
   { name: 'export_documents_xlsx', kind: 'read', arguments: SHARED_PLATE_FILTER },
   { name: 'export_report_xlsx', kind: 'read', arguments: { title: 'TARGET-B-WORKSPACE', columns: [{ name: 'Tên', type: 'text', unit: null }], rows: [['TARGET-B-WORKSPACE']], layout: null } },
-  { name: 'export_trip_report_xlsx', kind: 'read', arguments: { title: 'TARGET-B-WORKSPACE', date_from: '2026-01-01', date_to: '2026-03-31', plate: SHARED_PLATE, columns: [{ name: 'Biển số', source: 'field', field: 'plate', value_name: null }, { name: 'Lương', source: 'fact_value', field: null, value_name: 'Lương' }, { name: 'Người gửi', source: 'field', field: 'sender', value_name: null }], layout: null } },
+  { name: 'export_trip_report_xlsx', kind: 'read', arguments: { title: 'TARGET-B-WORKSPACE', date_from: '2026-01-01', date_to: '2026-03-31', plate: SHARED_PLATE, columns: [{ name: 'Biển số', source: 'field', field: 'plate', value_name: null }, { name: 'Lương', source: 'knowledge_value', field: null, value_name: 'Lương tài xế' }, { name: 'Người gửi', source: 'field', field: 'sender', value_name: null }], layout: null } },
 ];

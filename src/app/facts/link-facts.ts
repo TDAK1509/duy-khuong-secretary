@@ -1,14 +1,15 @@
 import type { Transaction } from '../db/transaction.ts';
-import { GOODS_VALUE_KEY } from './fact.ts';
 import type { FactCompanySlot } from './pick-fact-companies.ts';
+
+export const GOODS_LABEL_KEY = 'hanghoa';
 
 const DRIVER_SENT_A_SOURCE = `EXISTS (
   SELECT 1 FROM document_sources source
   JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
-  WHERE source.document_id = document.id AND message.user_id = fact.driver_user_id
+  WHERE source.document_id = document.id AND message.user_id = entry.when_driver_user_id
 )`;
 
-const IS_ROUTE_FACT = '(fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)';
+const IS_ROUTE_ENTRY = '(entry.when_pickup_match_key IS NOT NULL OR entry.when_dropoff_match_key IS NOT NULL)';
 
 export const IS_TRIP_TICKET_SHAPE = `(
   (document.stage IN ('dispatch', 'receipt') OR (document.stage IS NULL AND strpos(${buildAccentFreeKey('document.kind')}, 'phieucan') > 0))
@@ -21,78 +22,87 @@ export const IS_TRIP_TICKET = `(document.status = 'accepted' AND ${IS_TRIP_TICKE
 
 const IS_LINKABLE_PAPER = `(document.status = 'accepted' AND ${buildAccentFreeKey('document.kind')} <> 'tinnhan' AND document.sheet_signature IS NULL)`;
 
-const FACT_GOODS = `
-  SELECT nullif(${buildAccentFreeKey('value.text_value')}, '') AS key,
-    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token <> ''), '{}') AS tokens
-  FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}'`;
+const ENTRY_GOODS = `
+  SELECT nullif(${buildAccentFreeKey('entry.when_goods')}, '') AS key,
+    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('entry.when_goods')} token WHERE token <> ''), '{}') AS tokens`;
 
 const TOKEN_MATCHES_BY_PREFIX = '(wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token)))';
 
 const PAPER_GOODS_TEXTS = `
   SELECT line.value AS text FROM document_lines line
-  WHERE line.document_id = document.id AND line.item IS NULL AND ${buildAccentFreeKey('line.label')} = '${GOODS_VALUE_KEY}'
+  WHERE line.document_id = document.id AND line.item IS NULL AND ${buildAccentFreeKey('line.label')} = '${GOODS_LABEL_KEY}'
   UNION ALL
   SELECT line.item AS text FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL`;
 
-const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
-  SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildAccentFreeKey('goods.text')} = fact_goods.key OR ${buildEveryTokenFound('fact_goods.tokens', 'goods.text')}
+const GOODS_MATCH = `(entry_goods.key IS NULL OR EXISTS (
+  SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildAccentFreeKey('goods.text')} = entry_goods.key OR ${buildEveryTokenFound('entry_goods.tokens', 'goods.text')}
 ))`;
 
 export const LINK_MATCHES_SQL = `
-  INSERT INTO document_facts (workspace_id, document_id, fact_id)
-  SELECT document.workspace_id, document.id, fact.id
-  FROM facts fact
-  LEFT JOIN LATERAL (${FACT_GOODS}) fact_goods ON true
-  JOIN documents document ON document.workspace_id = fact.workspace_id
-  WHERE fact.workspace_id = $1
-    AND ($2::uuid IS NULL OR fact.id = $2)
+  INSERT INTO company_knowledge_links (workspace_id, document_id, entry_id)
+  SELECT document.workspace_id, document.id, entry.id
+  FROM company_knowledge_entries entry
+  LEFT JOIN LATERAL (${ENTRY_GOODS}) entry_goods ON true
+  JOIN documents document ON document.workspace_id = entry.workspace_id
+  WHERE entry.workspace_id = $1
+    AND ($2::uuid IS NULL OR entry.id = $2)
     AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
-    AND (NOT ${IS_ROUTE_FACT} OR ${IS_LINKABLE_PAPER})
-    AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
-    AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
+    AND (NOT ${IS_ROUTE_ENTRY} OR ${IS_LINKABLE_PAPER})
+    AND (entry.when_vehicle_plate IS NULL OR document.vehicle_plate = entry.when_vehicle_plate)
+    AND (entry.when_driver_user_id IS NULL OR document.driver_user_id = entry.when_driver_user_id OR ${DRIVER_SENT_A_SOURCE})
     AND (
-      (fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL)
-      OR (fact.pickup_match_key IS NOT NULL AND ${buildCompanyMatch('pickup')})
-      OR (fact.dropoff_match_key IS NOT NULL AND ${buildCompanyMatch('dropoff')})
+      (entry.when_pickup_match_key IS NULL AND entry.when_dropoff_match_key IS NULL)
+      OR (entry.when_pickup_match_key IS NOT NULL AND ${buildCompanyMatch('pickup')})
+      OR (entry.when_dropoff_match_key IS NOT NULL AND ${buildCompanyMatch('dropoff')})
     )
     AND ${GOODS_MATCH}
   ON CONFLICT DO NOTHING
   RETURNING document_id
 `;
 
-export async function linkFactToMatchingDocuments(transaction: Transaction, workspaceId: string, factId: string): Promise<number> {
-  const rows = await transaction.query(LINK_MATCHES_SQL, [workspaceId, factId, null]);
+export async function relinkEntryToMatchingDocuments(transaction: Transaction, workspaceId: string, entryId: string): Promise<number> {
+  await transaction.query('DELETE FROM company_knowledge_links WHERE entry_id = $1 AND workspace_id = $2', [entryId, workspaceId]);
+  return linkEntryToMatchingDocuments(transaction, workspaceId, entryId);
+}
+
+export async function linkEntryToMatchingDocuments(transaction: Transaction, workspaceId: string, entryId: string): Promise<number> {
+  const rows = await transaction.query(LINK_MATCHES_SQL, [workspaceId, entryId, null]);
   return rows.length;
 }
 
-export async function linkDocumentToMatchingFacts(transaction: Transaction, workspaceId: string, documentId: string): Promise<void> {
-  await linkDocumentsToMatchingFacts(transaction, workspaceId, [documentId]);
+export async function countLinkedDocuments(transaction: Transaction, workspaceId: string, entryId: string): Promise<number> {
+  const [row] = await transaction.query<{ count: number }>('SELECT count(*)::int AS count FROM company_knowledge_links WHERE entry_id = $1 AND workspace_id = $2', [entryId, workspaceId]);
+  return row?.count ?? 0;
 }
 
-export async function linkDocumentsToMatchingFacts(transaction: Transaction, workspaceId: string, documentIds: string[]): Promise<void> {
+export async function linkDocumentToMatchingEntries(transaction: Transaction, workspaceId: string, documentId: string): Promise<void> {
+  await linkDocumentsToMatchingEntries(transaction, workspaceId, [documentId]);
+}
+
+export async function linkDocumentsToMatchingEntries(transaction: Transaction, workspaceId: string, documentIds: string[]): Promise<void> {
   if (documentIds.length === 0) return;
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentIds]);
 }
 
 export function buildCompanyMatch(slot: FactCompanySlot): string {
-  return `(CASE WHEN fact.${slot}_resolved THEN ${buildPickedMatch(slot)} ELSE ${buildPartyMatch(`${slot}_match_key`)} END)`;
+  return `(CASE WHEN entry.when_${slot}_resolved THEN ${buildPickedMatch(slot)} ELSE ${buildPartyMatch(`when_${slot}_match_key`)} END)`;
 }
 
 function buildPickedMatch(slot: FactCompanySlot): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
-    JOIN fact_companies pick ON pick.fact_id = fact.id AND pick.slot = '${slot}' AND pick.organization_id = party.organization_id
+    JOIN company_knowledge_companies pick ON pick.entry_id = entry.id AND pick.slot = '${slot}' AND pick.organization_id = party.organization_id
     WHERE party.document_id = document.id
   )`;
 }
 
-function buildPartyMatch(matchKeyColumn: `${FactCompanySlot}_match_key`): string {
+function buildPartyMatch(matchKeyColumn: `when_${FactCompanySlot}_match_key`): string {
   return `EXISTS (
     SELECT 1 FROM document_parties party
     WHERE party.document_id = document.id
       AND (
-        party.match_key = fact.${matchKeyColumn}
-        OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = fact.${matchKeyColumn})
+        party.match_key = entry.${matchKeyColumn}
+        OR EXISTS (SELECT 1 FROM organization_aliases alias WHERE alias.organization_id = party.organization_id AND alias.match_key = entry.${matchKeyColumn})
       )
   )`;
 }

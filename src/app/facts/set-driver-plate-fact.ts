@@ -1,23 +1,21 @@
 import type { Transaction } from '../db/transaction.ts';
-import { linkFactToMatchingDocuments } from './link-facts.ts';
+import { linkEntryToMatchingDocuments } from './link-facts.ts';
 
-const PLATE_VALUE_NAME = 'Biển số xe';
-const PLATE_VALUE_KEY = 'biensoxe';
+const PLATE_NOTE_LABEL = 'Biển số xe';
 
-const UPDATE_PLATE_VALUES_SQL = `
-  UPDATE fact_values value SET text_value = $3, number = NULL, unit = NULL
-  FROM facts fact
-  WHERE value.fact_id = fact.id AND value.match_key = '${PLATE_VALUE_KEY}'
-    AND fact.workspace_id = $1 AND fact.driver_user_id = $2
-    AND fact.vehicle_plate IS NULL AND fact.pickup_match_key IS NULL AND fact.dropoff_match_key IS NULL
-  RETURNING fact.id
+const NOTE_OF_DRIVER_ONLY_ENTRIES_SQL = `
+  SELECT entry.id FROM company_knowledge_entries entry
+  WHERE entry.workspace_id = $1 AND entry.when_driver_user_id = $2
+    AND entry.when_goods IS NULL AND entry.when_vehicle_plate IS NULL AND entry.when_pickup_match_key IS NULL AND entry.when_dropoff_match_key IS NULL
+    AND entry.then_note ~ '(^|\n)${PLATE_NOTE_LABEL}: '
 `;
 
 const PLATE_PATTERN = `'\\d{2}[A-Z]-?\\d{3,4}\\.?\\d{2}'`;
 
 const RESTATE_PLATE_SQL = `
-  UPDATE facts
-  SET statement = CASE
+  UPDATE company_knowledge_entries
+  SET then_note = CASE WHEN then_note ~ ${PLATE_PATTERN} THEN regexp_replace(then_note, ${PLATE_PATTERN}, $2, 'g') ELSE $3 END,
+      statement = CASE
         WHEN statement ~ ${PLATE_PATTERN} THEN regexp_replace(statement, ${PLATE_PATTERN}, $2, 'g')
         ELSE statement || E'\\n' || $3
       END,
@@ -25,33 +23,28 @@ const RESTATE_PLATE_SQL = `
   WHERE id = ANY($1::uuid[])
 `;
 
-const INSERT_PLATE_FACT_SQL = `
-  INSERT INTO facts (workspace_id, author_user_id, statement, driver_user_id) VALUES ($1, $2, $3, $4) RETURNING id
-`;
-
-const INSERT_PLATE_VALUE_SQL = `
-  INSERT INTO fact_values (workspace_id, fact_id, position, name, match_key, text_value) VALUES ($1, $2, 0, '${PLATE_VALUE_NAME}', '${PLATE_VALUE_KEY}', $3)
+const INSERT_PLATE_ENTRY_SQL = `
+  INSERT INTO company_knowledge_entries (workspace_id, author_user_id, statement, when_driver_user_id, then_note) VALUES ($1, $2, $3, $4, $3) RETURNING id
 `;
 
 export type DriverPlate = { workspaceId: string; driverUserId: string; plate: string; authorUserId: string };
 
 export async function setDriverPlateFact(transaction: Transaction, driverPlate: DriverPlate): Promise<void> {
-  const updated = await transaction.query<{ id: string }>(UPDATE_PLATE_VALUES_SQL, [driverPlate.workspaceId, driverPlate.driverUserId, driverPlate.plate]);
-  if (updated.length > 0) await restateFacts(transaction, updated.map((row) => row.id), driverPlate.plate);
-  else await createPlateFact(transaction, driverPlate);
+  const found = await transaction.query<{ id: string }>(NOTE_OF_DRIVER_ONLY_ENTRIES_SQL, [driverPlate.workspaceId, driverPlate.driverUserId]);
+  if (found.length > 0) await restateEntries(transaction, found.map((row) => row.id), driverPlate.plate);
+  else await createPlateEntry(transaction, driverPlate);
 }
 
-async function restateFacts(transaction: Transaction, factIds: string[], plate: string): Promise<void> {
-  await transaction.query(RESTATE_PLATE_SQL, [factIds, plate, describePlate(plate)]);
+async function restateEntries(transaction: Transaction, entryIds: string[], plate: string): Promise<void> {
+  await transaction.query(RESTATE_PLATE_SQL, [entryIds, plate, describePlate(plate)]);
 }
 
 function describePlate(plate: string): string {
-  return `${PLATE_VALUE_NAME}: ${plate}`;
+  return `${PLATE_NOTE_LABEL}: ${plate}`;
 }
 
-async function createPlateFact(transaction: Transaction, { workspaceId, driverUserId, plate, authorUserId }: DriverPlate): Promise<void> {
-  const [fact] = await transaction.query<{ id: string }>(INSERT_PLATE_FACT_SQL, [workspaceId, authorUserId, describePlate(plate), driverUserId]);
-  if (fact === undefined) throw new Error('inserting a plate fact returned no row');
-  await transaction.query(INSERT_PLATE_VALUE_SQL, [workspaceId, fact.id, plate]);
-  await linkFactToMatchingDocuments(transaction, workspaceId, fact.id);
+async function createPlateEntry(transaction: Transaction, { workspaceId, driverUserId, plate, authorUserId }: DriverPlate): Promise<void> {
+  const [entry] = await transaction.query<{ id: string }>(INSERT_PLATE_ENTRY_SQL, [workspaceId, authorUserId, describePlate(plate), driverUserId]);
+  if (entry === undefined) throw new Error('inserting a plate entry returned no row');
+  await linkEntryToMatchingDocuments(transaction, workspaceId, entry.id);
 }

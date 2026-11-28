@@ -1,6 +1,6 @@
 import type { PrintedValue } from '../../documents/corrections/paper-correction.ts';
 import { readKilogramsPerUnit } from '../../documents/corrections/weight-units.ts';
-import { WEIGHT_MEANING } from '../../facts/fact-value-totals.ts';
+import { WEIGHT_MEANING } from '../../facts/knowledge-totals.ts';
 import { toAccentFreeForm } from '../../reading/normalize.ts';
 import { applyLoadWeightRules, isLoadWeightPrinted, isLoadWeightText } from './load-weight-rules.ts';
 import { ToolRefusal } from './tool-result.ts';

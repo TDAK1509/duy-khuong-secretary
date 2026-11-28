@@ -12,5 +12,5 @@ export async function runSplitMergedName(database: Database, scope: AccessScope,
   const args = argumentsSchema.parse(parsedArguments);
   const split = await splitMergedName(database, scope.workspaceId, args.printed_name);
   if (!split) return failTool(NOT_FOUND_ERROR);
-  return JSON.stringify({ ok: true, documents: split.documents, facts_to_resolve_again: split.factsToResolve });
+  return JSON.stringify({ ok: true, documents: split.documents, entries_to_resolve_again: split.entriesToResolve });
 }

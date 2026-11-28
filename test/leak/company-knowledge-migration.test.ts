@@ -45,6 +45,15 @@ test('the migration moves a route fact outcomes into fixed columns', async () =>
   });
 });
 
+test('the migration drops the old fact tables', async () => {
+  await migrateOldFacts([{ pickup: 'Alpha', values: [WAGE] }], async ({ client }) => {
+    const { rows } = await client.query<{ old_table: string | null }>(
+      `SELECT to_regclass(name)::text AS old_table FROM unnest(ARRAY['facts', 'fact_values', 'fact_companies', 'document_facts']) AS name`,
+    );
+    assert.deepEqual(rows.map((row) => row.old_table), [null, null, null, null]);
+  });
+});
+
 test('the migration keeps a drop-off-only fact drop-off as a condition', async () => {
   const allowance = { name: 'Chi phí bồi dưỡng', number: 100000, unit: 'đ' };
   await migrateOldFacts([{ dropoff: 'Beta', values: [allowance] }], async ({ client }) => {

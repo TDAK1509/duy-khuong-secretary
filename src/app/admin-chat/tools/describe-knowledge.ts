@@ -1,0 +1,30 @@
+import type { KnowledgeOutcomes, StoredEntry } from '../../facts/company-knowledge.ts';
+import type { OutcomeChange } from '../../facts/outcome-changes.ts';
+
+export type MatchedCompanies = { pickup: string | null; dropoff: string | null };
+
+export function describeWhenWithMatches(entry: StoredEntry, matched: MatchedCompanies): Record<string, string | null> {
+  return { ...describeWhen(entry), pickup_company_matched: matched.pickup, dropoff_company_matched: matched.dropoff };
+}
+
+export function describeCandidate(entry: StoredEntry): Record<string, unknown> {
+  return { entry_id: entry.id, when: describeWhen(entry), then: describeThen(entry.outcomes) };
+}
+
+export function describeWhen(entry: StoredEntry): Record<string, string | null> {
+  return {
+    goods: entry.goods,
+    vehicle_plate: entry.vehiclePlate,
+    driver: entry.driverName,
+    pickup_company: entry.sides.pickup.name,
+    dropoff_company: entry.sides.dropoff.name,
+  };
+}
+
+export function describeThen({ customer, dropoff, wageVnd, ratePerTonVnd, allowanceVnd, note }: KnowledgeOutcomes): Record<string, string | number | null> {
+  return { customer, dropoff, wage_vnd: wageVnd, rate_vnd_per_ton: ratePerTonVnd, allowance_vnd: allowanceVnd, note };
+}
+
+export function describeChange({ name, before, after }: OutcomeChange): Record<string, unknown> {
+  return { kind: before === null ? 'added' : 'replaced', name, before, after };
+}

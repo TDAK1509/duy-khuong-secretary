@@ -2,10 +2,11 @@ import type { Database } from '../db/transaction.ts';
 import { buildSenderSubquery } from '../admin-chat/tools/export-documents-xlsx-tool.ts';
 import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from '../documents/build-document-where.ts';
 import type { DocumentFilters } from '../documents/add-document-filters.ts';
-import { GOODS_VALUE_KEY, SELECT_FACT_CUSTOMER_SQL } from '../facts/fact.ts';
-import { IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
-import { buildWeightSql, PER_TON_UNIT } from '../facts/fact-value-totals.ts';
+import { buildOutcomeRowsSql } from '../facts/knowledge-outcomes.ts';
+import { buildWeightSql } from '../facts/knowledge-totals.ts';
+import { GOODS_LABEL_KEY, IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
 import type { WhereClause } from '../records/where-clause.ts';
+import { IS_ROUTE_ENTRY_SQL, ROUTE_DROPOFF_NAME_SQL } from './route-dropoff.ts';
 
 export type TripPaperQuery = { workspaceId: string; dateFrom: string; dateTo: string; plate: string | null; limit: number };
 
@@ -35,13 +36,11 @@ export type TripPaper = {
 
 export type WinningValue = { document_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
 
-export type KnownValue = { match_key: string; name: string; per_ton: boolean };
-
-const ROUTE_FACT_JOIN = `LEFT JOIN LATERAL (
-    SELECT fact.id, fact.pickup_name, fact.dropoff_name, ${SELECT_FACT_CUSTOMER_SQL} AS customer_name, fact.pickup_match_key
-    FROM document_facts link JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
-    WHERE link.document_id = document.id AND (fact.pickup_match_key IS NOT NULL OR fact.dropoff_match_key IS NOT NULL)
-    ORDER BY fact.updated_at DESC, fact.id
+const ROUTE_ENTRY_JOIN = `LEFT JOIN LATERAL (
+    SELECT entry.id, entry.when_pickup_name AS pickup_name, ${ROUTE_DROPOFF_NAME_SQL} AS dropoff_name, entry.then_customer AS customer_name, entry.when_pickup_match_key AS pickup_match_key
+    FROM company_knowledge_links link JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
+    WHERE link.document_id = document.id AND ${IS_ROUTE_ENTRY_SQL}
+    ORDER BY entry.updated_at DESC, entry.id DESC
     LIMIT 1
   ) route ON true`;
 
@@ -76,7 +75,7 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
        ${NOTE_LINE_SQL} AS note_line,
        ${withReceiver ? RECEIVER_COLUMNS : NO_RECEIVER_COLUMNS}
      FROM documents document
-     ${ROUTE_FACT_JOIN}
+     ${ROUTE_ENTRY_JOIN}
      ${buildFirstPartyJoin('issuer')}
      ${buildFirstPartyJoin('customer')}
      ${withReceiver ? RECEIVER_JOIN : ''}
@@ -90,7 +89,7 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
 
 const NOTE_LABEL_KEY = 'ghichu';
 
-const GOODS_LINE_SQL = buildLabelledLineSql(GOODS_VALUE_KEY);
+const GOODS_LINE_SQL = buildLabelledLineSql(GOODS_LABEL_KEY);
 
 const NOTE_LINE_SQL = buildLabelledLineSql(NOTE_LABEL_KEY);
 
@@ -122,30 +121,21 @@ export async function countReviewTripPapers(database: Database, query: TripPaper
   return rows[0]?.count ?? 0;
 }
 
-export type ExcludedLinks = { documentIds: string[]; factIds: string[] };
+export type ExcludedLinks = { documentIds: string[]; entryIds: string[] };
 
 const WINNING_VALUES_SQL = `
-  SELECT DISTINCT ON (link.document_id, value.match_key)
-    link.document_id, value.match_key, value.number::text AS number, value.unit, value.text_value AS text
-  FROM document_facts link
-  JOIN facts fact ON fact.id = link.fact_id AND fact.workspace_id = link.workspace_id
-  JOIN fact_values value ON value.fact_id = fact.id
-  WHERE link.workspace_id = $1 AND link.document_id = ANY($2::uuid[]) AND value.match_key = ANY($3::text[])
-    AND NOT EXISTS (SELECT 1 FROM unnest($4::uuid[], $5::uuid[]) AS excluded(document_id, fact_id) WHERE excluded.document_id = link.document_id AND excluded.fact_id = link.fact_id)
-  ORDER BY link.document_id, value.match_key, fact.updated_at DESC, fact.id`;
+  SELECT DISTINCT ON (link.document_id, outcome.match_key)
+    link.document_id, outcome.match_key, outcome.number::text AS number, outcome.unit, outcome.text_value AS text
+  FROM company_knowledge_links link
+  JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
+  CROSS JOIN LATERAL (${buildOutcomeRowsSql('entry')}) outcome
+  WHERE link.workspace_id = $1 AND link.document_id = ANY($2::uuid[]) AND outcome.match_key = ANY($3::text[])
+    AND NOT EXISTS (SELECT 1 FROM unnest($4::uuid[], $5::uuid[]) AS excluded(document_id, entry_id) WHERE excluded.document_id = link.document_id AND excluded.entry_id = link.entry_id)
+  ORDER BY link.document_id, outcome.match_key, entry.updated_at DESC, entry.id DESC`;
 
 export async function listWinningValues(database: Database, workspaceId: string, documentIds: string[], matchKeys: string[], excluded: ExcludedLinks): Promise<WinningValue[]> {
   if (documentIds.length === 0 || matchKeys.length === 0) return [];
-  const { rows } = await database.query<WinningValue>(WINNING_VALUES_SQL, [workspaceId, documentIds, matchKeys, excluded.documentIds, excluded.factIds]);
-  return rows;
-}
-
-export async function listKnownValues(database: Database, workspaceId: string): Promise<KnownValue[]> {
-  const { rows } = await database.query<KnownValue>(
-    `SELECT match_key, min(name) AS name, coalesce(bool_or(unit = $2), false) AS per_ton
-     FROM fact_values WHERE workspace_id = $1 GROUP BY match_key ORDER BY min(name)`,
-    [workspaceId, PER_TON_UNIT],
-  );
+  const { rows } = await database.query<WinningValue>(WINNING_VALUES_SQL, [workspaceId, documentIds, matchKeys, excluded.documentIds, excluded.entryIds]);
   return rows;
 }
 

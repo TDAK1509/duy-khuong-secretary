@@ -1,6 +1,6 @@
 import { runInTransaction, type Database } from '../../../src/app/db/transaction.ts';
 import { scopeDatabase } from '../../../src/app/db/scoped-database.ts';
-import { linkFactToMatchingDocuments } from '../../../src/app/facts/link-facts.ts';
+import { linkEntryToMatchingDocuments } from '../../../src/app/facts/link-facts.ts';
 import { buildMatchKey } from '../../../src/app/documents/build-match-key.ts';
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
 import { A_ADMIN_USER_ID, WORKSPACE_A_ID } from './seed-ids.ts';
@@ -20,14 +20,16 @@ export type PaperSpec = {
   lines?: PaperLine[];
 };
 
-export type FactSpec = {
+export type EntrySpec = {
   plate?: string;
   pickup?: string;
   dropoff?: string;
-  values?: FactValueSpec[];
+  goods?: string;
+  customer?: string;
+  wageVnd?: number;
+  ratePerTonVnd?: number;
+  allowanceVnd?: number;
 };
-
-export type FactValueSpec = { name: string; number?: number; unit?: string; text?: string };
 
 const WEIGHT_MEANING = 'Trọng lượng hàng';
 const TIME_MEANING = 'Giờ cân';
@@ -93,33 +95,34 @@ async function ensureMeaning(owner: PostgresPool, valueType: 'number' | 'date', 
   return rows[0]?.id ?? '';
 }
 
-export async function insertFact(owner: PostgresPool, spec: FactSpec): Promise<string> {
+export async function insertEntry(owner: PostgresPool, spec: EntrySpec): Promise<string> {
   const { rows } = await owner.query<{ id: string }>(
-    `INSERT INTO facts (workspace_id, author_user_id, statement, vehicle_plate, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key)
-     VALUES ($1, $2, 'fixture fact', $3, $4, $5, $6, $7) RETURNING id`,
-    [WORKSPACE_A_ID, A_ADMIN_USER_ID, spec.plate ?? null, spec.pickup ?? null, spec.pickup === undefined ? null : buildMatchKey(spec.pickup), spec.dropoff ?? null, spec.dropoff === undefined ? null : buildMatchKey(spec.dropoff)],
+    `INSERT INTO company_knowledge_entries (workspace_id, author_user_id, statement, when_vehicle_plate, when_goods,
+       when_pickup_name, when_pickup_match_key, when_dropoff_name, when_dropoff_match_key, then_customer, then_wage_vnd, then_rate_vnd_per_ton, then_allowance_vnd, then_note)
+     VALUES ($1, $2, 'fixture entry', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+    [WORKSPACE_A_ID, A_ADMIN_USER_ID, spec.plate ?? null, spec.goods ?? null, spec.pickup ?? null, readMatchKey(spec.pickup), spec.dropoff ?? null, readMatchKey(spec.dropoff),
+      spec.customer ?? null, spec.wageVnd ?? null, spec.ratePerTonVnd ?? null, spec.allowanceVnd ?? null, hasOutcome(spec) ? null : 'fixture note'],
   );
-  const factId = rows[0]?.id ?? '';
-  for (const [position, value] of (spec.values ?? []).entries()) await insertFactValue(owner, factId, position, value);
-  return factId;
+  return rows[0]?.id ?? '';
 }
 
-async function insertFactValue(owner: PostgresPool, factId: string, position: number, { name, number, unit, text }: FactValueSpec): Promise<void> {
-  await owner.query(
-    'INSERT INTO fact_values (workspace_id, fact_id, position, name, match_key, number, unit, text_value) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-    [WORKSPACE_A_ID, factId, position, name, buildMatchKey(name), number ?? null, unit ?? null, text ?? null],
-  );
+function hasOutcome(spec: EntrySpec): boolean {
+  return [spec.customer, spec.wageVnd, spec.ratePerTonVnd, spec.allowanceVnd].some((outcome) => outcome !== undefined);
 }
 
-export async function linkFact(runtime: PostgresPool, factId: string): Promise<void> {
-  await runInTransaction(openWorkspaceA(runtime), (transaction) => linkFactToMatchingDocuments(transaction, WORKSPACE_A_ID, factId));
+function readMatchKey(name: string | undefined): string | null {
+  return name === undefined ? null : buildMatchKey(name);
+}
+
+export async function linkEntry(runtime: PostgresPool, entryId: string): Promise<void> {
+  await runInTransaction(openWorkspaceA(runtime), (transaction) => linkEntryToMatchingDocuments(transaction, WORKSPACE_A_ID, entryId));
 }
 
 export function openWorkspaceA(runtime: PostgresPool): Database {
   return scopeDatabase(runtime, { workspaceId: WORKSPACE_A_ID });
 }
 
-export async function listLinkedPaperIds(owner: PostgresPool, factId: string): Promise<string[]> {
-  const { rows } = await owner.query<{ document_id: string }>('SELECT document_id FROM document_facts WHERE fact_id = $1 ORDER BY document_id', [factId]);
+export async function listLinkedPaperIds(owner: PostgresPool, entryId: string): Promise<string[]> {
+  const { rows } = await owner.query<{ document_id: string }>('SELECT document_id FROM company_knowledge_links WHERE entry_id = $1 ORDER BY document_id', [entryId]);
   return rows.map((row) => row.document_id);
 }

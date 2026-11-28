@@ -1,4 +1,4 @@
-import type { DocumentFactValue } from '../facts/document-fact-values.ts';
+import type { DocumentKnowledge } from '../facts/document-knowledge.ts';
 import type { QuotedPaper } from './load-quoted-papers.ts';
 
 const NO_SAVED_PAPER = 'Ảnh này chưa có giấy tờ nào đã lưu.';
@@ -27,7 +27,7 @@ function describePaper(paper: QuotedPaper, index: number): string {
     `Tóm tắt: ${paper.summary}`,
     ...describeSection('Chi tiết đã lưu', paper.lines.map(describeLine)),
     ...describeSection('Công ty và nơi chốn', paper.parties.map(describeParty)),
-    ...describeSection('Giá trị từ thông tin cố định', paper.fact_values.map(describeFactValue)),
+    ...describeSection('Kiến thức công ty áp dụng', paper.company_knowledge.map(describeKnowledge)),
   ].join('\n');
 }
 
@@ -68,6 +68,6 @@ function describeParty({ role, name }: QuotedPaper['parties'][number]): string {
   return `- ${PARTY_ROLE_LABELS[role] ?? role}: ${name}`;
 }
 
-function describeFactValue({ name, text, number, unit }: DocumentFactValue): string {
+function describeKnowledge({ name, text, number, unit }: DocumentKnowledge): string {
   return `- ${name}: ${text ?? `${number} ${unit}`}`;
 }

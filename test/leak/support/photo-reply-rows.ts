@@ -104,13 +104,13 @@ export async function readPaperPlate(owner: PostgresPool, paperId: string): Prom
 export type PaperDetails = {
   line: { label: string; value: string };
   party: { role: 'issuer' | 'supplier' | 'customer' | 'carrier' | 'place'; printedName: string };
-  factValue: { name: string; number: string; unit: string };
+  knowledge: { wageVnd: number };
 };
 
 export async function insertPaperDetails(owner: PostgresPool, paper: { paperId: string; plate: string }, details: PaperDetails): Promise<void> {
   await owner.query('INSERT INTO document_lines (workspace_id, document_id, line_no, label, value) VALUES ($1, $2, 0, $3, $4)', [WORKSPACE_A_ID, paper.paperId, details.line.label, details.line.value]);
   await insertPaperParty(owner, paper.paperId, details.party);
-  await insertPaperFactValue(owner, paper, details.factValue);
+  await insertPaperKnowledge(owner, paper, details.knowledge);
 }
 
 async function insertPaperParty(owner: PostgresPool, paperId: string, party: PaperDetails['party']): Promise<void> {
@@ -121,12 +121,10 @@ async function insertPaperParty(owner: PostgresPool, paperId: string, party: Pap
   );
 }
 
-async function insertPaperFactValue(owner: PostgresPool, paper: { paperId: string; plate: string }, factValue: PaperDetails['factValue']): Promise<void> {
-  const { rows } = await owner.query<{ id: string }>(`INSERT INTO facts (workspace_id, statement, vehicle_plate) VALUES ($1, 'standing fact', $2) RETURNING id`, [WORKSPACE_A_ID, paper.plate]);
-  const factId = rows[0]!.id;
-  await owner.query(
-    `INSERT INTO fact_values (workspace_id, fact_id, position, name, match_key, number, unit) VALUES ($1, $2, 0, $3, 'valuekey', $4, $5)`,
-    [WORKSPACE_A_ID, factId, factValue.name, factValue.number, factValue.unit],
+async function insertPaperKnowledge(owner: PostgresPool, paper: { paperId: string; plate: string }, knowledge: PaperDetails['knowledge']): Promise<void> {
+  const { rows } = await owner.query<{ id: string }>(
+    `INSERT INTO company_knowledge_entries (workspace_id, statement, when_vehicle_plate, then_wage_vnd) VALUES ($1, 'standing knowledge', $2, $3) RETURNING id`,
+    [WORKSPACE_A_ID, paper.plate, knowledge.wageVnd],
   );
-  await owner.query('INSERT INTO document_facts (workspace_id, document_id, fact_id) VALUES ($1, $2, $3)', [WORKSPACE_A_ID, paper.paperId, factId]);
+  await owner.query('INSERT INTO company_knowledge_links (workspace_id, document_id, entry_id) VALUES ($1, $2, $3)', [WORKSPACE_A_ID, paper.paperId, rows[0]!.id]);
 }

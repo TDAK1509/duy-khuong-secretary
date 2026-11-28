@@ -1,5 +1,5 @@
 import type { Transaction } from '../../db/transaction.ts';
-import { linkDocumentToMatchingFacts } from '../../facts/link-facts.ts';
+import { linkDocumentToMatchingEntries } from '../../facts/link-facts.ts';
 import { resolveCompanyTarget, type CompanyTarget } from './company-target.ts';
 import { findPrintedLine, type PrintedLine } from './find-printed-line.ts';
 import { listPaperChanges, resolveFinalValues, type ValuesBefore } from './list-paper-changes.ts';
@@ -70,6 +70,6 @@ async function updatePaper({ transaction, workspaceId, now }: PaperCorrector, pa
 }
 
 async function relinkPaperFacts(transaction: Transaction, workspaceId: string, paperId: string): Promise<void> {
-  await transaction.query('DELETE FROM document_facts WHERE workspace_id = $1 AND document_id = $2', [workspaceId, paperId]);
-  await linkDocumentToMatchingFacts(transaction, workspaceId, paperId);
+  await transaction.query('DELETE FROM company_knowledge_links WHERE workspace_id = $1 AND document_id = $2', [workspaceId, paperId]);
+  await linkDocumentToMatchingEntries(transaction, workspaceId, paperId);
 }

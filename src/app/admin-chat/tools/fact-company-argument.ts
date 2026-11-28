@@ -1,11 +1,11 @@
 import type { Database } from '../../db/transaction.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
-import type { FactCompany } from '../../facts/fact.ts';
+import type { KnowledgeCompany } from '../../facts/company-knowledge.ts';
 import type { PickedCompanies, SlotNames } from '../../facts/pick-fact-companies.ts';
 import { resolveFactCompany } from '../../facts/resolve-fact-company.ts';
 import { ToolRefusal } from './tool-result.ts';
 
-export type ResolvedCompany = FactCompany & { matchedOrganization: string | null };
+export type ResolvedCompany = KnowledgeCompany & { matchedOrganization: string | null };
 
 export async function readCompanyArgument(database: Database, workspaceId: string, raw: string | null, pick?: PickedCompanies): Promise<ResolvedCompany | null> {
   if (raw === null) return null;
@@ -31,11 +31,11 @@ function describeAmbiguousCompany(name: string, organizationNames: string[]): st
   return `Có nhiều công ty đã lưu khớp với "${name}": ${organizationNames.join('; ')}. Hỏi lại quản lý muốn chọn công ty nào.`;
 }
 
-export type CompanyArguments = { pickup_company: string | null; dropoff_company: string | null };
+export type CompanyArguments = { when_pickup_company: string | null; when_dropoff_company: string | null };
 
 export function listSlotNames(request: CompanyArguments): SlotNames {
   const names: SlotNames = {};
-  if (request.pickup_company !== null) names.pickup = request.pickup_company.trim();
-  if (request.dropoff_company !== null) names.dropoff = request.dropoff_company.trim();
+  if (request.when_pickup_company !== null) names.pickup = request.when_pickup_company.trim();
+  if (request.when_dropoff_company !== null) names.dropoff = request.when_dropoff_company.trim();
   return names;
 }
