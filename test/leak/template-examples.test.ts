@@ -96,6 +96,14 @@ test('a proposal from all papers returns one example for a photo that holds two 
   assert.equal(JSON.parse(await saveTemplate(proposal.example_paper_ids)).ok, true);
 });
 
+test('a proposal from all papers leaves out a group with no usable example photo', async () => {
+  await insertExamplePaper(databases.owner, { imageKey: 'example/gone-one.jpg', isPhotoDeleted: true, kind: 'kind-a' });
+  await insertExamplePaper(databases.owner, { imageKey: 'example/gone-two.jpg', isPhotoDeleted: true, kind: 'kind-a' });
+  const usable = await insertExamplePaper(databases.owner, { imageKey: 'example/usable.jpg', kind: 'kind-b' });
+  const proposals = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: null })).proposals;
+  assert.deepEqual(proposals.map((proposal: { kind: string; example_paper_ids: string[] }) => [proposal.kind, proposal.example_paper_ids]), [['kind-b', [usable]]]);
+});
+
 test('a proposal from one paper returns it as the example when it still has a photo', async () => {
   const paperId = await insertExamplePaper(databases.owner, { imageKey: 'example/one.jpg' });
   const [proposal] = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: paperId })).proposals;

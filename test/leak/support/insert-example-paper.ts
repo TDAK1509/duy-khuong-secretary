@@ -4,7 +4,7 @@ import { A_ADMIN_USER_ID, WORKSPACE_A_ID } from './seed-ids.ts';
 
 export type PaperLine = { label: string; value: string; meaning: string | null; number: number | null; unit: string | null; at: string | null };
 
-export type ExamplePaperOptions = { imageKey: string | null; isPhotoDeleted?: boolean; status?: 'accepted' | 'needs_review'; title?: string | null; createdAt?: string | null; amountVnd?: number | null; issuerName?: string | null; lines?: PaperLine[] };
+export type ExamplePaperOptions = { imageKey: string | null; isPhotoDeleted?: boolean; status?: 'accepted' | 'needs_review'; title?: string | null; kind?: string; createdAt?: string | null; amountVnd?: number | null; issuerName?: string | null; lines?: PaperLine[] };
 
 export async function insertExamplePaper(owner: PostgresPool, options: ExamplePaperOptions): Promise<string> {
   const messageId = await insertPhotoMessage(owner, options);
@@ -34,11 +34,11 @@ async function insertPhotoMessage(owner: PostgresPool, { imageKey, isPhotoDelete
   return message.id;
 }
 
-async function insertDocument(owner: PostgresPool, { status = 'accepted', title = null, createdAt = null }: ExamplePaperOptions): Promise<string> {
+async function insertDocument(owner: PostgresPool, { status = 'accepted', title = null, createdAt = null, kind = 'phiếu cân' }: ExamplePaperOptions): Promise<string> {
   const { rows: [document] } = await owner.query<{ id: string }>(
     `INSERT INTO documents (workspace_id, kind, stage, status, document_number, document_date, title, vehicle_plate, summary, created_at)
-     VALUES ($1, 'phiếu cân', 'dispatch', $2, 'EX0001', '2026-03-01', $3, '99Z12345', 'EXAMPLE-PAPER', COALESCE($4::timestamptz, now())) RETURNING id`,
-    [WORKSPACE_A_ID, status, title, createdAt],
+     VALUES ($1, $5, 'dispatch', $2, 'EX0001', '2026-03-01', $3, '99Z12345', 'EXAMPLE-PAPER', COALESCE($4::timestamptz, now())) RETURNING id`,
+    [WORKSPACE_A_ID, status, title, createdAt, kind],
   );
   if (document === undefined) throw new Error('The example document was not inserted');
   return document.id;

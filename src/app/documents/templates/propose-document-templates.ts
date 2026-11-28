@@ -22,7 +22,13 @@ const ACCEPTED_PAPERS_SQL = `
     SELECT document.id, document.kind, document.stage, document.created_at,
       (SELECT party.organization_id FROM document_parties party
        WHERE party.document_id = document.id AND party.role = 'issuer' AND party.organization_id IS NOT NULL
-       ORDER BY party.id LIMIT 1) AS issuer_id
+       ORDER BY party.id LIMIT 1) AS issuer_id,
+      EXISTS (
+        SELECT 1 FROM document_sources source
+        JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
+        JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
+        WHERE source.document_id = document.id AND source.workspace_id = $1 AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
+      ) AS has_photo
     FROM documents document
     WHERE document.workspace_id = $1 AND document.status = 'accepted' AND document.sheet_signature IS NULL
   )`;
@@ -36,6 +42,7 @@ const FIND_GROUPS_SQL = `
   FROM accepted_papers paper
   LEFT JOIN organizations organization ON organization.id = paper.issuer_id
   GROUP BY paper.issuer_id, organization.name, paper.kind
+  HAVING bool_or(paper.has_photo)
   ORDER BY count(*) DESC, paper.kind COLLATE "C", paper.issuer_id
   LIMIT ${MAX_PROPOSALS}`;
 
