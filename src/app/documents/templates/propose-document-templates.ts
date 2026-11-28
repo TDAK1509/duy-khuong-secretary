@@ -133,6 +133,7 @@ export async function proposeTemplateFromPaper(database: Database, workspaceId: 
   if (paper === undefined) return null;
   const { rows: fields } = await database.query<FieldRow>(FIND_PAPER_FIELDS_SQL, [workspaceId, paper.id]);
   const { papers } = await runInTransaction(database, (transaction) => findExamplePapers(transaction, workspaceId, [paper.id]));
+  if (papers.length === 0) return null;
   return toPaperProposal(paper, fields, papers.map((example) => example.documentId));
 }
 

@@ -110,12 +110,12 @@ test('a proposal from one paper returns it as the example when it still has a ph
   assert.deepEqual(proposal.example_paper_ids, [paperId]);
 });
 
-test('a proposal from one paper returns no example when its photo is deleted or it is not accepted', async () => {
+test('a proposal from one paper is refused when its photo is deleted or it is not accepted', async () => {
   const deletedPhoto = await insertExamplePaper(databases.owner, { imageKey: 'example/deleted.jpg', isPhotoDeleted: true });
   const needsReview = await insertExamplePaper(databases.owner, { imageKey: 'example/review.jpg', status: 'needs_review' });
   for (const paperId of [deletedPhoto, needsReview]) {
-    const [proposal] = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: paperId })).proposals;
-    assert.deepEqual(proposal.example_paper_ids, []);
+    const result = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: paperId }));
+    assert.deepEqual(result, { ok: false, error: 'Không tìm thấy giấy tờ này.' });
   }
 });
 
