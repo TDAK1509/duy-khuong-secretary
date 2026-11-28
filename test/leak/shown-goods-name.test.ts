@@ -97,6 +97,8 @@ function saveArguments(given: Record<string, string>): Record<string, string | b
     then_allowance_vnd: null,
     then_equal_weights: false,
     then_note: null,
+    replace_conflicts: false,
+    notes_checked: true,
     ...given,
   };
 }

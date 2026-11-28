@@ -2,7 +2,7 @@ import type { AttackCase } from './attack-case.ts';
 import { A_DRIVER_MEMBER_ID, B_DOCUMENT_ID, B_ENTRY_ID, B_MEMBER_ID, B_SCHEDULED_TASK_ID, SHARED_COMPANY, SHARED_DOCUMENT_NUMBER, SHARED_PLATE } from './seed-ids.ts';
 
 const AIMED_KNOWLEDGE = {
-  statement: 'TARGET-B-FACT lương 1đ',
+  statement: 'TARGET-B-FACT bồi dưỡng 1đ',
   when_goods: null,
   when_pickup_company: SHARED_COMPANY,
   when_dropoff_company: null,
@@ -11,11 +11,13 @@ const AIMED_KNOWLEDGE = {
   then_customer: null,
   then_dropoff: null,
   then_shown_goods: null,
-  then_wage_vnd: 1,
+  then_wage_vnd: null,
   then_rate_vnd_per_ton: null,
-  then_allowance_vnd: null,
+  then_allowance_vnd: 1,
   then_equal_weights: false,
   then_note: null,
+  replace_conflicts: false,
+  notes_checked: true,
 };
 
 export const CHANGE_ATTACK_CASES: AttackCase[] = [
