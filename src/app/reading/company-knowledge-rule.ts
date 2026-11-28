@@ -3,7 +3,7 @@ import { buildRetrievedPart } from './retrieved-data.ts';
 
 export type ReaderKnowledge = {
   when: { goods?: string; pickup?: string; dropoff?: string };
-  then: { customer?: string; dropoff?: string; note?: string };
+  then: { customer?: string; dropoff?: string; shown_goods?: string; note?: string };
 };
 
 export function buildCompanyKnowledgeRules(entries: ReaderKnowledge[]): string[] {

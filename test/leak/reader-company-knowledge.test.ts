@@ -52,6 +52,11 @@ test('money outcomes are left out of the reader request', async () => {
   assert.ok(!JSON.stringify(request).includes('700000'));
 });
 
+test('a shown goods name reaches the reader as shown_goods', async () => {
+  const request = await readDriverPhotoWithEntries([{ goods: 'Than', shownGoodsName: 'Than đá' }]);
+  assert.ok(findKnowledgePart(request).includes('"shown_goods":"Than đá"'));
+});
+
 test('a company-wide note reaches the reader', async () => {
   const note = 'phiếu cân của trạm C là phiếu lấy hàng';
   const request = await readDriverPhotoWithEntries([{ goods: 'Đá', note }]);
