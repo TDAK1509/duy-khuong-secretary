@@ -17,6 +17,11 @@ test('a one-character plate difference with a 20 kg difference stays apart', () 
   assert.equal(pairs.size, 0);
 });
 
+test('a two-character plate difference stays apart', () => {
+  const { pairs } = pairDropOffsByRule([buildPickup()], [buildDropOff('drop-off', '51C12399', 27080)]);
+  assert.equal(pairs.size, 0);
+});
+
 function buildPickup(overrides: Partial<PairingRow> = {}): PairingRow {
   return { id: 'pickup', plate: '51C12345', times: readPairingTimes('2026-03-05', null), weightKg: 27080, isPossibleDuplicate: false, hasEqualWeightEntry: true, ...overrides };
 }
