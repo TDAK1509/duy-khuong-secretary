@@ -44,7 +44,7 @@ async function addEntry(database: Database, scope: AccessScope, { change, action
 }
 
 function readSavedValue({ source, before }: ReviewChange): unknown {
-  return source?.kind === 'computed' ? source.snapshot['rate_vnd_per_ton'] : before;
+  return source?.kind === 'computed' && source.field === 'then_rate_vnd_per_ton' ? source.snapshot['rate_vnd_per_ton'] : before;
 }
 
 function describeStatement({ columnName, after }: ReviewChange): string {
