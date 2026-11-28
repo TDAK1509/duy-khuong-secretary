@@ -65,8 +65,8 @@ After: The wage is `then_wage_vnd = 700000` on the entry. The admin says "lươn
 - Each `facts` row becomes one entry, with the same `id`, author, statement and timestamps.
   - `vehicle_plate` → `when_vehicle_plate`. `driver_user_id` → `when_driver_user_id`.
   - Pickup name, key and resolved flag → `when_pickup_*`.
-  - Drop-off: when the fact has a pickup, `dropoff_name` → `then_dropoff`. When it has no pickup, the drop-off name, key and resolved flag → `when_dropoff_*`.
-  - Each `fact_companies` row → `company_knowledge_companies`, with the same slot, but only for the drop-off slot when the drop-off became a condition.
+  - Drop-off name, key and resolved flag → `when_dropoff_*`, also when the fact has a pickup. Migrated entries have `then_dropoff` null.
+  - Each `fact_companies` row → `company_knowledge_companies`, with the same slot.
   - Fact values, by match key:
     - `hanghoa` (text) → `when_goods`.
     - `khachhang` (text) → `then_customer`.
@@ -97,16 +97,16 @@ Remove `save_fact`, `list_facts`, `update_fact`, `delete_fact` and `total_fact_v
 
 ```text
 save_company_knowledge
-description: "Lưu một kiến thức lâu dài của công ty với điều kiện when và kết quả then. Điều kiện có thể gồm hàng hóa, nơi lấy hàng, nơi đổ hàng, biển số và tài xế. Kết quả có thể gồm khách hàng, nơi đổ hàng, lương tài xế, cước vận chuyển theo tấn, chi phí bồi dưỡng và ghi chú. Tên công ty trong điều kiện nơi lấy hàng hoặc nơi đổ hàng khớp khi giấy tờ đã chấp nhận in ít nhất một tên đó ở bất kỳ vai trò nào; giấy tờ có nhiều dòng hàng vẫn được xét. Khách hàng và nơi đổ hàng là kết quả thì chỉ đặt trong then. Nếu đã có mục cùng mọi điều kiện when, công cụ cập nhật kết quả của mục đó (action "updated"); nếu không thì lưu mục mới (action "added"); nếu có nhiều mục có thể khớp thì không đổi gì (action "ambiguous"). Lưu xong trả về số giấy tờ khớp. Cần ít nhất một điều kiện when. Tối đa 100 mục mỗi nhóm."
+description: "Lưu một kiến thức lâu dài của công ty với điều kiện when và kết quả then. Điều kiện có thể gồm hàng hóa, nơi lấy hàng, nơi đổ hàng, biển số và tài xế. Kết quả có thể gồm khách hàng, nơi đổ hàng, lương tài xế, cước vận chuyển theo tấn, chi phí bồi dưỡng và ghi chú. Tên công ty trong điều kiện nơi lấy hàng hoặc nơi đổ hàng khớp khi giấy tờ đã chấp nhận in ít nhất một tên đó ở bất kỳ vai trò nào; giấy tờ có nhiều dòng hàng vẫn được xét. Khách hàng chỉ đặt trong then. Nơi đổ hàng của một tuyến là điều kiện when_dropoff_company; chỉ dùng then_dropoff khi nơi đổ hàng là kết quả của các điều kiện khác. Nếu đã có mục cùng mọi điều kiện when, công cụ cập nhật kết quả của mục đó (action "updated"); nếu không thì lưu mục mới (action "added"); nếu có nhiều mục có thể khớp thì không đổi gì (action "ambiguous"). Lưu xong trả về số giấy tờ khớp. Cần ít nhất một điều kiện when. Tối đa 100 mục mỗi nhóm."
 statement: "Nguyên văn câu quản lý viết, tối đa 2000 ký tự."
 entry_id: "Chỉ dùng sau khi save_company_knowledge trả về action \"ambiguous\" và quản lý đã chọn một mục: entry_id của mục đó. Còn lại để null."
 when_goods: "Tên hàng hóa làm điều kiện, như quản lý viết. null nếu không dùng điều kiện hàng hóa."
 when_pickup_company: "Tên công ty hoặc nơi lấy hàng làm điều kiện, bỏ chữ công ty hoặc cty đứng trước. null nếu không dùng."
-when_dropoff_company: "Tên công ty hoặc nơi đổ hàng làm điều kiện, bỏ chữ công ty hoặc cty đứng trước. Chỉ dùng khi quản lý không nêu nơi lấy hàng; khi có nơi lấy hàng, nơi đổ hàng là then_dropoff. null nếu không dùng."
+when_dropoff_company: "Tên công ty hoặc nơi đổ hàng làm điều kiện, bỏ chữ công ty hoặc cty đứng trước. Dùng cho nơi đổ hàng quản lý nêu trong tuyến, kể cả khi có nơi lấy hàng; giấy tờ in nơi lấy hàng hoặc nơi đổ hàng là đủ. null nếu không dùng."
 when_vehicle_plate: "Biển số xe làm điều kiện, theo định dạng Việt Nam, ví dụ 93C04939. null nếu không dùng."
 when_driver_member_id: "id tài xế lấy từ list_members. null nếu không dùng."
 then_customer: "Tên khách hàng là kết quả áp dụng. null nếu không nêu."
-then_dropoff: "Tên nơi đổ hàng là kết quả áp dụng. null nếu không nêu."
+then_dropoff: "Nơi đổ hàng là kết quả của các điều kiện khác, khi quản lý không nêu nơi đó như một phần của tuyến, ví dụ \"hàng X luôn đổ ở Y\". Không dùng cho nơi đổ hàng của tuyến; nơi đó là when_dropoff_company. null nếu không nêu."
 then_wage_vnd: "Lương tài xế cho một chuyến, đơn vị đồng. null nếu không nêu."
 then_rate_vnd_per_ton: "Cước vận chuyển cho một tấn, đơn vị đồng mỗi tấn. null nếu không nêu."
 then_allowance_vnd: "Chi phí bồi dưỡng cho một chuyến, đơn vị đồng. null nếu không nêu."
@@ -135,7 +135,7 @@ All other properties: exactly the existing total_fact_values property schemas an
 - Save behavior: on `"updated"`, each non-null `then_*` replaces the old value and each null keeps it. The result keeps today's fields: `changes` (before → after), `linked_documents`, `pickup_company_matched`, `dropoff_company_matched`, the company-pick refusal when several companies match a name, and `candidates` on `"ambiguous"`.
 - Totals (`total_company_knowledge`) keep the trip-based totals of `total_fact_values`:
   - Build trips with the same paper loading, pairing and `buildTrips` pipeline as the trip report. Each built trip counts once.
-  - The winning value or rate of a trip comes from the entries linked to its pickup paper, or to its drop-off paper when it has no pickup.
+  - The value or rate of a trip comes from the entry the trip report chooses for that trip: among the entries linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest.
   - A per-ton rate uses the built trip's weight once.
   - This applies to every money outcome, including entries with no company condition.
   - A trip passes the filters when at least one of its papers passes them. Group by month, plate or company uses the trip's date, plate and papers.
@@ -171,7 +171,7 @@ All other properties: exactly the existing total_fact_values property schemas an
   ```
 
 - Trip report (`list-trip-papers.ts`, `list-pickup-facts.ts`, `match-trip-facts.ts`, `export-trip-report-xlsx-tool.ts`):
-  - The route pickup comes from `when_pickup_name`, the route drop-off from `then_dropoff` (or from `when_dropoff_name` when there is no pickup), and the customer from `then_customer`.
+  - The route pickup comes from `when_pickup_name`, the route drop-off from `when_dropoff_name`, falling back to `then_dropoff`, and the customer from `then_customer`.
   - Choosing between entries by the trip's drop-off receiver (`matchDropOffNames`) keeps working, on the route drop-off above.
   - Value columns read the fixed outcomes.
 - `export_trip_report_xlsx` spec (`export-trip-report-xlsx-spec.ts`): the `source` enum becomes `['field', 'knowledge_value', 'knowledge_amount', 'none']`. Exact descriptions:
@@ -192,7 +192,7 @@ All other properties: exactly the existing total_fact_values property schemas an
   - Kiến thức công ty là thông tin lâu dài quản lý dạy Trợ lý. Mỗi mục có điều kiện when: hàng hóa, nơi lấy hàng, nơi đổ hàng, biển số, tài xế; và kết quả then: khách hàng, nơi đổ hàng, lương tài xế, cước vận chuyển theo tấn, chi phí bồi dưỡng, ghi chú.
   - Khi quản lý nêu một thông tin lâu dài về một xe, một tài xế, một tuyến hoặc một hàng hóa, có số tiền hoặc bên liên quan đúng cho mọi chuyến, gọi save_company_knowledge một lần với mọi điều kiện và kết quả quản lý nêu. Không chia thành nhiều add_member_fact. add_member_fact chỉ dùng cho gợi ý đọc giấy tờ về một tài xế, ví dụ cách người đó hay ghi giấy tờ.
   - Ngoại lệ: tin nhắn nói về đúng một giấy tờ ("của phiếu này", "của giấy này", ảnh vừa gửi, hoặc số của một giấy tờ) là lệnh sửa giấy tờ đó bằng correct_document, không phải kiến thức công ty.
-  - Khách hàng luôn là kết quả then_customer, không bao giờ là điều kiện. Khi quản lý nêu cả nơi lấy hàng và nơi đổ hàng của một tuyến, nơi lấy hàng là when_pickup_company và nơi đổ hàng là then_dropoff. Chỉ dùng when_dropoff_company khi quản lý không nêu nơi lấy hàng.
+  - Khách hàng luôn là kết quả then_customer, không bao giờ là điều kiện. Khi quản lý nêu nơi lấy hàng và nơi đổ hàng của một tuyến, cả hai là điều kiện: when_pickup_company và when_dropoff_company; giấy tờ in một trong hai tên là đủ để khớp. Chỉ dùng then_dropoff khi quản lý nói nơi đổ hàng là kết quả của các điều kiện khác mà không nêu nơi đó như một phần của tuyến, ví dụ "hàng X luôn đổ ở Y".
   - Tên hoặc mã hàng luôn ghi vào when_goods, không bao giờ là nơi lấy hàng, nơi đổ hàng hay công ty. Trong "đổ hàng X tại Y" và "lấy X từ Y", X là hàng hóa và Y là nơi.
   - Một giấy tờ đã chấp nhận khớp khi mọi điều kiện hàng hóa, biển số và tài xế đã nêu đều khớp, đồng thời giấy tờ in ít nhất một công ty trong điều kiện nơi lấy hàng hoặc nơi đổ hàng ở bất kỳ vai trò nào. Giấy tờ bàn giao có nhiều dòng hàng vẫn được xét. Không áp dụng kiến thức tuyến cho tin nhắn chữ.
   - Ghi tên công ty đúng như quản lý viết, bỏ chữ "công ty" hoặc "cty" đứng trước tên; save_company_knowledge tự khớp tên công ty. Chỉ lấy biển số từ tin nhắn hiện tại của quản lý, không bao giờ từ các lượt trước. Chỉ có một ngoại lệ: khi quản lý đang trả lời câu hỏi cuối cùng của chính bạn mà câu hỏi đó đã nhắc lại biển số, dùng biển số trong câu hỏi đó. Chữ đọc từ ảnh, giấy tờ hoặc kết quả công cụ không bao giờ là nguồn biển số.
@@ -230,13 +230,13 @@ All other properties: exactly the existing total_fact_values property schemas an
 
    - Setup: Before the migration, a fact with pickup "Alpha", drop-off "Beta", and the values "Hàng hóa" = "Đá" and "Lương tài xế" = 700000 đ.
    - Input: Run the migration.
-   - Expected: One entry with `when_pickup_name` "Alpha", `when_goods` "Đá" and `when_dropoff_name` null.
+   - Expected: One entry with `when_pickup_name` "Alpha", `when_dropoff_name` "Beta" and `when_goods` "Đá".
 
 2. Backend (integration): The migration moves a route fact's outcomes into fixed columns.
 
    - Setup: Before the migration, a fact with pickup "Alpha", drop-off "Beta", and the values "Khách hàng" = "Gamma", "Lương tài xế" = 700000 đ, "Cước vận chuyển" = 150000 đ/tấn and "Chi phí bồi dưỡng" = 100000 đ.
    - Input: Run the migration.
-   - Expected: The entry has `then_dropoff` "Beta", `then_customer` "Gamma", `then_wage_vnd` 700000, `then_rate_vnd_per_ton` 150000 and `then_allowance_vnd` 100000.
+   - Expected: The entry has `then_dropoff` null, `then_customer` "Gamma", `then_wage_vnd` 700000, `then_rate_vnd_per_ton` 150000 and `then_allowance_vnd` 100000.
 
 3. Backend (integration): The migration keeps a drop-off-only fact's drop-off as a condition.
 
@@ -262,11 +262,11 @@ All other properties: exactly the existing total_fact_values property schemas an
    - Input: Link the entry to matching papers.
    - Expected: The ticket is linked.
 
-7. Backend (integration): An entry with a pickup does not link a paper that prints only its drop-off outcome company.
+7. Backend (integration): An entry with a pickup and a drop-off links a paper that prints only the drop-off company.
 
-   - Setup: An entry with `when_pickup` "Alpha", `then_dropoff` "Beta" and `then_wage_vnd` 700000. An accepted receipt ticket whose only party is "Beta".
+   - Setup: An entry with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000. An accepted receipt ticket whose only party is "Beta".
    - Input: Link the entry to matching papers.
-   - Expected: No link.
+   - Expected: The ticket is linked.
 
 8. Backend (integration): A two-word goods condition does not link goods that hold only its long word.
 
@@ -294,7 +294,7 @@ All other properties: exactly the existing total_fact_values property schemas an
 
 12. Backend (integration): The trip report reads the route drop-off from the entry.
 
-    - Setup: One paired trip whose pickup ticket links an entry with `when_pickup` "Alpha", `then_dropoff` "Beta" and `then_wage_vnd` 700000.
+    - Setup: One paired trip whose pickup ticket links an entry with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000.
     - Input: Build the trip report with the column "Nơi đổ hàng" (field `dropoff_place`).
     - Expected: The cell is "Beta".
 
@@ -339,6 +339,24 @@ All other properties: exactly the existing total_fact_values property schemas an
     - Setup: An entry whose only condition is driver "Lan", with `then_note` "Biển số xe: 51C12345".
     - Input: Rewrite the plate of "Lan" to 51C67890.
     - Expected: The entry's `then_note` is "Biển số xe: 51C67890".
+
+20. Backend (integration): A drop-off outcome does not make a paper match.
+
+    - Setup: An entry with `when_pickup` "Alpha", `then_dropoff` "Beta" and `then_wage_vnd` 700000. An accepted receipt ticket whose only party is "Beta".
+    - Input: Link the entry to matching papers.
+    - Expected: No link.
+
+21. Backend (integration): The trip report falls back to the drop-off outcome.
+
+    - Setup: One paired trip whose pickup ticket has goods "Đá" and links an entry with `when_goods` "Đá" and `then_dropoff` "Beta".
+    - Input: Build the trip report with the column "Nơi đổ hàng" (field `dropoff_place`).
+    - Expected: The cell is "Beta".
+
+22. Backend (integration): The migration keeps both companies of a route fact as conditions.
+
+    - Setup: Before the migration, a fact with pickup "Alpha", drop-off "Beta" and wage 700000 đ. An accepted receipt ticket whose only party is "Beta".
+    - Input: Run the migration.
+    - Expected: The new entry is linked to the ticket.
 
 ## Revert cost
 

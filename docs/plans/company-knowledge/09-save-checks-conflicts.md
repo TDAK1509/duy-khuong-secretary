@@ -26,7 +26,7 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
 
 - Overlapping conditions, used for both checks:
   - Goods, plate and driver are compatible when they are equal, after accent-free and case-free normalization, or when one side has no condition.
-  - Each entry's company conditions form one set: its pickup and drop-off condition companies. Two sets are compatible when one is empty, or when they share a company by match key, alias or company pick.
+  - Pickup conditions are compatible when they name the same company (by match key, alias or company pick) or when one side has none. Drop-off conditions follow the same rule. Two routes from one pickup to different drop-offs are not compatible, so their different values never conflict.
   - The entry being updated is never compared with itself.
 - New: structured conflict. Before writing, `save_company_knowledge` and `update_company_knowledge` find the entries with overlapping conditions that set the same outcome to a different value.
   - Text values are compared after normalization, numbers by exact value.
@@ -52,13 +52,13 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
 
 1. Backend (integration): A different drop-off for an overlapping route returns a conflict.
 
-   - Setup: Entry 1 with `when_pickup` "Alpha" and `then_dropoff` "Beta", linked to two tickets that print "Alpha" and goods "Đá".
+   - Setup: Entry 1 with `when_goods` "Đá" and `then_dropoff` "Beta", linked to two tickets with goods "Đá" that print "Alpha".
    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", with `replace_conflicts` false and `notes_checked` false.
    - Expected: Action "conflict" names entry 1, the outcome drop-off, "Beta", "Gamma" and 2 shared papers.
 
 2. Backend (integration): A conflict saves nothing.
 
-   - Setup: Entry 1 with `when_pickup` "Alpha" and `then_dropoff` "Beta".
+   - Setup: Entry 1 with `when_goods` "Đá" and `then_dropoff` "Beta".
    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", with `replace_conflicts` false and `notes_checked` false.
    - Expected: The workspace still has one entry.
 
@@ -76,44 +76,50 @@ After: Saving the second drop-off replies "Đã có kiến thức nơi đổ hà
 
 5. Backend (integration): Replacing a conflict clears the old outcome and keeps the rest of the old entry.
 
-   - Setup: Entry 1 with `when_pickup` "Alpha", `then_dropoff` "Beta" and `then_wage_vnd` 700000.
+   - Setup: Entry 1 with `when_goods` "Đá", `then_dropoff` "Beta" and `then_wage_vnd` 700000.
    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", with `replace_conflicts` true and `notes_checked` true.
    - Expected: Entry 1 has no drop-off and keeps wage 700000.
 
 6. Backend (integration): Replacing a conflict saves the new entry.
 
-   - Setup: Entry 1 with `when_pickup` "Alpha", `then_dropoff` "Beta" and `then_wage_vnd` 700000.
+   - Setup: Entry 1 with `when_goods` "Đá", `then_dropoff` "Beta" and `then_wage_vnd` 700000.
    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", with `replace_conflicts` true and `notes_checked` true.
    - Expected: An entry with `when_goods` "Đá" and `then_dropoff` "Gamma" exists.
 
 7. Backend (integration): Replacing the only outcome deletes the old entry.
 
-   - Setup: Entry 1 with `when_pickup` "Alpha" and only `then_dropoff` "Beta".
+   - Setup: Entry 1 with `when_goods` "Đá" and only `then_dropoff` "Beta".
    - Input: Save an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", with `replace_conflicts` true and `notes_checked` true.
    - Expected: Entry 1 no longer exists.
 
 8. Backend (integration): A company-wide note stops the first save.
 
    - Setup: A note-only entry with no condition and `then_note` "hàng Đá ở Alpha chỉ đổ ở Gamma".
-   - Input: Save an entry with `when_pickup` "Alpha" and `then_dropoff` "Beta", with `replace_conflicts` false and `notes_checked` false.
+   - Input: Save an entry with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000, with `replace_conflicts` false and `notes_checked` false.
    - Expected: Action "check_notes" with that note in `related_notes`.
 
 9. Backend (integration): A note check saves nothing.
 
    - Setup: A note-only entry with no condition and `then_note` "hàng Đá ở Alpha chỉ đổ ở Gamma".
-   - Input: Save an entry with `when_pickup` "Alpha" and `then_dropoff` "Beta", with `replace_conflicts` false and `notes_checked` false.
+   - Input: Save an entry with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000, with `replace_conflicts` false and `notes_checked` false.
    - Expected: The workspace still has one entry.
 
 10. Backend (integration): The same save with `notes_checked` true writes.
 
    - Setup: A note-only entry with no condition and `then_note` "hàng Đá ở Alpha chỉ đổ ở Gamma".
-   - Input: Save an entry with `when_pickup` "Alpha" and `then_dropoff` "Beta", with `replace_conflicts` false and `notes_checked` true.
+   - Input: Save an entry with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000, with `replace_conflicts` false and `notes_checked` true.
    - Expected: Action "added".
 
 11. Backend (integration): A note on another plate does not stop the save.
 
     - Setup: A note entry with `when_vehicle_plate` 51C12345 and `then_note` "xe này chỉ chở cát".
     - Input: Save an entry with `when_vehicle_plate` 51C67890 and `then_wage_vnd` 750000, with `replace_conflicts` false and `notes_checked` false.
+    - Expected: Action "added".
+
+12. Backend (integration): Two routes from one pickup to different drop-offs do not conflict.
+
+    - Setup: Entry 1 with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 600000.
+    - Input: Save an entry with `when_pickup` "Alpha", `when_dropoff` "Gamma" and `then_wage_vnd` 750000, with `replace_conflicts` false and `notes_checked` false.
     - Expected: Action "added".
 
 ## Revert cost
@@ -124,8 +130,8 @@ Nothing breaks. Saves go back to writing at once.
 
 > Needs a human test: the agent cannot send a Zalo message as an admin. A person performs steps 2 and 4.
 
-- Get the workspace with this read-only query through `ssh render_personal`: `SELECT id FROM workspaces;`. Find the note and the route entry that disagree on the drop-off: `SELECT id, when_goods, when_pickup_name, then_dropoff, then_note FROM company_knowledge_entries WHERE workspace_id = '<workspace id>' AND (then_dropoff IS NOT NULL OR then_note IS NOT NULL) ORDER BY created_at;`. Note the route entry id, the note entry id, and the total number of entries from `SELECT count(*) FROM company_knowledge_entries WHERE workspace_id = '<workspace id>';`.
+- Get the workspace with this read-only query through `ssh render_personal`: `SELECT id FROM workspaces;`. Find the note and the route entry that disagree on the drop-off: `SELECT id, when_goods, when_pickup_name, when_dropoff_name, then_dropoff, then_note FROM company_knowledge_entries WHERE workspace_id = '<workspace id>' AND (when_dropoff_name IS NOT NULL OR then_dropoff IS NOT NULL OR then_note IS NOT NULL) ORDER BY created_at;`. Note the route entry id, the note entry id, and the total number of entries from `SELECT count(*) FROM company_knowledge_entries WHERE workspace_id = '<workspace id>';`.
 - A person, as the admin, restates that route with the drop-off company named in the note.
 - Get the admin's id with `SELECT user_id FROM memberships WHERE workspace_id = '<workspace id>' AND role = 'admin';`. Get that message's time with `SELECT created_at FROM messages WHERE workspace_id = '<workspace id>' AND user_id = '<admin id>' AND author = 'user' ORDER BY created_at DESC LIMIT 1;`. Read the reply with `SELECT text FROM messages WHERE workspace_id = '<workspace id>' AND user_id = '<admin id>' AND author = 'bot' AND created_at > '<that created_at>' ORDER BY created_at LIMIT 1;`. It names both drop-off companies and asks which one is correct. The total number of entries is unchanged.
 - The person answers with one company.
-- Run `SELECT then_dropoff FROM company_knowledge_entries WHERE id = '<route entry id>';`, and check for a new entry by that admin since the message time. Only the chosen drop-off company remains for that pickup. When the admin chose the note's company, the next bot reply offers to delete the note entry.
+- Run `SELECT id, when_pickup_name, when_dropoff_name FROM company_knowledge_entries WHERE workspace_id = '<workspace id>' AND author_user_id = '<admin id>' AND updated_at >= '<that created_at>';`. When the admin chose the note's company, a new route entry with that drop-off exists and the next bot reply offers to delete the note entry. When the admin chose the old company, no new entry exists.

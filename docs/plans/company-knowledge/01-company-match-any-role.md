@@ -5,6 +5,7 @@ Depends on: nothing. This PR changes the existing `facts` tables.
 ## Done when
 
 - A route fact with a pickup company links every accepted paper that prints that company, whatever role the reader gave it, including handover papers with item lines.
+- A route fact that names a pickup and a drop-off links a paper that prints either company.
 - A customer that the admin names is saved only as the value "Khách hàng". It never limits which papers link.
 - A goods condition links a paper only when every word of the condition is found in the same goods text on the paper.
 - `total_fact_values` counts each trip once, by the same trip building as the trip report.
@@ -30,6 +31,7 @@ All in `src/app/facts/link-facts.ts`:
 - The customer slot is a required condition (`fact.customer_match_key IS NULL OR …`).
 - Route facts link only papers that pass `IS_TRIP_TICKET`, which rejects papers with item lines.
 - The goods match reads only no-item lines labelled "Hàng hóa".
+- When a fact names a pickup, its drop-off is ignored for matching (`fact.pickup_match_key IS NOT NULL OR …`). A drop-off receipt that prints the drop-off company and the goods, but not the pickup company, never links.
 - The goods match keeps only the "distinctive" condition tokens (4+ characters or a digit) and drops the others. A two-word condition can then match goods that hold only the long word.
 
 ## Solution
@@ -37,7 +39,8 @@ All in `src/app/facts/link-facts.ts`:
 - Company match:
   - Before: the pickup slot matches party roles chosen by stage, the drop-off slot matches its own role list, and the customer matches only role `customer`.
   - After: the pickup slot matches any party on the paper, in any role, by match key, alias or company pick. The drop-off slot matches the same way.
-  - The rule "drop-off is a condition only when the fact has no pickup" stays. When a fact has a pickup, its drop-off is shown only, as today, and the trip report keeps reading it.
+  - Pickup and drop-off are both conditions. When a fact names both, a paper matches when it prints the pickup company or the drop-off company; one is enough.
+  - The trip report keeps choosing between the facts of one pickup paper by the trip's drop-off receiver (`matchDropOffNames` in `match-trip-facts.ts`), using the fact's drop-off name.
   - Customer is not a condition.
 - Which papers a route fact can link:
   - Before: only papers that pass `IS_TRIP_TICKET`.
@@ -57,7 +60,7 @@ All in `src/app/facts/link-facts.ts`:
 - Totals (`src/app/facts/total-fact-values.ts`):
   - Before: every linked paper adds the fact's money once.
   - After: totals build trips with the same paper loading, pairing and `buildTrips` pipeline as the trip report (`export-trip-report-xlsx-tool.ts`, `pair-trips.ts`, `build-trips.ts`). Each built trip counts once.
-  - The winning value or rate of a trip comes from the facts linked to its pickup paper, or to its drop-off paper when it has no pickup.
+  - The value or rate of a trip comes from the fact the trip report chooses for that trip: among the facts linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest.
   - A per-ton rate uses the built trip's weight once.
   - This applies to every money value, including facts with no company condition.
   - A trip passes the filters when at least one of its papers passes them. Group by month, plate or company uses the trip's date, plate and papers.
@@ -75,7 +78,7 @@ All in `src/app/facts/link-facts.ts`:
   - Replace `description` with exactly:
 
     ```text
-    Lưu một thông tin cố định do quản lý nêu về một xe, một tài xế hoặc một tuyến (nơi lấy hàng, nơi đổ hàng), ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng, hàng hóa. Thông tin áp dụng cho mọi giấy tờ đã lưu khớp phạm vi. Tên công ty trong điều kiện nơi lấy hàng hoặc nơi đổ hàng khớp khi giấy tờ đã chấp nhận in tên đó ở bất kỳ vai trò nào; giấy tờ có nhiều dòng hàng vẫn được xét. Khi có nơi lấy hàng, nơi đổ hàng chỉ để hiển thị và không dùng để khớp. Khách hàng là một giá trị (name "Khách hàng", text là tên khách hàng), không phải phạm vi. Gọi một lần với mọi giá trị. Khi có nơi lấy hàng hoặc nơi đổ hàng, hệ thống tự tìm thông tin đã lưu cùng tuyến, cùng xe và cùng tài xế: nếu có thì cập nhật giá trị của thông tin đó (action "updated"), nếu không thì lưu thông tin mới (action "added"), nếu có nhiều thông tin khớp thì không đổi gì (action "ambiguous"). Cần ít nhất một trong vehicle_plate, driver_member_id, pickup_company, dropoff_company.
+    Lưu một thông tin cố định do quản lý nêu về một xe, một tài xế hoặc một tuyến (nơi lấy hàng, nơi đổ hàng), ví dụ lương tài xế, cước vận chuyển, chi phí bồi dưỡng, khách hàng, hàng hóa. Thông tin áp dụng cho mọi giấy tờ đã lưu khớp phạm vi. Tên công ty trong điều kiện nơi lấy hàng hoặc nơi đổ hàng khớp khi giấy tờ đã chấp nhận in tên đó ở bất kỳ vai trò nào; giấy tờ có nhiều dòng hàng vẫn được xét. Khi có cả nơi lấy hàng và nơi đổ hàng, giấy tờ in một trong hai tên là đủ. Khách hàng là một giá trị (name "Khách hàng", text là tên khách hàng), không phải phạm vi. Gọi một lần với mọi giá trị. Khi có nơi lấy hàng hoặc nơi đổ hàng, hệ thống tự tìm thông tin đã lưu cùng tuyến, cùng xe và cùng tài xế: nếu có thì cập nhật giá trị của thông tin đó (action "updated"), nếu không thì lưu thông tin mới (action "added"), nếu có nhiều thông tin khớp thì không đổi gì (action "ambiguous"). Cần ít nhất một trong vehicle_plate, driver_member_id, pickup_company, dropoff_company.
     ```
 
 - `total_fact_values` tool spec (`total-fact-values-spec.ts`): replace the sentence `Mỗi giấy tờ tính một lần, theo thông tin cập nhật gần nhất.` with exactly:
@@ -100,7 +103,7 @@ All in `src/app/facts/link-facts.ts`:
   - Replace the whole bullet that starts `- Khi có nơi lấy hàng, thông tin áp dụng cho phiếu mà nơi lấy hàng là đầu lấy hàng` with:
 
     ```text
-    - Khi có nơi lấy hàng, thông tin áp dụng cho mọi giấy tờ đã chấp nhận in tên nơi lấy hàng, ở bất kỳ vị trí nào trên giấy; nơi đổ hàng khi đó chỉ để hiển thị. Khi chỉ có nơi đổ hàng, thông tin áp dụng cho mọi giấy tờ đã chấp nhận in tên nơi đổ hàng. Khi có giá trị "Hàng hóa", thông tin chỉ áp dụng cho giấy tờ ghi hàng hóa đó, kể cả trong các dòng hàng, và cùng tuyến nhưng khác hàng hóa là một thông tin riêng. Thông tin về tuyến áp dụng cho cả biên bản giao nhận nhiều dòng hàng, nhưng không áp dụng cho tin nhắn chữ hay dòng của bảng tính. Với tên công ty, bỏ chữ "công ty" hoặc "cty" đứng trước tên.
+    - Khi có nơi lấy hàng hoặc nơi đổ hàng, thông tin áp dụng cho mọi giấy tờ đã chấp nhận in tên nơi lấy hàng hoặc tên nơi đổ hàng, ở bất kỳ vị trí nào trên giấy; khi có cả hai, giấy tờ in một trong hai tên là đủ. Khi có giá trị "Hàng hóa", thông tin chỉ áp dụng cho giấy tờ ghi hàng hóa đó, kể cả trong các dòng hàng, và cùng tuyến nhưng khác hàng hóa là một thông tin riêng. Thông tin về tuyến áp dụng cho cả biên bản giao nhận nhiều dòng hàng, nhưng không áp dụng cho tin nhắn chữ hay dòng của bảng tính. Với tên công ty, bỏ chữ "công ty" hoặc "cty" đứng trước tên.
     ```
 
   - Replace `pickup_company_matched, dropoff_company_matched và customer_company_matched` with `pickup_company_matched và dropoff_company_matched`.
@@ -140,13 +143,13 @@ All in `src/app/facts/link-facts.ts`:
    - Input: Link the fact to matching papers.
    - Expected: No link is created.
 
-6. Backend (integration): With a pickup, the drop-off is not needed on the paper.
+6. Backend (integration): A fact with a pickup and a drop-off links a paper that prints only the pickup.
 
    - Setup: A route fact with pickup "Alpha" and drop-off "Beta". An accepted dispatch ticket that prints "Alpha" and not "Beta".
    - Input: Link the fact to matching papers.
    - Expected: The ticket is linked.
 
-7. Backend (integration): With a pickup, the trip report still shows the drop-off.
+7. Backend (integration): The trip report shows the drop-off of a fact with a pickup and a drop-off.
 
    - Setup: A route fact with pickup "Alpha" and drop-off "Beta". An accepted dispatch ticket that prints "Alpha" and not "Beta", linked to the fact.
    - Input: List the trip papers for that ticket's day.
@@ -223,6 +226,12 @@ All in `src/app/facts/link-facts.ts`:
     - Setup: Before the migration, two facts with pickup "Alpha" and customers "Gamma" and "Delta". The newer one has wage 700000 đ, the older one rate 150000 đ/tấn.
     - Input: Run the migration.
     - Expected: One fact remains, with wage 700000 đ, rate 150000 đ/tấn and "Khách hàng" = "Gamma".
+
+20. Backend (integration): A fact with a pickup and a drop-off links a paper that prints only the drop-off.
+
+    - Setup: A route fact with pickup "Alpha", drop-off "Beta" and the goods value "Đá". An accepted receipt ticket with goods line "Đá" whose only party is "Beta", role `issuer`.
+    - Input: Link the fact to matching papers.
+    - Expected: The ticket is linked.
 
 ## Revert cost
 

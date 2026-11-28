@@ -202,6 +202,7 @@ After: "Tôi tìm thấy 10 ô đã đổi trong file Trợ lý đã xuất. Tô
 - Candidate actions of a changed cell. The source kind is only where the old value came from. It does not decide the cause.
   - `paper_reading` is a candidate when the column maps to a field that `correct_document` can change on the row's paper: date, number, plate, weight, goods, printed text, or the pickup, drop-off or customer company. The change names that one paper and field.
   - `company_knowledge` is a candidate when the column maps to an entry outcome: customer, drop-off, shown goods name, wage, rate per ton or allowance. When the old value came from an entry, the change updates that entry. Otherwise it adds a new entry. Its conditions come only from the row's saved sources (the route pickup company, the goods), and never from an invented driver, company, goods or route.
+  - A drop-off that came from an entry's `when_dropoff` condition is part of a route, not an outcome. Its only candidate is `paper_reading`: a correction of that paper's drop-off company. A new route is said in chat.
   - A `computed` freight amount gives a `company_knowledge` rate candidate only when the row has one weight above 0 and the reverse calculation gives a whole number of đồng per ton.
   - A change with no candidate is `unsupported`. The bot asks the admin to state the intended value in chat.
   - `suggested_cause` is the source kind's natural cause (`paper` → `paper_reading`, `entry` or `computed` → `company_knowledge`) when that cause is a candidate. It is `unclear` when both causes are candidates and the same new value appears in only some of the rows from one entry.
@@ -397,19 +398,19 @@ After: "Tôi tìm thấy 10 ô đã đổi trong file Trợ lý đã xuất. Tô
 
 23. Backend (integration): A knowledge decision that hits a conflict stays pending.
 
-    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma". Entry 2 has `when_pickup` "Alpha" and `then_dropoff` "Beta".
+    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_goods` "Đá", `when_vehicle_plate` 51C12345 and `then_dropoff` "Gamma". Entry 2 has `when_goods` "Đá" and `then_dropoff` "Beta".
     - Input: Apply it with cause `company_knowledge`, `replace_conflicts` false and `notes_checked` false.
     - Expected: The result has action "conflict" with that change id, the change is still pending, and entry 2 still says "Beta".
 
 24. Backend (integration): A confirmed replacement completes the pending change.
 
-    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma". Entry 2 has `when_pickup` "Alpha" and `then_dropoff` "Beta".
+    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_goods` "Đá", `when_vehicle_plate` 51C12345 and `then_dropoff` "Gamma". Entry 2 has `when_goods` "Đá" and `then_dropoff` "Beta".
     - Input: Apply it with cause `company_knowledge`, `replace_conflicts` true and `notes_checked` true.
     - Expected: The change is `applied`.
 
 25. Backend (integration): Choosing the old value dismisses the pending change.
 
-    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_pickup` "Alpha", `when_goods` "Đá" and `then_dropoff` "Gamma", and entry 2 with `when_pickup` "Alpha" and `then_dropoff` "Beta".
+    - Setup: A pending change on a "Nơi đổ hàng" cell that would add an entry with `when_goods` "Đá", `when_vehicle_plate` 51C12345 and `then_dropoff` "Gamma", and entry 2 with `when_goods` "Đá" and `then_dropoff` "Beta".
     - Input: Apply it with cause `dismiss`.
     - Expected: The change is `dismissed`, and entry 2 still says "Beta".
 
@@ -430,6 +431,12 @@ After: "Tôi tìm thấy 10 ô đã đổi trong file Trợ lý đã xuất. Tô
     - Setup: A pending change on a "Lương tài xế" cell from entry 1 with before-value 600000. Entry 1's wage is now 750000.
     - Input: Apply it with cause `company_knowledge`, `replace_conflicts` false and `notes_checked` false.
     - Expected: The tool refuses it, and entry 1 keeps 750000.
+
+29. Backend (unit): A drop-off cell from an entry's route condition allows only a paper correction.
+
+    - Setup: A saved row of one paper whose "Nơi đổ hàng" cell has source kind `entry`, field `when_dropoff`, entry 1 and value "Beta". The new value is "Gamma".
+    - Input: Build the change's candidates.
+    - Expected: The only candidate is a `paper_reading` correction of that paper's drop-off company to "Gamma".
 
 ### Revert cost
 
