@@ -98,6 +98,13 @@ test('rewriting the plate of a driver updates the note entry of that driver', as
   assert.deepEqual(note.rows, [{ then_note: 'Biển số xe: 51C67890' }]);
 });
 
+test('a drop-off outcome does not make a paper match', async () => {
+  await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Beta' }] });
+  const entry = await insertEntry(databases.owner, { pickup: 'Alpha', thenDropoff: 'Beta', wageVnd: 700000 });
+  await linkEntry(databases.runtime, entry);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), []);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
