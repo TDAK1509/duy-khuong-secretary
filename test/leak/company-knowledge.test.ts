@@ -69,6 +69,15 @@ test('the freight amount is the rate times the trip weight', async () => {
   assert.deepEqual(await exportTripColumn({ name: 'Cước', source: 'knowledge_amount', field: null, value_name: 'Cước vận chuyển' }), ['4050000']);
 });
 
+test('a correction of one paper changes only that paper', async () => {
+  const [first, second] = await insertGoodsTickets();
+  const entry = await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 700000 });
+  await linkEntry(databases.runtime, entry);
+  await correctGoods(first, 'Cát');
+  assert.deepEqual([await readGoods(first), await readGoods(second)], ['Cát', 'Đá']);
+  assert.equal(await readWage(entry), '700000');
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
