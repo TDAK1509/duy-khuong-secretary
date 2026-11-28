@@ -91,3 +91,10 @@ test('a two-word goods condition links goods that hold both words', async () => 
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
 });
+
+test('a short goods word does not match as a prefix', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Cát' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [{ name: 'Hàng hóa', text: 'Cá' }] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
+});
