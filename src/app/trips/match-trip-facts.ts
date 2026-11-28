@@ -47,7 +47,7 @@ function listDropOffNames(paired: PairedTrip[], factsByPickup: FactsByPickup): D
 function chooseTripFacts(trip: Trip, factsByPickup: FactsByPickup, matching: DropOffMatching): ChosenFacts {
   if (trip.pickup === null) return { trip, excluded: [] };
   const facts = factsByPickup.get(trip.pickup.id) ?? [];
-  const eligible = listEligibleFacts(facts, trip.dropOff?.receiver_id ?? null, matching);
+  const eligible = listEligibleFacts(facts.filter((fact) => fact.prints_pickup), trip.dropOff?.receiver_id ?? null, matching);
   const routeFact = eligible.find((fact) => fact.pickup_match_key !== null || fact.dropoff_match_key !== null);
   return { trip: { ...trip, pickup: applyRouteFact(trip.pickup, routeFact) }, excluded: facts.filter((fact) => !eligible.includes(fact)) };
 }

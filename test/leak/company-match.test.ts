@@ -198,6 +198,31 @@ test('a trip picked up on the 31st and received on the 1st counts in the month o
   assert.equal((await totalValue('Lương tài xế', '2026-04-01', '2026-04-30')).amounts[0]?.sum ?? 0, 0);
 });
 
+async function insertAlphaAndGammaFactsToBeta(): Promise<void> {
+  await linkFact(databases.runtime, await insertFact(databases.owner, { pickup: 'Gamma', dropoff: 'Beta', values: [{ name: 'Lương tài xế', number: 900000, unit: 'đ' }] }));
+  await linkFact(databases.runtime, await insertFact(databases.owner, { pickup: 'Alpha', dropoff: 'Beta', values: [{ name: 'Lương tài xế', number: 700000, unit: 'đ' }] }));
+}
+
+test('a trip whose pickup paper prints Gamma does not take the Alpha fact that only its customer Beta links', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Gamma' }, { role: 'customer', name: 'Beta' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'issuer', name: 'Beta' }] });
+  await insertAlphaAndGammaFactsToBeta();
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06', new NamedDropOffReader())).amounts[0]?.sum, 900000);
+});
+
+test('a trip whose pickup paper prints Alpha still gets the Alpha fact', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }, { role: 'customer', name: 'Beta' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'issuer', name: 'Beta' }] });
+  await insertAlphaAndGammaFactsToBeta();
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06', new NamedDropOffReader())).amounts[0]?.sum, 700000);
+});
+
+test('a receipt-only trip at Beta takes the newest fact', async () => {
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', parties: [{ role: 'issuer', name: 'Beta' }] });
+  await insertAlphaAndGammaFactsToBeta();
+  assert.equal((await totalValue('Lương tài xế', '2026-03-06', '2026-03-06', new NamedDropOffReader())).amounts[0]?.sum, 700000);
+});
+
 const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
 
 const NO_FILTERS = { organization: null, role: null, stage: null, kind: null, plate: null, template: null, date_meaning: null };

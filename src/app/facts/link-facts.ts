@@ -74,7 +74,7 @@ export async function linkDocumentsToMatchingFacts(transaction: Transaction, wor
   await transaction.query(LINK_MATCHES_SQL, [workspaceId, null, documentIds]);
 }
 
-function buildCompanyMatch(slot: FactCompanySlot): string {
+export function buildCompanyMatch(slot: FactCompanySlot): string {
   return `(CASE WHEN fact.${slot}_resolved THEN ${buildPickedMatch(slot)} ELSE ${buildPartyMatch(`${slot}_match_key`)} END)`;
 }
 
