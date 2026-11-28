@@ -7,6 +7,11 @@ test('a one-character plate difference pairs when the pickup has the equal-weigh
   assert.deepEqual([...pairs], [['pickup', 'drop-off']]);
 });
 
+test('without the equal-weight outcome the same papers stay apart', () => {
+  const { pairs } = pairDropOffsByRule([buildPickup({ hasEqualWeightEntry: false })], [buildDropOff('drop-off', '51C12346', 27080)]);
+  assert.equal(pairs.size, 0);
+});
+
 function buildPickup(overrides: Partial<PairingRow> = {}): PairingRow {
   return { id: 'pickup', plate: '51C12345', times: readPairingTimes('2026-03-05', null), weightKg: 27080, isPossibleDuplicate: false, hasEqualWeightEntry: true, ...overrides };
 }
