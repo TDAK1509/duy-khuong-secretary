@@ -63,3 +63,10 @@ test('with a pickup, the trip report still shows the drop-off', async () => {
   const papers = await listTripPapers(openWorkspaceA(databases.runtime), { workspaceId: WORKSPACE_A_ID, dateFrom: '2026-03-05', dateTo: '2026-03-05', plate: null, limit: 10 });
   assert.deepEqual(papers.map((paper) => paper.route_dropoff), ['Beta']);
 });
+
+test('a drop-off-only fact does not link a paper without the drop-off company', async () => {
+  await insertPaper(databases.owner, { stage: 'receipt', parties: [{ role: 'issuer', name: 'Gamma' }] });
+  const fact = await insertFact(databases.owner, { dropoff: 'Beta', values: [{ name: 'Lương tài xế', number: 600000, unit: 'đ' }] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), []);
+});
