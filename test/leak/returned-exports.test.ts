@@ -5,10 +5,11 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { buildPlainSheet, countNewReviews, editDataSheet, FIRST_DATA_ROW, findColumn, HEADER_ROW, listReplyTexts, sendReturnedFile } from './support/returned-export-files.ts';
 import { exportAlphaPapers, pointMarkAtExport, reverseThreeDataRows, swapCustomerAndWageColumns, WAGE_HEADER } from './support/returned-export-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
-import { B_EXPORT_ID } from './support/seed-ids.ts';
+import { B_EXPORT_ID, B_REVIEW_CHANGE_ID } from './support/seed-ids.ts';
 
 const databases = openLeakDatabases();
 
+const SEEDED_CHANGE_A = 'aaaaaaaa-0050-4000-8000-000000000001';
 const ANOTHER_EXPORT_ROW_ID = 'aaaaaaaa-0048-4000-8000-000000000001';
 
 beforeEach(() => resetDatabase(databases.owner));
@@ -24,6 +25,16 @@ test('a returned export with one changed cell stores a review and no paper', asy
   const changes = await databases.owner.query('SELECT c.status FROM company_export_review_changes c JOIN company_export_reviews r ON r.id = c.review_id WHERE r.message_file_id = $1 AND r.status = $2', [sent.fileId, 'pending']);
   const sources = await databases.owner.query('SELECT 1 FROM document_sources WHERE message_id = $1', [sent.messageId]);
   assert.deepEqual([changes.rows.length, sources.rows.length], [1, 0]);
+});
+
+test('a changed wage cell from an entry is stored with a knowledge cause', async () => {
+  const bytes = await exportAlphaPapers(databases);
+  const edited = await editDataSheet(bytes, (sheet) => {
+    sheet.getRow(FIRST_DATA_ROW).getCell(findColumn(sheet, WAGE_HEADER)).value = 700000;
+  });
+  await sendReturnedFile(databases, edited);
+  const { rows } = await databases.owner.query('SELECT status, suggested_cause, before_value, after_value FROM company_export_review_changes WHERE id <> $1 AND id <> $2', [SEEDED_CHANGE_A, B_REVIEW_CHANGE_ID]);
+  assert.deepEqual(rows, [{ status: 'pending', suggested_cause: 'company_knowledge', before_value: 600000, after_value: 700000 }]);
 });
 
 test('an unchanged returned export gets the no change reply', async () => {
