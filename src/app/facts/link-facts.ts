@@ -35,7 +35,7 @@ const PAPER_GOODS_TEXTS = `
   SELECT line.item AS text FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL`;
 
 const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
-  SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildEveryTokenFound('fact_goods.tokens', 'goods.text')}
+  SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildAccentFreeKey('goods.text')} = fact_goods.key OR ${buildEveryTokenFound('fact_goods.tokens', 'goods.text')}
 ))`;
 
 export const LINK_MATCHES_SQL = `

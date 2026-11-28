@@ -111,6 +111,13 @@ test('a goods word of four or more letters matches as a prefix', async () => {
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
 });
 
+test('a goods text equal to the condition apart from spaces and accents links', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Đá1x2' }] });
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [{ name: 'Hàng hóa', text: 'Đá 1x2' }] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [ticket]);
+});
+
 test('a customer the admin names is saved as a value and does not limit the match', async () => {
   const ticket = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }] });
   const saved = JSON.parse(await callChatTool(databases.runtime, 'save_fact', {
