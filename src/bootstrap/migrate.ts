@@ -36,7 +36,7 @@ async function migrateAndLog(
 ): Promise<number> {
   try {
     const directory = fileURLToPath(options.directory);
-    log(describeOutcome(await migrateDatabase({ databaseUrl, directory, retry: options.retry })));
+    log(describeOutcome(await migrateDatabase({ databaseUrl, directory, retry: options.retry, notify: log })));
     return 0;
   } catch (error) {
     return fail(log, error instanceof Error ? error.message : String(error));
