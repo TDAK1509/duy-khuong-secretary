@@ -16,14 +16,14 @@ const ROUTE_FIELDS = ['pickup_company', 'dropoff_company'] as const;
 
 const FACT_NOT_FOUND_ERROR = 'Không tìm thấy thông tin này. Gọi list_facts để lấy đúng id.';
 const NOTHING_TO_CHANGE_ERROR = 'Không có thay đổi nào để lưu.';
-const ROUTE_CHANGE_ERROR = 'update_fact không đổi nơi lấy hàng, nơi đổ hàng hay khách hàng. Một tuyến khác là một thông tin riêng: lưu nó bằng save_fact, và nếu quản lý muốn thì xóa thông tin cũ bằng delete_fact.';
+const ROUTE_CHANGE_ERROR = 'update_fact không đổi nơi lấy hàng hay nơi đổ hàng. Một tuyến khác là một thông tin riêng: lưu nó bằng save_fact, và nếu quản lý muốn thì xóa thông tin cũ bằng delete_fact.';
 const SET_AND_CLEAR_ERROR = 'Một phần phạm vi không thể vừa đổi vừa bỏ.';
 const SET_AND_REMOVE_ERROR = 'Một giá trị không thể vừa đặt vừa xóa trong cùng một lần sửa.';
 const UPDATE_REFUSALS: Record<Exclude<FactUpdateResult['kind'], 'updated'>, string> = {
   not_found: FACT_NOT_FOUND_ERROR,
   no_values_left: 'Không thể xóa hết giá trị. Muốn bỏ cả thông tin này thì xóa thông tin.',
   no_scope_left: 'Phạm vi cần ít nhất một trong: biển số xe, tài xế, nơi lấy hàng, nơi đổ hàng.',
-  same_as_other: 'Sau khi đổi, thông tin này sẽ trùng tuyến, xe, tài xế và khách hàng với một thông tin đã lưu khác. Chưa đổi gì.',
+  same_as_other: 'Sau khi đổi, thông tin này sẽ trùng tuyến, xe và tài xế với một thông tin đã lưu khác. Chưa đổi gì.',
 };
 
 const argumentsSchema = z.strictObject({

@@ -19,7 +19,7 @@ import { readPlateArgument } from './vehicle-plate.ts';
 const SCOPE_MISSING_ERROR = 'Cần ít nhất một trong: biển số xe, tài xế, nơi lấy hàng, nơi đổ hàng.';
 const NO_VALUE_SAVED_ERROR = 'Không lưu được giá trị nào, nên chưa lưu thông tin này.';
 const SAME_AS_OTHER_ERROR = 'Sau khi đổi hàng hóa, thông tin này sẽ trùng với một thông tin đã lưu khác cùng tuyến. Chưa lưu gì.';
-const NOT_SAME_ROUTE_ERROR = 'fact_id không phải thông tin cùng tuyến, cùng xe, cùng tài xế và cùng khách hàng với thông tin này. Chưa lưu gì.';
+const NOT_SAME_ROUTE_ERROR = 'fact_id không phải thông tin cùng tuyến, cùng xe và cùng tài xế với thông tin này. Chưa lưu gì.';
 
 const argumentsSchema = z.strictObject({
   statement: z.string(),
