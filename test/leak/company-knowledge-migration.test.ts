@@ -8,6 +8,8 @@ import { restoreOldFactTables } from './support/old-fact-tables.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { A_ADMIN_USER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 
+const A_DRIVER_USER_ID = 'aaaaaaaa-0001-4000-8000-000000000002';
+
 const databases = openLeakDatabases();
 
 beforeEach(() => resetDatabase(databases.owner));
@@ -16,7 +18,7 @@ after(() => databases.close());
 
 type OldValue = { name: string; number?: number; unit?: string; text?: string };
 
-type OldFact = { pickup: string; dropoff?: string; values: OldValue[] };
+type OldFact = { pickup?: string; dropoff?: string; driver?: boolean; values: OldValue[] };
 
 type Migrated = { client: PoolClient; notices: string[] };
 
@@ -42,6 +44,13 @@ test('the migration moves a route fact outcomes into fixed columns', async () =>
   });
 });
 
+test('the migration keeps a drop-off-only fact drop-off as a condition', async () => {
+  const allowance = { name: 'Chi phí bồi dưỡng', number: 100000, unit: 'đ' };
+  await migrateOldFacts([{ dropoff: 'Beta', values: [allowance] }], async ({ client }) => {
+    assert.deepEqual(await listEntries(client, ['when_dropoff_name', 'then_dropoff']), [{ when_dropoff_name: 'Beta', then_dropoff: null }]);
+  });
+});
+
 const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
 
 async function migrateOldFacts(facts: OldFact[], check: (migrated: Migrated) => Promise<void>): Promise<void> {
@@ -60,11 +69,11 @@ async function migrateOldFacts(facts: OldFact[], check: (migrated: Migrated) => 
   }
 }
 
-async function insertOldFact(client: PoolClient, { pickup, dropoff, values }: OldFact): Promise<void> {
+async function insertOldFact(client: PoolClient, { pickup, dropoff, driver, values }: OldFact): Promise<void> {
   const { rows } = await client.query<{ id: string }>(
-    `INSERT INTO facts (workspace_id, author_user_id, statement, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key)
-     VALUES ($1, $2, 'fixture fact', $3, $4, $5, $6) RETURNING id`,
-    [WORKSPACE_A_ID, A_ADMIN_USER_ID, pickup, buildMatchKey(pickup), dropoff ?? null, dropoff === undefined ? null : buildMatchKey(dropoff)],
+    `INSERT INTO facts (workspace_id, author_user_id, statement, driver_user_id, pickup_name, pickup_match_key, dropoff_name, dropoff_match_key)
+     VALUES ($1, $2, 'fixture fact', $3, $4, $5, $6, $7) RETURNING id`,
+    [WORKSPACE_A_ID, A_ADMIN_USER_ID, driver === true ? A_DRIVER_USER_ID : null, pickup ?? null, pickup === undefined ? null : buildMatchKey(pickup), dropoff ?? null, dropoff === undefined ? null : buildMatchKey(dropoff)],
   );
   for (const [position, value] of values.entries()) await insertOldValue(client, rows[0]?.id, position, value);
 }
