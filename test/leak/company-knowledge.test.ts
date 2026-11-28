@@ -6,6 +6,8 @@ import { insertEntry, insertPaper, linkEntry, listLinkedPaperIds } from './suppo
 import { readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { A_DRIVER_MEMBER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
+import type { ReaderResult } from '../../src/services/reading/reader-service.ts';
+import { RecordingReader } from './support/recording-reader.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 
 const databases = openLeakDatabases();
@@ -112,6 +114,12 @@ test('the trip report falls back to the drop-off outcome', async () => {
   assert.deepEqual(await exportTripColumn({ name: 'Nơi đổ hàng', source: 'field', field: 'dropoff_place', value_name: null }), ['Beta']);
 });
 
+test('the trip report keeps the cross-plate pair after the model step', async () => {
+  await insertCrossPlateTrip();
+  const methods = await readSheetColumn(await exportTripBytes(PLATE_COLUMN, null, new NoPairsReader()), 'Cách ghép phiếu');
+  assert.equal(methods?.filter((method) => method === 'Khớp trọng lượng').length, 1);
+});
+
 test('the 100th entry of a workspace saves', async () => {
   await fillWorkspaceEntries(99);
   const saved = JSON.parse(await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }))) as SavedKnowledge;
@@ -213,13 +221,32 @@ async function insertPairedTrip(): Promise<void> {
   await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
 }
 
+const PLATE_COLUMN: TripColumn = { name: 'Biển số', source: 'field', field: 'plate', value_name: null };
+
+class NoPairsReader extends RecordingReader {
+  override async read(): Promise<ReaderResult> {
+    return { ok: true, json: { pairs: [] }, usage: null };
+  }
+}
+
+async function insertCrossPlateTrip(): Promise<void> {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27080, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12346', date: '2026-03-06', weightKg: 27080, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', equalWeights: true }));
+}
+
 type TripColumn = { name: string; source: string; field: string | null; value_name: string | null };
 
 async function exportTripColumn(column: TripColumn): Promise<string[] | null> {
-  const harness = createToolHarness(databases.runtime);
-  await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-31', plate: TRIP_PLATE, columns: [column], layout: null });
+  const bytes = await exportTripBytes(column, TRIP_PLATE, new RecordingReader());
+  return bytes.length === 0 ? null : readSheetColumn(bytes, column.name);
+}
+
+async function exportTripBytes(column: TripColumn, plate: string | null, dropOffReader: RecordingReader): Promise<Uint8Array> {
+  const harness = createToolHarness(databases.runtime, { dropOffReader });
+  await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-31', plate, columns: [column], layout: null });
   const [file] = harness.storage.listStoredFiles();
-  return file === undefined ? null : readSheetColumn(file.bytes, column.name);
+  return file?.bytes ?? new Uint8Array();
 }
 
 async function insertGoodsTickets(): Promise<[string, string]> {

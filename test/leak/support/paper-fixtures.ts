@@ -32,6 +32,7 @@ export type EntrySpec = {
   ratePerTonVnd?: number;
   allowanceVnd?: number;
   note?: string;
+  equalWeights?: boolean;
 };
 
 const WEIGHT_MEANING = 'Trọng lượng hàng';
@@ -101,16 +102,16 @@ async function ensureMeaning(owner: PostgresPool, valueType: 'number' | 'date', 
 export async function insertEntry(owner: PostgresPool, spec: EntrySpec): Promise<string> {
   const { rows } = await owner.query<{ id: string }>(
     `INSERT INTO company_knowledge_entries (workspace_id, author_user_id, statement, when_vehicle_plate, when_goods,
-       when_pickup_name, when_pickup_match_key, when_dropoff_name, when_dropoff_match_key, then_customer, then_dropoff, then_shown_goods_name, then_wage_vnd, then_rate_vnd_per_ton, then_allowance_vnd, then_note)
-     VALUES ($1, $2, 'fixture entry', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+       when_pickup_name, when_pickup_match_key, when_dropoff_name, when_dropoff_match_key, then_customer, then_dropoff, then_shown_goods_name, then_wage_vnd, then_rate_vnd_per_ton, then_allowance_vnd, then_note, then_equal_weights)
+     VALUES ($1, $2, 'fixture entry', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
     [WORKSPACE_A_ID, A_ADMIN_USER_ID, spec.plate ?? null, spec.goods ?? null, spec.pickup ?? null, readMatchKey(spec.pickup), spec.dropoff ?? null, readMatchKey(spec.dropoff),
-      spec.customer ?? null, spec.thenDropoff ?? null, spec.shownGoodsName ?? null, spec.wageVnd ?? null, spec.ratePerTonVnd ?? null, spec.allowanceVnd ?? null, spec.note ?? (hasOutcome(spec) ? null : 'fixture note')],
+      spec.customer ?? null, spec.thenDropoff ?? null, spec.shownGoodsName ?? null, spec.wageVnd ?? null, spec.ratePerTonVnd ?? null, spec.allowanceVnd ?? null, spec.note ?? (hasOutcome(spec) ? null : 'fixture note'), spec.equalWeights ?? false],
   );
   return rows[0]?.id ?? '';
 }
 
 function hasOutcome(spec: EntrySpec): boolean {
-  return [spec.customer, spec.thenDropoff, spec.shownGoodsName, spec.wageVnd, spec.ratePerTonVnd, spec.allowanceVnd].some((outcome) => outcome !== undefined);
+  return [spec.customer, spec.thenDropoff, spec.shownGoodsName, spec.wageVnd, spec.ratePerTonVnd, spec.allowanceVnd, spec.equalWeights].some((outcome) => outcome !== undefined);
 }
 
 function readMatchKey(name: string | undefined): string | null {
