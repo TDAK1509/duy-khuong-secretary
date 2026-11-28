@@ -41,6 +41,7 @@ All in `src/app/facts/link-facts.ts`:
   - After: the pickup slot matches any party on the paper, in any role, by match key, alias or company pick. The drop-off slot matches the same way.
   - Pickup and drop-off are both conditions. When a fact names both, a paper matches when it prints the pickup company or the drop-off company; one is enough.
   - The trip report keeps choosing between the facts of one pickup paper by the trip's drop-off receiver (`matchDropOffNames` in `match-trip-facts.ts`), using the fact's drop-off name.
+  - Trip level: when a trip has a pickup paper, a fact with a pickup condition that this pickup paper does not print is left out of the whole trip, for both of its papers. The trip report, its values and the totals ignore that fact for this trip, even when the fact links the trip's drop-off paper. The code is `listUnprintedPickupFacts` in `list-pickup-facts.ts`, used by `match-trip-facts.ts`. A trip with only a receipt keeps the drop-off choice and the newest fact.
   - Customer is not a condition.
 - Which papers a route fact can link:
   - Before: only papers that pass `IS_TRIP_TICKET`.
@@ -60,7 +61,7 @@ All in `src/app/facts/link-facts.ts`:
 - Totals (`src/app/facts/total-fact-values.ts`):
   - Before: every linked paper adds the fact's money once.
   - After: totals build trips with the same paper loading, pairing and `buildTrips` pipeline as the trip report (`export-trip-report-xlsx-tool.ts`, `pair-trips.ts`, `build-trips.ts`). Each built trip counts once.
-  - The value or rate of a trip comes from the fact the trip report chooses for that trip: among the facts linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest.
+  - The value or rate of a trip comes from the fact the trip report chooses for that trip: among the facts linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest. A fact left out of the trip by the trip-level rule above never gives the trip a value.
   - A per-ton rate uses the built trip's weight once.
   - This applies to every money value, including facts with no company condition.
   - A trip passes the filters when at least one of its papers passes them. Group by month, plate or company uses the trip's date, plate and papers.
@@ -232,6 +233,30 @@ All in `src/app/facts/link-facts.ts`:
     - Setup: A route fact with pickup "Alpha", drop-off "Beta" and the goods value "Đá". An accepted receipt ticket with goods line "Đá" whose only party is "Beta", role `issuer`.
     - Input: Link the fact to matching papers.
     - Expected: The ticket is linked.
+
+21. Backend (integration): A Gamma pickup trip gets the Gamma wage when an Alpha fact also links its drop-off paper.
+
+    - Setup: Fact A with pickup "Alpha", drop-off "Beta" and wage 700000 đ. Fact G with pickup "Gamma", drop-off "Beta" and wage 600000 đ, saved before fact A. One trip of plate 51C12345: a dispatch ticket that prints only "Gamma", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. The receipt links both facts; the dispatch ticket links fact G.
+    - Input: Total the value "Lương tài xế" over those two days.
+    - Expected: The sum is 600000.
+
+22. Backend (integration): An Alpha pickup trip gets the Alpha wage.
+
+    - Setup: Fact A with pickup "Alpha", drop-off "Beta" and wage 700000 đ. Fact G with pickup "Gamma", drop-off "Beta" and wage 600000 đ. One trip of plate 51C12345: a dispatch ticket that prints only "Alpha", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. The receipt links both facts; the dispatch ticket links fact A.
+    - Input: Total the value "Lương tài xế" over those two days.
+    - Expected: The sum is 700000.
+
+23. Backend (integration): A receipt-only trip keeps the newest fact.
+
+    - Setup: Fact A with pickup "Alpha", drop-off "Beta" and wage 700000 đ, saved after fact G. Fact G with pickup "Gamma", drop-off "Beta" and wage 600000 đ. One trip of plate 51C12345 with only a receipt ticket that prints only "Beta", which links both facts.
+    - Input: Total the value "Lương tài xế" for that day.
+    - Expected: The sum is 700000.
+
+24. Backend (integration): A Gamma pickup trip with only an Alpha fact gets no wage.
+
+    - Setup: Fact A with pickup "Alpha", drop-off "Beta" and wage 700000 đ, and no other fact. One trip of plate 51C12345: a dispatch ticket that prints only "Gamma", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. Only the receipt links fact A.
+    - Input: Total the value "Lương tài xế" over those two days.
+    - Expected: The sum is 0.
 
 ## Revert cost
 

@@ -135,7 +135,7 @@ All other properties: exactly the existing total_fact_values property schemas an
 - Save behavior: on `"updated"`, each non-null `then_*` replaces the old value and each null keeps it. The result keeps today's fields: `changes` (before → after), `linked_documents`, `pickup_company_matched`, `dropoff_company_matched`, the company-pick refusal when several companies match a name, and `candidates` on `"ambiguous"`.
 - Totals (`total_company_knowledge`) keep the trip-based totals of `total_fact_values`:
   - Build trips with the same paper loading, pairing and `buildTrips` pipeline as the trip report. Each built trip counts once.
-  - The value or rate of a trip comes from the entry the trip report chooses for that trip: among the entries linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest.
+  - The value or rate of a trip comes from the entry the trip report chooses for that trip: among the entries linked to its pickup paper (or its drop-off paper when it has no pickup), the one that `matchTripFacts` keeps for the trip's drop-off receiver, then the newest. An entry left out of the trip by the trip-level rule in Consumers never gives the trip a value.
   - A per-ton rate uses the built trip's weight once.
   - This applies to every money outcome, including entries with no company condition.
   - A trip passes the filters when at least one of its papers passes them. Group by month, plate or company uses the trip's date, plate and papers.
@@ -173,6 +173,7 @@ All other properties: exactly the existing total_fact_values property schemas an
 - Trip report (`list-trip-papers.ts`, `list-pickup-facts.ts`, `match-trip-facts.ts`, `export-trip-report-xlsx-tool.ts`):
   - The route pickup comes from `when_pickup_name`, the route drop-off from `when_dropoff_name`, falling back to `then_dropoff`, and the customer from `then_customer`.
   - Choosing between entries by the trip's drop-off receiver (`matchDropOffNames`) keeps working, on the route drop-off above.
+  - Trip level, kept from today: when a trip has a pickup paper, an entry with a pickup condition that this pickup paper does not print is left out of the whole trip, for both of its papers. The trip report, its values and the totals ignore that entry for this trip, even when it links the trip's drop-off paper. Port `listUnprintedPickupFacts` (`list-pickup-facts.ts`) and its use in `match-trip-facts.ts` to `company_knowledge_entries`, `company_knowledge_links` and `company_knowledge_companies`. A trip with only a receipt keeps the drop-off choice and the newest entry.
   - Value columns read the fixed outcomes.
 - `export_trip_report_xlsx` spec (`export-trip-report-xlsx-spec.ts`): the `source` enum becomes `['field', 'knowledge_value', 'knowledge_amount', 'none']`. Exact descriptions:
 
@@ -357,6 +358,30 @@ All other properties: exactly the existing total_fact_values property schemas an
     - Setup: Before the migration, a fact with pickup "Alpha", drop-off "Beta" and wage 700000 đ. An accepted receipt ticket whose only party is "Beta".
     - Input: Run the migration.
     - Expected: The new entry is linked to the ticket.
+
+23. Backend (integration): A Gamma pickup trip gets the Gamma wage when an Alpha entry also links its drop-off paper.
+
+    - Setup: Entry A with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000. Entry G with `when_pickup` "Gamma", `when_dropoff` "Beta" and `then_wage_vnd` 600000, saved before entry A. One trip of plate 51C12345: a dispatch ticket that prints only "Gamma", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. The receipt links both entries; the dispatch ticket links entry G.
+    - Input: Total "Lương tài xế" over those two days.
+    - Expected: The sum is 600000.
+
+24. Backend (integration): An Alpha pickup trip gets the Alpha wage.
+
+    - Setup: Entry A with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000. Entry G with `when_pickup` "Gamma", `when_dropoff` "Beta" and `then_wage_vnd` 600000. One trip of plate 51C12345: a dispatch ticket that prints only "Alpha", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. The receipt links both entries; the dispatch ticket links entry A.
+    - Input: Total "Lương tài xế" over those two days.
+    - Expected: The sum is 700000.
+
+25. Backend (integration): A receipt-only trip keeps the newest entry.
+
+    - Setup: Entry A with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000, saved after entry G. Entry G with `when_pickup` "Gamma", `when_dropoff` "Beta" and `then_wage_vnd` 600000. One trip of plate 51C12345 with only a receipt ticket that prints only "Beta", which links both entries.
+    - Input: Total "Lương tài xế" for that day.
+    - Expected: The sum is 700000.
+
+26. Backend (integration): A Gamma pickup trip with only an Alpha entry gets no wage.
+
+    - Setup: Entry A with `when_pickup` "Alpha", `when_dropoff` "Beta" and `then_wage_vnd` 700000, and no other entry. One trip of plate 51C12345: a dispatch ticket that prints only "Gamma", 27000 kg, and a receipt ticket that prints only "Beta", 26950 kg, the next day. Only the receipt links entry A.
+    - Input: Total "Lương tài xế" over those two days.
+    - Expected: The sum is 0.
 
 ## Revert cost
 
