@@ -1,4 +1,5 @@
 import type { Transaction } from '../../db/transaction.ts';
+import { JOIN_PHOTO_AND_RECORD_OF_SOURCE_SQL, PHOTO_IS_NOT_DELETED_SQL } from './usable-example-photo.ts';
 
 export type ExpectedReading = {
   category: string;
@@ -32,8 +33,7 @@ const FIND_PAPER_SQL = `
     document.vehicle_plate, document.document_number, document.kind AS document_kind, document.stage
   FROM documents document
   JOIN document_sources source ON source.document_id = document.id AND source.workspace_id = document.workspace_id
-  JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
-  JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
+  ${JOIN_PHOTO_AND_RECORD_OF_SOURCE_SQL}
   WHERE document.workspace_id = $1 AND document.status = 'accepted'
     AND (
       document.id = $2
@@ -43,7 +43,7 @@ const FIND_PAPER_SQL = `
         WHERE paper_record.id = $2 AND paper_record.workspace_id = $1
       )
     )
-    AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
+    AND ${PHOTO_IS_NOT_DELETED_SQL}
   ORDER BY source.created_at, source.id
   LIMIT 1`;
 

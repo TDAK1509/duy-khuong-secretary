@@ -1,5 +1,6 @@
 import { runInTransaction, type Database } from '../../db/transaction.ts';
 import { findExamplePapers } from './find-example-papers.ts';
+import { JOIN_PHOTO_AND_RECORD_OF_SOURCE_SQL, PHOTO_IS_NOT_DELETED_SQL } from './usable-example-photo.ts';
 import { MAX_FIELDS_PER_TEMPLATE } from './document-template.ts';
 
 export type ProposedField = { name: string; valueType: string; unit: string | null; paperCount: number };
@@ -25,9 +26,8 @@ const ACCEPTED_PAPERS_SQL = `
        ORDER BY party.id LIMIT 1) AS issuer_id,
       EXISTS (
         SELECT 1 FROM document_sources source
-        JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
-        JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
-        WHERE source.document_id = document.id AND source.workspace_id = $1 AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
+        ${JOIN_PHOTO_AND_RECORD_OF_SOURCE_SQL}
+        WHERE source.document_id = document.id AND source.workspace_id = $1 AND ${PHOTO_IS_NOT_DELETED_SQL}
       ) AS has_photo
     FROM documents document
     WHERE document.workspace_id = $1 AND document.status = 'accepted' AND document.sheet_signature IS NULL
@@ -69,9 +69,8 @@ const FIND_GROUP_EXAMPLES_SQL = `
       CROSS JOIN LATERAL (
         SELECT message.image_key
         FROM document_sources source
-        JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
-        JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
-        WHERE source.document_id = paper.id AND source.workspace_id = $1 AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
+        ${JOIN_PHOTO_AND_RECORD_OF_SOURCE_SQL}
+        WHERE source.document_id = paper.id AND source.workspace_id = $1 AND ${PHOTO_IS_NOT_DELETED_SQL}
         ORDER BY source.created_at, source.id
         LIMIT 1
       ) photo
