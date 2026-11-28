@@ -37,15 +37,15 @@ export function describeExampleDocument({ kind, title, documentNumber, documentD
   return Object.fromEntries(Object.entries(fields).filter((field): field is [string, string] => field[1] !== null));
 }
 
+export function describeWriteStop(stop: WriteStop): string {
+  if (stop.action === 'conflict') return JSON.stringify({ ok: true, action: 'conflict', conflicts: stop.conflicts.map(describeConflict) });
+  return JSON.stringify({ ok: true, action: 'check_notes', related_notes: stop.relatedNotes.map(describeRelatedNote) });
+}
+
 export function describeConflict({ entry, name, savedValue, newValue, sharedDocuments }: KnowledgeConflict): Record<string, unknown> {
   return { entry_id: entry.id, when: describeWhen(entry), outcome: name, saved_value: savedValue, new_value: newValue, shared_documents: sharedDocuments };
 }
 
 export function describeRelatedNote(entry: StoredEntry): Record<string, unknown> {
   return { entry_id: entry.id, when: describeWhen(entry), note: entry.outcomes.note, author: entry.authorName };
-}
-
-export function describeWriteStop(stop: WriteStop): string {
-  if (stop.action === 'conflict') return JSON.stringify({ ok: true, action: 'conflict', conflicts: stop.conflicts.map(describeConflict) });
-  return JSON.stringify({ ok: true, action: 'check_notes', related_notes: stop.relatedNotes.map(describeRelatedNote) });
 }

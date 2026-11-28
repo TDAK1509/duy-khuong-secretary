@@ -16,10 +16,10 @@ const COUNT_SHARED_DOCUMENTS_SQL = `
   GROUP BY other.entry_id`;
 
 export async function findConflicts(transaction: Transaction, request: { workspaceId: string; entryId: string; then: KnowledgeOutcomes }, overlapping: StoredEntry[]): Promise<KnowledgeConflict[]> {
-  const differing = overlapping.filter((entry) => listDifferences(entry.outcomes, request.then).length > 0);
+  const differing = overlapping.map((entry) => ({ entry, differences: listDifferences(entry.outcomes, request.then) })).filter(({ differences }) => differences.length > 0);
   if (differing.length === 0) return [];
-  const shared = await countSharedDocuments(transaction, request.workspaceId, request.entryId, differing);
-  return differing.flatMap((entry) => listDifferences(entry.outcomes, request.then).map((difference) => ({ entry, ...difference, sharedDocuments: shared.get(entry.id) ?? 0 })));
+  const shared = await countSharedDocuments(transaction, request.workspaceId, request.entryId, differing.map(({ entry }) => entry));
+  return differing.flatMap(({ entry, differences }) => differences.map((difference) => ({ entry, ...difference, sharedDocuments: shared.get(entry.id) ?? 0 })));
 }
 
 type Difference = { key: OutcomeDefinition['key']; name: string; savedValue: OutcomeValue; newValue: OutcomeValue };
