@@ -46,6 +46,12 @@ test('a workspace with no entries gets no company knowledge rule and no data par
   assert.equal(findKnowledgePart(request), '');
 });
 
+test('money outcomes are left out of the reader request', async () => {
+  const request = await readDriverPhotoWithEntries([{ pickup: 'Alpha', wageVnd: 700000 }]);
+  assert.ok(findKnowledgePart(request).includes('Alpha'));
+  assert.ok(!JSON.stringify(request).includes('700000'));
+});
+
 function findKnowledgePart(request: ReaderRequest): string {
   const texts = request.userParts.flatMap((part) => (part.kind === 'text' ? [part.text] : []));
   return texts.find((text) => text.includes('source="company-knowledge"')) ?? '';
