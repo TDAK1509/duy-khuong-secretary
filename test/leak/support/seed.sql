@@ -93,11 +93,6 @@ INSERT INTO company_knowledge_links (workspace_id, document_id, entry_id) VALUES
   ('aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001'),
   ('bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001');
 
-INSERT INTO goods_names (id, workspace_id, author_user_id, written_name, match_key, shown_name) VALUES
-  ('aaaaaaaa-0018-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'SAFE-A-GOODS'),
-  ('bbbbbbbb-0018-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'LEAK-B-GOODS'),
-  ('bbbbbbbb-0018-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'TARGET-B-GOODS-ONLY', 'targetbgoodsonly', 'LEAK-B-GOODS-ONLY-SHOWN');
-
 INSERT INTO inbound_events (id, channel, account_id, external_event_id, external_user_id, kind, payload, status, processed_at) VALUES
   ('aaaaaaaa-0019-4000-8000-000000000001', 'zalo-oa', 'seed-oa', 'SAFE-A-EVENT-1', 'seed-zalo-driver', 'text', '{}', 'done', now()),
   ('aaaaaaaa-0019-4000-8000-000000000002', 'zalo-oa', 'seed-oa', 'SAFE-A-EVENT-2', 'seed-zalo-admin-a', 'images', '{}', 'done', now()),

@@ -7,6 +7,7 @@ export function up(pgm: MigrationBuilder): void {
   lockTables(pgm, ['company_knowledge_entries', 'company_knowledge_links', 'goods_names']);
   addShownGoodsName(pgm);
   moveGoodsNames(pgm);
+  pgm.sql('DROP TABLE goods_names');
 }
 
 function addShownGoodsName(pgm: MigrationBuilder): void {

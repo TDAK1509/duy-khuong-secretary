@@ -22,6 +22,13 @@ test('the migration turns a goods-name row into an entry', async () => {
   });
 });
 
+test('the migration removes the old goods-name table', async () => {
+  await migrateGoodsName('Than Da', 'Than đá', async (client) => {
+    const { rows } = await client.query<{ old_table: string | null }>(`SELECT to_regclass('goods_names')::text AS old_table`);
+    assert.deepEqual(rows, [{ old_table: null }]);
+  });
+});
+
 async function migrateGoodsName(writtenName: string, shownName: string, check: (client: PoolClient) => Promise<void>): Promise<void> {
   const client = await databases.owner.connect();
   try {
