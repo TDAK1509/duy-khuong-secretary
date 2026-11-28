@@ -1,3 +1,4 @@
+import type { KeptPaper } from '../documents/kept-paper.ts';
 import type { ReadAttempt, Reading, ReadingItem } from '../reading/reading.ts';
 import { formatMissingDetails } from './format-missing-details.ts';
 import { formatSavedReply } from '../records/format-saved-reply.ts';
@@ -29,7 +30,13 @@ export type ReplyPlan = {
   asksQuestion: boolean;
   isUnclear: boolean;
   namedDriver?: string | null;
+  keptPapers?: KeptPaper[];
 };
+
+export function showKeptPapers(plan: ReplyPlan, keptPapers: KeptPaper[]): ReplyPlan {
+  if (plan.saved === null || keptPapers.length === 0) return plan;
+  return { ...plan, keptPapers, replyText: formatSavedReply(plan.saved, null, keptPapers) + formatMissingDetails(plan.readItems) };
+}
 
 export type ReplyAnswer = {
   kind: 'reply';

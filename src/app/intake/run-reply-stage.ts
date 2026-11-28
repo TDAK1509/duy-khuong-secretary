@@ -8,7 +8,8 @@ import { formatReplyWithReadData } from './format-reply-with-read-data.ts';
 import type { IntakeContext } from './intake-context.ts';
 import { notifyAdminsOfPhoto } from './notify-admins-of-photo.ts';
 import { placeUnclearPhoto } from './place-unclear-photo.ts';
-import { planDuplicateReply, type ReplyPlan } from './plan-reply.ts';
+import type { IntakeSender } from './find-intake-sender.ts';
+import { planDuplicateReply, showKeptPapers, type ReplyPlan } from './plan-reply.ts';
 import type { MessageToRead } from './reply-to-message.ts';
 import { findDriverTag, nameDriverInReply, readTaggedDriver } from './tag-named-driver.ts';
 import { markQuestionPending, setSubmissionStatus, storeBotReply } from './store-user-message.ts';
@@ -36,19 +37,22 @@ async function saveReply(
   plannedReply: ReplyPlan,
 ): Promise<void> {
   if (isPhotoQuestion(plannedReply)) return placeUnclearPhoto(transaction, context, messageId, plannedReply);
-  const { sender } = context;
-  const unnamedPlan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
-  const driverTag = await findDriverTag(transaction, sender, unnamedPlan);
-  const plan = nameDriverInReply(unnamedPlan, driverTag);
-  const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
-  if (plan.saved) await insertRecords(transaction, message, plan.saved);
-  await storeDocuments(transaction, message, plannedReply, plan.saved !== null, sender, readTaggedDriver(driverTag));
+  const plan = await saveRecordsAndPapers(transaction, context.sender, messageId, plannedReply);
   const text = formatReplyWithReadData(plan);
   await storeBotReply(transaction, messageId, { text, kind: plan.replyKind });
   await setSubmissionStatus(transaction, messageId, plan.status);
   await enqueueReplyToMessage(transaction, context, messageId, text);
   await notifyAdminsOfPhoto(transaction, context, messageId, plan);
-  if (plan.saved && plan.asksQuestion && photo === null && sender.role === 'admin') await markQuestionPending(transaction, messageId);
+  if (plan.saved && plan.asksQuestion && photo === null && context.sender.role === 'admin') await markQuestionPending(transaction, messageId);
+}
+
+export async function saveRecordsAndPapers(transaction: Transaction, sender: IntakeSender, messageId: string, plannedReply: ReplyPlan): Promise<ReplyPlan> {
+  const unnamedPlan = await rejectDuplicates(transaction, sender.workspaceId, plannedReply);
+  const driverTag = await findDriverTag(transaction, sender, unnamedPlan);
+  const message = { id: messageId, workspaceId: sender.workspaceId, userId: sender.userId };
+  if (unnamedPlan.saved) await insertRecords(transaction, message, unnamedPlan.saved);
+  const keptPapers = await storeDocuments(transaction, message, plannedReply, unnamedPlan.saved !== null, sender, readTaggedDriver(driverTag));
+  return nameDriverInReply(showKeptPapers(unnamedPlan, keptPapers), driverTag);
 }
 
 function isPhotoQuestion({ situation }: ReplyPlan): boolean {
