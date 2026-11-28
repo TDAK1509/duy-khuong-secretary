@@ -26,7 +26,7 @@ export const CHANGE_ATTACK_CASES: AttackCase[] = [
   { name: 'delete_rule', kind: 'change', arguments: { rule_id: B_RULE_ID } },
   { name: 'join_goods_names', kind: 'change', arguments: { written_names: ['TARGET-B-GOODS-ONLY'], shown_name: 'TARGET-B-GOODS' } },
   { name: 'remove_goods_name', kind: 'change', arguments: { written_name: 'SHARED-GOODS' } },
-  { name: 'save_document_template', kind: 'change', arguments: { name: 'TARGET-B-TEMPLATE-ONLY', kind: 'phiếu cân', issuer_company: SHARED_COMPANY, stage: 'dispatch', description: 'TARGET-B-TEMPLATE', fields: [] } },
+  { name: 'save_document_template', kind: 'change', arguments: { name: 'TARGET-B-TEMPLATE-ONLY', kind: 'phiếu cân', issuer_company: SHARED_COMPANY, stage: 'dispatch', description: 'TARGET-B-TEMPLATE', fields: [], example_paper_ids: [B_DOCUMENT_ID] } },
   { name: 'delete_document_template', kind: 'change', arguments: { name: 'TARGET-B-TEMPLATE-ONLY' } },
   { name: 'create_scheduled_task', kind: 'change', arguments: { title: 'TARGET-B-TASK', instruction: 'TARGET-B-WORKSPACE', repeat: 'daily', run_once_at: null, time_of_day: '09:00', weekday: null, day_of_month: null } },
   { name: 'cancel_scheduled_task', kind: 'change', arguments: { task_id: B_SCHEDULED_TASK_ID } },

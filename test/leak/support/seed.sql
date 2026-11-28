@@ -61,6 +61,10 @@ INSERT INTO documents (id, workspace_id, kind, stage, document_number, document_
   ('bbbbbbbb-0011-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'weigh-ticket', 'dispatch', 'SHARED0001', '2026-03-01', 'LEAK-B-DOC Phiếu cân', '99Z12345', 'LEAK-B-DOC phiếu cân xe 99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'bbbbbbbb-0009-4000-8000-000000000001'),
   ('bbbbbbbb-0011-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'LEAK-B-KIND', 'dispatch', NULL, '2026-03-01', 'LEAK-B-ONLY-DOC', NULL, 'LEAK-B-ONLY-DOC', NULL, NULL);
 
+INSERT INTO document_template_examples (id, workspace_id, template_id, position, source_document_id, image_key, expected_reading) VALUES
+  ('aaaaaaaa-0037-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0009-4000-8000-000000000001', 1, 'aaaaaaaa-0011-4000-8000-000000000001', 'seed/safea-photo.jpg', '{"category": "SAFE-A-EXAMPLE-READING"}'),
+  ('bbbbbbbb-0037-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0009-4000-8000-000000000001', 1, 'bbbbbbbb-0011-4000-8000-000000000001', 'seed/LEAK-B-photo.jpg', '{"category": "LEAK-B-EXAMPLE-READING"}');
+
 INSERT INTO document_lines (id, workspace_id, document_id, line_no, label, value, number, unit, meaning_id) VALUES
   ('aaaaaaaa-0012-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 0, 'SAFE-A-LINE', 'SAFE-A-LINE 12500 kg', 12500, 'kg', 'aaaaaaaa-0008-4000-8000-000000000001'),
   ('bbbbbbbb-0012-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 0, 'LEAK-B-LINE', 'LEAK-B-LINE 987654 kg', 987654, 'kg', 'bbbbbbbb-0008-4000-8000-000000000001'),
