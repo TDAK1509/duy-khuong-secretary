@@ -1,7 +1,7 @@
 import type { ReportCell, ReportColumn, ReportTable } from '../documents/build-report-workbook.ts';
 import { GOODS_VALUE_KEY } from '../facts/fact.ts';
 import { showGoodsName, type ShownGoodsNames } from '../goods-names/show-goods-name.ts';
-import { PER_TON_UNIT } from '../facts/total-fact-values.ts';
+import { PER_TON_UNIT } from '../facts/fact-value-totals.ts';
 import type { NoteBlock } from '../documents/add-note-sheet.ts';
 import { chooseValueUnit } from '../documents/choose-value-unit.ts';
 import type { ColumnUnit } from '../documents/format-workbook-sheet.ts';

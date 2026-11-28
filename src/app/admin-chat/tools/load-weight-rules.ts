@@ -1,7 +1,7 @@
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import type { PrintedValue } from '../../documents/corrections/paper-correction.ts';
 import { formatKilograms } from '../../documents/corrections/weight-units.ts';
-import { WEIGHT_MEANING } from '../../facts/total-fact-values.ts';
+import { WEIGHT_MEANING } from '../../facts/fact-value-totals.ts';
 import { ToolRefusal } from './tool-result.ts';
 
 const MAX_LOAD_WEIGHT_KG = 100_000;

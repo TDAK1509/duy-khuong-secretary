@@ -4,7 +4,7 @@ import { ACCEPTED_CONFIRMED, buildDocumentWhere, type DocumentRule } from '../do
 import type { DocumentFilters } from '../documents/add-document-filters.ts';
 import { GOODS_VALUE_KEY, SELECT_FACT_CUSTOMER_SQL } from '../facts/fact.ts';
 import { IS_TRIP_TICKET, IS_TRIP_TICKET_SHAPE } from '../facts/link-facts.ts';
-import { buildWeightSql, PER_TON_UNIT } from '../facts/total-fact-values.ts';
+import { buildWeightSql, PER_TON_UNIT } from '../facts/fact-value-totals.ts';
 import type { WhereClause } from '../records/where-clause.ts';
 
 export type TripPaperQuery = { workspaceId: string; dateFrom: string; dateTo: string; plate: string | null; limit: number };

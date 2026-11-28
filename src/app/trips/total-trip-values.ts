@@ -6,7 +6,7 @@ import { ACCEPTED_CONFIRMED, buildDocumentWhere } from '../documents/build-docum
 import { buildMatchKey } from '../documents/build-match-key.ts';
 import { countNotRereadMessages } from '../documents/count-not-reread-messages.ts';
 import { buildGroupSql, type DocumentGroup } from '../documents/document-groups.ts';
-import { countReviewDocuments, type DocumentFactValueRow, type FactValueRequest, type FactValueTotals } from '../facts/total-fact-values.ts';
+import { countReviewDocuments, type DocumentFactValueRow, type FactValueRequest, type FactValueTotals } from '../facts/fact-value-totals.ts';
 import { loadShownGoodsNames } from '../goods-names/show-goods-name.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { listWorkspaceRules } from '../workspace-rules/list-workspace-rules.ts';

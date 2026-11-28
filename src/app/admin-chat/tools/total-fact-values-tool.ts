@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import { DOCUMENT_GROUPS } from '../../documents/document-groups.ts';
 import { summarizeFactValues } from '../../facts/summarize-fact-values.ts';
-import { WEIGHT_MEANING } from '../../facts/total-fact-values.ts';
+import { WEIGHT_MEANING } from '../../facts/fact-value-totals.ts';
 import { TOO_MANY_PAPERS_ERROR } from '../../trips/load-trip-papers.ts';
 import { totalTripValues } from '../../trips/total-trip-values.ts';
 import { buildDocumentFilters, DOCUMENT_FILTER_ARGUMENTS, hasUnrealDate } from './document-filter-arguments.ts';

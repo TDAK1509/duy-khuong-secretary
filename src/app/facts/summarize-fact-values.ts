@@ -1,4 +1,4 @@
-import { PER_TON_UNIT, type DocumentFactValueRow } from './total-fact-values.ts';
+import { PER_TON_UNIT, type DocumentFactValueRow } from './fact-value-totals.ts';
 
 export type AmountGroup = { group: string | null; unit: string; documents: number; sum: number; values: { number: string; documents: number }[] };
 

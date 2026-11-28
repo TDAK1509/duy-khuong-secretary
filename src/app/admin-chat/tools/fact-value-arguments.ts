@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
-import { PER_TON_UNIT } from '../../facts/total-fact-values.ts';
+import { PER_TON_UNIT } from '../../facts/fact-value-totals.ts';
 import type { FactValue, FactValueContent } from '../../facts/fact.ts';
 
 const MAX_VALUE_NAME_LENGTH = 80;
