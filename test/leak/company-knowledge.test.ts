@@ -119,6 +119,13 @@ test('the 100th entry of a workspace saves', async () => {
   assert.equal(await countWorkspaceEntries(), 100);
 });
 
+test('the 101st entry of a workspace is refused and nothing is written', async () => {
+  await fillWorkspaceEntries(100);
+  const output = await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }));
+  assert.equal(JSON.parse(output).error, 'Đã có 100 mục kiến thức công ty, là mức tối đa. Chưa lưu gì. Xóa mục không còn dùng bằng delete_company_knowledge rồi lưu lại.');
+  assert.equal(await countWorkspaceEntries(), 100);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {

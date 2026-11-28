@@ -14,7 +14,10 @@ export type SaveKnowledgeResult =
   | { action: 'added'; entry: StoredEntry }
   | { action: 'updated'; entry: StoredEntry; changes: OutcomeChange[] }
   | { action: 'ambiguous'; candidates: StoredEntry[] }
-  | { action: 'not_same_conditions' };
+  | { action: 'not_same_conditions' }
+  | { action: 'limit_reached' };
+
+export const MAX_ENTRIES_PER_WORKSPACE = 100;
 
 export function saveKnowledge(database: Database, knowledge: NewKnowledge, targetEntryId: string | null): Promise<SaveKnowledgeResult> {
   return runInTransaction(database, async (transaction) => {
@@ -39,10 +42,16 @@ async function updateTarget(transaction: Transaction, knowledge: NewKnowledge, t
 }
 
 async function addEntry(transaction: Transaction, knowledge: NewKnowledge): Promise<SaveKnowledgeResult> {
+  if (await isWorkspaceFull(transaction, knowledge.workspaceId)) return { action: 'limit_reached' };
   const entryId = await insertEntry(transaction, knowledge);
   await storeKnowledgeCompanies(transaction, knowledge.workspaceId, entryId, knowledge.when);
   await linkEntryToMatchingDocuments(transaction, knowledge.workspaceId, entryId);
   return { action: 'added', entry: await readEntry(transaction, knowledge.workspaceId, entryId) };
+}
+
+async function isWorkspaceFull(transaction: Transaction, workspaceId: string): Promise<boolean> {
+  const [row] = await transaction.query<{ count: number }>('SELECT count(*)::int AS count FROM company_knowledge_entries WHERE workspace_id = $1', [workspaceId]);
+  return (row?.count ?? 0) >= MAX_ENTRIES_PER_WORKSPACE;
 }
 
 async function insertEntry(transaction: Transaction, { workspaceId, authorUserId, statement, when, then }: NewKnowledge): Promise<string> {

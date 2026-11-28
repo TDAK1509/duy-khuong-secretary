@@ -9,6 +9,8 @@ import { failTool, refuseInvalidArgument } from './tool-result.ts';
 
 const NOT_SAME_CONDITIONS_ERROR = 'entry_id không phải mục có cùng mọi điều kiện when với kiến thức này. Chưa lưu gì.';
 
+const LIMIT_REACHED_ERROR = 'Đã có 100 mục kiến thức công ty, là mức tối đa. Chưa lưu gì. Xóa mục không còn dùng bằng delete_company_knowledge rồi lưu lại.';
+
 const argumentsSchema = z.strictObject({ ...knowledgeFieldsSchema, entry_id: z.string().nullable() });
 
 export async function runSaveCompanyKnowledge(database: Database, scope: AccessScope, parsedArguments: unknown, companyReader: ReaderService | null = null): Promise<string> {
@@ -27,6 +29,7 @@ function readTargetEntryId(raw: string | null): string | null {
 
 function describeSaveResult(result: SaveKnowledgeResult, read: ReadKnowledge): string {
   if (result.action === 'not_same_conditions') return failTool(NOT_SAME_CONDITIONS_ERROR);
+  if (result.action === 'limit_reached') return failTool(LIMIT_REACHED_ERROR);
   if (result.action === 'ambiguous') return JSON.stringify({ ok: true, action: 'ambiguous', candidates: result.candidates.map(describeCandidate) });
   const matched = { pickup: read.pickup?.matchedOrganization ?? null, dropoff: read.dropoff?.matchedOrganization ?? null };
   const changes = result.action === 'updated' ? result.changes.map(describeChange) : [];
