@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
+import { NamedDropOffReader } from './support/named-drop-off-reader.ts';
 import { ScriptedPairingReader, type ScriptedPair } from './support/scripted-pairing-reader.ts';
+import type { RecordingReader } from './support/recording-reader.ts';
 import { createToolHarness } from './support/tool-harness.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertFact, insertPaper, linkFact, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
@@ -123,18 +125,6 @@ test('a customer the admin names is saved as a value and does not limit the matc
   assert.deepEqual(await listLinkedPaperIds(databases.owner, saved.fact_id), [ticket]);
 });
 
-const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
-
-const NO_FILTERS = { organization: null, role: null, stage: null, kind: null, plate: null, template: null, date_meaning: null };
-
-type Totals = { amounts: { sum: number }[]; per_ton: { amount: number }[] };
-
-async function totalValue(valueName: string, dateFrom: string, dateTo: string, pairs: ScriptedPair[] | null = null): Promise<Totals> {
-  const harness = createToolHarness(databases.runtime, pairs === null ? {} : { dropOffReader: new ScriptedPairingReader(pairs) });
-  const output = await harness.runTool('chat-gate', 'total_fact_values', { value_name: valueName, ...NO_FILTERS, date_from: dateFrom, date_to: dateTo, group_by: 'none' });
-  return JSON.parse(output) as Totals;
-}
-
 test('a pickup paper and a drop-off paper of one built trip add the wage once', async () => {
   const pickup = await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
   const dropOff = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
@@ -155,7 +145,7 @@ test('two trips of one truck on one day add the wage twice', async () => {
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), papers.sort());
   const pairs = [{ pickup: 'p1', receipt: 'r1' }, { pickup: 'p2', receipt: 'r2' }];
-  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-05', pairs)).amounts[0]?.sum, 1400000);
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-05', new ScriptedPairingReader(pairs))).amounts[0]?.sum, 1400000);
 });
 
 test('a per-ton rate uses the weight of each built trip once', async () => {
@@ -165,3 +155,43 @@ test('a per-ton rate uses the weight of each built trip once', async () => {
   await linkFact(databases.runtime, fact);
   assert.equal((await totalValue('Cước vận chuyển', '2026-03-05', '2026-03-06')).per_ton[0]?.amount, 4050000);
 });
+
+test('a drop-off-only fact that links only the receipt counts once for a paired trip', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  const receipt = await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'issuer', name: 'Beta' }] });
+  const fact = await insertFact(databases.owner, { dropoff: 'Beta', values: [WAGE] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [receipt]);
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06')).amounts[0]?.sum, 700000);
+});
+
+test('two routes from one pickup company count the wage of each trip own drop-off', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C11111', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C11111', date: '2026-03-06', weightKg: 26950, parties: [{ role: 'issuer', name: 'Beta' }] });
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C22222', date: '2026-03-05', weightKg: 25000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C22222', date: '2026-03-06', weightKg: 24950, parties: [{ role: 'issuer', name: 'Gamma' }] });
+  for (const [dropoff, number] of [['Beta', 700000], ['Gamma', 800000]] as const) {
+    await linkFact(databases.runtime, await insertFact(databases.owner, { pickup: 'Alpha', dropoff, values: [{ name: 'Lương tài xế', number, unit: 'đ' }] }));
+  }
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06', new NamedDropOffReader())).amounts[0]?.sum, 1500000);
+});
+
+test('a trip picked up on the 31st and received on the 1st counts in the month of its pickup only', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-31', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-04-01', weightKg: 26950, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  await linkFact(databases.runtime, await insertFact(databases.owner, { pickup: 'Alpha', values: [WAGE] }));
+  assert.equal((await totalValue('Lương tài xế', '2026-03-01', '2026-03-31')).amounts[0]?.sum, 700000);
+  assert.equal((await totalValue('Lương tài xế', '2026-04-01', '2026-04-30')).amounts[0]?.sum ?? 0, 0);
+});
+
+const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
+
+const NO_FILTERS = { organization: null, role: null, stage: null, kind: null, plate: null, template: null, date_meaning: null };
+
+type Totals = { amounts: { sum: number }[]; per_ton: { amount: number }[] };
+
+async function totalValue(valueName: string, dateFrom: string, dateTo: string, reader: RecordingReader | null = null): Promise<Totals> {
+  const harness = createToolHarness(databases.runtime, reader === null ? {} : { dropOffReader: reader });
+  const output = await harness.runTool('chat-gate', 'total_fact_values', { value_name: valueName, ...NO_FILTERS, date_from: dateFrom, date_to: dateTo, group_by: 'none' });
+  return JSON.parse(output) as Totals;
+}

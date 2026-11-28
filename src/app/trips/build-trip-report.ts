@@ -51,12 +51,12 @@ const NO_PLATE = '(không biển số)';
 
 const PAIRING_METHOD_COLUMN: ReportColumn = { name: 'Cách ghép phiếu', type: 'text', unit: null };
 
-type WinnerIndex = Map<string, WinningValue>;
+export type WinnerIndex = Map<string, WinningValue>;
 
 export type TripReportInput = { title: string; createdAt: Date; columns: TripColumn[]; trips: Trip[]; pickups: TripPaper[]; repeats: RepeatedPaper[]; winners: WinningValue[]; reviewPapers: number; pairing: TripPairing; matching: DropOffMatching; goodsNames: ShownGoodsNames; dateFrom: string; dateTo: string };
 
 export function buildTripReport({ title, createdAt, columns, trips, pickups, repeats, winners, reviewPapers, pairing, matching, goodsNames, dateFrom, dateTo }: TripReportInput): TripReport {
-  const index: WinnerIndex = new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
+  const index = indexWinners(winners);
   const rows = trips.map((trip) => [...columns.map((column) => readCell(column, trip, index, goodsNames)), describePairingMethod(trip.method)]);
   const noSourceColumns = columns.filter((column) => column.source === 'none').map((column) => column.name);
   const emptyColumns = columns.filter((column, position) => column.source !== 'none' && rows.every((cells) => cells[position] === null)).map((column) => column.name);
@@ -68,6 +68,10 @@ export function buildTripReport({ title, createdAt, columns, trips, pickups, rep
   const namedColumns = columns.map((column) => describeColumn(column, trips, index));
   const table = { title, createdAt, columns: [...namedColumns, PAIRING_METHOD_COLUMN], rows, extraSheets: [{ name: 'Ghi chú', blocks: notes }] };
   return { table, namedColumns, rowsPerPlate: countRowsPerPlate(trips), reviewPapers, missingWeight, repeatedPapers: repeatsInPeriod.length, duplicates, noSourceColumns, emptyColumns, counts };
+}
+
+export function indexWinners(winners: WinningValue[]): WinnerIndex {
+  return new Map(winners.map((winner) => [`${winner.document_id}:${winner.match_key}`, winner]));
 }
 
 function readCell(column: TripColumn, trip: Trip, index: WinnerIndex, goodsNames: ShownGoodsNames): ReportCell {
@@ -100,7 +104,7 @@ const FIELD_READERS: Record<TripField, FieldReader> = {
   sender: (trip) => readFirst(trip, (paper) => paper.sender_name),
 };
 
-function findWinner(index: WinnerIndex, trip: Trip, matchKey: string): WinningValue | undefined {
+export function findWinner(index: WinnerIndex, trip: Trip, matchKey: string): WinningValue | undefined {
   return [trip.pickup, trip.dropOff].flatMap((paper) => (paper === null ? [] : (index.get(`${paper.id}:${matchKey}`) ?? []))).at(0);
 }
 
@@ -114,7 +118,7 @@ function calculateAmount(winner: WinningValue | undefined, weightKg: number | nu
   return Math.round((Number(winner.number) * weightKg) / 1000);
 }
 
-function readWinnerWeight(trip: Trip, winner: WinningValue | undefined): number | null {
+export function readWinnerWeight(trip: Trip, winner: WinningValue | undefined): number | null {
   if (winner === undefined) return null;
   return readWeightKg([trip.pickup, trip.dropOff].find((paper) => paper?.id === winner.document_id) ?? null);
 }
