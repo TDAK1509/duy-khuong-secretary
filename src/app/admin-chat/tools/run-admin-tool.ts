@@ -38,6 +38,8 @@ import { runSaveDocumentTemplate } from './save-document-template-tool.ts';
 import { runTotalCompanyKnowledge } from './total-company-knowledge-tool.ts';
 import { runExportReportXlsx } from './export-report-xlsx-tool.ts';
 import { runExportTripReportXlsx } from './export-trip-report-xlsx-tool.ts';
+import { runApplyEditedExportChanges } from './apply-edited-export-changes-tool.ts';
+import { runListEditedExportChanges } from './list-edited-export-changes-tool.ts';
 import { runSearchRecords } from './search-records-tool.ts';
 import { runSplitMergedName } from './split-merged-name-tool.ts';
 import { runTotalDocumentNumbers } from './total-document-numbers-tool.ts';
@@ -119,6 +121,8 @@ const TOOL_RUNNERS: Record<string, ToolRunner> = {
   export_documents_xlsx: (deps, scope, args) => runExportDocumentsXlsx(deps, scope, args),
   export_report_xlsx: (deps, scope, args) => runExportReportXlsx(deps, scope, args),
   export_trip_report_xlsx: (deps, scope, args) => runExportTripReportXlsx(deps, scope, args),
+  list_edited_export_changes: ({ database }, scope) => runListEditedExportChanges(database, scope),
+  apply_edited_export_changes: runApplyEditedExportChanges,
 };
 
 async function dispatchTool(dependencies: AdminToolDependencies, scope: AccessScope, call: ToolCall): Promise<string> {

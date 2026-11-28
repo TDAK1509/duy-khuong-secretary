@@ -55,4 +55,6 @@ const ABILITY_LINES: Record<string, string> = {
   export_report_xlsx: 'Lưu một bảng báo cáo lớn thành file Excel và trả về đường dẫn tải xuống.',
   export_documents_xlsx: 'Xuất danh sách giấy tờ ra file Excel và trả về đường dẫn tải xuống.',
   export_trip_report_xlsx: 'Lập báo cáo chuyến hoặc chi phí chuyến ra file Excel, mỗi dòng một giấy tờ chuyến.',
+  list_edited_export_changes: 'Cho biết các ô quản lý đã sửa trong file Excel do Trợ lý xuất và nguồn của từng ô.',
+  apply_edited_export_changes: 'Sau khi quản lý xác nhận, sửa giấy tờ hoặc lưu kiến thức công ty từ các ô đã đổi trong file xuất.',
 };

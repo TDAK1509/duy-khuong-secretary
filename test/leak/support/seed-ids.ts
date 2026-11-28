@@ -16,3 +16,4 @@ export const A_DRIVER_MEMBER_ID = 'aaaaaaaa-0004-4000-8000-000000000002';
 export const B_ONLY_DOCUMENT_ID = 'bbbbbbbb-0011-4000-8000-000000000002';
 export const A_EXPORT_ID = 'aaaaaaaa-0047-4000-8000-000000000001';
 export const B_EXPORT_ID = 'bbbbbbbb-0047-4000-8000-000000000001';
+export const B_REVIEW_CHANGE_ID = 'bbbbbbbb-0050-4000-8000-000000000001';

@@ -12,7 +12,7 @@ const UNIT_FORMATS: Record<Exclude<ColumnUnit, 'rate' | 'number'>, string> = { v
 const INTEGER_FORMAT = '#,##0';
 const DECIMAL_FORMAT = '#,##0.00';
 const DATE_FORMAT = 'dd/mm/yyyy';
-const TOTAL_LABEL = 'Tổng cộng';
+export const TOTAL_LABEL = 'Tổng cộng';
 export const INFERRED_TEXT = 'AI suy luận ra';
 
 export const HOUSE_COLORS = { darkBlue: 'FF1F3864', white: 'FFFFFFFF', bandFill: 'FFF2F5FA', rowLine: 'FFD0D7E2', totalFill: 'FFDCE6F2', infoGrey: 'FF595959', inferredAmber: 'FF7F6000' } as const;

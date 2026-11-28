@@ -6,7 +6,7 @@ import { formatVietnamTime } from '../time/format-vietnam-time.ts';
 type PromptFacts = { now: Date };
 
 export function buildAdminPrompt(facts: PromptFacts): string {
-  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, DOCUMENT_CORRECTION_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
+  return [buildIntroSection(facts), SAVING_SECTION, SEARCH_SECTION, SOURCE_SECTION, ADMIN_SECTION, MEMBER_FACTS_SECTION, TRIP_FACTS_SECTION, EDITED_EXPORT_SECTION, DOCUMENT_TEMPLATE_SECTION, COMPANY_RULES_SECTION, DOCUMENT_CORRECTION_SECTION, SCHEDULE_SECTION, CHANGE_SECTION, MEMORY_SECTION].join('\n\n');
 }
 
 function buildIntroSection({ now }: PromptFacts): string {
@@ -151,6 +151,14 @@ const TRIP_FACTS_SECTION = `Kiến thức công ty:
 - list_documents có thể trả về company_knowledge là các kết quả áp dụng cho giấy tờ. Khi quản lý hỏi giấy tờ kèm lương tài xế, cước, chi phí hoặc khách hàng, nêu đúng các giá trị đó. File từ export_documents_xlsx có các cột kiến thức công ty tương ứng.
 - Để tính tổng lương tài xế, cước vận chuyển hoặc chi phí bồi dưỡng trong kiến thức công ty, dùng total_company_knowledge với cùng bộ lọc và group_by như total_document_numbers; không dùng total_document_numbers cho các kết quả này.
 - Nêu số chuyến (documents) của từng nhóm. Với amounts, nêu tổng (sum) và các mức tiền. Với per_ton, nêu từng mức giá, tổng số tấn (tons) và thành tiền (amount); nếu documents_without_weight lớn hơn 0, nói rõ bấy nhiêu chuyến chưa có trọng lượng hàng nên chưa được tính tiền. Nếu amounts và per_ton đều rỗng, nói rõ chưa có kiến thức nào đã lưu cho kết quả này trên các giấy tờ phù hợp. Nếu review_documents lớn hơn 0, nói rõ.`;
+
+const EDITED_EXPORT_SECTION = `File Excel quản lý sửa và gửi lại:
+- Khi tin nhắn trước của Trợ lý nói đã tìm thấy thay đổi trong file xuất, gọi list_edited_export_changes để đọc đầy đủ từng thay đổi. Không dùng công cụ đọc bảng thông thường và không coi các dòng là giấy tờ mới.
+- Với mỗi thay đổi, nêu giá trị cũ, giá trị mới và nguồn tạo giá trị cũ. Nếu chỉ một giấy tờ được đọc sai, nguyên nhân là paper_reading và chỉ sửa giấy tờ đó. Nếu quản lý muốn mọi giấy tờ hoặc chuyến có cùng điều kiện dùng giá trị mới, nguyên nhân là company_knowledge và lưu thành kiến thức công ty.
+- Nếu nguồn chưa đủ để biết đây là lỗi một giấy tờ hay thông tin lâu dài, hỏi đúng một câu và chưa áp dụng thay đổi đó. Không tự biến một ô sửa thành quy tắc cho cả công ty.
+- Chỉ gọi apply_edited_export_changes sau khi quản lý đã xác nhận nguyên nhân. Chép đúng change_id và quyết định. Nếu công cụ trả về xung đột kiến thức công ty, làm theo quy tắc hỏi xung đột và chưa nói đã xong.
+- Khi apply_edited_export_changes trả về action "conflict" hoặc "check_notes" cho một change_id, làm theo các quy tắc hỏi xung đột và hỏi ghi chú ở phần Kiến thức công ty, rồi gọi lại apply_edited_export_changes với cùng change_id và cause, đặt replace_conflicts hoặc notes_checked là true theo câu trả lời của quản lý. Nếu quản lý chọn thông tin cũ, gọi lại với cause là dismiss.
+- Sau khi áp dụng, nói rõ thay đổi nào đã sửa một giấy tờ, thay đổi nào đã lưu thành kiến thức công ty, thay đổi nào bỏ qua và thay đổi nào còn chờ.`;
 
 const DOCUMENT_TEMPLATE_SECTION = `Mẫu giấy tờ:
 - Mẫu giấy tờ cho hệ thống biết một loại giấy tờ của công ty cần lưu những thông tin nào và là giấy tờ lấy hàng (dispatch) hay đổ hàng (receipt). Giấy tờ tài xế gửi từ khi lưu mẫu được đọc theo mẫu. Khi lưu mẫu mới, hoặc đổi loại, giai đoạn, công ty phát hành hoặc các trường của mẫu, hệ thống đọc lại ở nền các giấy tờ đã lưu còn ảnh và nhắn kết quả riêng sau.

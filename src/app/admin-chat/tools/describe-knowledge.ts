@@ -38,8 +38,12 @@ export function describeExampleDocument({ kind, title, documentNumber, documentD
 }
 
 export function describeWriteStop(stop: WriteStop): string {
-  if (stop.action === 'conflict') return JSON.stringify({ ok: true, action: 'conflict', conflicts: stop.conflicts.map(describeConflict) });
-  return JSON.stringify({ ok: true, action: 'check_notes', related_notes: stop.relatedNotes.map(describeRelatedNote) });
+  return JSON.stringify(describeStopFields(stop));
+}
+
+export function describeStopFields(stop: WriteStop): Record<string, unknown> {
+  if (stop.action === 'conflict') return { ok: true, action: 'conflict', conflicts: stop.conflicts.map(describeConflict) };
+  return { ok: true, action: 'check_notes', related_notes: stop.relatedNotes.map(describeRelatedNote) };
 }
 
 export function describeConflict({ entry, name, savedValue, newValue, sharedDocuments }: KnowledgeConflict): Record<string, unknown> {
