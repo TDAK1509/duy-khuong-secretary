@@ -21,7 +21,7 @@ export type ToolPath = 'chat-gate' | 'confirmed';
 
 export type CurrentMessage = { id: string; text: string };
 
-export type ToolHarnessOptions = { currentMessage?: CurrentMessage; companyReader?: RecordingReader };
+export type ToolHarnessOptions = { currentMessage?: CurrentMessage; companyReader?: RecordingReader; dropOffReader?: RecordingReader };
 
 export type ToolHarness = {
   dependencies: AdminToolDependencies;
@@ -31,9 +31,8 @@ export type ToolHarness = {
   runTool(path: ToolPath, name: string, toolArguments: object): Promise<string>;
 };
 
-export function createToolHarness(database: PostgresPool, { currentMessage, companyReader = new RecordingReader() }: ToolHarnessOptions = {}): ToolHarness {
+export function createToolHarness(database: PostgresPool, { currentMessage, companyReader = new RecordingReader(), dropOffReader = new RecordingReader() }: ToolHarnessOptions = {}): ToolHarness {
   const storage = new FakeFileStorage();
-  const dropOffReader = new RecordingReader();
   const dependencies = buildToolDependencies({ database, storage, companyReader, dropOffReader, currentMessage });
   return { dependencies, storage, companyReader, dropOffReader, runTool: (path, name, toolArguments) => runTool(dependencies, path, name, toolArguments) };
 }

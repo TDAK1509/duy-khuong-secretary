@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { listTripPapers } from '../../src/app/trips/list-trip-papers.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
+import { ScriptedPairingReader, type ScriptedPair } from './support/scripted-pairing-reader.ts';
+import { createToolHarness } from './support/tool-harness.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertFact, insertPaper, linkFact, listLinkedPaperIds, openWorkspaceA } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
@@ -127,8 +129,9 @@ const NO_FILTERS = { organization: null, role: null, stage: null, kind: null, pl
 
 type Totals = { amounts: { sum: number }[]; per_ton: { amount: number }[] };
 
-async function totalValue(valueName: string, dateFrom: string, dateTo: string): Promise<Totals> {
-  const output = await callChatTool(databases.runtime, 'total_fact_values', { value_name: valueName, ...NO_FILTERS, date_from: dateFrom, date_to: dateTo, group_by: 'none' });
+async function totalValue(valueName: string, dateFrom: string, dateTo: string, pairs: ScriptedPair[] | null = null): Promise<Totals> {
+  const harness = createToolHarness(databases.runtime, pairs === null ? {} : { dropOffReader: new ScriptedPairingReader(pairs) });
+  const output = await harness.runTool('chat-gate', 'total_fact_values', { value_name: valueName, ...NO_FILTERS, date_from: dateFrom, date_to: dateTo, group_by: 'none' });
   return JSON.parse(output) as Totals;
 }
 
@@ -139,4 +142,18 @@ test('a pickup paper and a drop-off paper of one built trip add the wage once', 
   await linkFact(databases.runtime, fact);
   assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), [pickup, dropOff].sort());
   assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-06')).amounts[0]?.sum, 700000);
+});
+
+test('two trips of one truck on one day add the wage twice', async () => {
+  const papers = [
+    await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', at: '2026-03-05 07:00:00', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] }),
+    await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', at: '2026-03-05 13:00:00', weightKg: 25000, parties: [{ role: 'issuer', name: 'Alpha' }] }),
+    await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-05', at: '2026-03-05 10:00:00', weightKg: 26980, parties: [{ role: 'supplier', name: 'Alpha' }] }),
+    await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-05', at: '2026-03-05 16:00:00', weightKg: 24990, parties: [{ role: 'supplier', name: 'Alpha' }] }),
+  ];
+  const fact = await insertFact(databases.owner, { pickup: 'Alpha', values: [WAGE] });
+  await linkFact(databases.runtime, fact);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, fact), papers.sort());
+  const pairs = [{ pickup: 'p1', receipt: 'r1' }, { pickup: 'p2', receipt: 'r2' }];
+  assert.equal((await totalValue('Lương tài xế', '2026-03-05', '2026-03-05', pairs)).amounts[0]?.sum, 1400000);
 });
