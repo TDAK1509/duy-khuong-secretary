@@ -27,6 +27,7 @@ export const knowledgeFieldsSchema = {
   then_wage_vnd: z.number().nullable(),
   then_rate_vnd_per_ton: z.number().nullable(),
   then_allowance_vnd: z.number().nullable(),
+  then_equal_weights: z.boolean(),
   then_note: z.string().nullable(),
 };
 
@@ -72,6 +73,7 @@ function readOutcomes(request: KnowledgeArguments): KnowledgeOutcomes {
     wageVnd: readAmount(request.then_wage_vnd, 'then_wage_vnd'),
     ratePerTonVnd: readAmount(request.then_rate_vnd_per_ton, 'then_rate_vnd_per_ton'),
     allowanceVnd: readAmount(request.then_allowance_vnd, 'then_allowance_vnd'),
+    equalWeights: request.then_equal_weights,
     note: readText(request.then_note),
   };
 }
@@ -89,6 +91,6 @@ function readAmount(raw: number | null, field: string): number | null {
 }
 
 function requireOutcome(then: KnowledgeOutcomes): KnowledgeOutcomes {
-  if (Object.values(then).every((value) => value === null)) throw new ToolRefusal(NO_OUTCOME_ERROR);
+  if (Object.values(then).every((value) => value === null || value === false)) throw new ToolRefusal(NO_OUTCOME_ERROR);
   return then;
 }

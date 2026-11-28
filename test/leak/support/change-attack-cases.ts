@@ -14,6 +14,7 @@ const AIMED_KNOWLEDGE = {
   then_wage_vnd: 1,
   then_rate_vnd_per_ton: null,
   then_allowance_vnd: null,
+  then_equal_weights: false,
   then_note: null,
 };
 

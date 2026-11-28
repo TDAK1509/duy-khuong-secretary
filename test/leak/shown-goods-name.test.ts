@@ -80,7 +80,7 @@ async function exportPaperColumn(header: string): Promise<string[] | null> {
   return file === undefined ? null : readSheetColumn(file.bytes, header);
 }
 
-function saveArguments(given: Record<string, string>): Record<string, string | null> {
+function saveArguments(given: Record<string, string>): Record<string, string | boolean | null> {
   return {
     statement: 'Hàng có chữ Than ở Alpha hiển thị là Than đá',
     entry_id: null,
@@ -95,6 +95,7 @@ function saveArguments(given: Record<string, string>): Record<string, string | n
     then_wage_vnd: null,
     then_rate_vnd_per_ton: null,
     then_allowance_vnd: null,
+    then_equal_weights: false,
     then_note: null,
     ...given,
   };

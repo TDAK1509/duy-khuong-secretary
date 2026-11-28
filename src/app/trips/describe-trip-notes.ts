@@ -12,7 +12,7 @@ const SIDE_NAMES = { pickup: 'lấy hàng', dropOff: 'đổ hàng' } as const;
 const MAX_UNPAIRED_ROWS = 300;
 
 export function describeTripNotes(trips: Trip[], counts: TripCounts, pairing: TripPairing, matching: DropOffMatching): NoteBlock[] {
-  return [...describeCounts(counts, pairing), ...describePairings(trips), ...describeDropOffMatching(matching), ...describeUnpaired(trips)];
+  return [...describeCounts(counts, pairing), ...describePairings(trips), ...describeCrossPlatePairs(trips), ...describeDropOffMatching(matching), ...describeUnpaired(trips)];
 }
 
 function describeCounts(counts: TripCounts, pairing: TripPairing): NoteBlock[] {
@@ -33,6 +33,16 @@ function describePairings(trips: Trip[]): NoteBlock[] {
 
 function describePairing(trip: Trip): string[] {
   return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, describePairingMethod(trip.method)];
+}
+
+function describeCrossPlatePairs(trips: Trip[]): NoteBlock[] {
+  const lines = trips.flatMap(describeCrossPlatePair);
+  return lines.length === 0 ? [] : [{ kind: 'blank' }, ...lines.map((line): NoteBlock => ({ kind: 'label', label: line, value: '' }))];
+}
+
+function describeCrossPlatePair({ pickup, dropOff }: Trip): string[] {
+  if (pickup === null || dropOff === null || pickup.vehicle_plate === dropOff.vehicle_plate) return [];
+  return [`Biển số hai phiếu khác một ký tự (${pickup.vehicle_plate} / ${dropOff.vehicle_plate}); ghép theo kiến thức công ty: khối lượng lấy bằng khối lượng đổ.`];
 }
 
 function describeDropOffMatching(matching: DropOffMatching): NoteBlock[] {

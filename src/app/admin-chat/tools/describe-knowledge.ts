@@ -22,8 +22,8 @@ export function describeWhen(entry: StoredEntry): Record<string, string | null> 
   };
 }
 
-export function describeThen({ customer, dropoff, shownGoodsName, wageVnd, ratePerTonVnd, allowanceVnd, note }: KnowledgeOutcomes): Record<string, string | number | null> {
-  return { customer, dropoff, shown_goods_name: shownGoodsName, wage_vnd: wageVnd, rate_vnd_per_ton: ratePerTonVnd, allowance_vnd: allowanceVnd, note };
+export function describeThen({ customer, dropoff, shownGoodsName, wageVnd, ratePerTonVnd, allowanceVnd, equalWeights, note }: KnowledgeOutcomes): Record<string, string | number | boolean | null> {
+  return { customer, dropoff, shown_goods_name: shownGoodsName, wage_vnd: wageVnd, rate_vnd_per_ton: ratePerTonVnd, allowance_vnd: allowanceVnd, equal_weights: equalWeights, note };
 }
 
 export function describeChange({ name, before, after }: OutcomeChange): Record<string, unknown> {

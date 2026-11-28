@@ -25,3 +25,9 @@ function listCells(row: ExcelJS.Row): string[] {
   });
   return cells;
 }
+
+export async function readSheetCells(bytes: Uint8Array, sheetName: string): Promise<string[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+  return listRows(workbook.getWorksheet(sheetName)).flat();
+}

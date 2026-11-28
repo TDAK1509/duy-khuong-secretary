@@ -1,7 +1,7 @@
 import type { ReaderService } from '../../services/reading/reader-service.ts';
 import type { TripPaper } from './list-trip-papers.ts';
 import { pairDropOffsInBatches, type BatchedPairing, type ModelPaper, type ModelPairing, type Truck } from './pair-drop-offs-by-model.ts';
-import { groupByPlate, pairDropOffsByRule, readPairingTimes, type PairingPaper, type PairingRow } from './pair-drop-offs-by-rule.ts';
+import { groupByPlate, pairDropOffsByRule, readPairingTimes, type PairingPaper, type PairingRow, type RulePairing } from './pair-drop-offs-by-rule.ts';
 import { groupPossibleDuplicates, readWeightKg } from './read-trip-paper.ts';
 
 export type PairMethod = 'rule' | 'ai';
@@ -20,7 +20,7 @@ export async function pairTrips(reader: ReaderService | null, { pickups, receipt
   const datedReceipts = receipts.filter(isDated);
   const rule = pairDropOffsByRule(datedPickups.map((paper) => toPairingRow(paper, duplicateIds)), datedReceipts.map(toPairingPaper));
   const model = await pairDropOffsInBatches(reader, listTrucksWithReceipts(datedPickups, datedReceipts), rules);
-  const pairs = choosePairs(rule.pairs, model);
+  const pairs = choosePairs(rule, model);
   logPairing(pairs, model.calls);
   return { pairs, modelCalls: model.calls, modelSkippedRows: model.skippedRows };
 }
@@ -30,7 +30,7 @@ function isDated(paper: TripPaper): paper is DatedPaper {
 }
 
 function toPairingRow(paper: DatedPaper, duplicateIds: Set<string>): PairingRow {
-  return { ...toPairingPaper(paper), isPossibleDuplicate: duplicateIds.has(paper.id) };
+  return { ...toPairingPaper(paper), isPossibleDuplicate: duplicateIds.has(paper.id), hasEqualWeightEntry: paper.has_equal_weight_entry };
 }
 
 function listTrucksWithReceipts(pickups: DatedPaper[], receipts: DatedPaper[]): Truck[] {
@@ -56,15 +56,20 @@ function toPairingPaper(paper: DatedPaper): PairingPaper {
   return { id: paper.id, plate: paper.vehicle_plate, times: readPairingTimes(paper.document_date, paper.precise_at), weightKg: readWeightKg(paper) };
 }
 
-function choosePairs(rulePairs: Map<string, string>, model: BatchedPairing): Map<string, PairedReceipt> {
+function choosePairs(rule: RulePairing, model: BatchedPairing): Map<string, PairedReceipt> {
   const pairs = new Map<string, PairedReceipt>();
-  for (const [pickupId, receiptId] of rulePairs) {
-    if (!model.answeredPickupIds.has(pickupId)) pairs.set(pickupId, { receiptId, method: 'rule' });
+  for (const [pickupId, receiptId] of rule.pairs) {
+    if (isRulePairKept(rule, model, pickupId, receiptId)) pairs.set(pickupId, { receiptId, method: 'rule' });
   }
   for (const [pickupId, receiptId] of model.pairs) {
-    pairs.set(pickupId, { receiptId, method: rulePairs.get(pickupId) === receiptId ? 'rule' : 'ai' });
+    pairs.set(pickupId, { receiptId, method: rule.pairs.get(pickupId) === receiptId ? 'rule' : 'ai' });
   }
   return pairs;
+}
+
+function isRulePairKept(rule: RulePairing, model: BatchedPairing, pickupId: string, receiptId: string): boolean {
+  const isCrossPlate = rule.crossPlateRowIds.has(pickupId);
+  return isCrossPlate ? ![...model.pairs.values()].includes(receiptId) : !model.answeredPickupIds.has(pickupId);
 }
 
 function logPairing(pairs: Map<string, PairedReceipt>, calls: ModelPairing[]): void {

@@ -23,6 +23,7 @@ export const KNOWLEDGE_PROPERTIES = {
   then_wage_vnd: { ...NULLABLE_NUMBER, description: 'Lương tài xế cho một chuyến, đơn vị đồng. null nếu không nêu.' },
   then_rate_vnd_per_ton: { ...NULLABLE_NUMBER, description: 'Cước vận chuyển cho một tấn, đơn vị đồng mỗi tấn. null nếu không nêu.' },
   then_allowance_vnd: { ...NULLABLE_NUMBER, description: 'Chi phí bồi dưỡng cho một chuyến, đơn vị đồng. null nếu không nêu.' },
+  then_equal_weights: { type: 'boolean', description: 'true chỉ khi quản lý nói khối lượng lấy hàng bằng khối lượng đổ hàng. false nếu không nêu.' },
   then_note: { ...NULLABLE_STRING, description: 'Ghi chú lâu dài khác của công ty, chép đúng ý quản lý. null nếu không có.' },
 };
 

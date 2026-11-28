@@ -33,6 +33,7 @@ export type TripPaper = {
   sender_name: string | null;
   precise_at: string | null;
   printed_times: string[];
+  has_equal_weight_entry: boolean;
 };
 
 export type WinningValue = { document_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
@@ -77,6 +78,7 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
        ${buildSenderSubquery()} AS sender_name,
        ${buildPreciseTimeSql()} AS precise_at,
        ${buildPrintedTimesSql()} AS printed_times,
+       ${HAS_EQUAL_WEIGHT_ENTRY_SQL} AS has_equal_weight_entry,
        ${GOODS_LINE_SQL} AS goods_line,
        ${SHOWN_GOODS_NAME_SQL} AS shown_goods_name,
        ${NOTE_LINE_SQL} AS note_line,
@@ -93,6 +95,11 @@ async function selectPapers(database: Database, where: WhereClause, { withReceiv
   );
   return rows;
 }
+
+const HAS_EQUAL_WEIGHT_ENTRY_SQL = `EXISTS (
+  SELECT 1 FROM company_knowledge_links link JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
+  WHERE link.document_id = document.id AND entry.then_equal_weights
+)`;
 
 const NOTE_LABEL_KEY = 'ghichu';
 

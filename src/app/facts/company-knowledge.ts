@@ -17,6 +17,7 @@ export type KnowledgeOutcomes = {
   wageVnd: number | null;
   ratePerTonVnd: number | null;
   allowanceVnd: number | null;
+  equalWeights: boolean;
   note: string | null;
 };
 
@@ -44,4 +45,4 @@ export type StoredEntry = {
   updatedAt: Date;
 };
 
-export const NO_OUTCOMES: KnowledgeOutcomes = { customer: null, dropoff: null, shownGoodsName: null, wageVnd: null, ratePerTonVnd: null, allowanceVnd: null, note: null };
+export const NO_OUTCOMES: KnowledgeOutcomes = { customer: null, dropoff: null, shownGoodsName: null, wageVnd: null, ratePerTonVnd: null, allowanceVnd: null, equalWeights: false, note: null };

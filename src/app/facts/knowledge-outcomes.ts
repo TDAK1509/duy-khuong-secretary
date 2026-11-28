@@ -10,6 +10,7 @@ export type OutcomeDefinition = {
   matchKey: string;
   column: string;
   unit: string | null;
+  flagText?: string;
 };
 
 export const OUTCOME_DEFINITIONS: readonly OutcomeDefinition[] = [
@@ -19,6 +20,7 @@ export const OUTCOME_DEFINITIONS: readonly OutcomeDefinition[] = [
   { key: 'wageVnd', name: 'Lương tài xế', matchKey: 'luongtaixe', column: 'then_wage_vnd', unit: PER_TRIP_UNIT },
   { key: 'ratePerTonVnd', name: 'Cước vận chuyển', matchKey: 'cuocvanchuyen', column: 'then_rate_vnd_per_ton', unit: PER_TON_UNIT },
   { key: 'allowanceVnd', name: 'Chi phí bồi dưỡng', matchKey: 'chiphiboiduong', column: 'then_allowance_vnd', unit: PER_TRIP_UNIT },
+  { key: 'equalWeights', name: 'Khối lượng lấy = khối lượng đổ', matchKey: 'khoiluonglaykhoiluongdo', column: 'then_equal_weights', unit: null, flagText: 'Có' },
   { key: 'note', name: 'Ghi chú', matchKey: 'ghichu', column: 'then_note', unit: null },
 ];
 
@@ -28,7 +30,8 @@ export function buildOutcomeRowsSql(entry: string): string {
   return OUTCOME_DEFINITIONS.map((outcome, position) => buildOutcomeRowSql(entry, outcome, position)).join('\n    UNION ALL ');
 }
 
-function buildOutcomeRowSql(entry: string, { name, matchKey, column, unit }: OutcomeDefinition, position: number): string {
+function buildOutcomeRowSql(entry: string, { name, matchKey, column, unit, flagText }: OutcomeDefinition, position: number): string {
+  if (flagText !== undefined) return `SELECT ${position} AS position, '${matchKey}' AS match_key, '${name}' AS name, NULL::numeric AS number, NULL::text AS unit, '${flagText}' AS text_value WHERE ${entry}.${column}`;
   const number = unit === null ? 'NULL::numeric' : `${entry}.${column}`;
   const text = unit === null ? `${entry}.${column}` : 'NULL::text';
   const printedUnit = unit === null ? 'NULL::text' : `'${unit}'`;
