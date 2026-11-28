@@ -85,6 +85,17 @@ test('photo cleanup keeps an old photo that a template example uses and deletes 
   assert.equal(await storage.get('example/unused.jpg'), null);
 });
 
+test('a proposal from all papers returns one example for a photo that holds two papers', async () => {
+  const other = await insertExamplePaper(databases.owner, { imageKey: 'example/other.jpg', createdAt: '2026-03-01T01:00:00Z' });
+  const first = await insertExamplePaper(databases.owner, { imageKey: 'example/shared.jpg', createdAt: '2026-03-01T02:00:00Z' });
+  const second = await insertExamplePaper(databases.owner, { imageKey: 'example/second.jpg', createdAt: '2026-03-01T03:00:00Z' });
+  await movePaperToPhotoOf(second, first);
+  const proposals = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: null })).proposals;
+  const proposal = proposals.find((candidate: { kind: string }) => candidate.kind === 'phiếu cân');
+  assert.deepEqual(proposal.example_paper_ids, [second, other]);
+  assert.equal(JSON.parse(await saveTemplate(proposal.example_paper_ids)).ok, true);
+});
+
 test('a proposal from one paper returns it as the example when it still has a photo', async () => {
   const paperId = await insertExamplePaper(databases.owner, { imageKey: 'example/one.jpg' });
   const [proposal] = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: paperId })).proposals;
@@ -116,6 +127,13 @@ test('the save confirmation lists the example papers', async () => {
   const [change] = harness.dependencies.waiting.list();
   assert.match(change?.question ?? '', /Giấy tờ ví dụ: EXAMPLE-TITLE, xe 99Z12345, số EX0001, ngày 01\/03\/2026/);
 });
+
+async function movePaperToPhotoOf(paperId: string, photoPaperId: string): Promise<void> {
+  const { rows: [photo] } = await databases.owner.query<{ message_id: string }>('SELECT message_id FROM document_sources WHERE document_id = $1', [photoPaperId]);
+  const { rows: [own] } = await databases.owner.query<{ message_id: string }>('SELECT message_id FROM document_sources WHERE document_id = $1', [paperId]);
+  await databases.owner.query('UPDATE records SET message_id = $1, item_index = 1 WHERE message_id = $2', [photo?.message_id, own?.message_id]);
+  await databases.owner.query('UPDATE document_sources SET message_id = $1, item_index = 1 WHERE document_id = $2', [photo?.message_id, paperId]);
+}
 
 function saveTemplate(examplePaperIds: string[]): Promise<string> {
   return createToolHarness(databases.runtime).runTool('confirmed', 'save_document_template', buildSaveArguments(examplePaperIds));

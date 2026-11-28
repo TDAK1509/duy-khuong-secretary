@@ -55,16 +55,23 @@ const FIND_GROUP_EXAMPLES_SQL = `
   SELECT wanted.ordinal::int AS ordinal, example.id
   FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS wanted(issuer_id, kind, ordinal)
   CROSS JOIN LATERAL (
-    SELECT paper.id, paper.created_at
-    FROM accepted_papers paper
-    WHERE paper.kind = wanted.kind AND paper.issuer_id IS NOT DISTINCT FROM wanted.issuer_id
-      AND EXISTS (
-        SELECT 1 FROM document_sources source
+    SELECT newest_per_photo.id, newest_per_photo.created_at
+    FROM (
+      SELECT DISTINCT ON (photo.image_key) paper.id, paper.created_at
+      FROM accepted_papers paper
+      CROSS JOIN LATERAL (
+        SELECT message.image_key
+        FROM document_sources source
         JOIN messages message ON message.id = source.message_id AND message.workspace_id = source.workspace_id
         JOIN records record ON record.message_id = source.message_id AND record.item_index = source.item_index AND record.workspace_id = source.workspace_id
         WHERE source.document_id = paper.id AND source.workspace_id = $1 AND message.image_key IS NOT NULL AND message.image_deleted_at IS NULL
-      )
-    ORDER BY paper.created_at DESC, paper.id
+        ORDER BY source.created_at, source.id
+        LIMIT 1
+      ) photo
+      WHERE paper.kind = wanted.kind AND paper.issuer_id IS NOT DISTINCT FROM wanted.issuer_id
+      ORDER BY photo.image_key, paper.created_at DESC, paper.id
+    ) newest_per_photo
+    ORDER BY newest_per_photo.created_at DESC, newest_per_photo.id
     LIMIT ${MAX_EXAMPLES_PER_PROPOSAL}
   ) example
   ORDER BY wanted.ordinal, example.created_at DESC, example.id`;
