@@ -21,7 +21,10 @@ const COMPANY_KNOWLEDGE_RULE =
 
 const KNOWLEDGE_LABEL = 'Kiến thức công ty quản lý đã lưu:';
 
-beforeEach(() => resetDatabase(databases.owner));
+beforeEach(async () => {
+  await resetDatabase(databases.owner);
+  await databases.owner.query('DELETE FROM company_knowledge_entries');
+});
 
 after(() => databases.close());
 
@@ -35,6 +38,12 @@ test('the reader request has the company knowledge data part', async () => {
   const part = findKnowledgePart(request);
   assert.ok(part.startsWith(KNOWLEDGE_LABEL));
   assert.ok(part.includes('Alpha') && part.includes('Đá'));
+});
+
+test('a workspace with no entries gets no company knowledge rule and no data part', async () => {
+  const request = await readDriverPhotoWithEntries([]);
+  assert.ok(!request.system.includes('19. Kiến thức công ty'));
+  assert.equal(findKnowledgePart(request), '');
 });
 
 function findKnowledgePart(request: ReaderRequest): string {
