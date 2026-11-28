@@ -34,7 +34,7 @@ const FIXED_COLUMNS: DocumentColumn[] = [
 const DATE_COLUMN = 1;
 const AMOUNT_COLUMN = 6;
 
-const KNOWLEDGE_COLUMNS = OUTCOME_DEFINITIONS.filter((outcome) => outcome.key !== 'note').map((outcome) => ({
+const KNOWLEDGE_COLUMNS = OUTCOME_DEFINITIONS.map((outcome) => ({
   key: outcome.matchKey,
   header: outcome.unit === PER_TON_UNIT ? `${outcome.name} (${PER_TON_UNIT})` : outcome.name,
   type: outcome.unit === null ? ('text' as const) : ('number' as const),

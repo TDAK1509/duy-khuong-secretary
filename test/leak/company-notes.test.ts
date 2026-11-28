@@ -3,7 +3,8 @@ import { after, beforeEach, test } from 'node:test';
 import { answerAdminQuestion, playAdminTurn } from './support/admin-chat-session.ts';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { insertEntry, insertPaper } from './support/paper-fixtures.ts';
+import { insertEntry, insertPaper, linkEntry } from './support/paper-fixtures.ts';
+import { readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { ScriptedChatModel } from './support/scripted-chat-model.ts';
 import { ScriptedPairingReader } from './support/scripted-pairing-reader.ts';
@@ -42,6 +43,12 @@ test('trip pairing receives the note', async () => {
   const pairingReader = new ScriptedPairingReader([]);
   await exportTripReport(pairingReader);
   assert.ok(pairingReader.requests.some((request) => JSON.stringify(request.userParts).includes('cân lại ở trạm')));
+});
+
+test('the paper export shows the note of the linked entry', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', note: 'cân lại ở trạm' }));
+  assert.deepEqual(await exportPaperColumn('Ghi chú'), ['cân lại ở trạm']);
 });
 
 function saveNoteArguments(note: string): Record<string, string | null> {
@@ -85,4 +92,11 @@ async function exportTripReport(dropOffReader: ScriptedPairingReader): Promise<v
   const column = { name: 'Biển số', source: 'field', field: 'plate', value_name: null };
   const harness = createToolHarness(databases.runtime, { dropOffReader });
   await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-31', plate: '51C12345', columns: [column], layout: null });
+}
+
+async function exportPaperColumn(header: string): Promise<string[] | null> {
+  const harness = createToolHarness(databases.runtime);
+  await harness.runTool('chat-gate', 'export_documents_xlsx', { organization: null, role: null, stage: null, kind: null, plate: '51C12345', date_meaning: null, date_from: '2026-03-01', date_to: '2026-03-31' });
+  const [file] = harness.storage.listStoredFiles();
+  return file === undefined ? null : readSheetColumn(file.bytes, header);
 }
