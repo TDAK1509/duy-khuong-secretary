@@ -1,6 +1,7 @@
 import type { PostgresPool } from '../../../src/providers/database/postgres.ts';
 import type { LeakDatabases } from './leak-databases.ts';
 import { editDataSheet, FIRST_DATA_ROW, findColumn, sendReturnedFile } from './returned-export-files.ts';
+import { insertEntry, insertPaper, linkEntry } from './paper-fixtures.ts';
 import { exportAlphaPapers, WAGE_HEADER } from './returned-export-fixtures.ts';
 import { WORKSPACE_A_ID } from './seed-ids.ts';
 import { NoCompanyMatchReader } from './no-company-match-reader.ts';
@@ -54,4 +55,23 @@ export async function listCustomerNames(owner: PostgresPool): Promise<string[]> 
 export async function readCustomers(owner: PostgresPool): Promise<string[]> {
   const { rows } = await owner.query<{ then_customer: string }>("SELECT then_customer FROM company_knowledge_entries WHERE workspace_id = $1 AND statement = 'fixture entry' AND then_customer IS NOT NULL", [WORKSPACE_A_ID]);
   return rows.map((row) => row.then_customer);
+}
+
+export async function returnEditedFreight(databases: LeakDatabases, newAmount: number): Promise<string> {
+  await insertPaper(databases.owner, { stage: 'dispatch', plate: '51C12345', date: '2026-03-05', weightKg: 27000, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await insertPaper(databases.owner, { stage: 'receipt', plate: '51C12345', date: '2026-03-06', weightKg: 27000, parties: [{ role: 'supplier', name: 'Alpha' }] });
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', ratePerTonVnd: 150000 }));
+  const harness = createToolHarness(databases.runtime);
+  const column = { name: 'Cước', source: 'knowledge_amount', field: null, value_name: 'Cước vận chuyển' };
+  await harness.runTool('chat-gate', 'export_trip_report_xlsx', { title: 'Báo cáo', date_from: '2026-03-01', date_to: '2026-03-28', plate: '51C12345', columns: [column], layout: null });
+  const edited = await editDataSheet(harness.storage.listStoredFiles()[0]!.bytes, (sheet) => {
+    sheet.getRow(FIRST_DATA_ROW).getCell(findColumn(sheet, 'Cước')).value = newAmount;
+  });
+  await sendReturnedFile(databases, edited);
+  return findNewestChangeId(databases);
+}
+
+export async function readRates(owner: PostgresPool): Promise<number[]> {
+  const { rows } = await owner.query<{ then_rate_vnd_per_ton: number }>('SELECT then_rate_vnd_per_ton FROM company_knowledge_entries WHERE workspace_id = $1 AND then_rate_vnd_per_ton IS NOT NULL', [WORKSPACE_A_ID]);
+  return rows.map((row) => Number(row.then_rate_vnd_per_ton));
 }

@@ -26,8 +26,8 @@ export function writeKnowledgeChange(database: Database, scope: AccessScope, req
 async function updateEntry(database: Database, scope: AccessScope, { change, action, checks }: KnowledgeRequest): Promise<KnowledgeWrite> {
   const stored = await runInTransaction(database, (transaction) => findEntry(transaction, scope.workspaceId, action.entry_id!));
   if (stored === null) throw new RejectedExportChange('entry_missing');
-  if (readOutcome(stored.outcomes, action) !== change.before) throw new RejectedExportChange('stale');
-  const update = { workspaceId: scope.workspaceId, entryId: stored.id, statement: describeStatement(change), when: describeConditions(stored), then: withOutcome(stored.outcomes, action) };
+  if (readOutcome(stored.outcomes, action) !== readSavedValue(change)) throw new RejectedExportChange('stale');
+  const update = { workspaceId: scope.workspaceId, entryId: stored.id, statement: describeStatement(change), when: describeConditions(stored), then: setOutcome(stored.outcomes, action) };
   const result = await updateKnowledge(database, update, checks);
   if (result.kind === 'stopped') return { kind: 'stopped', stop: result.stop };
   if (result.kind !== 'updated') throw new RejectedExportChange(result.kind);
@@ -36,11 +36,15 @@ async function updateEntry(database: Database, scope: AccessScope, { change, act
 
 async function addEntry(database: Database, scope: AccessScope, { change, action, checks }: KnowledgeRequest): Promise<KnowledgeWrite> {
   const when = await readConditions(database, scope.workspaceId, action.when);
-  const knowledge = { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement: describeStatement(change), when, then: withOutcome(NO_OUTCOMES, action) };
+  const knowledge = { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement: describeStatement(change), when, then: setOutcome(NO_OUTCOMES, action) };
   const result = await saveKnowledge(database, knowledge, { targetEntryId: null, checks });
   if (result.action === 'conflict' || result.action === 'check_notes') return { kind: 'stopped', stop: result };
   if (result.action !== 'added' && result.action !== 'updated') throw new RejectedExportChange(result.action);
   return { kind: 'written' };
+}
+
+function readSavedValue({ source, before }: ReviewChange): unknown {
+  return source?.kind === 'computed' ? source.snapshot['rate_vnd_per_ton'] : before;
 }
 
 function describeStatement({ columnName, after }: ReviewChange): string {
@@ -51,7 +55,7 @@ function readOutcome(outcomes: KnowledgeOutcomes, action: KnowledgeChange): Know
   return outcomes[findOutcomeKey(action)];
 }
 
-function withOutcome(outcomes: KnowledgeOutcomes, action: KnowledgeChange): KnowledgeOutcomes {
+function setOutcome(outcomes: KnowledgeOutcomes, action: KnowledgeChange): KnowledgeOutcomes {
   const isTooLong = action.outcome === 'then_shown_goods_name' && String(action.value).length > MAX_SHOWN_GOODS_NAME_LENGTH;
   if (isTooLong) throw new RejectedExportChange('invalid_value');
   return { ...outcomes, [findOutcomeKey(action)]: action.value };

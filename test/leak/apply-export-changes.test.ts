@@ -4,7 +4,7 @@ import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry } from './support/paper-fixtures.ts';
 import { editDataSheet, FIRST_DATA_ROW, findColumn, sendReturnedFile } from './support/returned-export-files.ts';
 import { exportAlphaPapers } from './support/returned-export-fixtures.ts';
-import { decideChange, findNewestChangeId, listCustomerNames, readCustomers, readChangeStatus, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
+import { decideChange, findNewestChangeId, listCustomerNames, readCustomers, readChangeStatus, readRates, returnEditedFreight, readWages, removeSeededEntries, returnEditedWage } from './support/apply-export-changes-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
 
@@ -84,4 +84,11 @@ test('a customer change confirmed as a paper reading changes only that paper', a
   }));
   const result = await decideChange(databases, await findNewestChangeId(databases), { cause: 'paper_reading' });
   assert.deepEqual([result.action, await listCustomerNames(databases.owner), await readCustomers(databases.owner)], ['applied', ['Delta'], ['Gamma']]);
+});
+
+test('a freight amount confirmed as company knowledge updates the entry rate', async () => {
+  await removeSeededEntries(databases.owner);
+  const changeId = await returnEditedFreight(databases, 4320000);
+  const result = await decideChange(databases, changeId, { cause: 'company_knowledge' });
+  assert.deepEqual([result.action, await readRates(databases.owner)], ['applied', [160000]]);
 });
