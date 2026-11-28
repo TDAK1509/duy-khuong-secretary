@@ -30,6 +30,7 @@ export type EntrySpec = {
   wageVnd?: number;
   ratePerTonVnd?: number;
   allowanceVnd?: number;
+  note?: string;
 };
 
 const WEIGHT_MEANING = 'Trọng lượng hàng';
@@ -102,7 +103,7 @@ export async function insertEntry(owner: PostgresPool, spec: EntrySpec): Promise
        when_pickup_name, when_pickup_match_key, when_dropoff_name, when_dropoff_match_key, then_customer, then_dropoff, then_wage_vnd, then_rate_vnd_per_ton, then_allowance_vnd, then_note)
      VALUES ($1, $2, 'fixture entry', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
     [WORKSPACE_A_ID, A_ADMIN_USER_ID, spec.plate ?? null, spec.goods ?? null, spec.pickup ?? null, readMatchKey(spec.pickup), spec.dropoff ?? null, readMatchKey(spec.dropoff),
-      spec.customer ?? null, spec.thenDropoff ?? null, spec.wageVnd ?? null, spec.ratePerTonVnd ?? null, spec.allowanceVnd ?? null, hasOutcome(spec) ? null : 'fixture note'],
+      spec.customer ?? null, spec.thenDropoff ?? null, spec.wageVnd ?? null, spec.ratePerTonVnd ?? null, spec.allowanceVnd ?? null, spec.note ?? (hasOutcome(spec) ? null : 'fixture note')],
   );
   return rows[0]?.id ?? '';
 }
