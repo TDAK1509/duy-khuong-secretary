@@ -3,7 +3,7 @@ import { after, beforeEach, test } from 'node:test';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { insertEntry, insertPaper, linkEntry, listLinkedPaperIds } from './support/paper-fixtures.ts';
-import { readSheetColumn } from './support/read-sheet-column.ts';
+import { readSheetCells, readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { A_DRIVER_MEMBER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 import type { ReaderResult } from '../../src/services/reading/reader-service.ts';
@@ -118,6 +118,12 @@ test('the trip report keeps the cross-plate pair after the model step', async ()
   await insertCrossPlateTrip();
   const methods = await readSheetColumn(await exportTripBytes(PLATE_COLUMN, null, new NoPairsReader()), 'Cách ghép phiếu');
   assert.equal(methods?.filter((method) => method === 'Khớp trọng lượng').length, 1);
+});
+
+test('the trip notes name both plates of a cross-plate pair', async () => {
+  await insertCrossPlateTrip();
+  const notes = await readSheetCells(await exportTripBytes(PLATE_COLUMN, null, new NoPairsReader()), 'Ghi chú');
+  assert.ok(notes.includes('Biển số hai phiếu khác một ký tự (51C12345 / 51C12346); ghép theo kiến thức công ty: khối lượng lấy bằng khối lượng đổ.'));
 });
 
 test('the 100th entry of a workspace saves', async () => {
