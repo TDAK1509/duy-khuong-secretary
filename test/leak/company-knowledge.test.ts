@@ -134,7 +134,52 @@ test('an update of an existing entry works when the workspace has 100 entries', 
   assert.equal(await countWorkspaceEntries(), 100);
 });
 
-type SavedKnowledge = { action: string; changes: unknown[] };
+test('a save that matches five papers returns the three newest as examples', async () => {
+  for (const day of ['01', '02', '03', '04', '05']) await insertNumberedAlphaTicket(`T00${day}`, `2026-03-${day}`);
+  const saved = await saveAlphaWage();
+  assert.equal(saved.linked_documents, 5);
+  assert.deepEqual(saved.example_documents?.map((example) => example.document_number), ['T0005', 'T0004', 'T0003']);
+});
+
+test('a save that matches two papers returns two examples', async () => {
+  await insertNumberedAlphaTicket('T0001', '2026-03-01');
+  await insertNumberedAlphaTicket('T0002', '2026-03-02');
+  const saved = await saveAlphaWage();
+  assert.deepEqual(saved.example_documents?.map((example) => example.document_number), ['T0002', 'T0001']);
+});
+
+test('a save that matches nothing returns no examples', async () => {
+  const saved = await saveAlphaWage();
+  assert.equal(saved.linked_documents, 0);
+  assert.deepEqual(saved.example_documents, []);
+});
+
+test('an example without a plate leaves the plate out', async () => {
+  const paperId = await insertPaper(databases.owner, { kind: 'handover-record', plate: null, date: '2026-03-05', parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await databases.owner.query('UPDATE documents SET document_number = $2 WHERE id = $1', [paperId, 'H0001']);
+  const saved = await saveAlphaWage();
+  assert.deepEqual(saved.example_documents, [{ kind: 'handover-record', document_number: 'H0001', document_date: '2026-03-05' }]);
+});
+
+test('an update also returns examples', async () => {
+  await insertNumberedAlphaTicket('T0001', '2026-03-01');
+  await insertNumberedAlphaTicket('T0002', '2026-03-02');
+  const entry = await insertEntry(databases.owner, { pickup: 'Alpha', wageVnd: 600000 });
+  await linkEntry(databases.runtime, entry);
+  const saved = JSON.parse(await callChatTool(databases.runtime, 'update_company_knowledge', { ...saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 750000 }), entry_id: entry })) as SavedKnowledge;
+  assert.deepEqual(saved.example_documents?.map((example) => example.document_number), ['T0002', 'T0001']);
+});
+
+type SavedKnowledge = { action: string; changes: unknown[]; linked_documents?: number; example_documents?: Record<string, string>[] };
+
+async function saveAlphaWage(): Promise<SavedKnowledge> {
+  return JSON.parse(await callChatTool(databases.runtime, 'save_company_knowledge', saveArguments({ when_pickup_company: 'Alpha', then_wage_vnd: 700000 }))) as SavedKnowledge;
+}
+
+async function insertNumberedAlphaTicket(documentNumber: string, date: string): Promise<void> {
+  const paperId = await insertPaper(databases.owner, { plate: '51C12345', date, parties: [{ role: 'issuer', name: 'Alpha' }] });
+  await databases.owner.query('UPDATE documents SET document_number = $2 WHERE id = $1', [paperId, documentNumber]);
+}
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
   return {
