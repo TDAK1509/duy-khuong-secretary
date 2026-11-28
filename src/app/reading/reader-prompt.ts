@@ -1,5 +1,6 @@
 import { formatVietnamDate } from '../time/format-vietnam-date.ts';
 import type { ReaderPart } from '../../services/reading/reader-service.ts';
+import { buildCompanyKnowledgeParts, buildCompanyKnowledgeRules, type ReaderKnowledge } from './company-knowledge-rule.ts';
 import { buildDocumentDataParts, buildDocumentRules, buildTemplateDataParts, buildTemplateRules, type ReaderCatalog } from './document-rules.ts';
 import { buildMemberFactsParts, buildMemberFactsRules } from './member-facts-rule.ts';
 import type { ListedTemplate } from './reader-template.ts';
@@ -49,22 +50,23 @@ const STANDING_FACT_RULE =
 const PAPER_CORRECTION_RULE =
   '- Sửa giấy tờ đã lưu: người gửi là quản lý. Nếu tin nhắn không kèm ảnh chỉ nói giá trị đúng của một giấy tờ đã lưu (ví dụ "số xe là …", "biển số trên ảnh là …", "đổi A thành B", "ngày đúng là …") và không nêu việc mới nào, thì đây không phải dữ liệu công việc cần lưu: has_work_data là false, needs_explanation là false, items là danh sách rỗng. Tin nhắn nêu một việc mới, ví dụ một chuyến, một khoản chi hoặc một giấy tờ khác, thì đọc như bình thường.';
 
-export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], fromAdmin = false, picked: ListedTemplate | null = null): string {
+export function buildReaderPrompt(today: Date, labels: string[], catalog: ReaderCatalog, facts: string[], knowledge: ReaderKnowledge[], fromAdmin = false, picked: ListedTemplate | null = null): string {
   const fills: Record<string, string> = {
     'dd/MM/yyyy': formatVietnamDate(today),
     workspaceLabelsLine: labels.length === 0 ? '' : WORKSPACE_LABELS_LINE,
     retrievedDataRule: RETRIEVED_DATA_RULE,
-    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...(fromAdmin ? [NAMED_DRIVER_RULE, ADMIN_TEXT_RULE, STANDING_FACT_RULE, PAPER_CORRECTION_RULE] : [])].join('\n'),
+    documentRules: ['', ...buildDocumentRules(catalog), ...buildTemplateRules(picked), ...buildMemberFactsRules(facts), ...buildCompanyKnowledgeRules(knowledge),...(fromAdmin ? [NAMED_DRIVER_RULE, ADMIN_TEXT_RULE, STANDING_FACT_RULE, PAPER_CORRECTION_RULE] : [])].join('\n'),
   };
   return READER_PROMPT_TEMPLATE.replace(/\{(dd\/MM\/yyyy|workspaceLabelsLine|documentRules|retrievedDataRule)\}/g, (_, name: string) => fills[name] ?? '');
 }
 
-export function buildReaderDataParts(labels: string[], catalog: ReaderCatalog, facts: string[], picked: ListedTemplate | null = null): ReaderPart[] {
+export function buildReaderDataParts(labels: string[], catalog: ReaderCatalog, facts: string[], knowledge: ReaderKnowledge[], picked: ListedTemplate | null = null): ReaderPart[] {
   return [
     ...(labels.length === 0 ? [] : [buildRetrievedPart('Các nhãn nhóm này đã dùng, dùng nhiều nhất trước:', 'labels', JSON.stringify(labels))]),
     ...buildDocumentDataParts(catalog),
     ...buildTemplateDataParts(picked),
     ...buildMemberFactsParts(facts),
+    ...buildCompanyKnowledgeParts(knowledge),
   ];
 }
 

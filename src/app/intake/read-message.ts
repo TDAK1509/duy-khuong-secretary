@@ -1,11 +1,13 @@
 import type { ReaderRequest, ReaderService } from '../../services/reading/reader-service.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { listReaderKnowledge } from '../facts/list-reader-knowledge.ts';
 import { listMemberFacts } from '../memory/list-member-facts.ts';
 import { listWorkspaceLabels } from '../records/list-workspace-labels.ts';
 import { listReaderCatalog } from '../documents/list-reader-catalog.ts';
 import { listReaderTemplates } from '../documents/list-reader-templates.ts';
 import { createExampleLoader } from '../documents/templates/load-template-examples.ts';
 import type { ReaderCatalog } from '../reading/document-rules.ts';
+import type { ReaderKnowledge } from '../reading/company-knowledge-rule.ts';
 import { buildMessageParts, type MessageContent } from '../reading/message-parts.ts';
 import { pickTemplate } from '../reading/pick-template.ts';
 import { buildReaderDataParts, buildReaderPrompt } from '../reading/reader-prompt.ts';
@@ -17,14 +19,15 @@ import type { IntakeContext } from './intake-context.ts';
 import { logReaderCall } from './log-reader-call.ts';
 
 export async function readMessage(context: IntakeContext, message: MessageContent): Promise<ReadAttempt> {
-  const { labels, catalog, facts, templates } = await runInTransaction(context.dependencies.database, async (transaction) => ({
+  const { labels, catalog, facts, knowledge, templates } = await runInTransaction(context.dependencies.database, async (transaction) => ({
     labels: await listWorkspaceLabels(transaction, context.sender.workspaceId),
     catalog: await listReaderCatalog(transaction, context.sender.workspaceId),
     facts: await listMemberFacts(transaction, context.sender.workspaceId, context.sender),
+    knowledge: await listReaderKnowledge(transaction, context.sender.workspaceId),
     templates: await listReaderTemplates(transaction, context.sender.workspaceId),
   }));
   const loadExamples = createExampleLoader(context.dependencies.database, context.sender.workspaceId, context.dependencies.photoStorage);
-  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts, templates, loadExamples, context.sender.role === 'admin');
+  return readWithReader(context.reader, context.dependencies.clock.now(), message, labels, catalog, facts, knowledge, templates, loadExamples, context.sender.role === 'admin');
 }
 
 export async function readWithReader(
@@ -34,13 +37,14 @@ export async function readWithReader(
   labels: string[],
   catalog: ReaderCatalog,
   facts: string[],
+  knowledge: ReaderKnowledge[],
   templates: ReaderTemplate[],
   loadExamples: ExampleLoader,
   fromAdmin = false,
 ): Promise<ReadAttempt> {
   const picked = await pickTemplate(reader, templates, message);
   const examples = await loadPickedExamples(loadExamples, picked, message);
-  const result = await reader.read(buildReadRequest({ now, message, labels, catalog, facts, fromAdmin, picked, examples }));
+  const result = await reader.read(buildReadRequest({ now, message, labels, catalog, facts, knowledge, fromAdmin, picked, examples }));
   const attempt = result.ok ? validateReading(result.json) : result;
   logReaderCall(attempt.ok ? 'ok' : attempt.reason, result);
   return applyPickedTemplate(attempt, picked);
@@ -61,16 +65,17 @@ type ReadInputs = {
   labels: string[];
   catalog: ReaderCatalog;
   facts: string[];
+  knowledge: ReaderKnowledge[];
   fromAdmin: boolean;
   picked: ListedTemplate | null;
   examples: TemplateExample[];
 };
 
-function buildReadRequest({ now, message, labels, catalog, facts, fromAdmin, picked, examples }: ReadInputs): ReaderRequest {
+function buildReadRequest({ now, message, labels, catalog, facts, knowledge, fromAdmin, picked, examples }: ReadInputs): ReaderRequest {
   return {
-    system: buildReaderPrompt(now, labels, catalog, facts, fromAdmin, picked),
+    system: buildReaderPrompt(now, labels, catalog, facts, knowledge, fromAdmin, picked),
     userParts: [
-      ...buildReaderDataParts(labels, catalog, facts, picked),
+      ...buildReaderDataParts(labels, catalog, facts, knowledge, picked),
       ...buildExampleParts(examples, picked?.shortId ?? ''),
       ...buildMessageParts(message),
       { kind: 'text', text: READ_REQUEST },

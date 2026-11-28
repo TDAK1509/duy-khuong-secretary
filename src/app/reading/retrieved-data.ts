@@ -13,6 +13,7 @@ export type RetrievedDataSource =
   | 'meanings'
   | 'document-templates'
   | 'member-facts'
+  | 'company-knowledge'
   | 'sheet'
   | 'company-names'
   | 'trip-papers'

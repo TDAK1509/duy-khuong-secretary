@@ -17,7 +17,7 @@ const NEW_PHOTO: Photo = { bytes: new Uint8Array([2]), contentType: 'image/jpeg'
 test('a picked template puts its example before the photo to read', async () => {
   const example: TemplateExample = { position: 1, photo: EXAMPLE_PHOTO, expectedReading: { category: 'EXAMPLE-CATEGORY' } };
   const reader = new PickingReader();
-  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: null, photo: NEW_PHOTO }, [], EMPTY_READER_CATALOG, [], [TEMPLATE], async () => [example]);
+  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: null, photo: NEW_PHOTO }, [], EMPTY_READER_CATALOG, [], [], [TEMPLATE], async () => [example]);
   const exampleStart = reader.readRequest().userParts.findIndex((part) => part.kind === 'text' && part.text.startsWith('Ví dụ 1 của mẫu đã chọn'));
   assert.deepEqual(describeParts(reader.readRequest().userParts.slice(exampleStart, exampleStart + 5)), [
     'text: Ví dụ 1 của mẫu đã chọn; ảnh ví dụ nằm ngay sau dòng này.',
@@ -36,7 +36,7 @@ test('a missing example photo is skipped', async () => {
     { position: 2, imageKey: 'example/second.jpg', expectedReading: {} },
   ];
   const reader = new PickingReader();
-  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: null, photo: NEW_PHOTO }, [], EMPTY_READER_CATALOG, [], [TEMPLATE], (): Promise<TemplateExample[]> => attachExamplePhotos(storage, stored));
+  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: null, photo: NEW_PHOTO }, [], EMPTY_READER_CATALOG, [], [], [TEMPLATE], (): Promise<TemplateExample[]> => attachExamplePhotos(storage, stored));
   const exampleTexts = reader.readRequest().userParts.filter((part) => part.kind === 'text' && part.text.startsWith('Ví dụ '));
   assert.deepEqual(exampleTexts, [{ kind: 'text', text: 'Ví dụ 2 của mẫu đã chọn; ảnh ví dụ nằm ngay sau dòng này.' }]);
 });
@@ -44,7 +44,7 @@ test('a missing example photo is skipped', async () => {
 test('a text-only message with a picked template gets no example parts', async () => {
   const example: TemplateExample = { position: 1, photo: EXAMPLE_PHOTO, expectedReading: { category: 'EXAMPLE-CATEGORY' } };
   const reader = new PickingReader();
-  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: 'EXAMPLE-TEXT', photo: null }, [], EMPTY_READER_CATALOG, [], [TEMPLATE], async () => [example]);
+  await readWithReader(reader, new Date('2026-03-10T03:00:00Z'), { text: 'EXAMPLE-TEXT', photo: null }, [], EMPTY_READER_CATALOG, [], [], [TEMPLATE], async () => [example]);
   const parts = reader.readRequest().userParts;
   assert.equal(parts.some((part) => part.kind === 'image'), false);
   assert.equal(parts.some((part) => part.kind === 'text' && part.text.startsWith('Ví dụ ')), false);
