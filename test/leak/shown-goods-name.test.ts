@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import { callChatTool } from './support/call-chat-tool.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
-import { insertEntry, insertPaper, linkEntry } from './support/paper-fixtures.ts';
+import { insertEntry, insertPaper, linkEntry, listLinkedPaperIds } from './support/paper-fixtures.ts';
 import { readSheetColumn } from './support/read-sheet-column.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { WORKSPACE_A_ID } from './support/seed-ids.ts';
@@ -36,6 +36,14 @@ test('the trip report shows the shown goods name of the linked entry', async () 
 test('the trip report keeps the printed goods name when no entry gives a shown name', async () => {
   await insertPairedTrip('Cát');
   assert.deepEqual(await exportTripGoods(), ['Cát']);
+});
+
+test('a goods name with a pickup condition applies only at that pickup', async () => {
+  const atAlpha = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Than' }] });
+  await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Beta' }], lines: [{ label: 'Hàng hóa', value: 'Than' }] });
+  const entry = await insertEntry(databases.owner, { goods: 'Than', pickup: 'Alpha', shownGoodsName: 'Than đá' });
+  await linkEntry(databases.runtime, entry);
+  assert.deepEqual(await listLinkedPaperIds(databases.owner, entry), [atAlpha]);
 });
 
 async function insertPairedTrip(goods: string): Promise<void> {
