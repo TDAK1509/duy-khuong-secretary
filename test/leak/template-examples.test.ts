@@ -61,11 +61,11 @@ test('saving the template again replaces its examples', async () => {
 });
 
 test('a proposal from all papers returns the newest papers that still have a photo', async () => {
-  await insertExamplePaper(databases.owner, { imageKey: 'example/oldest.jpg' });
-  const older = await insertExamplePaper(databases.owner, { imageKey: 'example/older.jpg' });
-  const newer = await insertExamplePaper(databases.owner, { imageKey: 'example/newer.jpg' });
-  const newest = await insertExamplePaper(databases.owner, { imageKey: 'example/newest.jpg' });
-  await insertExamplePaper(databases.owner, { imageKey: 'example/deleted.jpg', isPhotoDeleted: true });
+  await insertExamplePaper(databases.owner, { imageKey: 'example/oldest.jpg', createdAt: '2026-03-01T01:00:00Z' });
+  const older = await insertExamplePaper(databases.owner, { imageKey: 'example/older.jpg', createdAt: '2026-03-01T02:00:00Z' });
+  const newer = await insertExamplePaper(databases.owner, { imageKey: 'example/newer.jpg', createdAt: '2026-03-01T03:00:00Z' });
+  const newest = await insertExamplePaper(databases.owner, { imageKey: 'example/newest.jpg', createdAt: '2026-03-01T04:00:00Z' });
+  await insertExamplePaper(databases.owner, { imageKey: 'example/deleted.jpg', isPhotoDeleted: true, createdAt: '2026-03-01T05:00:00Z' });
   const proposals = JSON.parse(await callChatTool(databases.runtime, 'propose_document_templates', { paper_id: null })).proposals;
   const proposal = proposals.find((candidate: { kind: string }) => candidate.kind === 'phiếu cân');
   assert.deepEqual(proposal.example_paper_ids, [newest, newer, older]);
