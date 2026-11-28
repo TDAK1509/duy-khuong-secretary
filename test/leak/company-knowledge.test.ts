@@ -51,6 +51,12 @@ test('the paper export leaves out a column with no value', async () => {
   assert.equal(await readSheetColumn(await exportPapers(), 'Chi phí bồi dưỡng'), null);
 });
 
+test('the trip report reads the route drop-off from the entry', async () => {
+  await insertPairedTrip();
+  await linkEntry(databases.runtime, await insertEntry(databases.owner, { pickup: 'Alpha', dropoff: 'Beta', wageVnd: 700000 }));
+  assert.deepEqual(await exportTripColumn({ name: 'Nơi đổ hàng', source: 'field', field: 'dropoff_place', value_name: null }), ['Beta']);
+});
+
 type SavedKnowledge = { action: string; changes: unknown[] };
 
 function saveArguments(given: Record<string, string | number>): Record<string, string | number | null> {
