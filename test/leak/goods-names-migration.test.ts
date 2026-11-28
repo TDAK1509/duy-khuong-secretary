@@ -5,6 +5,7 @@ import { up } from '../../src/app/db/migrations/0101_move_goods_names_to_company
 import { buildMatchKey } from '../../src/app/documents/build-match-key.ts';
 import { openLeakDatabases } from './support/leak-databases.ts';
 import { restoreOldGoodsNames } from './support/old-goods-names.ts';
+import { insertPaper } from './support/paper-fixtures.ts';
 import { resetDatabase } from './support/reset-database.ts';
 import { A_ADMIN_USER_ID, WORKSPACE_A_ID } from './support/seed-ids.ts';
 
@@ -28,6 +29,28 @@ test('the migration removes the old goods-name table', async () => {
     assert.deepEqual(rows, [{ old_table: null }]);
   });
 });
+
+test('a migrated two-word goods name does not link goods that hold only its long word', async () => {
+  await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Than cám' }] });
+  await migrateGoodsName('Than đá', 'Than đá loại A', async (client) => {
+    assert.deepEqual(await listLinkedPaperIds(client, 'Than đá loại A'), []);
+  });
+});
+
+test('a migrated two-word goods name links goods that hold both words', async () => {
+  const ticket = await insertPaper(databases.owner, { stage: 'dispatch', parties: [{ role: 'issuer', name: 'Alpha' }], lines: [{ label: 'Hàng hóa', value: 'Than đá loại 1' }] });
+  await migrateGoodsName('Than đá', 'Than đá loại A', async (client) => {
+    assert.deepEqual(await listLinkedPaperIds(client, 'Than đá loại A'), [ticket]);
+  });
+});
+
+async function listLinkedPaperIds(client: PoolClient, shownName: string): Promise<string[]> {
+  const { rows } = await client.query<{ document_id: string }>(
+    `SELECT link.document_id FROM company_knowledge_links link JOIN company_knowledge_entries entry ON entry.id = link.entry_id WHERE entry.then_shown_goods_name = $1`,
+    [shownName],
+  );
+  return rows.map((row) => row.document_id);
+}
 
 async function migrateGoodsName(writtenName: string, shownName: string, check: (client: PoolClient) => Promise<void>): Promise<void> {
   const client = await databases.owner.connect();
