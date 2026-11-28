@@ -19,21 +19,23 @@ export const IS_TRIP_TICKET_SHAPE = `(
 
 export const IS_TRIP_TICKET = `(document.status = 'accepted' AND ${IS_TRIP_TICKET_SHAPE})`;
 
+const IS_LINKABLE_PAPER = `(document.status = 'accepted' AND ${buildAccentFreeKey('document.kind')} <> 'tinnhan' AND document.sheet_signature IS NULL)`;
+
 const FACT_GOODS = `
   SELECT nullif(${buildAccentFreeKey('value.text_value')}, '') AS key,
-    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token <> ''), '{}') AS tokens,
-    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token ~ '[0-9]' OR length(token) >= 4), '{}') AS distinctive
+    coalesce((SELECT array_agg(DISTINCT token) FROM ${splitGoodsTokens('value.text_value')} token WHERE token <> ''), '{}') AS tokens
   FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${GOODS_VALUE_KEY}'`;
 
 const TOKEN_MATCHES_BY_PREFIX = '(wanted = token OR (length(wanted) >= 4 AND starts_with(token, wanted)) OR (length(token) >= 4 AND starts_with(wanted, token)))';
 
-const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
-  SELECT 1 FROM document_lines line
+const PAPER_GOODS_TEXTS = `
+  SELECT line.value AS text FROM document_lines line
   WHERE line.document_id = document.id AND line.item IS NULL AND ${buildAccentFreeKey('line.label')} = '${GOODS_VALUE_KEY}'
-    AND (${buildAccentFreeKey('line.value')} = fact_goods.key OR CASE
-      WHEN cardinality(fact_goods.distinctive) > 0 THEN ${buildEveryTokenFound('fact_goods.distinctive', TOKEN_MATCHES_BY_PREFIX)}
-      ELSE cardinality(fact_goods.tokens) > 0 AND ${buildEveryTokenFound('fact_goods.tokens', 'wanted = token')}
-    END)
+  UNION ALL
+  SELECT line.item AS text FROM document_lines line WHERE line.document_id = document.id AND line.item IS NOT NULL`;
+
+const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
+  SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildEveryTokenFound('fact_goods.tokens', 'goods.text')}
 ))`;
 
 const LINK_MATCHES_SQL = `
@@ -45,7 +47,7 @@ const LINK_MATCHES_SQL = `
   WHERE fact.workspace_id = $1
     AND ($2::uuid IS NULL OR fact.id = $2)
     AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
-    AND (NOT ${IS_ROUTE_FACT} OR ${IS_TRIP_TICKET})
+    AND (NOT ${IS_ROUTE_FACT} OR ${IS_LINKABLE_PAPER})
     AND (fact.vehicle_plate IS NULL OR document.vehicle_plate = fact.vehicle_plate)
     AND (fact.driver_user_id IS NULL OR document.driver_user_id = fact.driver_user_id OR ${DRIVER_SENT_A_SOURCE})
     AND (fact.pickup_match_key IS NULL OR ${buildCompanyMatch('pickup')})
@@ -101,9 +103,9 @@ function splitGoodsTokens(column: string): string {
   return `regexp_split_to_table(lower(unaccent(${column})), '[^a-z0-9]+')`;
 }
 
-function buildEveryTokenFound(wantedTokens: string, matches: string): string {
+function buildEveryTokenFound(wantedTokens: string, text: string): string {
   return `NOT EXISTS (
     SELECT 1 FROM unnest(${wantedTokens}) wanted
-    WHERE NOT EXISTS (SELECT 1 FROM ${splitGoodsTokens('line.value')} token WHERE token <> '' AND ${matches})
+    WHERE NOT EXISTS (SELECT 1 FROM ${splitGoodsTokens(text)} token WHERE token <> '' AND ${TOKEN_MATCHES_BY_PREFIX})
   )`;
 }
