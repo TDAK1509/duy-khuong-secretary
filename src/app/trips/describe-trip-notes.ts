@@ -31,6 +31,10 @@ function describePairings(trips: Trip[]): NoteBlock[] {
   return rows.length === 0 ? [] : [{ kind: 'table', header: ['Biển số', 'Ngày', 'Số phiếu lấy hàng', 'Số phiếu nhận hàng', 'Cách ghép'], rows }];
 }
 
+function describePairing(trip: Trip): string[] {
+  return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, describePairingMethod(trip.method)];
+}
+
 function describeCrossPlatePairs(trips: Trip[]): NoteBlock[] {
   const lines = trips.flatMap(describeCrossPlatePair);
   return lines.length === 0 ? [] : [{ kind: 'blank' }, ...lines.map((line): NoteBlock => ({ kind: 'label', label: line, value: '' }))];
@@ -39,10 +43,6 @@ function describeCrossPlatePairs(trips: Trip[]): NoteBlock[] {
 function describeCrossPlatePair({ pickup, dropOff }: Trip): string[] {
   if (pickup === null || dropOff === null || pickup.vehicle_plate === dropOff.vehicle_plate) return [];
   return [`Biển số hai phiếu khác một ký tự (${pickup.vehicle_plate} / ${dropOff.vehicle_plate}); ghép theo kiến thức công ty: khối lượng lấy bằng khối lượng đổ.`];
-}
-
-function describePairing(trip: Trip): string[] {
-  return [readTripPlate(trip) ?? '', formatDate(readTripDate(trip)), trip.pickup?.document_number ?? NO_NUMBER, trip.dropOff?.document_number ?? NO_NUMBER, describePairingMethod(trip.method)];
 }
 
 function describeDropOffMatching(matching: DropOffMatching): NoteBlock[] {

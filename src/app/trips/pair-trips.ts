@@ -58,15 +58,18 @@ function toPairingPaper(paper: DatedPaper): PairingPaper {
 
 function choosePairs(rule: RulePairing, model: BatchedPairing): Map<string, PairedReceipt> {
   const pairs = new Map<string, PairedReceipt>();
-  const modelReceiptIds = new Set(model.pairs.values());
   for (const [pickupId, receiptId] of rule.pairs) {
-    const isCrossPlate = rule.crossPlateRowIds.has(pickupId);
-    if (isCrossPlate ? !modelReceiptIds.has(receiptId) : !model.answeredPickupIds.has(pickupId)) pairs.set(pickupId, { receiptId, method: 'rule' });
+    if (isRulePairKept(rule, model, pickupId, receiptId)) pairs.set(pickupId, { receiptId, method: 'rule' });
   }
   for (const [pickupId, receiptId] of model.pairs) {
     pairs.set(pickupId, { receiptId, method: rule.pairs.get(pickupId) === receiptId ? 'rule' : 'ai' });
   }
   return pairs;
+}
+
+function isRulePairKept(rule: RulePairing, model: BatchedPairing, pickupId: string, receiptId: string): boolean {
+  const isCrossPlate = rule.crossPlateRowIds.has(pickupId);
+  return isCrossPlate ? ![...model.pairs.values()].includes(receiptId) : !model.answeredPickupIds.has(pickupId);
 }
 
 function logPairing(pairs: Map<string, PairedReceipt>, calls: ModelPairing[]): void {
