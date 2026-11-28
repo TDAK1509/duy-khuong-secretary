@@ -47,12 +47,12 @@ export function describeEffectiveLayout(choice: LayoutChoice, columns: ReportCol
   };
 }
 
-export function sortReportRows(rows: ReportCell[][], { sort }: ReportLayout): ReportCell[][] {
+export function sortReportRows<Row>(rows: Row[], { sort }: ReportLayout, readCells: (row: Row) => ReportCell[]): Row[] {
   if (sort.length === 0) return rows;
   return rows
-    .map((cells, position) => ({ cells, position }))
-    .sort((first, second) => compareByKeys(first.cells, second.cells, sort) || first.position - second.position)
-    .map((entry) => entry.cells);
+    .map((row, position) => ({ row, position }))
+    .sort((first, second) => compareByKeys(readCells(first.row), readCells(second.row), sort) || first.position - second.position)
+    .map((entry) => entry.row);
 }
 
 function compareByKeys(first: ReportCell[], second: ReportCell[], keys: SortKey[]): number {

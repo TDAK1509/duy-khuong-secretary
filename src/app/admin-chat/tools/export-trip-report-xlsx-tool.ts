@@ -1,18 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AccessScope } from '../../access/access-scope.ts';
 import type { Database } from '../../db/transaction.ts';
-import { buildReportWorkbook } from '../../documents/build-report-workbook.ts';
-import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, type LayoutChoice } from '../../documents/report-layout.ts';
+import { buildReportWorkbook, REPORT_SHEET_NAME } from '../../documents/build-report-workbook.ts';
+import { saveExportRecord } from '../../documents/save-export-record.ts';
+import { describeEffectiveLayout, layoutArgumentSchema, readReportLayout, sortReportRows, type LayoutChoice } from '../../documents/report-layout.ts';
 import { buildMatchKey } from '../../documents/build-match-key.ts';
 import { isRealIsoDate } from '../../time/is-real-iso-date.ts';
 import { OUTCOME_DEFINITIONS, PER_TON_UNIT, SHOWN_GOODS_MATCH_KEY } from '../../facts/knowledge-outcomes.ts';
-import { buildTripReport, TRIP_FIELDS, type TripColumn, type TripReport } from '../../trips/build-trip-report.ts';
+import { buildTripReport, type TripReport } from '../../trips/build-trip-report.ts';
+import { TRIP_FIELDS, type TripColumn } from '../../trips/trip-columns.ts';
 import { buildTrips, type Trip } from '../../trips/build-trips.ts';
 import type { RepeatedPaper } from '../../trips/drop-repeated-papers.ts';
 import { DAY_MS, loadTripPapers, MAX_TRIP_PAPERS, TOO_MANY_PAPERS_ERROR } from '../../trips/load-trip-papers.ts';
 import { pairTrips, type TripPairing } from '../../trips/pair-trips.ts';
-import { countReviewTripPapers, listWinningValues, type TripPaper, type TripPaperQuery } from '../../trips/list-trip-papers.ts';
+import { countReviewTripPapers, listWinningValues, type TripPaper, type TripPaperQuery, type WinningValue } from '../../trips/list-trip-papers.ts';
 import { matchTripEntries } from '../../trips/match-trip-entries.ts';
+import { readRouteEntryId } from '../../trips/read-trip-cell.ts';
+import { listEntrySnapshots } from '../../facts/list-entry-snapshots.ts';
 import { listWorkspaceRules } from '../../workspace-rules/list-workspace-rules.ts';
 import type { ReaderService } from '../../../services/reading/reader-service.ts';
 import type { FileStorage } from '../../../services/storage/file-storage.ts';
@@ -107,7 +112,7 @@ async function exportTripReport(storage: FileStorage, database: Database, scope:
   const trips = buildTrips({ ...papers, dateFrom: request.date_from, dateTo: request.date_to }, pairing);
   if (trips.length === 0) return JSON.stringify({ ok: false, reason: 'no_matches' });
   const report = await buildReport(database, scope, planned, { query, pickups: papers.pickups, repeats: papers.repeats, trips, pairing });
-  return storeReport(storage, scope, planned, report, pairing);
+  return storeReport(storage, database, scope, planned, report, pairing);
 }
 
 type PairedTrips = { query: TripPaperQuery; pickups: TripPaper[]; repeats: RepeatedPaper[]; trips: Trip[]; pairing: TripPairing };
@@ -117,13 +122,22 @@ async function buildReport(database: Database, scope: AccessScope, { request, co
   const documentIds = entries.trips.flatMap((trip) => [trip.pickup?.id ?? [], trip.dropOff?.id ?? []].flat());
   const winners = await listWinningValues(database, scope.workspaceId, documentIds, listValueKeys(columns), entries.excludedLinks);
   const reviewPapers = await countReviewTripPapers(database, query);
-  return buildTripReport({ title: request.title, createdAt, columns, trips: entries.trips, pickups, repeats, winners, reviewPapers, pairing, matching: entries.matching, dateFrom: request.date_from, dateTo: request.date_to });
+  const snapshots = await listEntrySnapshots(database, scope.workspaceId, listEntryIds(winners, entries.trips));
+  const rowIds = entries.trips.map(() => randomUUID());
+  return buildTripReport({ title: request.title, createdAt, columns, trips: entries.trips, pickups, repeats, winners, reviewPapers, pairing, matching: entries.matching, snapshots, rowIds, dateFrom: request.date_from, dateTo: request.date_to });
 }
 
-async function storeReport(storage: FileStorage, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
+function listEntryIds(winners: WinningValue[], trips: Trip[]): string[] {
+  return [...winners.map((winner) => winner.entry_id), ...trips.flatMap((trip) => readRouteEntryId(trip) ?? [])];
+}
+
+async function storeReport(storage: FileStorage, database: Database, scope: AccessScope, { request, createdAt }: PlannedReport, report: TripReport, pairing: TripPairing): Promise<string> {
   const choice = keepTripOrderUnlessChosen(readReportLayout(request.layout, report.namedColumns));
-  const table = { ...report.table, layout: choice.layout };
-  const { url, filename } = await storeExcelExport(storage, scope, createdAt, await buildReportWorkbook(table), 'bao-cao-chuyen');
+  const ordered = sortReportRows(report.table.rows.map((cells, position) => ({ cells, record: report.records[position]! })), choice.layout, (row) => row.cells);
+  const exportId = randomUUID();
+  const table = { ...report.table, rows: ordered.map((row) => row.cells), marks: { exportId, rowIds: ordered.map((row) => row.record.id) } };
+  const { url, filename } = await storeExcelExport(storage, scope, { id: exportId, now: createdAt, bytes: await buildReportWorkbook(table), filePrefix: 'bao-cao-chuyen' });
+  await saveExportRecord(database, scope, { id: exportId, kind: 'trip_report', sheetName: REPORT_SHEET_NAME, columns: report.recordedColumns, rows: ordered.map((row) => row.record) });
   return JSON.stringify({ ok: true, url, filename, ...summarizeReport(report, pairing), layout: describeEffectiveLayout(choice, report.namedColumns), expires_hours: EXPORT_EXPIRES_HOURS });
 }
 

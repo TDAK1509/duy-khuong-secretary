@@ -20,6 +20,7 @@ export type TripPaper = {
   route_pickup: string | null;
   route_dropoff: string | null;
   route_customer: string | null;
+  route_entry_id: string | null;
   route_pickup_key: string | null;
   goods_line: string | null;
   shown_goods_name: string | null;
@@ -36,7 +37,7 @@ export type TripPaper = {
   has_equal_weight_entry: boolean;
 };
 
-export type WinningValue = { document_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
+export type WinningValue = { document_id: string; entry_id: string; match_key: string; number: string | null; unit: string | null; text: string | null };
 
 const ROUTE_ENTRY_JOIN = `LEFT JOIN LATERAL (
     SELECT entry.id, entry.when_pickup_name AS pickup_name, ${ROUTE_DROPOFF_NAME_SQL} AS dropoff_name, entry.then_customer AS customer_name, entry.when_pickup_match_key AS pickup_match_key
@@ -70,7 +71,7 @@ export async function listReceiptPapers(database: Database, query: ReceiptPaperQ
 async function selectPapers(database: Database, where: WhereClause, { withReceiver, limit }: { withReceiver: boolean; limit: number }): Promise<TripPaper[]> {
   const { rows } = await database.query<TripPaper>(
     `SELECT document.id, to_char(document.document_date, 'YYYY-MM-DD') AS document_date, document.vehicle_plate, document.document_number, document.kind, document.stage,
-       route.pickup_name AS route_pickup, route.dropoff_name AS route_dropoff, route.customer_name AS route_customer,
+       route.pickup_name AS route_pickup, route.dropoff_name AS route_dropoff, route.customer_name AS route_customer, route.id AS route_entry_id,
        route.pickup_match_key AS route_pickup_key,
        issuer.printed_name AS issuer_name, issuer.company_id AS issuer_company_id,
        customer.printed_name AS customer_party,
@@ -144,7 +145,7 @@ export type ExcludedLinks = { documentIds: string[]; entryIds: string[] };
 
 const WINNING_VALUES_SQL = `
   SELECT DISTINCT ON (link.document_id, outcome.match_key)
-    link.document_id, outcome.match_key, outcome.number::text AS number, outcome.unit, outcome.text_value AS text
+    link.document_id, link.entry_id, outcome.match_key, outcome.number::text AS number, outcome.unit, outcome.text_value AS text
   FROM company_knowledge_links link
   JOIN company_knowledge_entries entry ON entry.id = link.entry_id AND entry.workspace_id = link.workspace_id
   CROSS JOIN LATERAL (${buildOutcomeRowsSql('entry')}) outcome

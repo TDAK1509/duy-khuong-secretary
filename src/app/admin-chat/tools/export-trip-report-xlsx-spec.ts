@@ -1,6 +1,6 @@
 import type { ToolSpec } from '../../../services/chat/chat-service.ts';
 import { REPORT_LAYOUT_PROPERTY } from './report-layout-spec.ts';
-import { TRIP_FIELDS } from '../../trips/build-trip-report.ts';
+import { TRIP_FIELDS } from '../../trips/trip-columns.ts';
 
 export const EXPORT_TRIP_REPORT_XLSX_SPEC: ToolSpec = {
   name: 'export_trip_report_xlsx',

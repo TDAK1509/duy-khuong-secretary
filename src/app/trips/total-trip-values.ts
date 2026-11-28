@@ -9,7 +9,7 @@ import { buildGroupSql, type DocumentGroup } from '../documents/document-groups.
 import { countReviewDocuments, type DocumentKnowledgeRow, type KnowledgeValueRequest, type KnowledgeTotals } from '../facts/knowledge-totals.ts';
 import { WhereClause } from '../records/where-clause.ts';
 import { listWorkspaceRules } from '../workspace-rules/list-workspace-rules.ts';
-import { findWinner, indexWinners, readWinnerWeight } from './build-trip-report.ts';
+import { findWinner, indexWinners, readWinnerWeight } from './read-trip-cell.ts';
 import { buildTrips, type Trip } from './build-trips.ts';
 import { listWinningValues, type WinningValue } from './list-trip-papers.ts';
 import { loadTripPapers, MAX_TRIP_PAPERS } from './load-trip-papers.ts';
