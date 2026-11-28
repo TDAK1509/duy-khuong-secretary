@@ -104,6 +104,21 @@ INSERT INTO document_facts (workspace_id, document_id, fact_id) VALUES
   ('aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001'),
   ('bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001');
 
+INSERT INTO company_knowledge_entries (id, workspace_id, author_user_id, statement, when_vehicle_plate, when_driver_user_id, then_customer, then_wage_vnd) VALUES
+  ('aaaaaaaa-0014-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-FACT Lương tài xế SAFE-A-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'SAFE-A-CUSTOMER', 500000),
+  ('bbbbbbbb-0014-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-FACT Lương tài xế LEAK-B-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'LEAK-B-CUSTOMER', 777000111);
+
+INSERT INTO company_knowledge_entries (id, workspace_id, author_user_id, statement, when_vehicle_plate, when_pickup_name, when_pickup_match_key, then_wage_vnd) VALUES
+  ('bbbbbbbb-0014-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-ROUTE-FACT Lương xe 99Z12345 lấy hàng ở SHARED-COMPANY', '99Z12345', 'SHARED-COMPANY', 'sharedcompany', 888000222);
+
+INSERT INTO company_knowledge_companies (id, workspace_id, entry_id, slot, organization_id) VALUES
+  ('aaaaaaaa-0016-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 'pickup', 'aaaaaaaa-0005-4000-8000-000000000001'),
+  ('bbbbbbbb-0016-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 'pickup', 'bbbbbbbb-0005-4000-8000-000000000001');
+
+INSERT INTO company_knowledge_links (workspace_id, document_id, entry_id) VALUES
+  ('aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001'),
+  ('bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001');
+
 INSERT INTO goods_names (id, workspace_id, author_user_id, written_name, match_key, shown_name) VALUES
   ('aaaaaaaa-0018-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'SAFE-A-GOODS'),
   ('bbbbbbbb-0018-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'SHARED-GOODS', 'sharedgoods', 'LEAK-B-GOODS'),
