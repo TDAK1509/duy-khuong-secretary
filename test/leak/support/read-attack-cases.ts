@@ -24,5 +24,6 @@ export const READ_ATTACK_CASES: AttackCase[] = [
   { name: 'list_documents', kind: 'read', arguments: { meaning: SHARED_MEANING, lines: 'document', ...SHARED_PLATE_FILTER, cursor: null } },
   { name: 'export_documents_xlsx', kind: 'read', arguments: SHARED_PLATE_FILTER },
   { name: 'export_report_xlsx', kind: 'read', arguments: { title: 'TARGET-B-WORKSPACE', columns: [{ name: 'Tên', type: 'text', unit: null }], rows: [['TARGET-B-WORKSPACE']], layout: null } },
+  { name: 'list_edited_export_changes', kind: 'read', arguments: {} },
   { name: 'export_trip_report_xlsx', kind: 'read', arguments: { title: 'TARGET-B-WORKSPACE', date_from: '2026-01-01', date_to: '2026-03-31', plate: SHARED_PLATE, columns: [{ name: 'Biển số', source: 'field', field: 'plate', value_name: null }, { name: 'Lương', source: 'knowledge_value', field: null, value_name: 'Lương tài xế' }, { name: 'Người gửi', source: 'field', field: 'sender', value_name: null }], layout: null } },
 ];

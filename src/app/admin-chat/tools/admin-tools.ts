@@ -9,6 +9,8 @@ import { CORRECT_DOCUMENT_SPEC } from './correct-document-spec.ts';
 import { EXPORT_DOCUMENTS_XLSX_SPEC } from './export-documents-xlsx-spec.ts';
 import { EXPORT_REPORT_XLSX_SPEC } from './export-report-xlsx-spec.ts';
 import { EXPORT_TRIP_REPORT_XLSX_SPEC } from './export-trip-report-xlsx-spec.ts';
+import { LIST_EDITED_EXPORT_CHANGES_SPEC } from './list-edited-export-changes-spec.ts';
+import { APPLY_EDITED_EXPORT_CHANGES_SPEC } from './apply-edited-export-changes-spec.ts';
 import { SAVE_COMPANY_KNOWLEDGE_SPEC } from './save-company-knowledge-spec.ts';
 import { LIST_COMPANY_KNOWLEDGE_SPEC } from './list-company-knowledge-spec.ts';
 import { UPDATE_COMPANY_KNOWLEDGE_SPEC } from './update-company-knowledge-spec.ts';
@@ -58,4 +60,6 @@ export const ADMIN_TOOLS: ToolSpec[] = [
   EXPORT_DOCUMENTS_XLSX_SPEC,
   EXPORT_REPORT_XLSX_SPEC,
   EXPORT_TRIP_REPORT_XLSX_SPEC,
+  LIST_EDITED_EXPORT_CHANGES_SPEC,
+  APPLY_EDITED_EXPORT_CHANGES_SPEC,
 ];
