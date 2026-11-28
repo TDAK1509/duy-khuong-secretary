@@ -46,6 +46,16 @@ test('a paper whose photo is deleted cannot be an example', async () => {
   assert.equal(rows.length, 0);
 });
 
+test('saving the template again replaces its examples', async () => {
+  const first = await insertExamplePaper(databases.owner, { imageKey: 'example/first.jpg' });
+  const second = await insertExamplePaper(databases.owner, { imageKey: 'example/second.jpg' });
+  const third = await insertExamplePaper(databases.owner, { imageKey: 'example/third.jpg' });
+  await saveTemplate([first, second]);
+  await saveTemplate([third]);
+  const examples = await listStoredExamples();
+  assert.deepEqual(examples.map(({ position, image_key: imageKey }) => ({ position, imageKey })), [{ position: 1, imageKey: 'example/third.jpg' }]);
+});
+
 function saveTemplate(examplePaperIds: string[]): Promise<string> {
   const toolArguments = {
     name: 'EXAMPLE-TEMPLATE',
