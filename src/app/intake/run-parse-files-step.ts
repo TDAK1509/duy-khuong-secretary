@@ -5,6 +5,7 @@ import type { Database } from '../db/transaction.ts';
 import type { FileClaim } from '../sheet-files/file-claims.ts';
 import type { HeldFiles } from '../sheet-files/held-files.ts';
 import { runFileStep, type FileOutcome, type FileWork } from '../sheet-files/run-file-step.ts';
+import { reviewReturnedExport } from '../export-reviews/review-returned-export.ts';
 import { parseSheet } from './parse-sheet.ts';
 import { readFileBytes } from './read-file-bytes.ts';
 import { formatHeadersFound, formatNoDataRows, formatParseFailure, formatTooManyRows, MAX_SHEET_ROWS } from './sheet-texts.ts';
@@ -31,7 +32,10 @@ function buildParseWork(dependencies: ParseFilesDependencies): FileWork {
 }
 
 async function parseFile(dependencies: ParseFilesDependencies, claim: FileClaim): Promise<FileOutcome> {
-  const parsed = await parseSheet(claim.extension, await readFileBytes(dependencies.fileStorage, claim), dependencies.sheetParser);
+  const bytes = await readFileBytes(dependencies.fileStorage, claim);
+  const returned = claim.extension === 'xlsx' ? await reviewReturnedExport(dependencies.database, claim, bytes) : null;
+  if (returned !== null) return returned;
+  const parsed = await parseSheet(claim.extension, bytes, dependencies.sheetParser);
   if (!parsed.ok) return { text: formatParseFailure(claim.fileName), finishesFile: true };
   if (parsed.rows.length === 0) return { text: formatNoDataRows(claim.fileName), finishesFile: true };
   if (parsed.rows.length > MAX_SHEET_ROWS) return { text: formatTooManyRows(claim.fileName, MAX_SHEET_ROWS), finishesFile: true };
