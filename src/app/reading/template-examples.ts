@@ -26,7 +26,13 @@ export async function attachExamplePhotos(photoStorage: PhotoStorage, stored: St
 }
 
 async function findExamplePhoto(photoStorage: PhotoStorage, imageKey: string): Promise<Photo | null> {
-  const photo = await photoStorage.get(imageKey).catch(() => null);
-  if (photo === null) console.log(`[reader] template_example_skipped image_key=${imageKey}`);
-  return photo;
+  try {
+    const photo = await photoStorage.get(imageKey);
+    if (photo === null) console.log(`[reader] template_example_skipped image_key=${imageKey} reason=missing`);
+    return photo;
+  } catch (error) {
+    const reason = error instanceof Error ? error.name : 'unknown';
+    console.log(`[reader] template_example_skipped image_key=${imageKey} reason=${reason}`);
+    return null;
+  }
 }
