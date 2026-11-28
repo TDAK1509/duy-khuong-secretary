@@ -78,13 +78,17 @@ INSERT INTO document_parties (id, workspace_id, document_id, role, type, printed
   ('aaaaaaaa-0013-4000-8000-000000000002', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'issuer', 'company', 'SHARED-COMPANY', 'sharedcompany', 'aaaaaaaa-0005-4000-8000-000000000001'),
   ('bbbbbbbb-0013-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0011-4000-8000-000000000001', 'issuer', 'company', 'SHARED-COMPANY', 'sharedcompany', 'bbbbbbbb-0005-4000-8000-000000000001');
 
-INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, driver_user_id, customer_name, customer_match_key) VALUES
-  ('aaaaaaaa-0014-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-FACT Lương tài xế SAFE-A-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'SAFE-A-CUSTOMER', 'safeacustomer'),
-  ('bbbbbbbb-0014-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-FACT Lương tài xế LEAK-B-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002', 'LEAK-B-CUSTOMER', 'leakbcustomer');
+INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, driver_user_id) VALUES
+  ('aaaaaaaa-0014-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0001-4000-8000-000000000001', 'SAFE-A-FACT Lương tài xế SAFE-A-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002'),
+  ('bbbbbbbb-0014-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-FACT Lương tài xế LEAK-B-WAGE mỗi chuyến', '99Z12345', 'aaaaaaaa-0001-4000-8000-000000000002');
 
 INSERT INTO fact_values (id, workspace_id, fact_id, position, name, match_key, number, unit) VALUES
   ('aaaaaaaa-0015-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 0, 'Lương', 'luong', 500000, 'vnd'),
   ('bbbbbbbb-0015-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 0, 'Lương', 'luong', 777000111, 'vnd');
+
+INSERT INTO fact_values (id, workspace_id, fact_id, position, name, match_key, text_value) VALUES
+  ('aaaaaaaa-0015-4000-8000-000000000003', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 1, 'Khách hàng', 'khachhang', 'SAFE-A-CUSTOMER'),
+  ('bbbbbbbb-0015-4000-8000-000000000003', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 1, 'Khách hàng', 'khachhang', 'LEAK-B-CUSTOMER');
 
 INSERT INTO facts (id, workspace_id, author_user_id, statement, vehicle_plate, pickup_name, pickup_match_key) VALUES
   ('bbbbbbbb-0014-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0001-4000-8000-000000000001', 'LEAK-B-ROUTE-FACT Lương xe 99Z12345 lấy hàng ở SHARED-COMPANY', '99Z12345', 'SHARED-COMPANY', 'sharedcompany');
@@ -93,8 +97,8 @@ INSERT INTO fact_values (id, workspace_id, fact_id, position, name, match_key, n
   ('bbbbbbbb-0015-4000-8000-000000000002', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000002', 0, 'Lương', 'luong', 888000222, 'vnd');
 
 INSERT INTO fact_companies (id, workspace_id, fact_id, slot, organization_id) VALUES
-  ('aaaaaaaa-0016-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 'customer', 'aaaaaaaa-0005-4000-8000-000000000001'),
-  ('bbbbbbbb-0016-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 'customer', 'bbbbbbbb-0005-4000-8000-000000000001');
+  ('aaaaaaaa-0016-4000-8000-000000000001', 'aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001', 'pickup', 'aaaaaaaa-0005-4000-8000-000000000001'),
+  ('bbbbbbbb-0016-4000-8000-000000000001', 'bbbbbbbb-0002-4000-8000-000000000001', 'bbbbbbbb-0014-4000-8000-000000000001', 'pickup', 'bbbbbbbb-0005-4000-8000-000000000001');
 
 INSERT INTO document_facts (workspace_id, document_id, fact_id) VALUES
   ('aaaaaaaa-0002-4000-8000-000000000001', 'aaaaaaaa-0011-4000-8000-000000000001', 'aaaaaaaa-0014-4000-8000-000000000001'),

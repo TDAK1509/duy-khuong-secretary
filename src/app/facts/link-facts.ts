@@ -38,7 +38,7 @@ const GOODS_MATCH = `(fact_goods.key IS NULL OR EXISTS (
   SELECT 1 FROM (${PAPER_GOODS_TEXTS}) goods WHERE ${buildEveryTokenFound('fact_goods.tokens', 'goods.text')}
 ))`;
 
-const LINK_MATCHES_SQL = `
+export const LINK_MATCHES_SQL = `
   INSERT INTO document_facts (workspace_id, document_id, fact_id)
   SELECT document.workspace_id, document.id, fact.id
   FROM facts fact
