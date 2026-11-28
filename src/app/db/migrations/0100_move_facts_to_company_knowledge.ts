@@ -88,18 +88,63 @@ function protectTable(pgm: MigrationBuilder, table: string): void {
   pgm.sql(`CREATE POLICY in_scope ON ${table} USING (${WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE}) WITH CHECK (${WORKSPACE_ONLY_OUTSIDE_A_MEMBER_SCOPE})`);
 }
 
+const PER_TRIP_UNIT = 'đ';
+const PER_TON_UNIT = 'đ/tấn';
+
+const MOVED_VALUE = `(
+  (value.match_key = 'hanghoa' AND value.text_value IS NOT NULL)
+  OR (value.match_key = 'khachhang' AND value.text_value IS NOT NULL)
+  OR (value.match_key = 'luongtaixe' AND value.unit = '${PER_TRIP_UNIT}')
+  OR (value.match_key = 'cuocvanchuyen' AND value.unit = '${PER_TON_UNIT}')
+  OR (value.match_key = 'chiphiboiduong' AND value.unit = '${PER_TRIP_UNIT}')
+)`;
+
+function pickText(matchKey: string, maxLength: number): string {
+  return `(SELECT left(btrim(value.text_value), ${maxLength}) FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${matchKey}' AND value.text_value IS NOT NULL)`;
+}
+
+function pickNumber(matchKey: string, unit: string): string {
+  return `(SELECT value.number FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = '${matchKey}' AND value.unit = '${unit}')`;
+}
+
+const OTHER_VALUES_AS_NOTE = `(
+  SELECT left(string_agg(value.name || ': ' || coalesce(value.text_value, value.number::text || ' ' || value.unit), E'\\n' ORDER BY value.position), 2000)
+  FROM fact_values value WHERE value.fact_id = fact.id AND NOT ${MOVED_VALUE}
+)`;
+
 function moveFacts(pgm: MigrationBuilder): void {
+  pgm.sql(`INSERT INTO migration_counts SELECT 'facts_moved', count(*) FROM facts`);
   pgm.sql(`
-    INSERT INTO company_knowledge_entries (
-      id, workspace_id, author_user_id, statement, when_goods, when_vehicle_plate, when_driver_user_id,
-      when_pickup_name, when_pickup_match_key, when_pickup_resolved, when_dropoff_name, when_dropoff_match_key, when_dropoff_resolved,
-      then_note, created_at, updated_at
+    INSERT INTO migration_counts
+    SELECT 'notes_from_values', count(*) FROM facts fact
+    WHERE EXISTS (SELECT 1 FROM fact_values value WHERE value.fact_id = fact.id AND NOT ${MOVED_VALUE})
+  `);
+  pgm.sql(`
+    WITH inserted AS (
+      INSERT INTO company_knowledge_entries (
+        id, workspace_id, author_user_id, statement, when_goods, when_vehicle_plate, when_driver_user_id,
+        when_pickup_name, when_pickup_match_key, when_pickup_resolved, when_dropoff_name, when_dropoff_match_key, when_dropoff_resolved,
+        then_customer, then_wage_vnd, then_rate_vnd_per_ton, then_allowance_vnd, then_note, created_at, updated_at
+      )
+      SELECT fact.id, fact.workspace_id, fact.author_user_id, fact.statement, mapped.goods, fact.vehicle_plate, fact.driver_user_id,
+        fact.pickup_name, fact.pickup_match_key, fact.pickup_resolved, fact.dropoff_name, fact.dropoff_match_key, fact.dropoff_resolved,
+        mapped.customer, mapped.wage, mapped.rate, mapped.allowance,
+        CASE
+          WHEN mapped.note IS NOT NULL THEN mapped.note
+          WHEN mapped.customer IS NULL AND mapped.wage IS NULL AND mapped.rate IS NULL AND mapped.allowance IS NULL THEN fact.statement
+        END,
+        fact.created_at, fact.updated_at
+      FROM facts fact
+      CROSS JOIN LATERAL (SELECT
+        ${pickText('hanghoa', 200)} AS goods,
+        ${pickText('khachhang', 200)} AS customer,
+        ${pickNumber('luongtaixe', PER_TRIP_UNIT)} AS wage,
+        ${pickNumber('cuocvanchuyen', PER_TON_UNIT)} AS rate,
+        ${pickNumber('chiphiboiduong', PER_TRIP_UNIT)} AS allowance,
+        ${OTHER_VALUES_AS_NOTE} AS note
+      ) mapped
+      RETURNING 1
     )
-    SELECT fact.id, fact.workspace_id, fact.author_user_id, fact.statement,
-      (SELECT left(btrim(value.text_value), 200) FROM fact_values value WHERE value.fact_id = fact.id AND value.match_key = 'hanghoa' AND value.text_value IS NOT NULL),
-      fact.vehicle_plate, fact.driver_user_id,
-      fact.pickup_name, fact.pickup_match_key, fact.pickup_resolved, fact.dropoff_name, fact.dropoff_match_key, fact.dropoff_resolved,
-      fact.statement, fact.created_at, fact.updated_at
-    FROM facts fact
+    INSERT INTO migration_counts SELECT 'entries_inserted', count(*) FROM inserted
   `);
 }

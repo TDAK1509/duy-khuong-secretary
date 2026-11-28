@@ -30,6 +30,18 @@ test('the migration moves a route fact conditions into the entry', async () => {
   });
 });
 
+test('the migration moves a route fact outcomes into fixed columns', async () => {
+  const customer = { name: 'Khách hàng', text: 'Gamma' };
+  const rate = { name: 'Cước vận chuyển', number: 150000, unit: 'đ/tấn' };
+  const allowance = { name: 'Chi phí bồi dưỡng', number: 100000, unit: 'đ' };
+  await migrateOldFacts([{ pickup: 'Alpha', dropoff: 'Beta', values: [customer, WAGE, rate, allowance] }], async ({ client }) => {
+    const columns = ['then_dropoff', 'then_customer', 'then_wage_vnd', 'then_rate_vnd_per_ton', 'then_allowance_vnd'];
+    assert.deepEqual(await listEntries(client, columns), [
+      { then_dropoff: null, then_customer: 'Gamma', then_wage_vnd: '700000', then_rate_vnd_per_ton: '150000', then_allowance_vnd: '100000' },
+    ]);
+  });
+});
+
 const WAGE = { name: 'Lương tài xế', number: 700000, unit: 'đ' };
 
 async function migrateOldFacts(facts: OldFact[], check: (migrated: Migrated) => Promise<void>): Promise<void> {
