@@ -10,6 +10,10 @@ export type KnowledgeConditions = {
   dropoff: KnowledgeCompany | null;
 };
 
+export function hasCondition({ goods, vehiclePlate, driverUserId, pickup, dropoff }: KnowledgeConditions): boolean {
+  return [goods, vehiclePlate, driverUserId, pickup, dropoff].some((condition) => condition !== null);
+}
+
 export type KnowledgeOutcomes = {
   customer: string | null;
   dropoff: string | null;

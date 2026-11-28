@@ -9,6 +9,8 @@ const DRIVER_SENT_A_SOURCE = `EXISTS (
   WHERE source.document_id = document.id AND message.user_id = entry.when_driver_user_id
 )`;
 
+const HAS_CONDITION = `(entry.when_goods IS NOT NULL OR entry.when_vehicle_plate IS NOT NULL OR entry.when_driver_user_id IS NOT NULL OR entry.when_pickup_match_key IS NOT NULL OR entry.when_dropoff_match_key IS NOT NULL)`;
+
 const IS_ROUTE_ENTRY = '(entry.when_pickup_match_key IS NOT NULL OR entry.when_dropoff_match_key IS NOT NULL)';
 
 export const IS_TRIP_TICKET_SHAPE = `(
@@ -47,6 +49,7 @@ export const LINK_MATCHES_SQL = `
   WHERE entry.workspace_id = $1
     AND ($2::uuid IS NULL OR entry.id = $2)
     AND ($3::uuid[] IS NULL OR document.id = ANY($3::uuid[]))
+    AND ${HAS_CONDITION}
     AND (NOT ${IS_ROUTE_ENTRY} OR ${IS_LINKABLE_PAPER})
     AND (entry.when_vehicle_plate IS NULL OR document.vehicle_plate = entry.when_vehicle_plate)
     AND (entry.when_driver_user_id IS NULL OR document.driver_user_id = entry.when_driver_user_id OR ${DRIVER_SENT_A_SOURCE})

@@ -44,7 +44,8 @@ export async function readKnowledgeArguments(database: Database, scope: AccessSc
   const dropoff = await readCompanyArgument(database, scope.workspaceId, request.when_dropoff_company, picks.dropoff);
   const when = { goods: readText(request.when_goods), vehiclePlate: plate, driverUserId: driver?.userId ?? null, pickup, dropoff };
   const then = readOutcomes(request);
-  const knowledge = { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, when: requireCondition(when), then: requireOutcome(then) };
+  requireConditionOrNote(when, then);
+  const knowledge = { workspaceId: scope.workspaceId, authorUserId: scope.userId, statement, when, then: requireOutcome(then) };
   return { knowledge, driver, pickup, dropoff };
 }
 
@@ -59,10 +60,9 @@ function readText(raw: string | null): string | null {
   return text === '' ? null : text;
 }
 
-function requireCondition(when: KnowledgeConditions): KnowledgeConditions {
-  const parts = [when.goods, when.vehiclePlate, when.driverUserId, when.pickup, when.dropoff];
+function requireConditionOrNote(when: KnowledgeConditions, then: KnowledgeOutcomes): void {
+  const parts = [when.goods, when.vehiclePlate, when.driverUserId, when.pickup, when.dropoff, then.note];
   if (parts.every((part) => part === null)) throw new ToolRefusal(NO_CONDITION_ERROR);
-  return when;
 }
 
 function readOutcomes(request: KnowledgeArguments): KnowledgeOutcomes {
