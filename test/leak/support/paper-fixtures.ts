@@ -127,3 +127,8 @@ export async function listLinkedPaperIds(owner: PostgresPool, entryId: string): 
   const { rows } = await owner.query<{ document_id: string }>('SELECT document_id FROM company_knowledge_links WHERE entry_id = $1 ORDER BY document_id', [entryId]);
   return rows.map((row) => row.document_id);
 }
+
+export async function addCompanyAlias(owner: PostgresPool, companyName: string, alias: string): Promise<void> {
+  const organizationId = await ensureOrganization(owner, companyName);
+  await owner.query('INSERT INTO organization_aliases (workspace_id, organization_id, printed_name, match_key) VALUES ($1, $2, $3, $4)', [WORKSPACE_A_ID, organizationId, alias, buildMatchKey(alias)]);
+}
